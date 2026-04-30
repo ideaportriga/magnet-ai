@@ -71,14 +71,31 @@ class CSRFMiddleware(AbstractMiddleware):
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         connection = ASGIConnection(scope)
         method = scope.get("method", "GET")
+        path = scope.get("path", "")
 
         # 1. Safe methods — skip
         if method in SAFE_METHODS:
             await self.app(scope, receive, send)
             return
 
-        # 2. No auth cookies — not a cookie-based session, skip
-        if not connection.cookies.get("token"):
+        # 2. DEBUG_MODE-only test utilities (`/test/...`): cypress.config.ts
+        # calls these from Node.js without an Origin/Referer header. The
+        # endpoints are already gated on DEBUG_MODE inside the controller, so
+        # bypassing CSRF here doesn't widen the prod surface — and stops the
+        # 20 noise warnings/run that drowned out real CSRF blocks.
+        import os
+
+        if path.startswith("/test/") and os.getenv("DEBUG_MODE", "").lower() in (
+            "true",
+            "1",
+        ):
+            await self.app(scope, receive, send)
+            return
+
+        # 3. No auth cookies — not a cookie-based session, skip
+        if not connection.cookies.get("token") and not connection.cookies.get(
+            "refresh_token"
+        ):
             await self.app(scope, receive, send)
             return
 

@@ -68,6 +68,10 @@ class OIDCProviderConfig:
     userinfo_endpoint: str | None = None
     # Provider-specific options
     audience: str | None = None  # for token validation (defaults to client_id)
+    expected_issuer: str | None = None
+    """Expected ``iss`` claim value. If set, the discovery doc's issuer
+    must match (cross-checked at fetch time) and the id_token's ``iss``
+    is verified at decode time. Strongly recommended for production."""
     user_id_claim: str = "sub"  # claim for unique user ID
     response_mode: str = "query"  # 'query', 'form_post'
     response_type: str = "code"
@@ -172,6 +176,13 @@ class OIDCStrategy:
     async def _get_endpoints(self) -> dict:
         """Resolve OIDC endpoints from discovery or config overrides."""
         discovery = await _fetch_discovery(self.config.discovery_url)
+        if self.config.expected_issuer:
+            issuer_in_doc = discovery.get("issuer")
+            if issuer_in_doc != self.config.expected_issuer:
+                raise ValueError(
+                    f"OIDC discovery issuer mismatch for {self.config.name}: "
+                    f"expected {self.config.expected_issuer!r}, got {issuer_in_doc!r}"
+                )
         return {
             "authorization_endpoint": self.config.authorization_endpoint
             or discovery["authorization_endpoint"],
@@ -222,17 +233,19 @@ class OIDCStrategy:
         # Validate and decode the token
         jwks = await _fetch_jwks(endpoints["jwks_uri"])
         audience = self.config.audience or self.config.client_id
-        claims = jwt.decode(
-            id_token,
-            jwks,
-            algorithms=["RS256"],
-            audience=audience,
-            options={
+        decode_kwargs: dict[str, Any] = {
+            "algorithms": ["RS256"],
+            "audience": audience,
+            "options": {
                 "verify_exp": True,
                 "verify_aud": True,
+                "verify_iss": bool(self.config.expected_issuer),
                 "verify_at_hash": False,
             },
-        )
+        }
+        if self.config.expected_issuer:
+            decode_kwargs["issuer"] = self.config.expected_issuer
+        claims = jwt.decode(id_token, jwks, **decode_kwargs)
 
         # Validate nonce
         if expected_nonce:

@@ -1,98 +1,57 @@
-<template lang="pug">
-km-inner-loading(:showing='loading')
-layouts-details-layout(v-if='!loading')
-  template(#header)
-    km-input-flat.km-heading-4.full-width.text-black(data-test='name-input', :placeholder='m.common_name()', :modelValue='name', @change='name = $event')
-    km-input-flat.km-description.full-width.text-black(data-test='description-input', :placeholder='m.common_description()', :modelValue='description', @change='description = $event')
-    .row.items-center.q-pl-6
-      q-icon.col-auto(name='o_info', color='text-secondary')
-        q-tooltip.bg-white.block-shadow.text-secondary-text.km-description(self='top middle', :offset='[-50, -50]') {{ m.tooltip_systemNameUniqueId() }}
-      km-input-flat.col.km-description.text-black.full-width(
-        data-test='system-name-input',
-        :placeholder='m.placeholder_enterSystemNameReadable()',
-        :modelValue='system_name',
-        @change='system_name = $event',
-        @focus='showInfo = true',
-        @blur='showInfo = false',
-        :rules='[validSystemName()]'
-      )
-    .km-description.text-secondary.q-pl-6(v-if='showInfo') {{ m.hint_systemNameRecommendation() }}
-  template(#header-actions)
-    km-btn(:label='m.common_recordInfo()', flat, icon='info', iconSize='16px')
-      q-tooltip.bg-white.block-shadow
-        .q-pa-sm
-          .q-mb-sm
-            .text-secondary-text.km-button-xs-text {{ m.common_createdLabel() }}
-            .text-secondary-text.km-description {{ created_at }}
-          .q-mb-sm
-            .text-secondary-text.km-button-xs-text {{ m.common_modified() }}
-            .text-secondary-text.km-description {{ modified_at }}
-          .q-mb-sm
-            .text-secondary-text.km-button-xs-text {{ m.common_createdBy() }}
-            .text-secondary-text.km-description {{ created_by }}
-          div
-            .text-secondary-text.km-button-xs-text {{ m.common_modifiedBy() }}
-            .text-secondary-text.km-description {{ updated_by }}
-    km-btn(data-test='revert-btn', :label='m.common_revert()', icon='fas fa-undo', iconSize='16px', flat, @click='revert()', v-if='isDirty')
-    km-btn(data-test='save-btn', :label='m.common_save()', flat, icon='far fa-save', iconSize='16px', @click='handleSave', :loading='saving', :disable='saving || !isDirty')
-    km-btn(:label='m.common_runEvaluation()', flat, iconSize='16px', @click='runEvaluationDialog = true')
-    q-btn.q-px-xs(data-test='show-more-btn', flat, :icon='"fas fa-ellipsis-v"', size='13px')
-      q-menu(anchor='bottom right', self='top right')
-        q-item(data-test='clone-btn', clickable, @click='showNewDialog = true', dense)
-          q-item-section
-            .km-heading-3 {{ m.common_clone() }}
-        q-item(data-test='delete-btn', clickable, @click='showDeleteDialog = true', dense)
-          q-item-section
-            .km-heading-3 {{ m.common_delete() }}
-    km-popup-confirm(
-      :visible='showDeleteDialog',
-      :confirmButtonLabel='m.deleteConfirm_deleteEntity({ entity: m.entity_testSet() })',
-      :cancelButtonLabel='m.common_cancel()',
-      notificationIcon='fas fa-triangle-exclamation',
-      @confirm='confirmDelete',
-      @cancel='showDeleteDialog = false'
-    )
-      .row.item-center.justify-center.km-heading-7 {{ m.deleteConfirm_aboutToDelete({ entity: m.entity_testSet() }) }}
-      .row.text-center.justify-center {{ m.deleteConfirm_evaluationSetBody() }}
-  template(#content)
-    km-tabs(v-model='tab')
-      template(v-for='t in tabs')
-        q-tab(:name='t.name', :label='t.label')
-    .column.full-height.full-width.q-my-md(style='min-height: 0')
-      template(v-if='tab == "records"')
-        .col(style='min-height: 0')
-          evaluation-sets-records(@record:update='evaluationSetRecord')
-      template(v-if='tab == "settings"')
-        .col.overflow-auto
-          evaluation-sets-settings
-      template(v-if='tab == "postProcess"')
-  template(#drawer)
-    evaluation-sets-drawer(v-if='openDrawer', :open='openDrawer')
-evaluation-sets-create-new(v-if='showNewDialog', :showNewDialog='showNewDialog', @cancel='showNewDialog = false', copy)
-evaluation-jobs-create-new(
-  :showNewDialog='runEvaluationDialog',
-  @create='createEvaluation',
-  @cancel='runEvaluationDialog = false',
-  v-if='runEvaluationDialog',
-  :evaluationSetCode='evaluationSetCode'
-)
-km-popup-confirm(
-  :visible='showEvaluationCreateDialog',
-  :confirmButtonLabel='m.common_viewEvaluation()',
-  notificationIcon='far fa-circle-check',
-  :cancelButtonLabel='m.common_cancel()',
-  @cancel='showEvaluationCreateDialog = false',
-  @confirm='navigateToEval'
-)
-  .row.item-center.justify-center.km-heading-7 {{ m.common_evaluationStarted() }}
-  .row.text-center.justify-center {{ m.common_evaluationTakeTime() }}
-  .row.text-center.justify-center {{ m.common_evaluationViewResults() }}
+<template>
+  <km-inner-loading :showing="loading" />
+  <layouts-details-layout v-if="!loading" :name="name" :description="description" :system-name="system_name" :system-name-rules="[validSystemName()]" :created-at="created_at" :updated-at="modified_at" :created-by="created_by" :updated-by="updated_by" show-record-info @update:name="name = $event" @update:description="description = $event" @update:system-name="system_name = $event">
+    <template #header-actions>
+      <km-btn v-if="isDirty" data-test="revert-btn" :label="m.common_revert()" icon="undo" icon-size="16px" flat @click="revert()" />
+      <km-btn data-test="save-btn" :label="m.common_save()" flat icon="save" icon-size="16px" :loading="saving" :disable="saving || !isDirty" @click="handleSave" />
+      <km-btn :label="m.common_runEvaluation()" flat icon-size="16px" @click="runEvaluationDialog = true" />
+      <ds-dropdown-menu-root>
+        <ds-dropdown-menu-trigger as-child>
+          <km-btn class="px-xs" data-test="show-more-btn" flat icon="more-vertical" size="13px" />
+        </ds-dropdown-menu-trigger>
+        <ds-dropdown-menu-content side="bottom" align="end" :side-offset="4">
+          <ds-dropdown-menu-item data-test="clone-btn" @select="showNewDialog = true">{{ m.common_clone() }}</ds-dropdown-menu-item>
+          <ds-dropdown-menu-item data-test="delete-btn" variant="destructive" @select="showDeleteDialog = true">{{ m.common_delete() }}</ds-dropdown-menu-item>
+        </ds-dropdown-menu-content>
+      </ds-dropdown-menu-root>
+      <km-popup-confirm :visible="showDeleteDialog" :confirm-button-label="m.deleteConfirm_deleteEntity({ entity: m.entity_testSet() })" :cancel-button-label="m.common_cancel()" notification-icon="warning" @confirm="confirmDelete" @cancel="showDeleteDialog = false">
+        <div class="cluster km-heading-7" data-justify="center">{{ m.deleteConfirm_aboutToDelete({ entity: m.entity_testSet() }) }}</div>
+        <div class="cluster text-center" data-justify="center">{{ m.deleteConfirm_evaluationSetBody() }}</div>
+      </km-popup-confirm>
+    </template>
+    <template #content>
+      <km-tabs v-model="tab" :items="tabs" />
+      <div class="stack full-height full-width my-md" data-gap="0" style="min-block-size: 0">
+        <template v-if="tab == &quot;records&quot;">
+          <div class="flex-1" style="min-block-size: 0">
+            <evaluation-sets-records @record:update="evaluationSetRecord" />
+          </div>
+        </template>
+        <template v-if="tab == &quot;settings&quot;">
+          <div class="flex-1 overflow-auto">
+            <evaluation-sets-settings />
+          </div>
+        </template>
+        <template v-if="tab == &quot;postProcess&quot;" />
+      </div>
+    </template>
+    <template #drawer>
+      <evaluation-sets-drawer v-if="openDrawer" :open="openDrawer" />
+    </template>
+  </layouts-details-layout>
+  <evaluation-sets-create-new v-if="showNewDialog" :show-new-dialog="showNewDialog" copy @cancel="showNewDialog = false" />
+  <evaluation-jobs-create-new v-if="runEvaluationDialog" :show-new-dialog="runEvaluationDialog" :evaluation-set-code="evaluationSetCode" @create="createEvaluation" @cancel="runEvaluationDialog = false" />
+  <km-popup-confirm :visible="showEvaluationCreateDialog" :confirm-button-label="m.common_viewEvaluation()" notification-icon="check" :cancel-button-label="m.common_cancel()" @cancel="showEvaluationCreateDialog = false" @confirm="navigateToEval">
+    <div class="cluster km-heading-7" data-justify="center">{{ m.common_evaluationStarted() }}</div>
+    <div class="cluster text-center" data-justify="center">{{ m.common_evaluationTakeTime() }}</div>
+    <div class="cluster text-center" data-justify="center">{{ m.common_evaluationViewResults() }}</div>
+  </km-popup-confirm>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useQuasar } from 'quasar'
+import { notify } from '@ds/composables/useNotify'
 import { validSystemName } from '@/utils/validationRules'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useEvaluationSetRecordStore } from '@/stores/entityDetailStores'
@@ -100,21 +59,19 @@ import { m } from '@/paraglide/messages'
 
 const route = useRoute()
 const router = useRouter()
-const q = useQuasar()
 const { draft, isDirty, isLoading, updateField, save, remove, revert } = useEntityDetail('evaluation_sets')
 const evalSetRecordStore = useEvaluationSetRecordStore()
 
 const tab = ref('records')
 const tabs = ref([
-  { name: 'records', label: m.common_testSetItems() },
-  { name: 'settings', label: m.common_settings() },
+  { value: 'records', label: m.common_testSetItems() },
+  { value: 'settings', label: m.common_settings() },
 ])
 const showNewDialog = ref(false)
 const showDeleteDialog = ref(false)
 const saving = ref(false)
 const runEvaluationDialog = ref(false)
 const showEvaluationCreateDialog = ref(false)
-const showInfo = ref(false)
 let evaluationId = null
 
 const openDrawer = computed(() => tab.value === 'records' && Object.keys(evalSetRecordStore.record).length > 0)
@@ -160,19 +117,19 @@ function navigateToEval() {
 async function handleSave() {
   const systemNameValidation = validSystemName()(draft.value?.system_name)
   if (systemNameValidation !== true) {
-    q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: systemNameValidation, timeout: 3000 })
+    notify.error(systemNameValidation)
     return
   }
   saving.value = true
   try {
     const result = await save()
     if (result.success) {
-      q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Saved successfully', timeout: 2000 })
+      notify.success('Saved successfully')
     } else if (result.error) {
       throw result.error
     }
   } catch (error) {
-    q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: error.message || 'Failed to save', timeout: 3000 })
+    notify.error(error.message || 'Failed to save')
   } finally {
     saving.value = false
   }
@@ -180,20 +137,13 @@ async function handleSave() {
 
 async function confirmDelete() {
   await remove()
-  q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Evaluation Set has been deleted.', timeout: 1000 })
+  notify.success('Evaluation Set has been deleted.')
   router.push('/evaluation-sets')
 }
 </script>
 
-<style lang="stylus">
-
-@keyframes wobble {
-    0% { transform: rotate(-5deg); }
-    50% { transform: rotate(5deg); }
-    100% { transform: rotate(-5deg); }
-}
-
+<style>
 .wobble {
-    animation: wobble 2s infinite;
+  animation: ds-attention-wobble var(--ds-duration-attention) infinite;
 }
 </style>

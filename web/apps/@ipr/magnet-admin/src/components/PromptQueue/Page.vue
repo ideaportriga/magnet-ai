@@ -1,21 +1,19 @@
-<template lang="pug">
-.column.no-wrap.full-height
-  .collection-container.q-mx-auto.full-width.column.full-height.q-px-md.q-pt-16
-    .col.ba-border.border-radius-12.bg-white.q-pa-16.column(style='min-height: 0')
-      .row.q-mb-12
-        .col-auto.center-flex-y
-          km-input(:placeholder='m.common_search()', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
-        q-space
-        .col-auto.center-flex-y
-          km-btn.q-mr-12(:label='m.common_new()', @click='showNewDialog = true')
-      .col(style='min-height: 0')
-        km-data-table(
-          fill-height,
-          :table='table',
-          row-key='id',
-          @row-click='openDetails'
-        )
-    prompt-queue-create-new(:showNewDialog='showNewDialog', @cancel='showNewDialog = false', @created='onConfigCreated')
+<template>
+  <km-list-page>
+    <template #toolbar>
+      <div class="flex-none center-flex-y">
+        <km-input :placeholder="m.common_search()" icon-before="search" :model-value="globalFilter" clearable @input="globalFilter = $event" />
+      </div>
+      <div class="km-space" />
+      <div class="flex-none center-flex-y">
+        <km-btn class="mr-md" :label="m.common_new()" @click="showNewDialog = true" />
+      </div>
+    </template>
+    <km-data-table fill-height :table="table" row-key="id" @row-click="openDetails" />
+    <template #overlays>
+      <prompt-queue-create-new :show-new-dialog="showNewDialog" @cancel="showNewDialog = false" @created="onConfigCreated" />
+    </template>
+  </km-list-page>
 </template>
 
 <script setup lang="ts">
@@ -74,10 +72,10 @@ const onConfigCreated = (configId: string) => {
 }
 </script>
 
-<style lang="stylus" scoped>
+<style scoped>
 .prompt-queue-container {
-  min-width: 450px;
-  max-width: 1200px;
-  width: 100%;
+  min-inline-size: 450px;
+  max-inline-size: 1200px;
+  inline-size: 100%;
 }
 </style>

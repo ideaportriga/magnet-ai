@@ -1,57 +1,73 @@
-<template lang="pug">
-.row.no-wrap.overflow-hidden.full-height(v-if='loading', style='min-width: 1200px')
-  km-inner-loading(:showing='loading')
-layouts-details-layout.q-mx-auto(v-else, :style='{ "max-width": openDrawer ? "none" : "1200px" }')
-  template(#header)
-    .row.items-center.justify-between.full-width
-      .km-heading-7 {{ evaluation_name }}
-      .row.q-gap-16
-        km-chip(:color='statusStyles.color', round)
-          .km-small-chip.text-capitalize(:class='`text-${statusStyles.textColor}`') {{ evaluation.status }}
-        km-chip(color='in-progress', round)
-          .km-small-chip.text-text-grey {{ typeLabel }}
-    .km-description.text-secondary-text.q-pt-8 {{ formattedDate }}
-    .km-grid.q-mt-16
-      .column.ba-border.border-radius-12.q-pa-16.no-wrap.fit
-        .km-heading-4.text-placeholder {{ m.evaluation_avgScore() }}
-        .row
-          km-chip(:color='color', :text-color='textColor', round, size='27px')
-            .km-chart-value.q-pa-xs(:class='`text-${textColor}`') {{ averageScore }}
-      .column.ba-border.border-radius-12.q-pa-16.no-wrap.fit
-        .km-heading-4.text-placeholder {{ m.evaluation_recordsRated() }}
-        .km-chart-value {{ recordsRated }}
-      .column.ba-border.border-radius-12.q-pa-16.no-wrap.fit
-        .km-heading-4.text-placeholder {{ m.evaluation_avgTotalCost() }}
-        .km-chart-value {{ totalCost }}
-      .column.ba-border.border-radius-12.q-pa-16.no-wrap.fit
-        .km-heading-4.text-placeholder {{ m.evaluation_avgLatency() }}
-        .km-chart-value {{ latency }}
-  template(#content)
-    q-tabs.bb-border(
-      v-model='tab',
-      narrow-indicator,
-      dense,
-      align='left',
-      active-color='primary',
-      indicator-color='primary',
-      no-caps,
-      content-class='km-tabs'
-    )
-      template(v-for='t in tabs')
-        q-tab(:name='t.name', :label='t.label')
-    .column.full-height.full-width.q-pt-16(style='min-height: 0')
-      template(v-if='tab == "records"')
-        .col(style='min-height: 0')
-          evaluation-jobs-records(@record:update='evaluationSetRecord')
-      template(v-if='tab == "settings"')
-        .col.overflow-auto
-          template(v-if='evaluationType == "prompt_eval"')
-            evaluation-jobs-settings
-          template(v-else)
-            evaluation-jobs-settings-rag
-  template(#drawer)
-    evaluation-jobs-drawer(v-if='openDrawer', :open='openDrawer')
-configuration-create-new(v-if='showNewDialog', :showNewDialog='showNewDialog', @cancel='showNewDialog = false', copy)
+<template>
+  <div v-if="loading" class="cluster overflow-hidden full-height" data-wrap="no" style="min-inline-size: 1200px">
+    <km-inner-loading :showing="loading" />
+  </div>
+  <layouts-details-layout v-else class="mx-auto" :style="{ &quot;max-width&quot;: openDrawer ? &quot;none&quot; : &quot;1200px&quot; }">
+    <template #header>
+      <div class="cluster full-width" data-justify="between">
+        <div class="km-heading-7">{{ evaluation_name }}</div>
+        <div class="cluster" data-gap="lg">
+          <km-chip :tone="statusTone" round>
+            <div class="km-small-chip text-capitalize">{{ evaluation.status }}</div>
+          </km-chip>
+          <km-chip tone="neutral" round>
+            <div class="km-small-chip text-text-grey">{{ typeLabel }}</div>
+          </km-chip>
+        </div>
+      </div>
+      <div class="km-description text-secondary-text pt-sm">{{ formattedDate }}</div>
+      <div class="km-grid mt-lg">
+        <div class="stack ba-border border-radius-12 p-lg fit" data-gap="0">
+          <div class="km-heading-4 text-placeholder">{{ m.evaluation_avgScore() }}</div>
+          <div class="cluster">
+            <km-chip :tone="statusTone" round size="27px">
+              <div class="km-chart-value p-xs">{{ averageScore }}</div>
+            </km-chip>
+          </div>
+        </div>
+        <div class="stack ba-border border-radius-12 p-lg fit" data-gap="0">
+          <div class="km-heading-4 text-placeholder">{{ m.evaluation_recordsRated() }}</div>
+          <div class="km-chart-value">{{ recordsRated }}</div>
+        </div>
+        <div class="stack ba-border border-radius-12 p-lg fit" data-gap="0">
+          <div class="km-heading-4 text-placeholder">{{ m.evaluation_avgTotalCost() }}</div>
+          <div class="km-chart-value">{{ totalCost }}</div>
+        </div>
+        <div class="stack ba-border border-radius-12 p-lg fit" data-gap="0">
+          <div class="km-heading-4 text-placeholder">{{ m.evaluation_avgLatency() }}</div>
+          <div class="km-chart-value">{{ latency }}</div>
+        </div>
+      </div>
+    </template>
+    <template #content>
+      <km-tabs v-model="tab" class="bb-border" narrow-indicator dense align="left" no-caps content-class="km-tabs">
+        <template v-for="t in tabs" :key="t">
+          <km-tab :name="t.name" :label="t.label" />
+        </template>
+      </km-tabs>
+      <div class="stack full-height full-width pt-lg" data-gap="0" style="min-block-size: 0">
+        <template v-if="tab == &quot;records&quot;">
+          <div class="flex-1" style="min-block-size: 0">
+            <evaluation-jobs-records />
+          </div>
+        </template>
+        <template v-if="tab == &quot;settings&quot;">
+          <div class="flex-1 overflow-auto">
+            <template v-if="evaluationType == &quot;prompt_eval&quot;">
+              <evaluation-jobs-settings />
+            </template>
+            <template v-else>
+              <evaluation-jobs-settings-rag />
+            </template>
+          </div>
+        </template>
+      </div>
+    </template>
+    <template #drawer>
+      <evaluation-jobs-drawer v-if="openDrawer" :open="openDrawer" />
+    </template>
+  </layouts-details-layout>
+  <rag-create-new v-if="showNewDialog" :show-new-dialog="showNewDialog" copy @cancel="showNewDialog = false" />
 </template>
 
 <script setup>
@@ -234,20 +250,11 @@ const openDrawer = computed(() => {
   return tab.value === 'records' && Object.keys(evalStore.evaluationJobRecord).length > 0
 })
 
-
-const color = computed(() => {
-  return statusStyles.value?.color || ''
-})
-
-const textColor = computed(() => {
-  return statusStyles.value?.textColor || ''
-})
-
-const statusStyles = computed(() => {
+const statusTone = computed(() => {
   if (evaluation.value?.status === 'in_progress') {
-    return { color: 'in-progress', textColor: 'text-gray' }
+    return 'neutral'
   }
-  return { color: 'status-ready', textColor: 'status-ready-text' }
+  return 'success'
 })
 
 // Methods
@@ -285,20 +292,9 @@ onActivated(() => {
 })
 </script>
 <style lang="scss">
-@keyframes wobble {
-  0% {
-    transform: rotate(-5deg);
-  }
-  50% {
-    transform: rotate(5deg);
-  }
-  100% {
-    transform: rotate(-5deg);
-  }
-}
 
 .wobble {
-  animation: wobble 2s infinite;
+  animation: ds-attention-wobble var(--ds-duration-attention) infinite;
 }
 
 .grid-container {

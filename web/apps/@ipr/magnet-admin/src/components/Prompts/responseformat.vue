@@ -1,41 +1,41 @@
-<template lang="pug">
-div
-  km-section(:title='m.section_respondWithJson()', :subTitle='m.subtitle_outputFormat()')
-    q-chip.km-small-chip.q-mb-lg(
-      v-if='!currentModelObject?.json_mode',
-      flat,
-      text-color='text-grey',
-      :label='m.prompts_paramNotAvailable({ model: modelName })'
-    )
-    .row.items-center
-      .km-field.text-secondary-text.q-mr-md {{ m.section_respondWithJson() }}
-      q-toggle(v-model='responseWithJSON', :disable='!currentModelObject?.json_mode', dense)
-    .km-field.text-secondary-text.q-my-sm {{ m.prompts_ensuresValidJson() }}
-    template(v-if='responseWithJSON')
-      km-notification-text
-        .q-my-sm
-          .km-chip.text-secondary-text.q-mb-sm {{ m.prompts_mustInstructJson() }}
-          .km-field.text-secondary-text.q-mb-sm {{ m.prompts_jsonNoGuarantee() }}
-          .km-field.text-secondary-text {{ m.prompts_keepInMind() }}
-            |
-            a.km-link.word-break-all.cursor-pointer(:href='currentModelObject?.jsonFormatDocumetaion', target='_blank') {{ m.prompts_edgeCases() }}
-            |  {{ m.prompts_edgeCasesResult() }}
-      q-separator.q-my-lg
-      q-chip.km-small-chip.q-mb-lg(
-        v-if='!currentModelObject?.json_schema',
-        flat,
-        text-color='text-grey',
-        :label='m.prompts_paramNotAvailable({ model: modelName })'
-      )
-      .row.items-center
-        .km-field.text-secondary-text.q-pb-xs.q-mr-lg {{ m.prompts_matchSchema() }}
-        q-toggle(v-model='isMatchSchema', dense, :disable='!currentModelObject?.json_schema')
-      .row.q-mb-md
-        .km-field.text-secondary-text.q-mt-sm {{ m.prompts_ensureResponseSchema() }}
-      template(v-if='isMatchSchema')
-        .km-field.text-secondary-text.q-pb-xs {{ m.common_jsonSchema() }}
-          km-codemirror(v-model='matchSchema')
-          .km-description.text-secondary-text.q-pb-4 {{ m.prompts_outputMatchSchema() }}
+<template>
+  <div>
+    <km-section :title="m.section_respondWithJson()" :sub-title="m.subtitle_outputFormat()">
+      <km-chip v-if="!currentModelObject?.json_mode" class="km-small-chip mb-lg" flat tone="neutral" :label="m.prompts_paramNotAvailable({ model: modelName })" />
+      <div class="cluster">
+        <div class="km-field text-secondary-text mr-md">{{ m.section_respondWithJson() }}</div>
+        <km-toggle v-model="responseWithJSON" :disable="!currentModelObject?.json_mode" dense />
+      </div>
+      <div class="km-field text-secondary-text my-sm">{{ m.prompts_ensuresValidJson() }}</div>
+      <template v-if="responseWithJSON">
+        <km-notification-text>
+          <div class="my-sm">
+            <div class="km-chip text-secondary-text mb-sm">{{ m.prompts_mustInstructJson() }}</div>
+            <div class="km-field text-secondary-text mb-sm">{{ m.prompts_jsonNoGuarantee() }}</div>
+            <div class="km-field text-secondary-text">
+              {{ m.prompts_keepInMind() }}<a class="km-link word-break-all cursor-pointer" :href="currentModelObject?.jsonFormatDocumetaion" target="_blank">{{ m.prompts_edgeCases() }}</a> {{ m.prompts_edgeCasesResult() }}
+            </div>
+          </div>
+        </km-notification-text>
+        <km-separator class="my-lg" />
+        <km-chip v-if="!currentModelObject?.json_schema" class="km-small-chip mb-lg" flat tone="neutral" :label="m.prompts_paramNotAvailable({ model: modelName })" />
+        <div class="cluster">
+          <div class="km-field text-secondary-text pb-xs mr-lg">{{ m.prompts_matchSchema() }}</div>
+          <km-toggle v-model="isMatchSchema" dense :disable="!currentModelObject?.json_schema" />
+        </div>
+        <div class="cluster mb-md">
+          <div class="km-field text-secondary-text mt-sm">{{ m.prompts_ensureResponseSchema() }}</div>
+        </div>
+        <template v-if="isMatchSchema">
+          <div class="km-field text-secondary-text pb-xs">
+            {{ m.common_jsonSchema() }}
+            <km-codemirror v-model="matchSchema" />
+            <div class="km-description text-secondary-text pb-xs">{{ m.prompts_outputMatchSchema() }}</div>
+          </div>
+        </template>
+      </template>
+    </km-section>
+  </div>
 </template>
 
 <script>

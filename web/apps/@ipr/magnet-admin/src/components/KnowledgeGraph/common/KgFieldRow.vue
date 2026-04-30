@@ -3,11 +3,11 @@
     <div v-if="label" class="kg-field-row-label">
       <span>{{ label }}</span>
       <span v-if="suffix" class="text-grey-6 text-weight-regular">{{ suffix }}</span>
-      <q-icon v-if="hint" name="o_info" size="14px" color="grey-6" class="cursor-pointer">
-        <q-tooltip self="top middle" :offset="[0, 8]">
+      <km-glyph v-if="hint" name="info" size="14px" tone="muted" class="cursor-pointer">
+        <km-tooltip self="top middle" :offset="[0, 8]">
           {{ hint }}
-        </q-tooltip>
-      </q-icon>
+        </km-tooltip>
+      </km-glyph>
     </div>
     <div class="kg-field-row" :class="[`kg-field-row--cols-${validatedCols}`]" :style="{ gap: gap }">
       <slot />
@@ -59,23 +59,23 @@ const validatedCols = computed(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: var(--km-font-size-caption);
+  font-size: var(--ds-font-size-caption);
   font-weight: 600;
-  color: var(--q-secondary);
+  color: var(--ds-color-secondary);
   line-height: 1.4;
 }
 
 .kg-field-row-label-hint-icon {
   opacity: 0.6;
   cursor: help;
-  color: var(--q-icon);
+  color: var(--ds-color-icon);
   transition: opacity 0.15s ease;
   flex-shrink: 0;
 }
 
 .kg-field-row-label-hint-icon:hover {
   opacity: 1;
-  color: var(--q-secondary);
+  color: var(--ds-color-secondary);
 }
 
 .kg-field-row {
@@ -84,9 +84,9 @@ const validatedCols = computed(() => {
 }
 
 .kg-field-row-error {
-  font-size: var(--km-font-size-sm);
-  color: var(--q-error-text);
-  margin-top: 4px;
+  font-size: var(--ds-font-size-sm);
+  color: var(--ds-color-error-text);
+  margin-block-start: 4px;
   padding: 4px 8px;
 }
 

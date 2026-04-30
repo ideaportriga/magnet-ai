@@ -1,21 +1,23 @@
 <template>
-  <div class="col-auto q-py-auto">
-    <div class="km-heading-4">{{ graphName }}</div>
+  <div class="flex-1 min-w-0 py-auto">
+    <KmBreadcrumbNav :items="crumbs" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { fetchData } from '@shared'
-import { m } from '@/paraglide/messages'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAppStore } from '@/stores/appStore'
+import KmBreadcrumbNav from '@ds/components/domain/KmBreadcrumbNav.vue'
 
 const route = useRoute()
 const appStore = useAppStore()
 const graphName = ref('')
 
 const graphId = computed(() => route.params.id as string)
+
+const crumbs = computed(() => [{ label: graphName.value }])
 
 const load = async () => {
   if (!graphId.value) return

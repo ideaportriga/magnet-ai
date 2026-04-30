@@ -1,132 +1,64 @@
-<template lang="pug">
-.bg-white.br-border.column.no-wrap.full-height.km-toolbar(:class="isCollapsed ? 'q-px-4' : 'q-px-8'")
-  template(v-if='toolbar == "knowledge"')
-    collections-toolbar-menu
-
-  template(v-if='toolbar == "main"')
-    .column.q-mt-12.width-100.q-gap-6
-      km-nav-section(
-        :label='m.nav_configure()',
-        icon='fas fa-cogs',
-        :items='menu',
-        :collapsed='isSectionCollapsed("configure")',
-        :sidebarCollapsed='isCollapsed',
-        :parentRoute='parentRoute',
-        @toggle='toggleSection("configure")',
-        @navigate='navigate'
-      )
-        template(v-for='item in menu')
-          km-nav-btn(:icon='item.icon', :label='item.label', :path='item.path', :parentRoute='parentRoute', @navigate='navigate')
-
-    .column.q-mt-16.width-100.q-gap-6
-      km-nav-section(
-        :label='m.nav_connect()',
-        icon='fas fa-plug',
-        :items='connectors',
-        :collapsed='isSectionCollapsed("connect")',
-        :sidebarCollapsed='isCollapsed',
-        :parentRoute='parentRoute',
-        @toggle='toggleSection("connect")',
-        @navigate='navigate'
-      )
-        template(v-for='item in connectors')
-          km-nav-btn(
-            :icon='item.icon',
-            :label='item.label',
-            :path='item.path',
-            :alternativePaths='item.alternativePaths',
-            :parentRoute='parentRoute',
-            @navigate='navigate'
-          )
-
-    .column.q-mt-16.q-gap-6
-      km-nav-section(
-        :label='m.nav_experimental()',
-        icon='fas fa-flask',
-        :items='experimental',
-        :collapsed='isSectionCollapsed("experimental")',
-        :sidebarCollapsed='isCollapsed',
-        :parentRoute='parentRoute',
-        @toggle='toggleSection("experimental")',
-        @navigate='navigate'
-      )
-        template(v-for='item in experimental')
-          km-nav-btn(:icon='item.icon', :label='item.label', :path='item.path', :parentRoute='parentRoute', @navigate='navigate')
-
-    .column.q-mt-16.q-gap-6
-      km-nav-section(
-        :label='m.nav_evaluation()',
-        icon='fas fa-chart-column',
-        :items='evaluation',
-        :collapsed='isSectionCollapsed("evaluation")',
-        :sidebarCollapsed='isCollapsed',
-        :parentRoute='parentRoute',
-        @toggle='toggleSection("evaluation")',
-        @navigate='navigate'
-      )
-        template(v-for='item in evaluation')
-          km-nav-btn(:icon='item.icon', :label='item.label', :path='item.path', :parentRoute='parentRoute', @navigate='navigate')
-
-    .column.q-mt-16.q-gap-6
-      km-nav-section(
-        :label='m.nav_observability()',
-        icon='fas fa-eye',
-        :items='observabilityItems',
-        :collapsed='isSectionCollapsed("observability")',
-        :sidebarCollapsed='isCollapsed',
-        :parentRoute='parentRoute',
-        @toggle='toggleSection("observability")',
-        @navigate='navigate'
-      )
-        template(v-for='item in observabilityItems')
-          km-nav-btn(:icon='item.icon', :label='item.label', :path='item.path', :parentRoute='parentRoute', @navigate='navigate')
-
-    .column.q-mt-auto.q-gap-6.q-mb-8
-      km-separator
-      //- System
-      .width-100.relative-position
-        km-btn.width-100.border-radius-6(
-          v-if='!isCollapsed',
-          icon='fas fa-gear',
-          iconSize='16px',
-          size='sm',
-          flat,
-          iconColor='icon',
-          :label='m.nav_system()',
-          hoverColor='primary',
-          hoverBg='primary-bg',
-          labelClass='km-title',
-          :class='isSystemRouteActive ? "text-primary bg-primary-bg" : ""'
-        )
-        km-btn.width-100.border-radius-6.justify-center(
-          v-else,
-          icon='fas fa-gear',
-          iconSize='18px',
-          size='sm',
-          flat,
-          iconColor='icon',
-          hoverColor='primary',
-          hoverBg='primary-bg',
-          :tooltip='m.nav_system()',
-          :class='isSystemRouteActive ? "text-primary bg-primary-bg" : ""'
-        )
-        q-menu(anchor='top right', self='top left', :offset='[8, 0]')
-          q-list(dense, style='min-width: 180px')
-            q-item-label.text-secondary.km-button-xs-text.text-uppercase(header) {{ m.nav_system() }}
-            q-item.km-nav-popup-item(
-              v-for='item in system',
-              :key='item.path',
-              clickable,
-              v-close-popup,
-              :active='parentRoute === "/" + item.path',
-              active-class='text-primary bg-primary-bg',
-              @click='navigate(item.path)'
-            )
-              q-item-section(avatar, style='min-width: 28px; padding-right: 4px')
-                q-icon(:name='item.icon', size='14px', :color='parentRoute === "/" + item.path ? "primary" : "icon"')
-              q-item-section
-                span(:class='parentRoute === "/" + item.path ? "text-primary" : ""') {{ item.label }}
-      //- Help and Profile moved to header (LayoutDefault.vue)
+<template>
+  <div class="stack bg-white br-border full-height km-toolbar" :class="isCollapsed ? 'px-xs' : 'px-sm'" data-gap="0" data-test="sidebar-toolbar">
+    <template v-if="toolbar == &quot;knowledge&quot;">
+      <collections-toolbar-menu />
+    </template>
+    <template v-if="toolbar == &quot;main&quot;">
+      <div class="stack mt-md width-100" data-gap="xs">
+        <km-nav-section :label="m.nav_configure()" icon="settings" :items="menu" :collapsed="isSectionCollapsed(&quot;configure&quot;)" :sidebar-collapsed="isCollapsed" :parent-route="parentRoute" @toggle="toggleSection(&quot;configure&quot;)" @navigate="navigate">
+          <template v-for="item in menu" :key="item">
+            <km-nav-btn :icon="item.icon" :label="item.label" :path="item.path" :parent-route="parentRoute" @navigate="navigate" />
+          </template>
+        </km-nav-section>
+      </div>
+      <div class="stack mt-lg width-100" data-gap="xs">
+        <km-nav-section :label="m.nav_connect()" icon="plug" :items="connectors" :collapsed="isSectionCollapsed(&quot;connect&quot;)" :sidebar-collapsed="isCollapsed" :parent-route="parentRoute" @toggle="toggleSection(&quot;connect&quot;)" @navigate="navigate">
+          <template v-for="item in connectors" :key="item">
+            <km-nav-btn :icon="item.icon" :label="item.label" :path="item.path" :alternative-paths="item.alternativePaths" :parent-route="parentRoute" @navigate="navigate" />
+          </template>
+        </km-nav-section>
+      </div>
+      <div class="stack mt-lg" data-gap="xs">
+        <km-nav-section :label="m.nav_experimental()" icon="flask" :items="experimental" :collapsed="isSectionCollapsed(&quot;experimental&quot;)" :sidebar-collapsed="isCollapsed" :parent-route="parentRoute" @toggle="toggleSection(&quot;experimental&quot;)" @navigate="navigate">
+          <template v-for="item in experimental" :key="item">
+            <km-nav-btn :icon="item.icon" :label="item.label" :path="item.path" :parent-route="parentRoute" @navigate="navigate" />
+          </template>
+        </km-nav-section>
+      </div>
+      <div class="stack mt-lg" data-gap="xs">
+        <km-nav-section :label="m.nav_evaluation()" icon="chart" :items="evaluation" :collapsed="isSectionCollapsed(&quot;evaluation&quot;)" :sidebar-collapsed="isCollapsed" :parent-route="parentRoute" @toggle="toggleSection(&quot;evaluation&quot;)" @navigate="navigate">
+          <template v-for="item in evaluation" :key="item">
+            <km-nav-btn :icon="item.icon" :label="item.label" :path="item.path" :parent-route="parentRoute" @navigate="navigate" />
+          </template>
+        </km-nav-section>
+      </div>
+      <div class="stack mt-lg" data-gap="xs">
+        <km-nav-section :label="m.nav_observability()" icon="eye" :items="observabilityItems" :collapsed="isSectionCollapsed(&quot;observability&quot;)" :sidebar-collapsed="isCollapsed" :parent-route="parentRoute" @toggle="toggleSection(&quot;observability&quot;)" @navigate="navigate">
+          <template v-for="item in observabilityItems" :key="item">
+            <km-nav-btn :icon="item.icon" :label="item.label" :path="item.path" :parent-route="parentRoute" @navigate="navigate" />
+          </template>
+        </km-nav-section>
+      </div>
+      <div class="stack mt-auto mb-sm" data-gap="xs">
+        <km-separator />
+        <ds-dropdown-menu-root>
+          <ds-dropdown-menu-trigger as-child>
+            <div class="cluster width-100" data-justify="center" data-wrap="no">
+              <km-btn v-if="!isCollapsed" class="width-100 border-radius-6" icon="settings" icon-size="16px" size="sm" flat :label="m.nav_system()" interaction-tone="brand" label-class="km-title" :class="isSystemRouteActive ? &quot;text-primary bg-primary-bg&quot; : &quot;&quot;" />
+              <km-btn v-else icon="settings" icon-size="18px" flat interaction-tone="brand" :tooltip="m.nav_system()" :class="isSystemRouteActive ? &quot;text-primary bg-primary-bg&quot; : &quot;&quot;" />
+            </div>
+          </ds-dropdown-menu-trigger>
+          <ds-dropdown-menu-content side="right" align="end" :side-offset="8" data-test="system-menu">
+            <ds-dropdown-menu-label>{{ m.nav_system() }}</ds-dropdown-menu-label>
+            <ds-dropdown-menu-item v-for="item in system" :key="item.path" :class="matchesPath(item.path) ? 'text-primary bg-primary-bg' : ''" @select="navigate(item.path)">
+              <km-glyph :name="item.icon" size="14px" :tone="matchesPath(item.path) ? 'brand' : undefined" />
+              <span :class="matchesPath(item.path) ? 'text-primary' : ''">{{ item.label }}</span>
+            </ds-dropdown-menu-item>
+          </ds-dropdown-menu-content>
+        </ds-dropdown-menu-root>
+      </div>
+    </template>
+  </div>
 </template>
 
 <script lang="ts">
@@ -157,7 +89,7 @@ export default {
     const assemble = [
       {
         label: m.nav_aiApps(),
-        icon: 'fas fa-wand-magic-sparkles',
+        icon: 'magic',
         path: 'ai-apps',
       },
     ]
@@ -165,12 +97,12 @@ export default {
     const evaluation = [
       {
         label: m.nav_testSets(),
-        icon: 'fas fa-table-list',
+        icon: 'table-list',
         path: 'evaluation-sets',
       },
       {
         label: m.nav_evaluations(),
-        icon: 'fas fa-clipboard-check',
+        icon: 'clipboard-check',
         path: 'evaluation-jobs',
       },
     ]
@@ -178,23 +110,23 @@ export default {
     const menu = [
       {
         label: m.nav_agents(),
-        icon: 'fa fa-robot',
+        icon: 'robot',
         path: 'agents',
       },
       {
         label: m.nav_promptTemplates(),
-        icon: 'fa fa-comment-dots',
+        icon: 'chat',
         path: 'prompt-templates',
       },
       {
         label: m.nav_ragTools(),
-        icon: 'fas fa-file-circle-question',
+        icon: 'file-question',
         path: 'rag-tools',
         dev: true,
       },
       {
         label: m.nav_retrievalTools(),
-        icon: 'fas fa-file-circle-question',
+        icon: 'file-question',
         path: 'retrieval',
       },
     ]
@@ -202,28 +134,28 @@ export default {
     const connectors = [
       {
         label: m.nav_apiTools(),
-        icon: 'fas fa-arrow-right-arrow-left',
+        icon: 'swap',
         path: 'api-servers',
       },
       {
         label: m.nav_mcpTools(),
-        icon: 'fas fa-server',
+        icon: 'server',
         path: 'mcp',
       },
       {
         label: m.nav_knowledgeSources(),
-        icon: 'fas fa-book',
+        icon: 'book',
         path: 'knowledge-providers',
         alternativePaths: ['knowledge-sources'],
       },
       {
         label: m.nav_models(),
-        icon: 'fas fa-circle-nodes',
+        icon: 'graph',
         path: 'model-providers',
       },
       {
         label: m.nav_apiKeys(),
-        icon: 'fas fa-lock',
+        icon: 'lock',
         path: 'api-keys',
       },
     ]
@@ -231,22 +163,22 @@ export default {
     const observabilityItems = [
       {
         label: m.nav_ragQueries(),
-        icon: 'fas fa-file-circle-question',
+        icon: 'file-question',
         path: 'usage/rag',
       },
       {
         label: m.nav_agents(),
-        icon: 'fa fa-robot',
+        icon: 'robot',
         path: 'usage/agent',
       },
       {
         label: m.nav_llmCalls(),
-        icon: 'fa fa-comment-dots',
+        icon: 'chat',
         path: 'usage/llm',
       },
       {
         label: m.nav_traces(),
-        icon: 'fas fa-shoe-prints',
+        icon: 'steps',
         path: 'observability-traces',
       },
     ]
@@ -254,17 +186,17 @@ export default {
     const system = [
       {
         label: m.nav_jobs(),
-        icon: 'fas fa-clock-rotate-left',
+        icon: 'history',
         path: 'jobs',
       },
       {
         label: m.nav_fileStorage(),
-        icon: 'fas fa-hard-drive',
+        icon: 'storage',
         path: 'files',
       },
       {
         label: m.nav_importExport(),
-        icon: 'fas fa-sliders',
+        icon: 'settings',
         path: 'settings',
       },
     ]
@@ -272,32 +204,32 @@ export default {
     const experimental = [
       {
         label: m.nav_aiApps(),
-        icon: 'fas fa-wand-magic-sparkles',
+        icon: 'magic',
         path: 'ai-apps',
       },
       {
         label: m.nav_knowledgeGraph(),
-        icon: 'o_hub',
+        icon: 'graph',
         path: 'knowledge-graph',
       },
       {
         label: m.nav_deepResearch(),
-        icon: 'fas fa-magnifying-glass-chart',
+        icon: 'search-chart',
         path: 'deep-research/configs',
       },
       {
         label: m.nav_deepResearchRuns(),
-        icon: 'fas fa-play',
+        icon: 'play',
         path: 'deep-research/runs',
       },
       {
         label: m.nav_noteTaker(),
-        icon: 'fas fa-clipboard-list',
+        icon: 'clipboard-list',
         path: 'note-taker',
       },
       {
         label: m.nav_promptQueue(),
-        icon: 'fas fa-list-ul',
+        icon: 'list',
         path: 'prompt-queue',
       }
     ]
@@ -305,13 +237,13 @@ export default {
     const dev = [
       {
         label: m.nav_templateGroups(),
-        icon: 'fas fa-stamp',
+        icon: 'stamp',
         path: 'prompt-template-groups',
         dev: true,
       },
       {
         label: m.common_create(),
-        icon: 'far fa-plus-square',
+        icon: 'add-square',
         path: 'create',
         dev: true,
       },
@@ -344,20 +276,28 @@ export default {
       return 'main'
     },
     parentRoute() {
-      const segments = this.$route?.path?.split('/')
-      return `/${segments?.[1]}`
+      // Full current pathname. Downstream nav components match via
+      // `parentRoute === '/' + item.path` OR
+      // `parentRoute.startsWith('/' + item.path + '/')`, so multi-segment
+      // slugs (`deep-research/runs`, `usage/rag`) light up on detail routes.
+      return this.$route?.path ?? ''
     },
     isAdmin() {
       return this.$route.meta?.admin
     },
     isSystemRouteActive() {
-      return this.system.some((item) => this.parentRoute === '/' + item.path)
+      return this.system.some((item) => this.matchesPath(item.path))
     },
   },
   watch: {},
   created() {},
   mounted() {},
   methods: {
+    matchesPath(itemPath) {
+      if (!this.parentRoute || !itemPath) return false
+      const target = `/${itemPath}`
+      return this.parentRoute === target || this.parentRoute.startsWith(`${target}/`)
+    },
     navigateToProfile(path) {
       this.$router?.push(path)
     },
@@ -376,15 +316,13 @@ export default {
   },
 }
 </script>
-<style lang="stylus" scoped>
-
+<style scoped>
 .km-toolbar {
-  overflow-y: auto;
-  width: 100%;
+  overflow-block: auto;
+  inline-size: 100%;
   box-sizing: border-box;
 }
-
 .km-toolbar::-webkit-scrollbar {
-    width: 4px;
+  inline-size: 4px;
 }
 </style>

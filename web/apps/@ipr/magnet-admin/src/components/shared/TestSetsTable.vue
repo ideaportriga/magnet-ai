@@ -1,28 +1,15 @@
-<template lang="pug">
-.full-width.q-mb-sm
-  km-select(
-    height='auto',
-    minHeight='36px',
-    :placeholder='m.entity_testSet()',
-    :options='setItems',
-    :modelValue='selectedTestSet',
-    @update:modelValue='$emit("update:selectedTestSet", $event)',
-    option-value='system_name',
-    option-label='name',
-    emit-value,
-    map-options,
-    hasDropdownSearch
-  )
-template(v-if='selectedTestSet')
-  .row.q-mb-sm
-    km-input(:placeholder='m.common_search()', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
-  .full-width
-    km-data-table(
-      :table='table',
-      row-key='user_input',
-      :activeRowId='activeRowInput',
-      @row-click='$emit("selectRecord", $event)'
-    )
+<template>
+  <div class="full-width mb-sm">
+    <km-select height="auto" min-height="36px" :placeholder="m.entity_testSet()" :options="setItems" :model-value="selectedTestSet" option-value="system_name" option-label="name" emit-value map-options has-dropdown-search @update:model-value="$emit(&quot;update:selectedTestSet&quot;, $event)" />
+  </div>
+  <template v-if="selectedTestSet">
+    <div class="cluster mb-sm">
+      <km-input :placeholder="m.common_search()" icon-before="search" :model-value="globalFilter" clearable @input="globalFilter = $event" />
+    </div>
+    <div class="full-width">
+      <km-data-table :table="table" row-key="user_input" :active-row-id="activeRowInput" @row-click="$emit(&quot;selectRecord&quot;, $event)" />
+    </div>
+  </template>
 </template>
 
 <script setup lang="ts">

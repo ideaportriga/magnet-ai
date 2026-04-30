@@ -1,0 +1,27 @@
+/* =============================================================================
+ * .frame — fixed aspect-ratio frame for media
+ * =============================================================================
+ * Replaces ad-hoc padding-bottom hacks. Useful for avatars, video embeds and
+ * preview tiles where the slotted content (img, video, iframe) should fill
+ * the frame regardless of intrinsic size.
+ * ============================================================================= */
+
+.frame {
+  --frame-ratio: 16 / 9;
+
+  aspect-ratio: var(--frame-ratio);
+  overflow: hidden;
+}
+
+.frame > img,
+.frame > video,
+.frame > iframe {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+}
+
+.frame[data-ratio='1:1']  { --frame-ratio: 1 / 1; }
+.frame[data-ratio='4:3']  { --frame-ratio: 4 / 3; }
+.frame[data-ratio='16:9'] { --frame-ratio: 16 / 9; }
+.frame[data-ratio='21:9'] { --frame-ratio: 21 / 9; }

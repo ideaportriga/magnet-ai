@@ -1,78 +1,101 @@
-<template lang="pug">
-km-drawer-layout(v-if='open', storageKey="drawer-observability-traces")
-  template(#header)
-    .row.q-gap-4.items-center.km-heading-6.text-black {{ span?.name }}
-    .row.q-mt-sm(style='font-size: 13px') {{ span?.description }}
-    .column.q-gap-24.q-mt-md(v-if='trace?.type == "rag" && trace?.id == span?.parent_id && trace?.spans?.[0]?.id == span?.id')
-      .column.q-gap-6
-        .km-input-label.text-text-grey {{ m.common_question() }}
-        .km-heading-2 {{ traceMetadata.question }}
-      .column.q-gap-6
-        .km-input-label.text-text-grey {{ m.common_language() }}
-        .km-heading-2 {{ traceMetadata.language }}
-      .column.q-gap-6
-        .km-input-label.text-text-grey {{ m.common_chunksRetrieved() }}
-        .km-heading-2 {{ traceMetadata.chunks_retrieved }}
-      .column.q-gap-6
-        .km-input-label.text-text-grey {{ m.common_answer() }}
-        .km-heading-2 {{ traceMetadata.answer }}
-    .row.q-mt-md
-      q-tabs(
-        v-model='tab',
-        narrow-indicator,
-        dense,
-        align='left',
-        active-color='primary',
-        indicator-color='primary',
-        no-caps,
-        content-class='km-tabs'
-      )
-        template(v-for='t in filteredTabs')
-          q-tab(:name='t.name', :label='t.label')
-  template(v-if='tab == "error"')
-    .row.ba-border.border-radius-8.q-pa-sm.bg-light(style='border-color: #ff0000; word-break: break-all; white-space: break-spaces') {{ span?.status_message }}
-  template(v-else-if='tab == "input_output"')
-    template(v-if='span?.type == "search"')
-      observability-traces-search-input-output(:span='span')
-    template(v-else-if='span?.type == "embed"')
-      observability-traces-embed-input-output(:span='span')
-    template(v-else-if='span?.type == "chat"')
-      observability-traces-chat-completion-input-output(:span='span')
-    template(v-else-if='span?.type == "rerank"')
-      observability-traces-rerank-input-output(:span='span')
-    template(v-else-if='span?.name == "Fuse search results"')
-      observability-traces-fuse-results-input-output(:span='span')
-    template(v-else-if='span?.name == "Select top results"')
-      observability-traces-top-results-input-output(:span='span')
-    template(v-else)
-      .column.q-gap-32(v-if='span?.input || span?.output')
-        observability-traces-default-span-renderer(:value='span?.input', :label='m.common_inputs()')
-        observability-traces-default-span-renderer(:value='span?.output', :label='m.common_outputs()')
-  template(v-else-if='tab == "prompt_template"')
-    .column.q-gap-24
-      .column.q-gap-6
-        .km-input-label.text-text-grey {{ m.common_name() }}
-        .km-heading-2 {{ span?.prompt_template?.display_name }}
-      .column.q-gap-6(v-if='span?.prompt_template?.variant')
-        .km-input-label.text-text-grey {{ m.common_variant() }}
-        .km-heading-2 {{ span?.prompt_template?.variant }}
-  template(v-else-if='tab == "tools"')
-    .column.q-gap-32(v-if='span?.extra_data?.tools && span?.extra_data?.tools.length > 0')
-      observability-traces-tools-list(:tools='span?.extra_data?.tools')
-  template(v-else-if='tab == "model"')
-    .column.q-gap-24
-      .column.q-gap-6
-        .km-input-label.text-text-grey {{ m.common_provider() }}
-        .km-heading-2 {{ providerName }}
-      .column.q-gap-6
-        .km-input-label.text-text-grey {{ m.common_llmName() }}
-        .km-heading-2 {{ span?.model?.parameters?.llm }}
-      .column.q-gap-6(v-if='span?.model?.parameters?.temperature != undefined')
-        .km-input-label.text-text-grey {{ m.evaluation_temperature() }}
-        .km-heading-2 {{ span?.model?.parameters?.temperature }}
-      .column.q-gap-6(v-if='span?.model?.parameters?.top_p != undefined')
-        .km-input-label.text-text-grey {{ m.common_topP() }}
-        .km-heading-2 {{ span?.model?.parameters?.top_p }}
+<template>
+  <km-drawer-layout v-if="open" storage-key="drawer-observability-traces">
+    <template #header>
+      <div class="cluster km-heading-6 text-black" data-gap="xs">{{ span?.name }}</div>
+      <div class="mt-sm" style="font-size: 13px">{{ span?.description }}</div>
+      <div v-if="trace?.type == &quot;rag&quot; &amp;&amp; trace?.id == span?.parent_id &amp;&amp; trace?.spans?.[0]?.id == span?.id" class="stack mt-md" data-gap="2xl">
+        <div class="stack" data-gap="xs">
+          <div class="km-input-label text-text-grey">{{ m.common_question() }}</div>
+          <div class="km-heading-2">{{ traceMetadata.question }}</div>
+        </div>
+        <div class="stack" data-gap="xs">
+          <div class="km-input-label text-text-grey">{{ m.common_language() }}</div>
+          <div class="km-heading-2">{{ traceMetadata.language }}</div>
+        </div>
+        <div class="stack" data-gap="xs">
+          <div class="km-input-label text-text-grey">{{ m.common_chunksRetrieved() }}</div>
+          <div class="km-heading-2">{{ traceMetadata.chunks_retrieved }}</div>
+        </div>
+        <div class="stack" data-gap="xs">
+          <div class="km-input-label text-text-grey">{{ m.common_answer() }}</div>
+          <div class="km-heading-2">{{ traceMetadata.answer }}</div>
+        </div>
+      </div>
+    </template>
+    <template #tabs>
+      <km-tabs v-model="tab" narrow-indicator dense align="left" no-caps content-class="km-tabs">
+        <template v-for="t in filteredTabs" :key="t">
+          <km-tab :name="t.name" :label="t.label" />
+        </template>
+      </km-tabs>
+    </template>
+    <template v-if="tab == &quot;error&quot;">
+      <div class="ba-border border-radius-8 p-sm bg-light" style="border-color: var(--ds-color-danger-solid); word-break: break-all; white-space: break-spaces">{{ span?.status_message }}</div>
+    </template>
+    <template v-else-if="tab == &quot;input_output&quot;">
+      <template v-if="span?.type == &quot;search&quot;">
+        <observability-traces-search-input-output :span="span" />
+      </template>
+      <template v-else-if="span?.type == &quot;embed&quot;">
+        <observability-traces-embed-input-output :span="span" />
+      </template>
+      <template v-else-if="span?.type == &quot;chat&quot;">
+        <observability-traces-chat-completion-input-output :span="span" />
+      </template>
+      <template v-else-if="span?.type == &quot;rerank&quot;">
+        <observability-traces-rerank-input-output :span="span" />
+      </template>
+      <template v-else-if="span?.name == &quot;Fuse search results&quot;">
+        <observability-traces-fuse-results-input-output :span="span" />
+      </template>
+      <template v-else-if="span?.name == &quot;Select top results&quot;">
+        <observability-traces-top-results-input-output :span="span" />
+      </template>
+      <template v-else>
+        <div v-if="span?.input || span?.output" class="stack" data-gap="3xl">
+          <observability-traces-default-span-renderer :value="span?.input" :label="m.common_inputs()" />
+          <observability-traces-default-span-renderer :value="span?.output" :label="m.common_outputs()" />
+        </div>
+      </template>
+    </template>
+    <template v-else-if="tab == &quot;prompt_template&quot;">
+      <div class="stack" data-gap="2xl">
+        <div class="stack" data-gap="xs">
+          <div class="km-input-label text-text-grey">{{ m.common_name() }}</div>
+          <div class="km-heading-2">{{ span?.prompt_template?.display_name }}</div>
+        </div>
+        <div v-if="span?.prompt_template?.variant" class="stack" data-gap="xs">
+          <div class="km-input-label text-text-grey">{{ m.common_variant() }}</div>
+          <div class="km-heading-2">{{ span?.prompt_template?.variant }}</div>
+        </div>
+      </div>
+    </template>
+    <template v-else-if="tab == &quot;tools&quot;">
+      <div v-if="span?.extra_data?.tools &amp;&amp; span?.extra_data?.tools.length &gt; 0" class="stack" data-gap="3xl">
+        <observability-traces-tools-list :tools="span?.extra_data?.tools" />
+      </div>
+    </template>
+    <template v-else-if="tab == &quot;model&quot;">
+      <div class="stack" data-gap="2xl">
+        <div class="stack" data-gap="xs">
+          <div class="km-input-label text-text-grey">{{ m.common_provider() }}</div>
+          <div class="km-heading-2">{{ providerName }}</div>
+        </div>
+        <div class="stack" data-gap="xs">
+          <div class="km-input-label text-text-grey">{{ m.common_llmName() }}</div>
+          <div class="km-heading-2">{{ span?.model?.parameters?.llm }}</div>
+        </div>
+        <div v-if="span?.model?.parameters?.temperature != undefined" class="stack" data-gap="xs">
+          <div class="km-input-label text-text-grey">{{ m.evaluation_temperature() }}</div>
+          <div class="km-heading-2">{{ span?.model?.parameters?.temperature }}</div>
+        </div>
+        <div v-if="span?.model?.parameters?.top_p != undefined" class="stack" data-gap="xs">
+          <div class="km-input-label text-text-grey">{{ m.common_topP() }}</div>
+          <div class="km-heading-2">{{ span?.model?.parameters?.top_p }}</div>
+        </div>
+      </div>
+    </template>
+  </km-drawer-layout>
 </template>
 
 <script>

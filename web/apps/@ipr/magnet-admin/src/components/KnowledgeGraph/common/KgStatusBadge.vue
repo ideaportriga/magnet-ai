@@ -1,16 +1,15 @@
 <template>
-  <q-chip
-    :class="['text-uppercase q-ma-none', { 'chip-rotating': normalizedStatus === 'syncing' }]"
+  <km-chip
+    :class="['text-uppercase m-0', { 'chip-rotating': normalizedStatus === 'syncing' }]"
     size="sm"
-    :color="statusColor"
-    :text-color="statusTextColor"
+    :tone="statusTone"
     :label="label"
     :icon="statusIcon"
   >
-    <q-tooltip v-if="message" :offset="[0, 10]" style="max-width: 520px; white-space: pre-wrap">
+    <km-tooltip v-if="message" :offset="[0, 10]" style="max-inline-size: 520px; white-space: pre-wrap">
       {{ message }}
-    </q-tooltip>
-  </q-chip>
+    </km-tooltip>
+  </km-chip>
 </template>
 
 <script setup lang="ts">
@@ -31,10 +30,10 @@ const label = computed(() => {
   return s.split('_').join(' ')
 })
 
-const statusColor = computed(() => {
+const statusTone = computed(() => {
   switch (normalizedStatus.value) {
     case 'completed':
-      return 'status-ready'
+      return 'success'
     case 'processing':
     case 'extracted':
     case 'syncing':
@@ -44,30 +43,11 @@ const statusColor = computed(() => {
       return 'warning'
     case 'failed':
     case 'error':
-      return 'error-bg'
+      return 'danger'
     case 'not_synced':
-      return 'gray'
+      return 'neutral'
     default:
-      return 'gray'
-  }
-})
-
-const statusTextColor = computed(() => {
-  switch (normalizedStatus.value) {
-    case 'completed':
-      return 'status-ready-text'
-    case 'processing':
-    case 'extracted':
-    case 'syncing':
-      return 'white'
-    case 'pending':
-    case 'partial':
-      return 'black'
-    case 'failed':
-    case 'error':
-      return 'error-text'
-    default:
-      return 'text-gray'
+      return 'neutral'
   }
 })
 
@@ -95,17 +75,8 @@ const statusIcon = computed(() => {
 </script>
 
 <style scoped>
-@keyframes chip-rotate {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
-::deep(.chip-rotating .q-chip__icon) {
-  animation: chip-rotate 1s linear infinite;
+.chip-rotating :deep(svg) {
+  animation: ds-spin 1s var(--ds-ease-linear) infinite;
 }
 </style>
 

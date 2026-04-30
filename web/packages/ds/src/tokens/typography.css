@@ -1,0 +1,176 @@
+/* =============================================================================
+ * TYPOGRAPHY TOKENS
+ * =============================================================================
+ * Layered per the CUBE/DS roadmap (Phase 1):
+ *
+ *   1. Base scales        Families, weights, line heights, rem-based size
+ *                         scale, tracking and font-feature primitives.
+ *   2. Role tokens        Semantic intents — display, heading, body, ui,
+ *                         caption, overline, mono. Each role exposes four
+ *                         sub-vars (`-size`, `-line-height`, `-weight`,
+ *                         `-tracking`) so consumers can pick what they need
+ *                         without redefining the rest.
+ *   3. Legacy aliases     Pre-Phase-1 names: `--ds-font-size-{xs,sm,caption,
+ *                         label,body,body-lg,h1,h2,display}` and the
+ *                         `--km-*` mirror. Same px values, expressed in rem.
+ *
+ * Naming notes:
+ *   - The new numeric scale uses the `--ds-text-size-*` prefix to avoid a
+ *     clash with the legacy `--ds-font-size-sm = 11px`. The new scale's
+ *     `-sm` step is `13px` (the actual UI-density default).
+ *   - Weights, families and line-height primitives are shared between the
+ *     legacy and new layers.
+ *   - The `--km-*` aliases are kept so in-app CSS that still references
+ *     them keeps working until the migration finishes.
+ * ============================================================================= */
+
+:root {
+  /* =====================================================================
+   * 1. BASE SCALES
+   * ===================================================================== */
+
+  /* ---- Families ---- */
+  --ds-font-default: 'Geist', 'Inter', sans-serif;
+  --ds-font-mono:    'Geist Mono', 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+
+  /* ---- Weights ---- */
+  --ds-font-weight-regular:  400;
+  --ds-font-weight-medium:   500;
+  --ds-font-weight-semibold: 600;
+  --ds-font-weight-bold:     700;
+
+  /* ---- Line heights ---- */
+  --ds-line-height-none:    1;
+  --ds-line-height-tight:   1.2;
+  --ds-line-height-snug:    1.3;
+  --ds-line-height-normal:  1.4;
+  --ds-line-height-relaxed: 1.5;
+  --ds-line-height-loose:   1.6;
+
+  /* ---- Size scale (rem-based, 16px root) ----
+   * Fewer decision points than the legacy scale: the 11px step was redundant
+   * next to 12 and 13 and is excluded here. Legacy `--ds-font-size-sm` (11px)
+   * still works through the alias block below. */
+  --ds-text-size-2xs: 0.625rem;   /* 10px — overline, micro labels                */
+  --ds-text-size-xs:  0.75rem;    /* 12px — caption, helper, small chip           */
+  --ds-text-size-sm:  0.8125rem;  /* 13px — UI density default (label, btn, link) */
+  --ds-text-size-md:  0.875rem;   /* 14px — body, long-form copy                  */
+  --ds-text-size-lg:  1rem;       /* 16px — large body, h3                        */
+  --ds-text-size-xl:  1.125rem;   /* 18px — h2                                    */
+  --ds-text-size-2xl: 1.25rem;    /* 20px — h1                                    */
+  --ds-text-size-3xl: 1.5rem;     /* 24px — display                               */
+  --ds-text-size-4xl: 1.875rem;   /* 30px — landing/empty state                   */
+  --ds-text-size-5xl: 2.25rem;    /* 36px — hero/marketing                        */
+
+  /* ---- Tracking / letter-spacing ---- */
+  --ds-tracking-tighter: -0.02em;   /* hero/display headlines                     */
+  --ds-tracking-tight:   -0.01em;   /* large headings                             */
+  --ds-tracking-normal:  0;          /* body/UI default                            */
+  --ds-tracking-wide:    0.02em;     /* small caps text                            */
+  --ds-tracking-caps:    0.08em;     /* overline / eyebrow                         */
+
+  /* ---- OpenType feature presets ----
+   * `default` enables Geist's contemporary glyph alternates; `numeric` flips
+   * digits to tabular monospaced lining figures so tables and metrics align
+   * regardless of value. Use via `font-feature-settings: var(--ds-font-feature-numeric)`
+   * on table cells / metric blocks. */
+  --ds-font-feature-default: 'cv11', 'ss03';
+  --ds-font-feature-numeric: 'tnum', 'lnum';
+
+  /* =====================================================================
+   * 2. ROLE TOKENS — semantic intents bundling size + line-height + weight
+   *    + tracking. Apply via four CSS properties, e.g.:
+   *
+   *      .ds-card-title {
+   *        font-size:      var(--ds-text-heading-sm-size);
+   *        line-height:    var(--ds-text-heading-sm-line-height);
+   *        font-weight:    var(--ds-text-heading-sm-weight);
+   *        letter-spacing: var(--ds-text-heading-sm-tracking);
+   *      }
+   *
+   *    The `.text-*` utility classes in `utilities/typography.css` ship the
+   *    same recipes one-class-per-role.
+   * ===================================================================== */
+
+  /* ---- Display — landing, empty state, hero. ---- */
+  --ds-text-display-lg-size:        var(--ds-text-size-5xl);   /* 36 */
+  --ds-text-display-lg-line-height: 1.05;
+  --ds-text-display-lg-weight:      var(--ds-font-weight-bold);
+  --ds-text-display-lg-tracking:    var(--ds-tracking-tighter);
+
+  --ds-text-display-md-size:        var(--ds-text-size-4xl);   /* 30 */
+  --ds-text-display-md-line-height: 1.1;
+  --ds-text-display-md-weight:      var(--ds-font-weight-bold);
+  --ds-text-display-md-tracking:    var(--ds-tracking-tight);
+
+  /* ---- Heading — section titles inside the app. ---- */
+  --ds-text-heading-lg-size:        var(--ds-text-size-2xl);   /* 20 */
+  --ds-text-heading-lg-line-height: var(--ds-line-height-tight);
+  --ds-text-heading-lg-weight:      var(--ds-font-weight-semibold);
+  --ds-text-heading-lg-tracking:    var(--ds-tracking-tight);
+
+  --ds-text-heading-md-size:        var(--ds-text-size-xl);    /* 18 */
+  --ds-text-heading-md-line-height: var(--ds-line-height-snug);
+  --ds-text-heading-md-weight:      var(--ds-font-weight-semibold);
+  --ds-text-heading-md-tracking:    var(--ds-tracking-normal);
+
+  --ds-text-heading-sm-size:        var(--ds-text-size-lg);    /* 16 */
+  --ds-text-heading-sm-line-height: var(--ds-line-height-snug);
+  --ds-text-heading-sm-weight:      var(--ds-font-weight-semibold);
+  --ds-text-heading-sm-tracking:    var(--ds-tracking-normal);
+
+  --ds-text-heading-xs-size:        var(--ds-text-size-md);    /* 14 */
+  --ds-text-heading-xs-line-height: var(--ds-line-height-normal);
+  --ds-text-heading-xs-weight:      var(--ds-font-weight-semibold);
+  --ds-text-heading-xs-tracking:    var(--ds-tracking-normal);
+
+  /* ---- Body — long-form readable copy. Higher line-height than UI. ---- */
+  --ds-text-body-lg-size:        var(--ds-text-size-lg);       /* 16 */
+  --ds-text-body-lg-line-height: var(--ds-line-height-relaxed);
+  --ds-text-body-lg-weight:      var(--ds-font-weight-regular);
+  --ds-text-body-lg-tracking:    var(--ds-tracking-normal);
+
+  --ds-text-body-size:        var(--ds-text-size-md);          /* 14 */
+  --ds-text-body-line-height: var(--ds-line-height-relaxed);
+  --ds-text-body-weight:      var(--ds-font-weight-regular);
+  --ds-text-body-tracking:    var(--ds-tracking-normal);
+
+  /* ---- UI — dense interface text (the actual default density). ---- */
+  --ds-text-ui-size:        var(--ds-text-size-sm);            /* 13 */
+  --ds-text-ui-line-height: var(--ds-line-height-snug);
+  --ds-text-ui-weight:      var(--ds-font-weight-medium);
+  --ds-text-ui-tracking:    var(--ds-tracking-normal);
+
+  /* ---- Caption — helper text, footnotes, captions. ---- */
+  --ds-text-caption-size:        var(--ds-text-size-xs);       /* 12 */
+  --ds-text-caption-line-height: var(--ds-line-height-snug);
+  --ds-text-caption-weight:      var(--ds-font-weight-medium);
+  --ds-text-caption-tracking:    var(--ds-tracking-normal);
+
+  /* ---- Overline — small CAPS eyebrow labels. ---- */
+  --ds-text-overline-size:        var(--ds-text-size-2xs);     /* 10 */
+  --ds-text-overline-line-height: var(--ds-line-height-tight);
+  --ds-text-overline-weight:      var(--ds-font-weight-semibold);
+  --ds-text-overline-tracking:    var(--ds-tracking-caps);
+
+  /* ---- Mono — code, hashes, identifiers. ---- */
+  --ds-text-mono-size:        var(--ds-text-size-sm);          /* 13 */
+  --ds-text-mono-line-height: var(--ds-line-height-normal);
+  --ds-text-mono-weight:      var(--ds-font-weight-regular);
+  --ds-text-mono-tracking:    var(--ds-tracking-normal);
+
+  /* =====================================================================
+   * 3. LEGACY ALIASES — same px values as before, expressed in rem so the
+   *    user's browser font-size preference scales the UI predictably.
+   *    `--km-*` mirror is preserved for in-app CSS still on the old names.
+   * ===================================================================== */
+  --ds-font-size-xs:       0.625rem;     /* 10 */
+  --ds-font-size-sm:       0.6875rem;    /* 11 — only ~5 call-sites; kept stable */
+  --ds-font-size-caption:  0.75rem;      /* 12 */
+  --ds-font-size-label:    0.8125rem;    /* 13 */
+  --ds-font-size-body:     0.875rem;     /* 14 */
+  --ds-font-size-body-lg:  1rem;         /* 16 */
+  --ds-font-size-h2:       1.125rem;     /* 18 */
+  --ds-font-size-h1:       1.25rem;      /* 20 */
+  --ds-font-size-display:  1.5rem;       /* 24 */
+}

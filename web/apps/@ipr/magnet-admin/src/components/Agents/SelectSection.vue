@@ -1,21 +1,29 @@
-<template lang="pug">
-template(v-if='searchResults.length > 0')
-  .row.q-py-8.q-px-16.bg-light.items-center.full-width.q-gap-8.bb-border.cursor-pointer(@click.stop='open = !open')
-    km-checkbox(:model-value='serverCheckbox', @update:model-value='toggleServerTools')
-    .col
-      .km-title {{ server.name }}
-      .km-description {{ server.url }}
-    km-chip.text-primary(color='primary-transparent', :label='m.agents_ofSelected({ selected: selectedQty, total: server.tools.length })', round, v-if='selectedQty > 0')
-    km-btn(:icon='open ? "o_expand_less" : "o_expand_more"', flat, color='icon', @click.stop='open = !open')
-  .column.full-width.q-pl-lg(v-if='open')
-    template(v-for='tool in searchResults')
-      .row.q-pa-8.bg-white.items-center.full-width.q-gap-8.bb-border
-        km-checkbox(:model-value='isSelected(tool)', @update:model-value='onSelect(tool)')
-        .col
-          .row.items-center.q-gap-8
-            .km-title {{ tool.name }}
-            km-chip(v-if='tool.system_name === "fullSearch"', :label='m.agents_fullSearch()', color='primary-transparent', text-color='primary', round, dense)
-          .km-description {{ tool.description }}
+<template>
+  <template v-if="searchResults.length &gt; 0">
+    <div class="cluster py-sm px-lg bg-light full-width bb-border cursor-pointer" data-gap="sm" @click.stop="open = !open">
+      <km-checkbox :model-value="serverCheckbox" @update:model-value="toggleServerTools" />
+      <div class="flex-1">
+        <div class="km-title">{{ server.name }}</div>
+        <div class="km-description">{{ server.url }}</div>
+      </div>
+      <km-chip v-if="selectedQty &gt; 0" class="text-primary" tone="brand" :label="m.agents_ofSelected({ selected: selectedQty, total: server.tools.length })" round />
+      <km-btn :icon="open ? &quot;o_expand_less&quot; : &quot;o_expand_more&quot;" flat @click.stop="open = !open" />
+    </div>
+    <div v-if="open" class="stack full-width pl-lg" data-gap="0">
+      <template v-for="tool in searchResults" :key="tool.id ?? tool.system_name ?? tool.name">
+        <div class="cluster p-sm bg-white full-width gap-sm bb-border">
+          <km-checkbox :model-value="isSelected(tool)" @update:model-value="onSelect(tool)" />
+          <div class="flex-1">
+            <div class="cluster" data-gap="sm">
+              <div class="km-title">{{ tool.name }}</div>
+              <km-chip v-if="tool.system_name === &quot;fullSearch&quot;" :label="m.agents_fullSearch()" tone="brand" round dense />
+            </div>
+            <div class="km-description">{{ tool.description }}</div>
+          </div>
+        </div>
+      </template>
+    </div>
+  </template>
 </template>
 <script setup>
 import { ref, computed } from 'vue'

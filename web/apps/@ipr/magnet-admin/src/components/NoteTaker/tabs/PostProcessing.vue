@@ -1,95 +1,85 @@
-<template lang="pug">
-div
-  km-section(title='Transcript Enhancement', subTitle='Enable speaker mapping and transcript improvement')
-    .row.items-center.justify-between
-      .km-field.text-secondary-text.q-pl-8 Transcript Enhancement
-      q-toggle(v-model='postTranscriptionEnabled', color='primary')
-    .km-description.text-secondary-text.q-pt-xs.q-pl-8 Highly recommended to keep enabled, because this feature drives speaker mapping
-    template(v-if='postTranscriptionEnabled')
-      .q-mt-md
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Transcript Enhancement Prompt
-        .row.items-center.q-gutter-sm
-          .col
-            km-select(
-              v-model='postTranscriptionPromptTemplate',
-              :options='promptTemplates',
-              option-label='name',
-              option-value='system_name',
-              emit-value, map-options, hasDropdownSearch,
-              height='auto', minHeight='36px'
-            )
-          .col-auto(v-if='postTranscriptionPromptTemplate')
-            km-btn(icon='open_in_new', flat, dense, @click='navigateToPrompt(postTranscriptionPromptTemplate)')
-
-  q-separator.q-my-lg
-
-  km-section(title='Summarization', subTitle='Enable output summarization at different level of detail')
-    //- Chapters
-    .row.items-center.justify-between
-      .km-field.text-secondary-text.q-pl-8 Chapters
-      q-toggle(v-model='createChaptersEnabled', color='primary')
-    .km-description.text-secondary-text.q-pt-xs.q-pl-8 Chapters are a more readable version of original transcript
-    template(v-if='createChaptersEnabled')
-      .q-mt-md
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Chapters Prompt Template
-        .row.items-center.q-gutter-sm
-          .col
-            km-select(
-              v-model='createChaptersPromptTemplate',
-              :options='promptTemplates',
-              option-label='name',
-              option-value='system_name',
-              emit-value, map-options, hasDropdownSearch,
-              height='auto', minHeight='36px'
-            )
-          .col-auto(v-if='createChaptersPromptTemplate')
-            km-btn(icon='open_in_new', flat, dense, @click='navigateToPrompt(createChaptersPromptTemplate)')
-
-    q-separator.q-my-lg
-
-    //- Summary
-    .row.items-center.justify-between
-      .km-field.text-secondary-text.q-pl-8 Summary
-      q-toggle(v-model='createSummaryEnabled', color='primary')
-    .km-description.text-secondary-text.q-pt-xs.q-pl-8 Summary is transcript processed according to your template
-    template(v-if='createSummaryEnabled')
-      .q-mt-md
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Summary Prompt Template
-        .row.items-center.q-gutter-sm
-          .col
-            km-select(
-              v-model='createSummaryPromptTemplate',
-              :options='promptTemplates',
-              option-label='name',
-              option-value='system_name',
-              emit-value, map-options, hasDropdownSearch,
-              height='auto', minHeight='36px'
-            )
-          .col-auto(v-if='createSummaryPromptTemplate')
-            km-btn(icon='open_in_new', flat, dense, @click='navigateToPrompt(createSummaryPromptTemplate)')
-
-    q-separator.q-my-lg
-
-    //- Insights
-    .row.items-center.justify-between
-      .km-field.text-secondary-text.q-pl-8 Insights
-      q-toggle(v-model='createInsightsEnabled', color='primary')
-    .km-description.text-secondary-text.q-pt-xs.q-pl-8 Insights are key items extracted from the transcript - e.g. to-do items, contacts, tasks etc
-    template(v-if='createInsightsEnabled')
-      .q-mt-md
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Insights Prompt Template
-        .row.items-center.q-gutter-sm
-          .col
-            km-select(
-              v-model='createInsightsPromptTemplate',
-              :options='promptTemplates',
-              option-label='name',
-              option-value='system_name',
-              emit-value, map-options, hasDropdownSearch,
-              height='auto', minHeight='36px'
-            )
-          .col-auto(v-if='createInsightsPromptTemplate')
-            km-btn(icon='open_in_new', flat, dense, @click='navigateToPrompt(createInsightsPromptTemplate)')
+<template>
+  <div>
+    <km-section title="Transcript Enhancement" sub-title="Enable speaker mapping and transcript improvement">
+      <div class="cluster" data-justify="between">
+        <div class="km-field text-secondary-text pl-sm">Transcript Enhancement</div>
+        <km-toggle v-model="postTranscriptionEnabled" />
+      </div>
+      <div class="km-description text-secondary-text pt-xs pl-sm">Highly recommended to keep enabled, because this feature drives speaker mapping</div>
+      <template v-if="postTranscriptionEnabled">
+        <div class="mt-md">
+          <div class="km-field text-secondary-text pb-xs pl-sm">Transcript Enhancement Prompt</div>
+          <div class="cluster" data-gap="sm">
+            <div class="flex-1">
+              <km-select v-model="postTranscriptionPromptTemplate" :options="promptTemplates" option-label="name" option-value="system_name" emit-value map-options has-dropdown-search height="auto" min-height="36px" />
+            </div>
+            <div v-if="postTranscriptionPromptTemplate" class="flex-none">
+              <km-btn icon="external-link" flat dense @click="navigateToPrompt(postTranscriptionPromptTemplate)" />
+            </div>
+          </div>
+        </div>
+      </template>
+    </km-section>
+    <km-separator class="my-lg" />
+    <km-section title="Summarization" sub-title="Enable output summarization at different level of detail">
+      <div class="cluster" data-justify="between">
+        <div class="km-field text-secondary-text pl-sm">Chapters</div>
+        <km-toggle v-model="createChaptersEnabled" />
+      </div>
+      <div class="km-description text-secondary-text pt-xs pl-sm">Chapters are a more readable version of original transcript</div>
+      <template v-if="createChaptersEnabled">
+        <div class="mt-md">
+          <div class="km-field text-secondary-text pb-xs pl-sm">Chapters Prompt Template</div>
+          <div class="cluster" data-gap="sm">
+            <div class="flex-1">
+              <km-select v-model="createChaptersPromptTemplate" :options="promptTemplates" option-label="name" option-value="system_name" emit-value map-options has-dropdown-search height="auto" min-height="36px" />
+            </div>
+            <div v-if="createChaptersPromptTemplate" class="flex-none">
+              <km-btn icon="external-link" flat dense @click="navigateToPrompt(createChaptersPromptTemplate)" />
+            </div>
+          </div>
+        </div>
+      </template>
+      <km-separator class="my-lg" />
+      <div class="cluster" data-justify="between">
+        <div class="km-field text-secondary-text pl-sm">Summary</div>
+        <km-toggle v-model="createSummaryEnabled" />
+      </div>
+      <div class="km-description text-secondary-text pt-xs pl-sm">Summary is transcript processed according to your template</div>
+      <template v-if="createSummaryEnabled">
+        <div class="mt-md">
+          <div class="km-field text-secondary-text pb-xs pl-sm">Summary Prompt Template</div>
+          <div class="cluster" data-gap="sm">
+            <div class="flex-1">
+              <km-select v-model="createSummaryPromptTemplate" :options="promptTemplates" option-label="name" option-value="system_name" emit-value map-options has-dropdown-search height="auto" min-height="36px" />
+            </div>
+            <div v-if="createSummaryPromptTemplate" class="flex-none">
+              <km-btn icon="external-link" flat dense @click="navigateToPrompt(createSummaryPromptTemplate)" />
+            </div>
+          </div>
+        </div>
+      </template>
+      <km-separator class="my-lg" />
+      <div class="cluster" data-justify="between">
+        <div class="km-field text-secondary-text pl-sm">Insights</div>
+        <km-toggle v-model="createInsightsEnabled" />
+      </div>
+      <div class="km-description text-secondary-text pt-xs pl-sm">Insights are key items extracted from the transcript - e.g. to-do items, contacts, tasks etc</div>
+      <template v-if="createInsightsEnabled">
+        <div class="mt-md">
+          <div class="km-field text-secondary-text pb-xs pl-sm">Insights Prompt Template</div>
+          <div class="cluster" data-gap="sm">
+            <div class="flex-1">
+              <km-select v-model="createInsightsPromptTemplate" :options="promptTemplates" option-label="name" option-value="system_name" emit-value map-options has-dropdown-search height="auto" min-height="36px" />
+            </div>
+            <div v-if="createInsightsPromptTemplate" class="flex-none">
+              <km-btn icon="external-link" flat dense @click="navigateToPrompt(createInsightsPromptTemplate)" />
+            </div>
+          </div>
+        </div>
+      </template>
+    </km-section>
+  </div>
 </template>
 
 <script setup lang="ts">

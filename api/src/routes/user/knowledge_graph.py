@@ -45,9 +45,6 @@ from services.knowledge_graph.retrievers.agent_retriever.tools.find_documents_by
     findDocumentsByMetadata,
 )
 from services.knowledge_graph.sources.api_ingest import ApiIngestDataSource
-from services.knowledge_graph.sources.api_ingest.api_ingest_source import (
-    run_background_ingest,
-)
 from services.observability import (
     observability_context,
     observability_overrides,
@@ -720,17 +717,17 @@ class UserKnowledgeGraphController(Controller):
             source_name=normalized_source_name
         ).get_or_create_source(db_session, graph_id)
 
-        # Spawn background ingestion (do not await)
-        from core.server.background_tasks import spawn_background_task
+        # Spawn background ingestion via TaskIQ (survives API restarts)
+        from tasks.definitions import api_ingest_bg_task
 
-        spawn_background_task(
-            run_background_ingest(
-                ingestion_id=ingestion_id,
-                graph_id=graph_id,
-                source_id=UUID(str(source.id)),
-                items=items,
-            ),
-            name=f"api-ingest-{ingestion_id}",
+        await api_ingest_bg_task.kiq(
+            ingestion_id=ingestion_id,
+            graph_id=str(graph_id),
+            source_id=str(source.id),
+            items=[
+                item.model_dump() if hasattr(item, "model_dump") else item
+                for item in items
+            ],
         )
 
         trace_id = observability_context.get_current_trace_id()[:8]

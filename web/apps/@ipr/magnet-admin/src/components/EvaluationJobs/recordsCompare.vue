@@ -1,45 +1,36 @@
-<template lang="pug">
-.row.q-mx-sm.items-baseline
-  .col-auto
-    km-btn(
-      flat,
-      simple,
-      :label='m.common_previous()',
-      iconSize='16px',
-      icon='fas fa-chevron-left',
-      @click='evalInputIndex = evalInputIndex - 1',
-      :disable='evalInputIndex === 0'
-    )
-  .col
-    .row.justify-center.fit.q-gap-16.items-center
-      .col-auto
-        div Test Set item {{ evalInputIndex + 1 }} of {{ evalInputList?.length }}
-  .col-auto
-    km-btn(
-      flat,
-      simple,
-      :label='m.common_next()',
-      iconSize='16px',
-      iconAfter='fas fa-chevron-right',
-      @click='evalInputIndex = evalInputIndex + 1',
-      :disable='evalInputIndex === evalInputList.length - 1'
-    )
-.q-px-md
-  .row.q-mb-md.q-mt-sm
-    .column
-      .col-auto
-        .km-label.text-text-grey Evaluation input
-        div {{ input?.user_message }}
-      .col-auto(v-if='input?.expected_output')
-        .km-label.text-text-grey Expected output
-        div {{ input?.expected_output }}
-  .row
-    km-data-table(
-      :table='table',
-      row-key='id',
-      :activeRowId='selectedRow?.id',
-      @row-click='selectRecord'
-    )
+<template>
+  <div class="cluster mx-sm" data-align="baseline">
+    <div class="flex-none">
+      <km-btn flat simple :label="m.common_previous()" icon-size="16px" icon="chevron-left" :disable="evalInputIndex === 0" @click="evalInputIndex = evalInputIndex - 1" />
+    </div>
+    <div class="flex-1">
+      <div class="cluster fit" data-justify="center" data-gap="lg">
+        <div>
+          <div>Test Set item {{ evalInputIndex + 1 }} of {{ evalInputList?.length }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="flex-none">
+      <km-btn flat simple :label="m.common_next()" icon-size="16px" icon-after="chevron-right" :disable="evalInputIndex === evalInputList.length - 1" @click="evalInputIndex = evalInputIndex + 1" />
+    </div>
+  </div>
+  <div class="px-md">
+    <div class="cluster mb-md mt-sm">
+      <div class="stack" data-gap="0">
+        <div>
+          <div class="km-label text-text-grey">Evaluation input</div>
+          <div>{{ input?.user_message }}</div>
+        </div>
+        <div v-if="input?.expected_output">
+          <div class="km-label text-text-grey">Expected output</div>
+          <div>{{ input?.expected_output }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="cluster">
+      <km-data-table :table="table" row-key="id" :active-row-id="selectedRow?.id" @row-click="selectRecord" />
+    </div>
+  </div>
 </template>
 
 <script setup>

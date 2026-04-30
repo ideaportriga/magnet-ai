@@ -1,5 +1,5 @@
-<template lang="pug">
-q-chip.text-uppercase.q-ma-none(v-if='row?.[name]', size='sm') {{ displayValue }}
+<template>
+  <km-chip v-if="row?.[name]" class="text-uppercase m-0" size="sm">{{ displayValue }}</km-chip>
 </template>
 <script>
 import { defineComponent, computed } from 'vue'

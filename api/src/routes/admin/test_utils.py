@@ -12,6 +12,7 @@ Only registered when DEBUG_MODE=True. Never expose in production.
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from litestar import Controller, get, post
@@ -22,6 +23,18 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.server.test_error_collector import get_collector
+
+
+def _ensure_debug_mode() -> None:
+    """Belt-and-suspenders: refuse to run /test endpoints if DEBUG_MODE is off.
+
+    Registration in routes/__init__.py is already gated on DEBUG_MODE, but
+    these endpoints are destructive enough that an extra runtime check is
+    worth it — `/test/promote` flips a user to is_superuser=True with raw
+    SQL and `/test/cleanup` deletes rows by name prefix.
+    """
+    if os.getenv("DEBUG_MODE", "").lower() not in ("true", "1"):
+        raise NotFoundException("Test endpoints are disabled.")
 
 
 class PromoteRequest(BaseModel):
@@ -59,11 +72,13 @@ class TestUtilsController(Controller):
     @get("/errors", exclude_from_auth=True)
     async def get_errors(self) -> list[dict]:
         """Return all collected backend errors since last reset."""
+        _ensure_debug_mode()
         return get_collector().get_all()
 
     @post("/errors/reset", exclude_from_auth=True)
     async def reset_errors(self) -> None:
         """Clear the collected errors. Call before each test."""
+        _ensure_debug_mode()
         get_collector().reset()
 
     @post(
@@ -89,6 +104,7 @@ class TestUtilsController(Controller):
 
         Safety: `prefix` must be non-empty (reject "" and lone "%").
         """
+        _ensure_debug_mode()
         if not prefix or prefix in ("%", "_"):
             raise ValueError(
                 "prefix must be a non-empty literal (got %r) — refusing to run "
@@ -134,6 +150,7 @@ class TestUtilsController(Controller):
         `hasAdminAccess` check inspects `user.roles` (not `is_superuser`).
         Idempotent — no-op if flag/role already set.
         """
+        _ensure_debug_mode()
         stmt = text(
             "UPDATE user_account SET is_superuser = TRUE, is_verified = TRUE, "
             "is_active = TRUE WHERE email = :email RETURNING id"

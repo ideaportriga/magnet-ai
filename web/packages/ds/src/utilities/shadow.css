@@ -1,0 +1,10 @@
+/* =============================================================================
+ * Shadow utilities
+ * ============================================================================= */
+
+.shadow-none    { box-shadow: var(--ds-shadow-none); }
+.shadow-sm      { box-shadow: var(--ds-shadow-sm); }
+.shadow-md      { box-shadow: var(--ds-shadow-md); }
+.shadow-lg      { box-shadow: var(--ds-shadow-lg); }
+.shadow-xl      { box-shadow: var(--ds-shadow-xl); }
+.shadow-primary { box-shadow: var(--ds-shadow-primary); }

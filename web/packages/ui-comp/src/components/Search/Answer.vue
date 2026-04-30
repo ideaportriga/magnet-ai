@@ -1,138 +1,22 @@
-<template lang="pug">
-search-feedback(v-model:modal='showFeedback', @onSubmit='react')
-search-feedback-confirm(v-model:modal='showFeedbackConfirm')
-.column.no-wrap.height-fit.search-answer-container.border-radius-12.q-pa-12(:class='{ "bg-white": $theme === "default" }')
-  //- QUESTION
-  .col-auto
-    .row.q-gap-16.no-wrap
-      template(v-if='$theme === "default"')
-        .q-pt-xs
-          q-icon(:name='"fas fa-user"', size='20px', color='semi-transparent-primary')
-      template(v-else)
-        .bg-user-grey.flex.flex-center.round(:style='{ width: "28px", height: "28px" }')
-          km-icon(name='user', width='14', height='14')
-      .row.stretch
-        .row.stretch.no-wrap
-          .search-answer-text.stretch.km-title.q-my-4.text-pre-wrap {{ answer.prompt }}
-        template(v-if='$theme === "default"')
-          km-btn.self-start(icon='fas fa-pen', iconColor='icon', iconSize='16px', size='sm', flat, @click='refine(answer.prompt)', :tooltip='t.refine')
-        template(v-else)
-          km-btn.self-start(svgIcon='edit', iconColor='primary', iconSize='12px', size='xs', flat, @click='refine(answer.prompt)', :tooltip='t.refine')
+<script setup lang="ts">
+/**
+ * Search answer card with feedback (like / dislike), copy, and a list of
+ * source citations. Rewritten on `@ds`. Theme-conditional rendering
+ * (`$theme === 'default'` vs salesforce) is preserved via the same global
+ * property.
+ */
 
-  //- ANSWER
-  .col-auto.q-pt-md
-    .row.q-gap-16.no-wrap
-      .q-pt-xs
-        template(v-if='$theme === "default"')
-          km-icon(:name='"magnet"', width='20', height='22')
-        template(v-else)
-          .bg-primary.flex.flex-center.round(:style='{ width: "28px", height: "28px" }')
-            km-icon(name='ai', width='14', height='14')
-      .col.overflow-hidden
-        .column.border-radius-12.q-pt-8.q-pb-8
-          .row.width-100
-            .search-answer-text.stretch.km-paragraph
-              km-markdown(:source='mainAnswer.text')
-
-          //- FEEDBACK /
-          .row.q-gap-16.items-center(style='height: 40px')
-            template(v-if='$theme === "default"')
-              km-icon-btn(
-                :color='`${liked ? "primary" : "icon"}`',
-                icon='fas fa-thumbs-up',
-                iconSize='16px',
-                @click='like',
-                :disable='hasReacted',
-                v-if='uiSettings?.user_fideback'
-              )
-
-              km-icon-btn(
-                :color='`${disliked ? "primary" : "icon"}`',
-                icon='fas fa-thumbs-down',
-                iconSize='16px',
-                @click='dislike',
-                :disable='hasReacted',
-                v-if='uiSettings?.user_fideback'
-              )
-              .row(style='flex: 1 0 0; align-self: stretch')
-
-              km-btn(icon='fas fa-copy', iconSize='16px', size='sm', flat, @click='copy', :tooltip='t.copy')
-            template(v-else)
-              km-btn(
-                svgIcon='like',
-                iconColor='primary',
-                iconSize='12px',
-                size='xs',
-                flat,
-                @click='like',
-                :disable='hasReacted',
-                v-if='uiSettings?.user_fideback',
-                :class='{ "bg-like-bg border-radius-6": feedback === true }'
-              )
-              km-btn(
-                svgIcon='dislike',
-                iconColor='primary',
-                iconSize='12px',
-                size='xs',
-                flat,
-                @click='dislike',
-                :disable='hasReacted',
-                v-if='uiSettings?.user_fideback',
-                :class='{ "bg-dislike-bg border-radius-6": feedback === false }'
-              )
-              .row(style='flex: 1 0 0; align-self: stretch')
-              km-btn(svgIcon='copy', iconColor='primary', iconSize='12px', size='xs', flat, @click='copy', :tooltip='t.copy')
-
-        template(v-if='mainAnswer.hasAnswers')
-          .column.q-py-12.full-width.q-gap-8.bt-border.q-mt-sm
-            .km-description.text-grey {{ t.sourcesIntro }}
-
-            template(v-for='(source, index) in mainAnswerSources')
-              .row.q-gap-12.items-center
-                .col-auto
-                  template(v-if='$theme === "default"')
-                    q-icon(name='fas fa-video', color='secondary', v-if='source?.metadata?.type === "video"')
-                    q-icon(name='fas fa-file-pdf', color='secondary', v-else-if='source?.metadata?.type === "pdf"')
-                    q-icon(name='far fa-file-alt', color='secondary', v-else)
-                  template(v-else)
-                    km-icon.q-mt-2(name='video-file', color='secondary', v-if='source?.metadata?.type === "video"', width='18px', height='18px')
-                    km-icon.q-mt-2(name='pdf', color='secondary', v-else-if='source?.metadata?.type === "pdf"', width='18px', height='18px')
-                    km-icon.q-mt-2(name='file', color='secondary', v-else, width='18px', height='18px')
-
-                .col
-                  template(v-if='source?.metadata?.source')
-                    a.km-link-title.word-break-all.cursor-pointer(:href='source?.metadata?.source', target='_blank') {{ `${source?.metadata?.title} ${source?.metadata?.pageNumber || source?.metadata?.page ? ` | Page ${source?.metadata?.pageNumber || source?.metadata?.page} ` : ''}` }}
-
-                  template(v-else)
-                    .km-link-title.word-break-all.text-primary-text {{ source?.metadata?.title || t.unknownSource }}
-
-                .col-auto.self-start
-                  km-chip.border-radius-12.text-score-relevant-text.q-py-2(
-                    :round='$theme === "salesforce"',
-                    color='score-relevant',
-                    :label='score(source.score)',
-                    label-class='km-small-chip',
-                    :class='{ "ba-border": $theme === "salesforce" }',
-                    :tooltip='`Score: ${score(source.score)}`'
-                  )
-              template(v-if='source?.metadata?.type === "video"')
-                .row.width-100.q-px-24
-                  .relative-position.q-mt-sm.border-radius-12.overflow-hidden.q-mb-16(style='width: 100%; padding-bottom: 60%')
-                    iframe.absolute-full(
-                      width='100%',
-                      height='100%',
-                      frameborder='0',
-                      scrolling='no',
-                      allowfullscreen,
-                      :src='source?.metadata?.source'
-                    )
-</template>
-
-<script lang="ts">
-import { copyToClipboard } from 'quasar'
+import { computed, getCurrentInstance, ref } from 'vue'
+import { copyToClipboard } from '@ds/utils/clipboard'
 import { notify } from '@shared/utils/notify'
-
-import { ref } from 'vue'
+import KmBtn from '@ds/components/domain/KmBtn.vue'
+import KmChip from '@ds/components/domain/KmChip.vue'
+import KmGlyph from '@ds/components/domain/KmGlyph.vue'
+import KmIcon from '@ds/components/domain/KmIcon.vue'
+import KmIconBtn from '@ds/components/domain/KmIconBtn.vue'
+import KmMarkdown from '@ds/components/domain/KmMarkdown.vue'
+import SearchFeedback from './Feedback.vue'
+import SearchFeedbackConfirm from './FeedbackConfirm.vue'
 
 const DEFAULT_T = {
   refine: 'Refine',
@@ -141,103 +25,306 @@ const DEFAULT_T = {
   sourcesIntro: 'The answer was found using information from the following articles:',
 }
 
-export default {
-  props: {
-    answer: {},
-    uiSettings: {},
-    t: {
-      type: Object,
-      default: () => DEFAULT_T,
-    },
-  },
-  emits: ['refine'],
-  setup() {
-    const showFeedback = ref(false)
-    const showFeedbackConfirm = ref(false)
-    const feedback = ref(null)
-    return { showFeedback, showFeedbackConfirm, feedback }
-  },
-  computed: {
-    // feedback() {
-    //   return this.answer?.user_fideback ?? {}
-    // },
-    hasReacted() {
-      return typeof this.feedback === 'boolean'
-    },
-    // hasReacted() {
-    //   return 'feedback' in this.answer && this.feedback?.like !== undefined
-    // },
+interface Source {
+  score?: number
+  content?: string
+  metadata?: { type?: string; source?: string; title?: string; pageNumber?: number; page?: number }
+}
+interface SearchAnswerData {
+  id?: string
+  prompt?: string
+  answer?: string
+  results?: Source[]
+}
 
-    // liked() {
-    //   return this.feedback?.like === true
-    // },
+const props = defineProps<{
+  answer: SearchAnswerData
+  uiSettings?: { user_fideback?: boolean }
+  t?: Record<string, string>
+}>()
 
-    // disliked() {
-    //   return this.feedback?.like === false
-    // },
+const emit = defineEmits<{
+  refine: [question: string]
+}>()
 
-    mainAnswer() {
-      return {
-        id: this.answer.id,
-        text: this.answer.answer,
-        hasAnswers: !!this.answer.results?.length,
-      }
-    },
+const theme = computed<string>(() => {
+  const proxy = getCurrentInstance()?.appContext.config.globalProperties as { $theme?: string }
+  return proxy?.$theme ?? 'default'
+})
 
-    mainAnswerSources() {
-      return this.answer.results ?? []
-    },
+const showFeedback = ref(false)
+const showFeedbackConfirm = ref(false)
+const feedback = ref<boolean | null>(null)
 
-  },
-  watch: {},
-  created() {},
-  mounted() {},
-  methods: {
-    score(text) {
-      return Number.parseFloat(text).toFixed(2)
-    },
+const mergedT = computed(() => ({ ...DEFAULT_T, ...(props.t ?? {}) }))
 
-    copy() {
-      copyToClipboard(this.mainAnswer.text || '')
-      notify.copied()
-    },
+const hasReacted = computed(() => typeof feedback.value === 'boolean')
+const liked = computed(() => feedback.value === true)
+const disliked = computed(() => feedback.value === false)
 
-    refine(question) {
-      this.$emit('refine', question)
-    },
+const mainAnswer = computed(() => ({
+  id: props.answer.id,
+  text: props.answer.answer,
+  hasAnswers: !!props.answer.results?.length,
+}))
+const mainAnswerSources = computed(() => props.answer.results ?? [])
 
-    openURL(val) {
-      window.open(val, '_blank')
-    },
+function score(text: number | string | undefined): string {
+  return Number.parseFloat(String(text ?? 0)).toFixed(2)
+}
 
-    async react({ like }) {
-      this.showFeedbackConfirm = false
-      // const res = await this.$store.dispatch('sendFeedback', {
-      //   id: this.answer.id,
-      //   like,
-      //   comment
-      // })
-      // if (res && !like && comment)
-      this.feedback = like
-      this.showFeedbackConfirm = true
-    },
-  },
+async function copy() {
+  try {
+    await copyToClipboard(mainAnswer.value.text || '')
+    notify.copied()
+  } catch {
+    notify.error('Failed to copy')
+  }
+}
+
+function refine(question: string) {
+  emit('refine', question)
+}
+
+function like() {
+  feedback.value = true
+  showFeedbackConfirm.value = true
+}
+function dislike() {
+  feedback.value = false
+  showFeedback.value = true
+}
+
+function react({ like: isLike }: { like: boolean }) {
+  showFeedbackConfirm.value = false
+  feedback.value = isLike
+  showFeedbackConfirm.value = true
 }
 </script>
-<style lang="stylus" scoped>
-.search-answer-container {
-  min-width: 450px;
-  max-width: 800px;
-  width: 100%;
+
+<template>
+  <SearchFeedback v-model:modal="showFeedback" @on-submit="react" />
+  <SearchFeedbackConfirm v-model:modal="showFeedbackConfirm" />
+
+  <article class="search-answer stack" data-gap="md" :data-theme="theme">
+    <header class="search-answer__question cluster gap-md" data-wrap="no">
+      <span v-if="theme === 'default'" class="search-answer__icon">
+        <KmGlyph name="user" size="20px" tone="brand-soft" />
+      </span>
+      <span v-else class="search-answer__avatar search-answer__avatar--user">
+        <KmGlyph name="user" size="14px" />
+      </span>
+
+      <div class="search-answer__question-body cluster gap-sm" data-wrap="no" data-justify="between">
+        <p class="search-answer__prompt">{{ answer.prompt }}</p>
+        <KmBtn
+          v-if="theme === 'default'"
+          flat
+          icon="edit"
+          icon-size="16px"
+          size="sm"
+          :tooltip="mergedT.refine"
+          @click="refine(answer.prompt ?? '')"
+        />
+        <KmBtn
+          v-else
+          flat
+          icon="edit"
+          icon-size="12px"
+          size="xs"
+          :tooltip="mergedT.refine"
+          @click="refine(answer.prompt ?? '')"
+        />
+      </div>
+    </header>
+
+    <section class="search-answer__answer cluster gap-md" data-wrap="no" data-align="start">
+      <span class="search-answer__icon">
+        <KmIcon v-if="theme === 'default'" name="magnet" width="20" height="22" />
+        <span v-else class="search-answer__avatar search-answer__avatar--ai">
+          <KmGlyph name="robot" size="14px" />
+        </span>
+      </span>
+
+      <div class="search-answer__answer-body">
+        <KmMarkdown :source="mainAnswer.text" class="search-answer__markdown" />
+
+        <div class="cluster gap-md" data-align="center">
+          <template v-if="theme === 'default'">
+            <KmIconBtn
+              v-if="uiSettings?.user_fideback"
+              icon="thumbs-up"
+              icon-size="16px"
+              :tone="liked ? 'brand' : undefined"
+              :disabled="hasReacted"
+              @click="like"
+            />
+            <KmIconBtn
+              v-if="uiSettings?.user_fideback"
+              icon="thumbs-down"
+              icon-size="16px"
+              :tone="disliked ? 'brand' : undefined"
+              :disabled="hasReacted"
+              @click="dislike"
+            />
+            <span class="search-answer__spacer" />
+            <KmBtn flat icon="copy" icon-size="16px" size="sm" :tooltip="mergedT.copy" @click="copy" />
+          </template>
+          <template v-else>
+            <KmBtn
+              v-if="uiSettings?.user_fideback"
+              flat
+              icon="thumbs-up"
+              icon-size="16px"
+              size="xs"
+              :class="{ 'search-answer__feedback-active--like': feedback === true }"
+              :disable="hasReacted"
+              @click="like"
+            />
+            <KmBtn
+              v-if="uiSettings?.user_fideback"
+              flat
+              icon="thumbs-down"
+              icon-size="16px"
+              size="xs"
+              :class="{ 'search-answer__feedback-active--dislike': feedback === false }"
+              :disable="hasReacted"
+              @click="dislike"
+            />
+            <span class="search-answer__spacer" />
+            <KmBtn flat icon="copy" icon-size="16px" size="xs" :tooltip="mergedT.copy" @click="copy" />
+          </template>
+        </div>
+
+        <div v-if="mainAnswer.hasAnswers" class="search-answer__sources stack" data-gap="sm">
+          <p class="search-answer__sources-intro">{{ mergedT.sourcesIntro }}</p>
+
+          <template v-for="(source, index) in mainAnswerSources" :key="index">
+            <div class="search-answer__source cluster gap-md" data-align="center">
+              <span class="search-answer__source-icon">
+                <template v-if="theme === 'default'">
+                  <KmGlyph
+                    :name="source.metadata?.type === 'video' ? 'video' : source.metadata?.type === 'pdf' ? 'file-pdf' : 'file-text'"
+                  />
+                </template>
+                <template v-else>
+                  <KmGlyph
+                    :name="source.metadata?.type === 'video' ? 'video' : source.metadata?.type === 'pdf' ? 'file-pdf' : 'file'"
+                    size="18px"
+                  />
+                </template>
+              </span>
+
+              <div class="search-answer__source-meta">
+                <a
+                  v-if="source.metadata?.source"
+                  class="search-answer__title"
+                  :href="source.metadata.source"
+                  target="_blank"
+                >
+                  {{ source.metadata.title }}
+                  <span v-if="source.metadata.pageNumber || source.metadata.page">
+                    | Page {{ source.metadata.pageNumber || source.metadata.page }}
+                  </span>
+                </a>
+                <span v-else class="search-answer__title search-answer__title--missing">
+                  {{ source.metadata?.title || mergedT.unknownSource }}
+                </span>
+              </div>
+
+              <KmChip tone="score" :label="score(source.score)" :tooltip="`Score: ${score(source.score)}`" />
+            </div>
+
+            <div v-if="source.metadata?.type === 'video'" class="search-answer__video-wrap">
+              <iframe
+                :src="source.metadata.source"
+                width="100%"
+                height="100%"
+                frameborder="0"
+                scrolling="no"
+                allowfullscreen
+              />
+            </div>
+          </template>
+        </div>
+      </div>
+    </section>
+  </article>
+</template>
+
+<style scoped>
+.search-answer {
+  inline-size: 100%;
+  min-inline-size: 450px;
+  max-inline-size: 800px;
+  padding: var(--ds-space-md);
+  border-radius: var(--ds-radius-xl);
+}
+.search-answer[data-theme='default'] { background: var(--ds-color-white); }
+
+@media (max-width: 500px) {
+  .search-answer { min-inline-size: unset; max-inline-size: unset; }
 }
 
-@media (max-width: 500px)
-  .search-answer-container
-    min-width: unset
-    max-width: unset
+.search-answer__icon { padding-block-start: var(--ds-space-2xs); flex: none; }
+.search-answer__avatar {
+  inline-size: 28px;
+  block-size: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.search-answer__avatar--user { background: var(--ds-color-secondary-bg); }
+.search-answer__avatar--ai    { background: var(--ds-color-primary); }
 
-.search-answer-text {
+.search-answer__question-body { flex: 1; min-inline-size: 0; }
+.search-answer__prompt {
+  font-size: var(--ds-font-size-label);
+  font-weight: var(--ds-font-weight-medium);
+  margin: 0;
+  white-space: pre-wrap;
   overflow-wrap: break-word;
-  width: 1px;
+  flex: 1;
 }
+
+.search-answer__answer-body { flex: 1; min-inline-size: 0; overflow: hidden; }
+.search-answer__markdown { overflow-wrap: break-word; }
+
+.search-answer__spacer { flex: 1 0 0; }
+
+.search-answer__sources {
+  border-block-start: 1px solid var(--ds-color-border);
+  padding-block-start: var(--ds-space-md);
+  margin-block-start: var(--ds-space-sm);
+}
+.search-answer__sources-intro {
+  font-size: var(--ds-font-size-caption);
+  color: var(--ds-color-text-grey);
+  margin: 0;
+}
+.search-answer__source { padding-block: var(--ds-space-xs); }
+.search-answer__source-icon { flex: none; align-self: flex-start; padding-block-start: var(--ds-space-2xs); }
+.search-answer__source-meta { flex: 1; min-inline-size: 0; }
+.search-answer__title {
+  font-weight: var(--ds-font-weight-semibold);
+  word-break: break-all;
+  color: var(--ds-color-primary);
+  text-decoration: none;
+}
+.search-answer__title:hover { text-decoration: underline; }
+.search-answer__title--missing { color: var(--ds-color-text-grey); }
+
+.search-answer__video-wrap {
+  inline-size: 100%;
+  margin-block-start: var(--ds-space-sm);
+  border-radius: var(--ds-radius-xl);
+  overflow: hidden;
+  position: relative;
+  padding-block-end: 60%;
+}
+.search-answer__video-wrap iframe { position: absolute; inset: 0; }
+
+.search-answer__feedback-active--like { background: var(--ds-color-like-bg); border-radius: var(--ds-radius-md); }
+.search-answer__feedback-active--dislike { background: var(--ds-color-dislike-bg); border-radius: var(--ds-radius-md); }
 </style>

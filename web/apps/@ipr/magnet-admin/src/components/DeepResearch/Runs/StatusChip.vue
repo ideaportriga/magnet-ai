@@ -1,16 +1,9 @@
-<template lang="pug">
-.status-chip
-  q-chip.q-ma-none.text-uppercase(
-    v-if="statusLabel"
-    size="sm"
-    :color="chipColor"
-    :text-color="textColor"
-    :label="statusLabel"
-  )
-    q-tooltip(v-if="tooltip", :offset="[0, 10]")
-      span {{ tooltip }}
-  span.text-grey-6(v-else)
-    | —
+<template>
+  <div class="status-chip">
+    <km-chip v-if="statusLabel" class="m-0 text-uppercase" size="sm" :tone="tone" :label="statusLabel">
+      <km-tooltip v-if="tooltip" :offset="[0, 10]"><span>{{ tooltip }}</span></km-tooltip>
+    </km-chip><span v-else class="text-grey-6">—</span>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -29,11 +22,11 @@ const statusKey = computed(() => rawStatus.value.toLowerCase())
 const statusLabel = computed(() => (rawStatus.value ? rawStatus.value.replace(/_/g, ' ') : ''))
 const tooltip = computed(() => props.row?.status_message || props.row?.error || '')
 
-const chipColor = computed(() => {
+const tone = computed(() => {
   switch (statusKey.value) {
     case 'completed':
     case 'success':
-      return 'status-ready'
+      return 'success'
     case 'running':
     case 'in_progress':
       return 'info'
@@ -42,28 +35,9 @@ const chipColor = computed(() => {
       return 'warning'
     case 'failed':
     case 'error':
-      return 'error-bg'
+      return 'danger'
     default:
-      return 'chip-accent-bg'
-  }
-})
-
-const textColor = computed(() => {
-  switch (statusKey.value) {
-    case 'completed':
-    case 'success':
-      return 'status-ready-text'
-    case 'running':
-    case 'in_progress':
-      return 'white'
-    case 'pending':
-    case 'queued':
-      return 'warning-text'
-    case 'failed':
-    case 'error':
-      return 'error-text'
-    default:
-      return 'primary'
+      return 'brand'
   }
 })
 </script>
@@ -72,6 +46,6 @@ const textColor = computed(() => {
 .status-chip {
   display: flex;
   align-items: center;
-  min-height: 24px;
+  min-block-size: 24px;
 }
 </style>

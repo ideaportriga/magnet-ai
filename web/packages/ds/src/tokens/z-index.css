@@ -1,0 +1,20 @@
+/* =============================================================================
+ * Z-INDEX TOKENS
+ * =============================================================================
+ * A small, named scale prevents z-index inflation. Keep numbers low so app
+ * code can mix freely with overlays without surprise.
+ * ============================================================================= */
+
+:root {
+  --ds-z-base: 0;
+  --ds-z-raised: 10;
+  --ds-z-sticky: 100;
+  --ds-z-overlay: 1000;
+  --ds-z-modal: 1100;
+  /* Popovers/selects/menus must outrank modals: when one is opened from
+   * inside a dialog, its portaled dropdown otherwise renders below the
+   * dialog overlay and becomes unclickable. */
+  --ds-z-popover: 1200;
+  --ds-z-toast: 1300;
+  --ds-z-tooltip: 1400;
+}

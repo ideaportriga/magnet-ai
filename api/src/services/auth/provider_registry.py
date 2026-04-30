@@ -125,6 +125,7 @@ def _discover_generic_oidc_providers(settings: object) -> dict[str, ProviderEntr
         scopes = [s.strip() for s in scopes_raw.split(",")]
         user_id_claim = os.getenv(f"{prefix}USER_ID_CLAIM", "sub")
         response_mode = os.getenv(f"{prefix}RESPONSE_MODE", "query")
+        expected_issuer = os.getenv(f"{prefix}ISSUER", "") or None
         display_name = os.getenv(
             f"{prefix}DISPLAY_NAME",
             name.replace("_", " ").title(),
@@ -142,6 +143,7 @@ def _discover_generic_oidc_providers(settings: object) -> dict[str, ProviderEntr
                     scopes=scopes,
                     user_id_claim=user_id_claim,
                     response_mode=response_mode,
+                    expected_issuer=expected_issuer,
                 )
             ),
             provider_type="oidc",
@@ -177,6 +179,7 @@ def _build_providers() -> dict[str, ProviderEntry]:
                     scopes=["openid", "profile", "email", "offline_access"],
                     user_id_claim="oid",
                     response_mode="form_post",
+                    expected_issuer=f"https://login.microsoftonline.com/{tenant}/v2.0",
                 )
             ),
             provider_type="oidc",
@@ -196,6 +199,7 @@ def _build_providers() -> dict[str, ProviderEntry]:
                     client_secret=settings.GOOGLE_OAUTH2_CLIENT_SECRET,
                     redirect_uri=f"{settings.OAUTH2_REDIRECT_BASE_URL}/api/v2/auth/sso/google/callback",
                     scopes=["openid", "profile", "email"],
+                    expected_issuer="https://accounts.google.com",
                 )
             ),
             provider_type="oidc",

@@ -1,321 +1,306 @@
-<template lang="pug">
-.row.no-wrap.overflow-hidden.full-height(v-if='loading', style='min-width: 1200px')
-  km-inner-loading(:showing='loading')
-.row.no-wrap.overflow-hidden.full-height(v-if='!loading && run', style='min-width: 1200px')
-  .col.row.no-wrap.full-height.justify-center.fit
-    .col(style='max-width: 1400px; min-width: 600px')
-      .full-height.q-pb-md.relative-position.q-px-md
-        .row.items-center.q-gap-12.no-wrap.full-width.q-mt-lg.q-mb-sm.bg-white.border-radius-8.q-py-12.q-px-16
-          .col.full-width
-            .col-auto.q-mb-lg
-              .row.items-center.q-gap-12.q-mb-xs
-                .km-heading-4.text-black Run: {{ run.id.slice(0, 8) }}
-                q-space
-                q-chip.q-ma-none.km-heading.text-uppercase(
-                  :label='run.status',
-                  :color='getStatusColor(run.status)',
-                  text-color='white'
-                )
-                q-chip.q-ma-none.km-heading.text-uppercase(
-                  v-if='configName',
-                  :label='configName',
-                  color='light'
-                )
-              .text-secondary-text Created: {{ formatDate(run.created_at) }}
-            .row.justify-between.q-gap-12.full-width
-              .col.bg-white.ba-border.border-radius-8.q-py-xs.q-px-sm
-                .text-weight-medium(style='font-size: 12px') Status
-                .text-primary.text-weight-medium(style='font-size: 16px') {{ run.status }}
-              .col.bg-white.ba-border.border-radius-8.q-py-xs.q-px-sm
-                .text-weight-medium(style='font-size: 12px') Iterations
-                .text-primary.text-weight-medium(style='font-size: 16px') {{ iterations.length }}
-              .col.bg-white.ba-border.border-radius-8.q-py-xs.q-px-sm
-                .text-weight-medium(style='font-size: 12px') Total Steps
-                .text-primary.text-weight-medium(style='font-size: 16px') {{ totalSteps }}
-              .col.bg-white.ba-border.border-radius-8.q-py-xs.q-px-sm
-                .text-weight-medium(style='font-size: 12px') Search Queries
-                .text-primary.text-weight-medium(style='font-size: 16px') {{ searchQueries.length }}
-              .col.bg-white.ba-border.border-radius-8.q-py-xs.q-px-sm
-                .text-weight-medium(style='font-size: 12px') URLs Processed
-                .text-primary.text-weight-medium(style='font-size: 16px') {{ processedUrls.length }}
-              .col.bg-white.ba-border.border-radius-8.q-py-xs.q-px-sm(v-if='totalUsage')
-                .text-weight-medium(style='font-size: 12px') Tokens
-                .text-primary.text-weight-medium(style='font-size: 16px') {{ formatTokens(totalUsage) }}
-              .col.bg-white.ba-border.border-radius-8.q-py-xs.q-px-sm(v-if='totalLatency !== null')
-                .text-weight-medium(style='font-size: 12px') Latency
-                .text-primary.text-weight-medium(style='font-size: 16px') {{ formatLatency(totalLatency) }}
-              .col.bg-white.ba-border.border-radius-8.q-py-xs.q-px-sm(v-if='totalCost !== null')
-                .text-weight-medium(style='font-size: 12px') Cost
-                .text-primary.text-weight-medium(style='font-size: 16px') {{ formatCost(totalCost) }}
-
-        .column.no-wrap.q-gap-16.full-height.full-width.overflow-auto.q-mb-md.q-mt-lg(style='max-height: calc(100vh - 260px) !important')
-          .row.q-gap-16.full-width
-            //- Final Report Section
-            .col-12(v-if='finalReport')
-              .ba-border.bg-white.border-radius-12.q-pa-lg.full-width
-                .row.items-center.q-mb-md
-                  q-icon.q-mr-sm(name='summarize', color='green', size='28px')
-                  .text-h5.text-weight-bold Final Report
-
-                .report-content.q-pa-md.bg-grey-1.border-radius-8
-                  //- Display JSON nicely or plain text
-                  template(v-if='isJsonReport')
-                    pre.q-ma-none(style='white-space: pre-wrap; word-wrap: break-word; font-family: var(--km-font-mono); font-size: 13px') {{ JSON.stringify(finalReport, null, 2) }}
-                  template(v-else)
-                    .text-body1(v-html='renderMarkdown(finalReportText)')
-
-            //- Webhook Call Section
-            .col-12(v-if='webhookCall')
-              .ba-border.bg-white.border-radius-12.q-pa-lg.full-width
-                .row.items-center.q-mb-md
-                  q-icon.q-mr-sm(name='webhook', :color='webhookCall.success ? "positive" : "negative"', size='28px')
-                  .text-h5.text-weight-bold Webhook Call
-                  q-space
-                  q-chip(
-                    :color='webhookCall.success ? "positive" : "negative"',
-                    text-color='white',
-                    :icon='webhookCall.success ? "check_circle" : "error"'
-                  ) {{ webhookCall.success ? 'Success' : 'Failed' }}
-
-                .q-gutter-md
-                  .row.items-center
-                    .col-3.text-weight-medium.text-grey-8 Timestamp:
-                    .col {{ formatDate(webhookCall.timestamp) }}
-                  
-                  .row.items-center
-                    .col-3.text-weight-medium.text-grey-8 API Server:
-                    .col {{ webhookCall.api_server }}
-                  
-                  .row.items-center
-                    .col-3.text-weight-medium.text-grey-8 API Tool:
-                    .col {{ webhookCall.api_tool }}
-                  
-                  .row.items-start(v-if='webhookCall.request_payload')
-                    .col-3.text-weight-medium.text-grey-8 Request:
-                    .col
-                      q-expansion-item.bg-grey-1.border-radius-8(
-                        dense,
-                        :label='m.common_viewPayload()',
-                        icon='code'
-                      )
-                        q-card.q-mt-xs
-                          q-card-section.bg-grey-2
-                            pre.q-ma-none(style='white-space: pre-wrap; word-wrap: break-word; font-family: var(--km-font-mono); font-size: 12px') {{ JSON.stringify(webhookCall.request_payload, null, 2) }}
-                  
-                  .row.items-start(v-if='webhookCall.response_body')
-                    .col-3.text-weight-medium.text-grey-8 Response:
-                    .col
-                      .row.items-center.q-mb-xs(v-if='webhookCall.response_status')
-                        .text-caption.text-grey-7 Status: {{ webhookCall.response_status }}
-                      q-expansion-item.bg-grey-1.border-radius-8(
-                        dense,
-                        :label='m.common_viewResponse()',
-                        icon='description'
-                      )
-                        q-card.q-mt-xs
-                          q-card-section.bg-grey-2
-                            pre.q-ma-none(style='white-space: pre-wrap; word-wrap: break-word; font-family: var(--km-font-mono); font-size: 12px') {{ JSON.stringify(webhookCall.response_body, null, 2) }}
-                  
-                  .row.items-start(v-if='webhookCall.error_message')
-                    .col-3.text-weight-medium.text-grey-8 Error:
-                    .col
-                      q-banner.bg-negative.text-white.rounded-borders.q-pa-sm
-                        .text-caption {{ webhookCall.error_message }}
-
-            //- Input Section
-            .col-12
-              q-expansion-item.ba-border.bg-white.border-radius-12(
-                default-opened,
-                icon='input',
-                :label='m.common_input()',
-                header-class='text-h6 text-weight-bold q-pa-md'
-              )
-                q-card.q-ma-md
-                  q-card-section.bg-grey-2
-                    pre.q-ma-none {{ JSON.stringify(run.input, null, 2) }}
-
-            //- Search Queries Section
-            .col-12(v-if='searchQueries.length > 0')
-              q-expansion-item.ba-border.bg-white.border-radius-12(
-                icon='search',
-                :label='`Search Queries (${searchQueries.length})`',
-                header-class='text-h6 text-weight-bold q-pa-md'
-              )
-                .q-pa-md
-                  .row.q-gutter-sm
-                    q-chip(
-                      v-for='(query, index) in searchQueries',
-                      :key='index',
-                      color='primary',
-                      text-color='white',
-                      icon='search'
-                    ) {{ query }}
-
-            //- Iterations & Steps Section
-            .col-12(v-if='iterations.length > 0')
-              .ba-border.bg-white.border-radius-12.q-pa-lg.full-width
-                .row.items-center.q-mb-md
-                  q-icon.q-mr-sm(name='timeline', color='primary', size='28px')
-                  .text-h5.text-weight-bold Research Timeline
-
-                q-timeline(color='primary')
-                  q-timeline-entry(
-                    v-for='(iteration, iterIndex) in iterations',
-                    :key='iterIndex',
-                    :title='`Iteration ${iterIndex}`',
-                    :subtitle='`${iteration.steps.length} steps`',
-                    icon='layers'
-                  )
-                    .q-mt-sm(v-for='(step, stepIndex) in iteration.steps', :key='stepIndex')
-                      q-expansion-item.q-mb-sm(
-                        :default-opened='shouldExpandStep(step)',
-                        :header-class='getStepHeaderClass(step)'
-                      )
-                        template(v-slot:header)
-                          .row.items-center.full-width.q-py-xs
-                            q-icon.q-mr-md(
-                              :name='getStepIcon(step.type)',
-                              :color='step.error ? "negative" : getStepIconColor(step.type)',
-                              size='24px'
-                            )
-                            .col
-                              .text-weight-bold {{ formatStepType(step.type) }}
-                              .text-caption.text-grey-7 {{ step.title }}
-                            .text-caption.text-secondary.q-mr-md(v-if='step.timestamp') {{ formatTime(step.timestamp) }}
-
-                        q-card.q-ma-sm(:class='step.error ? "bg-red-1" : "bg-grey-1"')
-                          q-card-section
-                            //- Step Title
-                            .text-body1.text-weight-medium.q-mb-md(v-if='step.title')
-                              | {{ step.title }}
-
-                            //- Error Display
-                            .q-mb-md(v-if='step.error')
-                              q-banner.bg-negative.text-white.rounded-borders
-                                template(v-slot:avatar)
-                                  q-icon(name='error', color='white')
-                                .text-weight-bold {{ step.error }}
-
-                            //- Step Details by Type
-                            .step-details
-                              //- Reasoning Step
-                              template(v-if='step.type === "reasoning" && step.details')
-                                .q-mb-sm
-                                  .text-weight-bold.text-grey-8 Decided Action:
-                                  q-chip.q-mt-xs(
-                                    :color='step.details.decided_action === "search" ? "blue" : "green"',
-                                    text-color='white'
-                                  ) {{ step.details.decided_action }}
-
-                              //- Search Step
-                              template(v-if='step.type === "search" && step.details')
-                                .q-mb-sm
-                                  .text-weight-bold.text-grey-8 Query:
-                                  q-chip.q-mt-xs(color='primary', text-color='white', icon='search')
-                                    | {{ step.details.query }}
-                                .row.q-gutter-sm
-                                  .col
-                                    .text-caption.text-grey-7 Results Found
-                                    .text-h6.text-primary {{ step.details.results_count || 0 }}
-                                  .col
-                                    .text-caption.text-grey-7 New Results
-                                    .text-h6.text-green {{ step.details.new_results_count || 0 }}
-
-                              //- Analyze Results Step
-                              template(v-if='step.type === "analyze_results" && step.details')
-                                .row.q-gutter-sm.q-mb-md
-                                  .col
-                                    .text-caption.text-grey-7 Analyzed
-                                    .text-h6.text-blue {{ step.details.analyzed_count || 0 }}
-                                  .col
-                                    .text-caption.text-grey-7 Relevant
-                                    .text-h6.text-green {{ step.details.relevant_count || 0 }}
-                                .q-mb-sm(v-if='step.details.relevant_urls && step.details.relevant_urls.length > 0')
-                                  .text-weight-bold.text-grey-8.q-mb-xs Relevant URLs:
-                                  .q-gutter-xs
-                                    q-chip(
-                                      v-for='(url, idx) in step.details.relevant_urls',
-                                      :key='idx',
-                                      size='sm',
-                                      color='green',
-                                      text-color='white',
-                                      clickable,
-                                      icon='check_circle',
-                                      @click='openUrl(url)'
-                                    ) {{ truncateUrl(url) }}
-
-                              //- Process Page Step
-                              template(v-if='step.type === "process_page" && step.details')
-                                .q-mb-sm(v-if='step.details.page_title')
-                                  .text-weight-bold.text-grey-8 Page Title:
-                                  .q-pa-sm.bg-white.border-radius-4.q-mt-xs
-                                    | {{ step.details.page_title }}
-                                .q-mb-sm(v-if='step.details.url')
-                                  .text-weight-bold.text-grey-8 URL:
-                                  q-chip.q-mt-xs(
-                                    color='blue-grey',
-                                    text-color='white',
-                                    clickable,
-                                    icon='link',
-                                    @click='openUrl(step.details.url)'
-                                  ) {{ truncateUrl(step.details.url) }}
-                                .q-mb-sm(v-if='step.details.summary')
-                                  .text-weight-bold.text-grey-8 Extracted Information:
-                                  .q-pa-md.bg-white.border-radius-4.q-mt-xs.summary-text
-                                    | {{ step.details.summary }}
-
-                            //- Step Metrics (Latency, Cost, Usage)
-                            .row.q-gutter-sm.q-mt-md(v-if='step.latency || step.cost || step.usage')
-                              q-separator.q-mb-sm
-                              .col-12
-                                .text-caption.text-grey-7.q-mb-xs Performance Metrics
-                              .col-auto(v-if='step.latency')
-                                q-chip(size='sm', color='blue-grey-2', text-color='blue-grey-8', icon='schedule')
-                                  | {{ formatLatency(step.latency) }}
-                              .col-auto(v-if='step.cost')
-                                q-chip(size='sm', color='green-2', text-color='green-8', icon='attach_money')
-                                  | {{ formatCost(step.cost) }}
-                              .col-auto(v-if='step.usage')
-                                q-chip(size='sm', color='orange-2', text-color='orange-8', icon='analytics')
-                                  | {{ formatTokens(step.usage) }}
-
-            //- Processed URLs Section
-            .col-12(v-if='processedUrls.length > 0')
-              q-expansion-item.ba-border.bg-white.border-radius-12(
-                icon='fact_check',
-                :label='`Processed URLs (${processedUrls.length})`',
-                header-class='text-h6 text-weight-bold q-pa-md'
-              )
-                .q-pa-md
-                  q-list.bg-grey-1.border-radius-8(separator)
-                    q-item(
-                      v-for='(url, idx) in processedUrls',
-                      :key='idx',
-                      clickable,
-                      @click='openUrl(url)'
-                    )
-                      q-item-section(avatar)
-                        q-icon(name='article', color='primary')
-                      q-item-section
-                        q-item-label {{ url }}
-                      q-item-section(side)
-                        q-icon(name='open_in_new', color='grey')
-
-            //- Error Section
-            .col-12(v-if='run.error')
-              .ba-border.bg-white.border-radius-12.q-pa-lg.full-width
-                q-banner.bg-negative.text-white.rounded-borders
-                  template(v-slot:avatar)
-                    q-icon(name='error', color='white', size='32px')
-                  .text-h6.q-mb-sm Error
-                  .text-body1 {{ run.error }}
+<template>
+  <div v-if="loading" class="cluster overflow-hidden full-height deep-research-run__viewport" data-wrap="no">
+    <km-inner-loading :showing="loading" />
+  </div>
+  <div v-if="!loading &amp;&amp; run" class="cluster overflow-hidden full-height deep-research-run__viewport" data-wrap="no">
+    <div class="flex flex-1 full-height fit deep-research-run__shell">
+      <div class="flex-1 deep-research-run__column">
+        <div class="full-height pb-md relative-position px-md">
+          <div class="cluster full-width mt-lg mb-sm bg-white border-radius-8 py-md px-lg" data-gap="md" data-wrap="no">
+            <div class="flex-1 full-width">
+              <div class="flex-none mb-lg">
+                <div class="cluster mb-xs" data-gap="md">
+                  <div class="km-heading-4 text-black">Run: {{ run.id.slice(0, 8) }}</div>
+                  <div class="km-space" />
+                  <km-chip class="m-0 km-heading text-uppercase" :label="run.status" :tone="getStatusTone(run.status)" />
+                  <km-chip v-if="configName" class="m-0 km-heading text-uppercase" :label="configName" tone="neutral" />
+                </div>
+                <div class="text-secondary-text">Created: {{ formatDate(run.created_at) }}</div>
+              </div>
+              <div class="deep-research-run__stats-grid">
+                <div class="bg-white ba-border border-radius-8 py-xs px-sm">
+                  <div class="text-weight-medium deep-research-run__stat-label">Status</div>
+                  <div class="text-primary text-weight-medium deep-research-run__stat-value">{{ run.status }}</div>
+                </div>
+                <div class="bg-white ba-border border-radius-8 py-xs px-sm">
+                  <div class="text-weight-medium deep-research-run__stat-label">Iterations</div>
+                  <div class="text-primary text-weight-medium deep-research-run__stat-value">{{ iterations.length }}</div>
+                </div>
+                <div class="bg-white ba-border border-radius-8 py-xs px-sm">
+                  <div class="text-weight-medium deep-research-run__stat-label">Total Steps</div>
+                  <div class="text-primary text-weight-medium deep-research-run__stat-value">{{ totalSteps }}</div>
+                </div>
+                <div class="bg-white ba-border border-radius-8 py-xs px-sm">
+                  <div class="text-weight-medium deep-research-run__stat-label">Search Queries</div>
+                  <div class="text-primary text-weight-medium deep-research-run__stat-value">{{ searchQueries.length }}</div>
+                </div>
+                <div class="bg-white ba-border border-radius-8 py-xs px-sm">
+                  <div class="text-weight-medium deep-research-run__stat-label">URLs Processed</div>
+                  <div class="text-primary text-weight-medium deep-research-run__stat-value">{{ processedUrls.length }}</div>
+                </div>
+                <div v-if="totalUsage" class="bg-white ba-border border-radius-8 py-xs px-sm">
+                  <div class="text-weight-medium deep-research-run__stat-label">Tokens</div>
+                  <div class="text-primary text-weight-medium deep-research-run__stat-value">{{ formatTokens(totalUsage) }}</div>
+                </div>
+                <div v-if="totalLatency !== null" class="bg-white ba-border border-radius-8 py-xs px-sm">
+                  <div class="text-weight-medium deep-research-run__stat-label">Latency</div>
+                  <div class="text-primary text-weight-medium deep-research-run__stat-value">{{ formatLatency(totalLatency) }}</div>
+                </div>
+                <div v-if="totalCost !== null" class="bg-white ba-border border-radius-8 py-xs px-sm">
+                  <div class="text-weight-medium deep-research-run__stat-label">Cost</div>
+                  <div class="text-primary text-weight-medium deep-research-run__stat-value">{{ formatCost(totalCost) }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="stack full-height full-width overflow-auto mb-md mt-lg deep-research-run__scroll" data-gap="lg">
+            <div class="cluster full-width" data-gap="lg">
+              <div v-if="finalReport" class="full-width">
+                <div class="ba-border bg-white border-radius-12 p-lg full-width">
+                  <div class="cluster mb-md">
+                    <km-glyph class="mr-sm" name="summarize" tone="success" size="28px" />
+                    <div class="text-h5 text-weight-bold">Final Report</div>
+                  </div>
+                  <div class="report-content p-md bg-grey-1 border-radius-8">
+                    <template v-if="isJsonReport">
+                      <pre class="m-0 deep-research-run__pre">{{ JSON.stringify(finalReport, null, 2) }}</pre>
+                    </template>
+                    <template v-else>
+                      <div class="text-body1" v-html="renderMarkdown(finalReportText)" />
+                    </template>
+                  </div>
+                </div>
+              </div>
+              <div v-if="webhookCall" class="full-width">
+                <div class="ba-border bg-white border-radius-12 p-lg full-width">
+                  <div class="cluster mb-md">
+                    <km-glyph class="mr-sm" name="webhook" :tone="webhookCall.success ? &quot;success&quot; : &quot;danger&quot;" size="28px" />
+                    <div class="text-h5 text-weight-bold">Webhook Call</div>
+                    <div class="km-space" />
+                    <km-chip :tone="webhookCall.success ? &quot;success&quot; : &quot;danger&quot;" :icon="webhookCall.success ? &quot;check&quot; : &quot;error&quot;">{{ webhookCall.success ? 'Success' : 'Failed' }}</km-chip>
+                  </div>
+                  <div class="gap-md">
+                    <div class="cluster">
+                      <div class="deep-research-run__meta-label flex-none text-weight-medium text-grey-8">Timestamp:</div>
+                      <div class="deep-research-run__meta-value flex-1">{{ formatDate(webhookCall.timestamp) }}</div>
+                    </div>
+                    <div class="cluster">
+                      <div class="deep-research-run__meta-label flex-none text-weight-medium text-grey-8">API Server:</div>
+                      <div class="deep-research-run__meta-value flex-1">{{ webhookCall.api_server }}</div>
+                    </div>
+                    <div class="cluster">
+                      <div class="deep-research-run__meta-label flex-none text-weight-medium text-grey-8">API Tool:</div>
+                      <div class="deep-research-run__meta-value flex-1">{{ webhookCall.api_tool }}</div>
+                    </div>
+                    <div v-if="webhookCall.request_payload" class="cluster" data-align="start">
+                      <div class="deep-research-run__meta-label flex-none text-weight-medium text-grey-8">Request:</div>
+                      <div class="deep-research-run__meta-value flex-1">
+                        <km-expansion-item class="bg-grey-1 border-radius-8" dense :label="m.common_viewPayload()" icon="code">
+                          <km-card class="mt-xs">
+                            <div class="km-card-section bg-grey-2">
+                              <pre class="m-0 deep-research-run__pre deep-research-run__pre--sm">{{ JSON.stringify(webhookCall.request_payload, null, 2) }}</pre>
+                            </div>
+                          </km-card>
+                        </km-expansion-item>
+                      </div>
+                    </div>
+                    <div v-if="webhookCall.response_body" class="cluster" data-align="start">
+                      <div class="deep-research-run__meta-label flex-none text-weight-medium text-grey-8">Response:</div>
+                      <div class="deep-research-run__meta-value flex-1">
+                        <div v-if="webhookCall.response_status" class="cluster mb-xs">
+                          <div class="text-caption text-grey-7">Status: {{ webhookCall.response_status }}</div>
+                        </div>
+                        <km-expansion-item class="bg-grey-1 border-radius-8" dense :label="m.common_viewResponse()" icon="file-text">
+                          <km-card class="mt-xs">
+                            <div class="km-card-section bg-grey-2">
+                              <pre class="m-0 deep-research-run__pre deep-research-run__pre--sm">{{ JSON.stringify(webhookCall.response_body, null, 2) }}</pre>
+                            </div>
+                          </km-card>
+                        </km-expansion-item>
+                      </div>
+                    </div>
+                    <div v-if="webhookCall.error_message" class="cluster" data-align="start">
+                      <div class="deep-research-run__meta-label flex-none text-weight-medium text-grey-8">Error:</div>
+                      <div class="deep-research-run__meta-value flex-1">
+                        <km-banner>
+                          <div class="text-caption">{{ webhookCall.error_message }}</div>
+                        </km-banner>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="full-width">
+                <km-expansion-item class="ba-border bg-white border-radius-12" default-opened icon="input" :label="m.common_input()" header-class="text-h6 text-weight-bold p-md">
+                  <km-card class="m-md">
+                    <div class="km-card-section bg-grey-2">
+                      <pre class="m-0">{{ JSON.stringify(run.input, null, 2) }}</pre>
+                    </div>
+                  </km-card>
+                </km-expansion-item>
+              </div>
+              <div v-if="searchQueries.length &gt; 0" class="full-width">
+                <km-expansion-item class="ba-border bg-white border-radius-12" icon="search" :label="`Search Queries (${searchQueries.length})`" header-class="text-h6 text-weight-bold p-md">
+                  <div class="p-md">
+                    <div class="cluster" data-gap="sm">
+                      <km-chip v-for="(query, index) in searchQueries" :key="index" tone="brand" icon="search">{{ query }}</km-chip>
+                    </div>
+                  </div>
+                </km-expansion-item>
+              </div>
+              <div v-if="iterations.length &gt; 0" class="full-width">
+                <div class="ba-border bg-white border-radius-12 p-lg full-width">
+                  <div class="cluster mb-md">
+                    <km-glyph class="mr-sm" name="timeline" tone="brand" size="28px" />
+                    <div class="text-h5 text-weight-bold">Research Timeline</div>
+                  </div>
+                  <km-timeline>
+                    <km-timeline-entry v-for="(iteration, iterIndex) in iterations" :key="iterIndex" :title="`Iteration ${iterIndex}`" :subtitle="`${iteration.steps.length} steps`" icon="layers">
+                      <div v-for="(step, stepIndex) in iteration.steps" :key="stepIndex" class="mt-sm">
+                        <km-expansion-item class="mb-sm" :default-opened="shouldExpandStep(step)" :header-class="getStepHeaderClass(step)">
+                          <template #header>
+                            <div class="cluster full-width py-xs">
+                              <km-glyph class="mr-md" :name="getStepIcon(step.type)" :tone="step.error ? &quot;danger&quot; : getStepIconTone(step.type)" size="24px" />
+                              <div class="flex-1">
+                                <div class="text-weight-bold">{{ formatStepType(step.type) }}</div>
+                                <div class="text-caption text-grey-7">{{ step.title }}</div>
+                              </div>
+                              <div v-if="step.timestamp" class="text-caption text-secondary mr-md">{{ formatTime(step.timestamp) }}</div>
+                            </div>
+                          </template>
+                          <km-card class="m-sm" :class="step.error ? &quot;bg-red-1&quot; : &quot;bg-grey-1&quot;">
+                            <div class="km-card-section">
+                              <div v-if="step.title" class="text-body1 text-weight-medium mb-md">{{ step.title }}</div>
+                              <div v-if="step.error" class="mb-md">
+                                <km-banner>
+                                  <template #avatar>
+                                    <km-glyph name="error" tone="inverse" />
+                                  </template>
+                                  <div class="text-weight-bold">{{ step.error }}</div>
+                                </km-banner>
+                              </div>
+                              <div class="step-details">
+                                <template v-if="step.type === &quot;reasoning&quot; &amp;&amp; step.details">
+                                  <div class="mb-sm">
+                                    <div class="text-weight-bold text-grey-8">Decided Action:</div>
+                                    <km-chip class="mt-xs" :tone="step.details.decided_action === &quot;search&quot; ? &quot;info&quot; : &quot;success&quot;">{{ step.details.decided_action }}</km-chip>
+                                  </div>
+                                </template>
+                                <template v-if="step.type === &quot;search&quot; &amp;&amp; step.details">
+                                  <div class="mb-sm">
+                                    <div class="text-weight-bold text-grey-8">Query:</div>
+                                    <km-chip class="mt-xs" tone="brand" icon="search">{{ step.details.query }}</km-chip>
+                                  </div>
+                                  <div class="cluster" data-gap="sm">
+                                    <div class="flex-1">
+                                      <div class="text-caption text-grey-7">Results Found</div>
+                                      <div class="text-h6 text-primary">{{ step.details.results_count || 0 }}</div>
+                                    </div>
+                                    <div class="flex-1">
+                                      <div class="text-caption text-grey-7">New Results</div>
+                                      <div class="text-h6 text-green">{{ step.details.new_results_count || 0 }}</div>
+                                    </div>
+                                  </div>
+                                </template>
+                                <template v-if="step.type === &quot;analyze_results&quot; &amp;&amp; step.details">
+                                  <div class="cluster mb-md" data-gap="sm">
+                                    <div class="flex-1">
+                                      <div class="text-caption text-grey-7">Analyzed</div>
+                                      <div class="text-h6 text-blue">{{ step.details.analyzed_count || 0 }}</div>
+                                    </div>
+                                    <div class="flex-1">
+                                      <div class="text-caption text-grey-7">Relevant</div>
+                                      <div class="text-h6 text-green">{{ step.details.relevant_count || 0 }}</div>
+                                    </div>
+                                  </div>
+                                  <div v-if="step.details.relevant_urls &amp;&amp; step.details.relevant_urls.length &gt; 0" class="mb-sm">
+                                    <div class="text-weight-bold text-grey-8 mb-xs">Relevant URLs:</div>
+                                    <div class="gap-xs">
+                                      <km-chip v-for="(url, idx) in step.details.relevant_urls" :key="idx" size="sm" tone="success" clickable icon="check" @click="openUrl(url)">{{ truncateUrl(url) }}</km-chip>
+                                    </div>
+                                  </div>
+                                </template>
+                                <template v-if="step.type === &quot;process_page&quot; &amp;&amp; step.details">
+                                  <div v-if="step.details.page_title" class="mb-sm">
+                                    <div class="text-weight-bold text-grey-8">Page Title:</div>
+                                    <div class="p-sm bg-white border-radius-4 mt-xs">{{ step.details.page_title }}</div>
+                                  </div>
+                                  <div v-if="step.details.url" class="mb-sm">
+                                    <div class="text-weight-bold text-grey-8">URL:</div>
+                                    <km-chip class="mt-xs" tone="neutral-strong" clickable icon="link" @click="openUrl(step.details.url)">{{ truncateUrl(step.details.url) }}</km-chip>
+                                  </div>
+                                  <div v-if="step.details.summary" class="mb-sm">
+                                    <div class="text-weight-bold text-grey-8">Extracted Information:</div>
+                                    <div class="p-md bg-white border-radius-4 mt-xs summary-text">{{ step.details.summary }}</div>
+                                  </div>
+                                </template>
+                              </div>
+                              <div v-if="step.latency || step.cost || step.usage" class="cluster mt-md" data-gap="sm">
+                                <km-separator class="mb-sm" />
+                                <div class="full-width">
+                                  <div class="text-caption text-grey-7 mb-xs">Performance Metrics</div>
+                                </div>
+                                <div v-if="step.latency" class="flex-none">
+                                  <km-chip size="sm" tone="neutral" icon="clock">{{ formatLatency(step.latency) }}</km-chip>
+                                </div>
+                                <div v-if="step.cost" class="flex-none">
+                                  <km-chip size="sm" tone="success" icon="attach_money">{{ formatCost(step.cost) }}</km-chip>
+                                </div>
+                                <div v-if="step.usage" class="flex-none">
+                                  <km-chip size="sm" tone="warning" icon="analytics">{{ formatTokens(step.usage) }}</km-chip>
+                                </div>
+                              </div>
+                            </div>
+                          </km-card>
+                        </km-expansion-item>
+                      </div>
+                    </km-timeline-entry>
+                  </km-timeline>
+                </div>
+              </div>
+              <div v-if="processedUrls.length &gt; 0" class="full-width">
+                <km-expansion-item class="ba-border bg-white border-radius-12" icon="clipboard-check" :label="`Processed URLs (${processedUrls.length})`" header-class="text-h6 text-weight-bold p-md">
+                  <div class="p-md">
+                    <ul class="km-list bg-grey-1 border-radius-8" separator>
+                      <li v-for="(url, idx) in processedUrls" :key="idx" class="km-item" clickable @click="openUrl(url)">
+                        <div class="km-item-section" avatar>
+                          <km-glyph name="file-text" tone="brand" />
+                        </div>
+                        <div class="km-item-section">
+                          <span class="km-item-label">{{ url }}</span>
+                        </div>
+                        <div class="km-item-section" side>
+                          <km-glyph name="external-link" tone="muted" />
+                        </div>
+                      </li>
+                    </ul>
+                  </div>
+                </km-expansion-item>
+              </div>
+              <div v-if="run.error" class="full-width">
+                <div class="ba-border bg-white border-radius-12 p-lg full-width">
+                  <km-banner>
+                    <template #avatar>
+                      <km-glyph name="error" tone="inverse" size="32px" />
+                    </template>
+                    <div class="text-h6 mb-sm">Error</div>
+                    <div class="text-body1">{{ run.error }}</div>
+                  </km-banner>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onActivated } from 'vue'
 import { m } from '@/paraglide/messages'
 import { useRoute } from 'vue-router'
-import { date, openURL } from 'quasar'
+import { DateTime } from 'luxon'
 import { useDeepResearchStore } from '@/stores/deepResearchStore'
 
 const drStore = useDeepResearchStore()
@@ -510,7 +495,7 @@ const totalUsage = computed(() => {
 
 const formatDate = (dateStr: string) => {
   if (!dateStr) return 'N/A'
-  return date.formatDate(new Date(dateStr), 'YYYY-MM-DD HH:mm:ss')
+  return DateTime.fromJSDate(new Date(dateStr)).toFormat('yyyy-MM-dd HH:mm:ss')
 }
 
 const formatTokens = (usage: any) => {
@@ -544,7 +529,7 @@ const formatCost = (cost: number) => {
 
 const formatTime = (dateStr: string) => {
   if (!dateStr) return 'N/A'
-  return date.formatDate(new Date(dateStr), 'HH:mm:ss')
+  return DateTime.fromJSDate(new Date(dateStr)).toFormat('HH:mm:ss')
 }
 
 const formatStepType = (type: string) => {
@@ -552,14 +537,14 @@ const formatStepType = (type: string) => {
   return formatted.charAt(0).toUpperCase() + formatted.slice(1)
 }
 
-const getStatusColor = (status: string) => {
-  const colors: Record<string, string> = {
-    pending: 'orange',
-    running: 'blue',
-    completed: 'green',
-    failed: 'red',
+const getStatusTone = (status: string) => {
+  const tones: Record<string, string> = {
+    pending: 'warning',
+    running: 'info',
+    completed: 'success',
+    failed: 'danger',
   }
-  return colors[status] || 'grey'
+  return tones[status] || 'neutral'
 }
 
 // Simple markdown renderer (basic support)
@@ -598,14 +583,14 @@ const getStepIcon = (stepType: string) => {
   return icons[stepType] || 'check_circle'
 }
 
-const getStepIconColor = (stepType: string) => {
-  const colors: Record<string, string> = {
-    reasoning: 'purple',
-    search: 'blue',
-    analyze_results: 'orange',
-    process_page: 'green',
+const getStepIconTone = (stepType: string) => {
+  const tones: Record<string, string> = {
+    reasoning: 'context',
+    search: 'info',
+    analyze_results: 'warning',
+    process_page: 'success',
   }
-  return colors[stepType] || 'primary'
+  return tones[stepType] || 'brand'
 }
 
 const getStepHeaderClass = (step: any) => {
@@ -641,7 +626,7 @@ const truncateUrl = (url: string, maxLength = 50) => {
 
 const openUrl = (url: string) => {
   if (url) {
-    openURL(url)
+    window.open(url, '_blank', 'noopener,noreferrer')
   }
 }
 
@@ -677,24 +662,24 @@ onActivated(async () => {
 pre {
   white-space: pre-wrap;
   word-wrap: break-word;
-  font-family: var(--km-font-mono);
-  font-size: var(--km-font-size-caption);
+  font-family: var(--ds-font-mono);
+  font-size: var(--ds-font-size-caption);
 }
 
 .report-content {
-  border-left: 4px solid #1976d2;
-  transition: all 0.3s ease;
+  border-left: 4px solid var(--ds-color-info-solid);
+  transition: border-left-color var(--ds-duration-slow) var(--ds-ease-out);
 
   &.bg-red-1 {
-    border-left-color: #c10015;
+    border-left-color: var(--ds-color-danger-solid);
   }
 
   &.bg-orange-1 {
-    border-left-color: #f2c037;
+    border-left-color: var(--ds-color-warning-solid);
   }
 
   &.bg-green-1 {
-    border-left-color: #21ba45;
+    border-left-color: var(--ds-color-success-solid);
   }
 }
 
@@ -704,43 +689,66 @@ pre {
   word-wrap: break-word;
 }
 
-.source-chip {
-  max-width: 400px;
+.deep-research-run__viewport {
+  min-inline-size: 1200px;
+}
 
-  :deep(.q-chip__content) {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
+.deep-research-run__column {
+  max-inline-size: 1400px;
+  min-inline-size: 600px;
+}
+
+.deep-research-run__scroll {
+  max-block-size: calc(100vh - 260px);
+}
+
+.deep-research-run__stat-label {
+  font-size: var(--ds-font-size-xs);
+}
+
+.deep-research-run__stat-value {
+  font-size: var(--ds-font-size-body-lg);
+}
+
+.deep-research-run__pre {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-family: var(--ds-font-mono);
+  font-size: var(--ds-font-size-label);
+}
+
+.deep-research-run__pre--sm {
+  font-size: var(--ds-font-size-xs);
+}
+
+.deep-research-run__shell {
+  justify-content: center;
+  flex-wrap: nowrap;
+}
+
+.deep-research-run__stats-grid {
+  display: grid;
+  gap: var(--ds-space-md);
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.deep-research-run__meta-label {
+  flex: 0 0 25%;
+  max-inline-size: 25%;
+}
+
+.deep-research-run__meta-value {
+  min-inline-size: 0;
 }
 
 .step-details {
-  font-size: var(--km-font-size-body);
+  font-size: var(--ds-font-size-body);
 }
 
 .summary-text {
   line-height: 1.6;
   white-space: pre-wrap;
   word-wrap: break-word;
-}
-
-:deep(.q-expansion-item__container) {
-  .q-expansion-item__toggle-icon {
-    transition: transform 0.3s ease;
-  }
-}
-
-:deep(.q-timeline__entry) {
-  padding-bottom: 24px;
-}
-
-:deep(.q-card) {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  transition: box-shadow 0.3s ease;
-
-  &:hover {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  }
 }
 
 .border-radius-4 {

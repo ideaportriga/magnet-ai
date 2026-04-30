@@ -1,5 +1,5 @@
-<template lang="pug">
-q-icon(v-if='row?.[name]', name='fas fa-check')
+<template>
+  <km-glyph v-if="row?.[name]" name="check" />
 </template>
 <script>
 import { defineComponent } from 'vue'

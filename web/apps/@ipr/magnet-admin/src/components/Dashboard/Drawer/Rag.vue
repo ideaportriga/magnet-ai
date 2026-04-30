@@ -1,110 +1,119 @@
-<template lang="pug">
-km-drawer-layout(v-if='!!selectedRow', storageKey='drawer-dashboard-rag')
-  template(#tabs)
-    .q-pt-16.q-px-16
-      .row.no-wrap.full-width.items-center
-        q-tabs.bb-border.full-width(
-          v-model='tab',
-          narrow-indicator,
-          dense,
-          align='left',
-          active-color='primary',
-          indicator-color='primary',
-          active-bg-color='white',
-          no-caps,
-          content-class='km-tabs'
-        )
-          template(v-for='t in tabs')
-            q-tab(:name='t.name', :label='t.label')
-        q-btn.q-ml-sm(icon='close', flat, dense, @click='$emit("close")')
-  template(v-if='tab == "details"')
-    .column.q-gap-16
-      .col-6
-        .km-description.text-secondary-text.q-pb-6 Tool Name
-        .row.q-gap-8.items-center
-          .km-label {{ selectedRow?.name }}
-          q-icon.cursor-pointer(name='fa fa-external-link', color='secondary', size='10', @click='openRag', v-if='selectedRow?.feature_id')
-          km-chip.text-grey.q-ml-sm(:label='variant', color='in-progress')
-      .col-6
-        .km-description.text-secondary-text.q-pb-6 Consumer type
-        .row.q-gap-8.items-center
-          .km-label {{ selectedRow?.source ?? '-' }}
-      .col-6
-        .km-description.text-secondary-text.q-pb-6 Request Time
-        .row
-          .km-label {{ time }}
-      .col-6
-        .km-description.text-secondary-text.q-pb-6 Question
-        .row
-          .km-label {{ selectedRow?.extra_data?.question ?? '-' }}
-      .col-6
-        .km-description.text-secondary-text.q-pb-6 Response
-        .row
-          dashboard-markdown(:source='selectedRow?.extra_data?.answer ?? "-"')
-  template(v-if='tab == "costs"')
-    .column.q-gap-16
-      .col-6
-        .km-description.text-secondary-text.q-pb-6 Cost
-        .row
-          .km-label {{ cost }}
-      .col-6
-        .km-description.text-secondary-text.q-pb-6 Latency
-        .row
-          .km-label {{ duration }}
-  template(v-if='tab == "insights"')
-    .column.q-gap-16
-      .km-button-text.bb-border.q-pb-4 Post-processing results
-      .col-6
-        .km-description.text-secondary-text Topic
-        .row
-          km-input.full-width(v-model='item.extra_data.topic')
-      .col-6
-        .km-description.text-secondary-text Language
-        .row
-          km-input.full-width(v-model='item.extra_data.language')
-      .col-6
-        .km-description.text-secondary-text Answered
-        .row
-          km-select.full-width(v-model='answered', :options='answeredOptions')
-      .col-6(v-if='!this.item?.extra_data?.is_answered')
-        .km-description.text-secondary-text.q-pb-6 Not answered reason
-        .row
-          km-select.full-width(v-model='answerReason', :options='resolutionOptions')
-      .km-button-text.bb-border.q-pb-4 User satisfaction
-      .col-6
-        .km-description.text-secondary-text User feedback
-        .row
-          .km-label.text-capitalize {{ selectedRow?.extra_data?.answer_feedback?.type ?? '-' }}
-      .col-6
-        .km-description.text-secondary-text Feedback reason
-        .row
-          .km-label.text-capitalize {{ dislikeReason }}
-      .col-6
-        .km-description.text-secondary-text Feedback comment
-        .row
-          .km-label {{ selectedRow?.extra_data?.answer_feedback?.comment ?? '-' }}
-      .col-6
-        .km-description.text-secondary-text Copied
-        .row
-          .km-label {{ selectedRow?.extra_data?.answer_copy ? 'Yes' : 'No' }}
-      .km-button-text.bb-border.q-pb-4 Substandard Result analysis
-      .col-6
-        .km-description.text-secondary-text Substandard Result Reason
-        .row
-          km-select.full-width(v-model='resultReason', :options='substandartResultReasons')
-      .col-6
-        .km-description.text-secondary-text Comment
-        .row.km-textarea-relaxed
-          km-input.full-width.q-pb-16(autogrow, :rows='3', type='textarea', v-model='item.extra_data.comment')
-  template(#footer)
-    .row.items-center.q-pa-16.justify-between.bt-border(v-if='selectedRow?.trace_id || isUpdated')
-      .row.items-center.q-gap-8.cursor-pointer(@click='openDetails', v-if='selectedRow?.trace_id')
-        km-btn(flat, label='View trace', icon='fa fa-external-link', color='secondary-text', labelClass='km-button-text', iconSize='16px')
-
-      .col-auto
-      .row.items-center.q-gap-8
-        km-btn.self-end(:label='m.common_cancel()', @click='cancelUpdate', v-if='isUpdated', flat)
-        km-btn.self-end(:label='m.common_update()', @click='updateAnalytics', v-if='isUpdated')
+<template>
+  <km-drawer-layout v-if="!!selectedRow" storage-key="drawer-dashboard-rag">
+    <template #tabs>
+      <div class="pt-lg px-lg">
+        <div class="cluster" data-wrap="no">
+          <km-tabs v-model="tab" class="bb-border full-width" narrow-indicator dense align="left" no-caps content-class="km-tabs">
+            <template v-for="t in tabs" :key="t">
+              <km-tab :name="t.name" :label="t.label" />
+            </template>
+          </km-tabs>
+          <km-btn class="ml-sm" icon="close" flat dense @click="$emit(&quot;close&quot;)" />
+        </div>
+      </div>
+    </template>
+    <template v-if="tab == &quot;details&quot;">
+      <div class="dashboard-rag-drawer__grid">
+        <div>
+          <div class="km-description text-secondary-text pb-sm">Tool Name</div>
+          <div class="cluster" data-gap="sm">
+            <div class="km-label">{{ selectedRow?.name }}</div>
+            <km-glyph v-if="selectedRow?.feature_id" class="cursor-pointer" name="external-link" size="10" @click="openRag" />
+            <km-chip class="text-grey ml-sm" :label="variant" tone="neutral" />
+          </div>
+        </div>
+        <div>
+          <div class="km-description text-secondary-text pb-sm">Consumer type</div>
+          <div class="km-label">{{ selectedRow?.source ?? '-' }}</div>
+        </div>
+        <div>
+          <div class="km-description text-secondary-text pb-sm">Request Time</div>
+          <div class="km-label">{{ time }}</div>
+        </div>
+        <div>
+          <div class="km-description text-secondary-text pb-sm">Question</div>
+          <div class="km-label">{{ selectedRow?.extra_data?.question ?? '-' }}</div>
+        </div>
+        <div>
+          <div class="km-description text-secondary-text pb-sm">Response</div>
+          <dashboard-markdown :source="selectedRow?.extra_data?.answer ?? &quot;-&quot;" />
+        </div>
+      </div>
+    </template>
+    <template v-if="tab == &quot;costs&quot;">
+      <div class="dashboard-rag-drawer__grid">
+        <div>
+          <div class="km-description text-secondary-text pb-sm">Cost</div>
+          <div class="km-label">{{ cost }}</div>
+        </div>
+        <div>
+          <div class="km-description text-secondary-text pb-sm">Latency</div>
+          <div class="km-label">{{ duration }}</div>
+        </div>
+      </div>
+    </template>
+    <template v-if="tab == &quot;insights&quot;">
+      <div class="dashboard-rag-drawer__grid">
+        <div class="dashboard-rag-drawer__section-title km-button-text bb-border pb-xs">Post-processing results</div>
+        <div>
+          <div class="km-description text-secondary-text">Topic</div>
+          <km-input v-model="item.extra_data.topic" class="full-width" />
+        </div>
+        <div>
+          <div class="km-description text-secondary-text">Language</div>
+          <km-input v-model="item.extra_data.language" class="full-width" />
+        </div>
+        <div>
+          <div class="km-description text-secondary-text">Answered</div>
+          <km-select v-model="answered" class="full-width" :options="answeredOptions" />
+        </div>
+        <div v-if="!item?.extra_data?.is_answered">
+          <div class="km-description text-secondary-text pb-sm">Not answered reason</div>
+          <km-select v-model="answerReason" class="full-width" :options="resolutionOptions" />
+        </div>
+        <div class="dashboard-rag-drawer__section-title km-button-text bb-border pb-xs">User satisfaction</div>
+        <div>
+          <div class="km-description text-secondary-text">User feedback</div>
+          <div class="km-label text-capitalize">{{ selectedRow?.extra_data?.answer_feedback?.type ?? '-' }}</div>
+        </div>
+        <div>
+          <div class="km-description text-secondary-text">Feedback reason</div>
+          <div class="km-label text-capitalize">{{ dislikeReason }}</div>
+        </div>
+        <div>
+          <div class="km-description text-secondary-text">Feedback comment</div>
+          <div class="km-label">{{ selectedRow?.extra_data?.answer_feedback?.comment ?? '-' }}</div>
+        </div>
+        <div>
+          <div class="km-description text-secondary-text">Copied</div>
+          <div class="km-label">{{ selectedRow?.extra_data?.answer_copy ? 'Yes' : 'No' }}</div>
+        </div>
+        <div class="dashboard-rag-drawer__section-title km-button-text bb-border pb-xs">Substandard Result analysis</div>
+        <div>
+          <div class="km-description text-secondary-text">Substandard Result Reason</div>
+          <km-select v-model="resultReason" class="full-width" :options="substandartResultReasons" />
+        </div>
+        <div>
+          <div class="km-description text-secondary-text">Comment</div>
+          <div class="km-textarea-relaxed">
+            <km-input v-model="item.extra_data.comment" class="full-width pb-lg" autogrow :rows="3" type="textarea" />
+          </div>
+        </div>
+      </div>
+    </template>
+    <template #footer>
+      <div v-if="selectedRow?.trace_id || isUpdated" class="cluster" data-justify="between">
+        <div v-if="selectedRow?.trace_id" class="cluster cursor-pointer" data-gap="sm" @click="openDetails">
+          <km-btn flat label="View trace" icon="external-link" tone="subtle" label-class="km-button-text" icon-size="16px" />
+        </div>
+        <div class="km-space" />
+        <div class="cluster" data-gap="sm">
+          <km-btn v-if="isUpdated" class="self-end" :label="m.common_cancel()" flat @click="cancelUpdate" />
+          <km-btn v-if="isUpdated" class="self-end" :label="m.common_update()" @click="updateAnalytics" />
+        </div>
+      </div>
+    </template>
+  </km-drawer-layout>
 </template>
 <script>
 import _ from 'lodash'
@@ -270,3 +279,21 @@ export default {
   },
 }
 </script>
+
+<style scoped>
+.dashboard-rag-drawer__grid {
+  display: grid;
+  gap: var(--ds-space-lg);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.dashboard-rag-drawer__section-title {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 767px) {
+  .dashboard-rag-drawer__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style>

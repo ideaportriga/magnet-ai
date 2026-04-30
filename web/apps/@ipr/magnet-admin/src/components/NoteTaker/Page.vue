@@ -1,42 +1,30 @@
-<template lang="pug">
-.column.no-wrap.full-height
-  .collection-container.q-mx-auto.full-width.column.full-height.q-px-md.q-pt-16
-
-    //- ── Tabs ───────────────────────────────────────────────
-    q-tabs.bb-border.q-mb-md(
-      v-model='tab',
-      narrow-indicator,
-      dense,
-      align='left',
-      active-color='primary',
-      indicator-color='primary',
-      no-caps,
-      content-class='km-tabs'
-    )
-      q-tab(name='configurations', :label='m.common_configurations()')
-      q-tab(name='providers', :label='m.noteTaker_botProviders()')
-
-    //- ── Configurations tab ─────────────────────────────────
-    template(v-if='tab === "configurations"')
-      .col.ba-border.border-radius-12.bg-white.q-pa-16.column(style='min-height: 0')
-        .row.q-mb-12
-          .col-auto.center-flex-y
-            km-input(:placeholder='m.common_search()', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
-          q-space
-          .col-auto.center-flex-y
-            km-btn.q-mr-12(:label='m.common_new()', @click='showNewDialog = true')
-        .col(style='min-height: 0')
-          km-data-table(
-            fill-height,
-            :table='table',
-            row-key='key',
-            @row-click='openDetails'
-          )
-
-    //- ── Providers tab ──────────────────────────────────────
-    note-taker-providers(v-if='tab === "providers"')
-
-    note-taker-create-new(:showNewDialog='showNewDialog', @cancel='showNewDialog = false', @created='onConfigCreated')
+<template>
+  <div class="stack full-height" data-gap="0">
+    <div class="collection-container mx-auto full-width stack full-height px-md pt-lg" data-gap="0">
+      <km-tabs v-model="tab" class="bb-border mb-md" narrow-indicator dense align="left" no-caps content-class="km-tabs">
+        <km-tab name="configurations" :label="m.common_configurations()" />
+        <km-tab name="providers" :label="m.noteTaker_botProviders()" />
+      </km-tabs>
+      <template v-if="tab === &quot;configurations&quot;">
+        <div class="flex-1 ba-border border-radius-12 bg-white p-lg stack" style="min-block-size: 0" data-gap="0">
+          <div class="cluster mb-md">
+            <div class="flex-none center-flex-y">
+              <km-input :placeholder="m.common_search()" icon-before="search" :model-value="globalFilter" clearable @input="globalFilter = $event" />
+            </div>
+            <div class="km-space" />
+            <div class="flex-none center-flex-y">
+              <km-btn class="mr-md" :label="m.common_new()" @click="showNewDialog = true" />
+            </div>
+          </div>
+          <div class="flex-1" style="min-block-size: 0">
+            <km-data-table fill-height :table="table" row-key="key" @row-click="openDetails" />
+          </div>
+        </div>
+      </template>
+      <note-taker-providers v-if="tab === &quot;providers&quot;" />
+      <note-taker-create-new :show-new-dialog="showNewDialog" @cancel="showNewDialog = false" @created="onConfigCreated" />
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -69,7 +57,7 @@ const BotStatusChip = markRaw({
         color: value.client_id ? 'positive' : 'grey-4',
         textColor: value.client_id ? 'white' : 'grey-7',
         dense: true,
-        icon: 'smart_toy',
+        icon: 'robot',
       }, value.client_id ? 'Configured' : 'Not set')
     }
   },

@@ -1,12 +1,12 @@
-<template lang="pug">
-auth-login-page(
-  v-if='auth.client',
-  :auth-client='auth.client',
-  :providers='providers',
-  :signup-enabled='signupEnabled',
-  @success='onSuccess',
-  @navigate='onNavigate'
-)
+<template>
+  <auth-login-page
+    v-if="auth.client"
+    :auth-client="auth.client"
+    :providers="providers"
+    :signup-enabled="signupEnabled"
+    @success="onSuccess"
+    @navigate="onNavigate"
+  />
 </template>
 
 <script setup>

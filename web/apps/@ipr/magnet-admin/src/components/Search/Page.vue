@@ -1,35 +1,56 @@
-<template lang="pug">
-.row.no-wrap.full-height.justify-center.q-pa-16.fit.relative-position.bl-border
-  .column.search-container
-    .col
-      .column.full-height.q-pb-md.relative-position
-        template(v-if='uiSettings?.header_configuration?.header')
-          .row.justify-center.q-pb-12.q-pt-md.q-gap-2.items-center.full-width.text-center
-            .km-heading-5 {{ uiSettings?.header_configuration?.header }}
-          .row.justify-center.q-pb-12.q-gap-2.items-center.full-width(v-if='uiSettings?.header_configuration?.sub_header')
-            .km-heading-2.text-center.q-pb-16 {{ uiSettings?.header_configuration?.sub_header }}
-        search-prompt.q-mt-md(@onLoad='scrollTop', ref='prompt', hideCollectionPicker, @searchRagExecute='handleSearchRagExecute', :t='{ placeholder: m.placeholder_typeQuestionHere() }')
-        template(v-if='isShowHints')
-          .row.items-center
-            .col.km-heading-3 {{ m.common_youCanAskLikeThis() }}
-            .col-auto
-              km-btn(flat, color='primary', @click='showHints = false')
-                .km-button-text {{ m.common_dontShowHints() }}
-          template(v-for='(item, index) in sampleQuestion', :key='index')
-            km-btn(flat, @click='refine(item)')
-              .wrapped-text {{ item }}
-        template(v-if='answers.length || loading')
-          q-scroll-area.full-height.col(ref='scroll')
-            .column.q-gap-16
-              template(v-if='loading')
-                .row.justify-center.ba-border.border-radius-12.bg-white.q-pa-16.q-gap-16
-                  q-spinner-dots(size='62px', color='primary')
-              template(v-for='answer in answers')
-                search-answer(:answer='answer', @refine='refine')
-    q-separator.q-mb-xs
-    .col-auto
-      .row.items-center
-        km-btn(flat, simple, :label='m.common_clearPreview()', iconSize='16px', icon='fas fa-eraser', @click='clearAnswers', :disable='!answers?.length')
+<template>
+  <div class="cluster full-height p-lg fit relative-position bl-border" data-wrap="no" data-justify="center">
+    <div class="stack search-container">
+      <div class="flex-1">
+        <div class="stack full-height pb-md relative-position">
+          <template v-if="uiSettings?.header_configuration?.header">
+            <div class="cluster pb-md pt-md full-width text-center" data-justify="center" data-gap="xs">
+              <div class="km-heading-5">{{ uiSettings?.header_configuration?.header }}</div>
+            </div>
+            <div v-if="uiSettings?.header_configuration?.sub_header" class="cluster pb-md full-width" data-justify="center" data-gap="xs">
+              <div class="km-heading-2 text-center pb-lg">{{ uiSettings?.header_configuration?.sub_header }}</div>
+            </div>
+          </template>
+          <search-prompt ref="prompt" class="mt-md" hide-collection-picker :t="{ placeholder: m.placeholder_typeQuestionHere() }" @on-load="scrollTop" @search-rag-execute="handleSearchRagExecute" />
+          <template v-if="isShowHints">
+            <div class="cluster">
+              <div class="flex-1 km-heading-3">{{ m.common_youCanAskLikeThis() }}</div>
+              <div class="flex-none">
+                <km-btn flat tone="brand" @click="showHints = false">
+                  <div class="km-button-text">{{ m.common_dontShowHints() }}</div>
+                </km-btn>
+              </div>
+            </div>
+            <template v-for="(item, index) in sampleQuestion" :key="index">
+              <km-btn flat @click="refine(item)">
+                <div class="wrapped-text">{{ item }}</div>
+              </km-btn>
+            </template>
+          </template>
+          <template v-if="answers.length || loading">
+            <km-scroll-area ref="scroll" class="full-height flex-1">
+              <div class="stack" data-gap="lg">
+                <template v-if="loading">
+                  <div class="cluster ba-border border-radius-12 bg-white p-lg" data-justify="center" data-gap="lg">
+                    <km-loader size="62px" />
+                  </div>
+                </template>
+                <template v-for="answer in answers" :key="answer">
+                  <search-answer :answer="answer" @refine="refine" />
+                </template>
+              </div>
+            </km-scroll-area>
+          </template>
+        </div>
+      </div>
+      <km-separator class="mb-xs" />
+      <div class="flex-none">
+        <div class="cluster">
+          <km-btn flat simple :label="m.common_clearPreview()" icon-size="16px" icon="eraser" :disable="!answers?.length" @click="clearAnswers" />
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script>
@@ -115,10 +136,10 @@ export default {
 }
 </script>
 
-<style lang="stylus" scoped>
+<style scoped>
 .search-container {
-  min-width: 450px;
-  max-width: 800px;
-  width: 100%;
+  min-inline-size: 450px;
+  max-inline-size: 800px;
+  inline-size: 100%;
 }
 </style>

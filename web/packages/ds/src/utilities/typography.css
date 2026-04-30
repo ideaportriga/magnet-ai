@@ -1,0 +1,164 @@
+/* =============================================================================
+ * Typography utilities
+ * =============================================================================
+ * Class names mirror Quasar's text utilities so the codemod step doesn't have
+ * to rename every occurrence. The values, however, are pulled from `--ds-*`
+ * tokens — once the codemod runs we own this scale entirely.
+ * ============================================================================= */
+
+/* ---------- Family ---------- */
+.font-sans { font-family: var(--ds-font-default); }
+.font-mono { font-family: var(--ds-font-mono); }
+
+/* ---------- Size ---------- */
+.text-xs       { font-size: var(--ds-font-size-xs); }
+.text-sm       { font-size: var(--ds-font-size-sm); }
+.text-caption  { font-size: var(--ds-font-size-caption); }
+.text-label    { font-size: var(--ds-font-size-label); }
+.text-display  { font-size: var(--ds-font-size-display); }
+/* `.text-body` and `.text-body-lg` live in the role utilities below — they
+ * apply the full size + line-height + weight + tracking recipe instead of
+ * only setting `font-size`. */
+
+/* Headings — legacy 9-step scale. Visually identical to pre-Phase-1 output;
+ * kept untouched so existing screens don't shift. New code SHOULD use the
+ * role-based utilities below (`.text-heading-*`, `.text-body`, `.text-ui`,
+ * etc.) which add tracking and decouple size from role. */
+.text-h1 { font-size: var(--ds-font-size-h1); font-weight: var(--ds-font-weight-semibold); line-height: var(--ds-line-height-tight); }
+.text-h2 { font-size: var(--ds-font-size-h2); font-weight: var(--ds-font-weight-semibold); line-height: var(--ds-line-height-snug); }
+.text-h3 { font-size: var(--ds-font-size-body-lg); font-weight: var(--ds-font-weight-semibold); line-height: var(--ds-line-height-snug); }
+.text-h4 { font-size: var(--ds-font-size-body); font-weight: var(--ds-font-weight-semibold); line-height: var(--ds-line-height-normal); }
+.text-h5 { font-size: var(--ds-font-size-label); font-weight: var(--ds-font-weight-semibold); line-height: var(--ds-line-height-normal); }
+.text-h6 { font-size: var(--ds-font-size-caption); font-weight: var(--ds-font-weight-semibold); line-height: var(--ds-line-height-normal); }
+
+/* ---------- Role utilities (new, Phase 1) ----------
+ * One class per semantic intent. Each class applies the four role sub-tokens
+ * defined in `tokens/typography.css`, so a theme can re-skin the recipe by
+ * overriding the role variables. */
+.text-display-lg {
+  font-size:      var(--ds-text-display-lg-size);
+  line-height:    var(--ds-text-display-lg-line-height);
+  font-weight:    var(--ds-text-display-lg-weight);
+  letter-spacing: var(--ds-text-display-lg-tracking);
+}
+
+.text-display-md {
+  font-size:      var(--ds-text-display-md-size);
+  line-height:    var(--ds-text-display-md-line-height);
+  font-weight:    var(--ds-text-display-md-weight);
+  letter-spacing: var(--ds-text-display-md-tracking);
+}
+
+.text-heading-lg {
+  font-size:      var(--ds-text-heading-lg-size);
+  line-height:    var(--ds-text-heading-lg-line-height);
+  font-weight:    var(--ds-text-heading-lg-weight);
+  letter-spacing: var(--ds-text-heading-lg-tracking);
+}
+
+.text-heading-md {
+  font-size:      var(--ds-text-heading-md-size);
+  line-height:    var(--ds-text-heading-md-line-height);
+  font-weight:    var(--ds-text-heading-md-weight);
+  letter-spacing: var(--ds-text-heading-md-tracking);
+}
+
+.text-heading-sm {
+  font-size:      var(--ds-text-heading-sm-size);
+  line-height:    var(--ds-text-heading-sm-line-height);
+  font-weight:    var(--ds-text-heading-sm-weight);
+  letter-spacing: var(--ds-text-heading-sm-tracking);
+}
+
+.text-heading-xs {
+  font-size:      var(--ds-text-heading-xs-size);
+  line-height:    var(--ds-text-heading-xs-line-height);
+  font-weight:    var(--ds-text-heading-xs-weight);
+  letter-spacing: var(--ds-text-heading-xs-tracking);
+}
+
+.text-body-lg {
+  font-size:      var(--ds-text-body-lg-size);
+  line-height:    var(--ds-text-body-lg-line-height);
+  font-weight:    var(--ds-text-body-lg-weight);
+  letter-spacing: var(--ds-text-body-lg-tracking);
+}
+
+.text-body {
+  font-size:      var(--ds-text-body-size);
+  line-height:    var(--ds-text-body-line-height);
+  font-weight:    var(--ds-text-body-weight);
+  letter-spacing: var(--ds-text-body-tracking);
+}
+
+.text-ui {
+  font-size:      var(--ds-text-ui-size);
+  line-height:    var(--ds-text-ui-line-height);
+  font-weight:    var(--ds-text-ui-weight);
+  letter-spacing: var(--ds-text-ui-tracking);
+}
+
+.text-overline {
+  font-size:       var(--ds-text-overline-size);
+  line-height:     var(--ds-text-overline-line-height);
+  font-weight:     var(--ds-text-overline-weight);
+  letter-spacing:  var(--ds-text-overline-tracking);
+  text-transform:  uppercase;
+}
+
+.text-mono {
+  font-family:    var(--ds-font-mono);
+  font-size:      var(--ds-text-mono-size);
+  line-height:    var(--ds-text-mono-line-height);
+  font-weight:    var(--ds-text-mono-weight);
+  letter-spacing: var(--ds-text-mono-tracking);
+}
+
+/* OpenType helpers — opt in tabular figures for tables, metrics, charts. */
+.tabular-nums { font-feature-settings: var(--ds-font-feature-numeric); }
+
+/* ---------- Weight ---------- */
+.font-regular  { font-weight: var(--ds-font-weight-regular); }
+.font-medium   { font-weight: var(--ds-font-weight-medium); }
+.font-semibold { font-weight: var(--ds-font-weight-semibold); }
+.font-bold     { font-weight: var(--ds-font-weight-bold); }
+
+/* ---------- Line height ---------- */
+.leading-none    { line-height: var(--ds-line-height-none); }
+.leading-tight   { line-height: var(--ds-line-height-tight); }
+.leading-snug    { line-height: var(--ds-line-height-snug); }
+.leading-normal  { line-height: var(--ds-line-height-normal); }
+.leading-relaxed { line-height: var(--ds-line-height-relaxed); }
+
+/* ---------- Alignment ---------- */
+.text-left     { text-align: left; }
+.text-center   { text-align: center; }
+.text-right    { text-align: right; }
+.text-justify  { text-align: justify; }
+.text-start    { text-align: start; }
+.text-end      { text-align: end; }
+
+/* ---------- Decoration / transform ---------- */
+.uppercase   { text-transform: uppercase; }
+.lowercase   { text-transform: lowercase; }
+.capitalize  { text-transform: capitalize; }
+.normal-case { text-transform: none; }
+
+.no-underline { text-decoration: none; }
+.underline    { text-decoration: underline; }
+.line-through { text-decoration: line-through; }
+
+/* ---------- Whitespace / overflow ---------- */
+.whitespace-normal   { white-space: normal; }
+.whitespace-nowrap   { white-space: nowrap; }
+.whitespace-pre      { white-space: pre; }
+.whitespace-pre-wrap { white-space: pre-wrap; }
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.break-words { overflow-wrap: break-word; }
+.break-all   { word-break: break-all; }

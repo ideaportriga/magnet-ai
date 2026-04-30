@@ -1,44 +1,23 @@
-<template lang="pug">
-div
-  .row.q-gap-8.justify-end
-    .col-auto.center-flex-y
-      km-input(:placeholder='m.common_search()', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
-    q-space
-    km-btn.q-mr-12(
-      v-if='selectedRows.length > 0',
-      icon='delete',
-      :label='m.common_delete()',
-      iconColor='icon',
-      hoverColor='primary',
-      labelClass='km-title',
-      flat,
-      iconSize='16px',
-      hoverBg='primary-bg',
-      @click='showDeleteDialog = true'
-    )
-    km-btn(:label='m.collections_autoMap()', @click='autoMap')
-    km-btn(:label='m.common_new()', @click='showNewDialog = true')
-
-  .row
-    km-data-table(
-      :table='table',
-      row-key='id',
-      :activeRowId='activeMetadataConfig?.id',
-      @row-click='selectRecord'
-    )
-
-  collections-metadata-new-record(v-if='showNewDialog', :showNewDialog='showNewDialog', @cancel='showNewDialog = false')
-
-  km-popup-confirm(
-    :visible='showDeleteDialog',
-    :confirmButtonLabel='m.common_delete()',
-    :cancelButtonLabel='m.common_cancel()',
-    notificationIcon='fas fa-triangle-exclamation',
-    @confirm='deleteSelected',
-    @cancel='showDeleteDialog = false'
-  )
-    .row.item-center.justify-center.km-heading-7 {{ m.collections_deleteMetadataRecords() }}
-    .row.text-center.justify-center {{ m.agents_deleteConfirmMessage({ count: selectedRows?.length ?? 0 }) }}
+<template>
+  <div>
+    <div class="cluster" data-gap="sm" data-justify="end">
+      <div class="flex-none center-flex-y">
+        <km-input :placeholder="m.common_search()" icon-before="search" :model-value="globalFilter" clearable @input="globalFilter = $event" />
+      </div>
+      <div class="km-space" />
+      <km-btn v-if="selectedRows.length &gt; 0" class="mr-md" icon="delete" :label="m.common_delete()" interaction-tone="brand" label-class="km-title" flat icon-size="16px" @click="showDeleteDialog = true" />
+      <km-btn :label="m.collections_autoMap()" @click="autoMap" />
+      <km-btn :label="m.common_new()" @click="showNewDialog = true" />
+    </div>
+    <div class="cluster">
+      <km-data-table :table="table" row-key="id" :active-row-id="activeMetadataConfig?.id" @row-click="selectRecord" />
+    </div>
+    <collections-metadata-new-record v-if="showNewDialog" :show-new-dialog="showNewDialog" @cancel="showNewDialog = false" />
+    <km-popup-confirm :visible="showDeleteDialog" :confirm-button-label="m.common_delete()" :cancel-button-label="m.common_cancel()" notification-icon="warning" @confirm="deleteSelected" @cancel="showDeleteDialog = false">
+      <div class="cluster" data-justify="center">{{ m.collections_deleteMetadataRecords() }}</div>
+      <div class="cluster text-center" data-justify="center">{{ m.agents_deleteConfirmMessage({ count: selectedRows?.length ?? 0 }) }}</div>
+    </km-popup-confirm>
+  </div>
 </template>
 
 <script setup lang="ts">

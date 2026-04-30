@@ -44,11 +44,17 @@ export function getComponentList(components) {
             )
           )
         : relativePath.startsWith('shared')
-          ? upperFirst(
+          ? // Strip the leading `shared/` segment so files at any depth
+            // inside `components/shared/` get a stable kebab/PascalCase
+            // name. Previous code used `slice(2)` which silently produced
+            // an empty name for files directly under `shared/` (e.g.
+            // `shared/KmListPage.vue` → '' → never registered, Vue then
+            // fails to resolve `<km-list-page>`).
+            upperFirst(
               camelCase(
                 relativePath
                   .split('/')
-                  .slice(2)
+                  .slice(1)
                   .join('/')
                   .replace(/^(.*)\.\w+$/, `$1`)
               )

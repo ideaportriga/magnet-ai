@@ -1,92 +1,103 @@
-<template lang="pug">
-div
-  div(v-show='!loading')
-    km-section(:title='m.collections_scheduledJobInfo()', :subTitle='m.collections_scheduledJobSubtitle()')
-      //- No job_id exists - show create button
-      template(v-if='!jobId')
-        .row.items-center.justify-center
-          .col-auto
-            .km-heading-3 {{ m.collections_noJobScheduled() }}
-        .row.items-center.justify-center
-          .col-auto
-            .km-label.q-mb-sm {{ m.collections_createJobDescription() }}
-        .row.items-center.justify-center
-          .col-auto
-            km-btn(:label='m.common_createNewJob()', @click='showNewDialog = true')
-      //- job_id exists but job not loaded yet - show loading state
-      template(v-else-if='jobId && !job')
-        .row.items-center.justify-center
-          .col-auto
-            q-spinner(color='primary', size='24px')
-        .row.items-center.justify-center.q-mt-sm
-          .col-auto
-            .km-label {{ m.collections_loadingJobInfo() }}
-      //- Job loaded - show job info
-      template(v-else)
-        .col.q-pt-8
-          .km-input-label.q-pb-xs.q-pl-8 {{ m.collections_scheduledJob() }}
-          km-select(:disabled='true', :modelValue='jobName')
-        .row.q-mt-sm
-          .col-auto
-            km-btn(flat, simple, :label='m.collections_openJob()', iconSize='16px', icon='fas fa-comment-dots', @click='openJob')
-    q-separator.q-my-lg
-
-    template(v-if='job')
-      km-section(:title='m.collections_scheduleSettingsStatus()', :subTitle='m.collections_scheduleSettingsSubtitle()')
-        .row.q-col-gutter-md
-          .col-4
-            .km-field {{ m.common_status() }}
-            .km-label {{ jobStatus }}
-          .col-4
-            .km-field {{ m.collections_jobInterval() }}
-            .km-label {{ jobInterval }}
-          .col-4
-            .km-field {{ m.collections_startOn() }}
-            .km-label {{ startDate }}
-        .row.q-col-gutter-md.q-mt-md
-          .col-4
-            .km-field {{ m.collections_repeatAt() }}
-            .km-label {{ repeatAt }}
-          .col-4
-            .km-field {{ m.common_lastRun() }}
-            .km-label {{ formattedLastRun }}
-          .col-4
-            .km-field {{ m.common_nextRun() }}
-            .km-label {{ formattedNextRun }}
-    .q-my-lg
-    .row
-      .col-auto
-        .km-heading-4.q-mb-sm {{ m.collections_lastSyncRuns() }}
-      .col
-      .col-auto
-        km-btn.q-mr-12(
-          icon='refresh',
-          :label='m.common_refreshList()',
-          @click='refetchTraces',
-          iconColor='icon',
-          hoverColor='primary',
-          labelClass='km-title',
-          flat,
-          iconSize='16px',
-          hoverBg='primary-bg'
-        )
-    km-data-table(
-      :table='table',
-      :loading='isLoadingTraces', :fetching='isFetchingTraces',
-      row-key='id',
-      dense,
-      @row-click='openDetails',
-      style='min-width: 500px'
-    )
-km-inner-loading(:showing='loading')
-jobs-create-new(:show-new-dialog='showNewDialog', @cancel='showNewDialog = false', @finish='finish', :formDefault='formDefault')
+<template>
+  <div>
+    <div v-show="!loading">
+      <km-section :title="m.collections_scheduledJobInfo()" :sub-title="m.collections_scheduledJobSubtitle()">
+        <template v-if="!jobId">
+          <div class="cluster" data-justify="center">
+            <div>
+              <div class="km-heading-3">{{ m.collections_noJobScheduled() }}</div>
+            </div>
+          </div>
+          <div class="cluster" data-justify="center">
+            <div>
+              <div class="km-label mb-sm">{{ m.collections_createJobDescription() }}</div>
+            </div>
+          </div>
+          <div class="cluster" data-justify="center">
+            <div>
+              <km-btn :label="m.common_createNewJob()" @click="showNewDialog = true" />
+            </div>
+          </div>
+        </template>
+        <template v-else-if="jobId &amp;&amp; !job">
+          <div class="cluster" data-justify="center">
+            <div>
+              <km-loader size="24px" />
+            </div>
+          </div>
+          <div class="cluster mt-sm" data-justify="center">
+            <div>
+              <div class="km-label">{{ m.collections_loadingJobInfo() }}</div>
+            </div>
+          </div>
+        </template>
+        <template v-else>
+          <div class="pt-sm">
+            <div class="km-input-label pb-xs pl-sm">{{ m.collections_scheduledJob() }}</div>
+            <km-select :disabled="true" :model-value="jobName" />
+          </div>
+          <div class="cluster mt-sm">
+            <div class="flex-none">
+              <km-btn flat simple :label="m.collections_openJob()" icon-size="16px" icon="chat" @click="openJob" />
+            </div>
+          </div>
+        </template>
+      </km-section>
+      <km-separator class="my-lg" />
+      <template v-if="job">
+        <km-section :title="m.collections_scheduleSettingsStatus()" :sub-title="m.collections_scheduleSettingsSubtitle()">
+          <div class="collections-scheduler__stats-grid">
+            <div>
+              <div class="km-field">{{ m.common_status() }}</div>
+              <div class="km-label">{{ jobStatus }}</div>
+            </div>
+            <div>
+              <div class="km-field">{{ m.collections_jobInterval() }}</div>
+              <div class="km-label">{{ jobInterval }}</div>
+            </div>
+            <div>
+              <div class="km-field">{{ m.collections_startOn() }}</div>
+              <div class="km-label">{{ startDate }}</div>
+            </div>
+          </div>
+          <div class="collections-scheduler__stats-grid mt-md">
+            <div>
+              <div class="km-field">{{ m.collections_repeatAt() }}</div>
+              <div class="km-label">{{ repeatAt }}</div>
+            </div>
+            <div>
+              <div class="km-field">{{ m.common_lastRun() }}</div>
+              <div class="km-label">{{ formattedLastRun }}</div>
+            </div>
+            <div>
+              <div class="km-field">{{ m.common_nextRun() }}</div>
+              <div class="km-label">{{ formattedNextRun }}</div>
+            </div>
+          </div>
+        </km-section>
+      </template>
+      <div class="my-lg" />
+      <div class="cluster" data-justify="between">
+        <div class="flex-none">
+          <div class="km-heading-4 mb-sm">{{ m.collections_lastSyncRuns() }}</div>
+        </div>
+        <div class="km-space" />
+        <div class="flex-none">
+          <km-btn class="mr-md" icon="refresh" :label="m.common_refreshList()" interaction-tone="brand" label-class="km-title" flat icon-size="16px" @click="refetchTraces" />
+        </div>
+      </div>
+      <km-data-table :table="table" :loading="isLoadingTraces" :fetching="isFetchingTraces" row-key="id" dense style="min-inline-size: 500px" @row-click="openDetails" />
+    </div>
+  </div>
+  <km-inner-loading :showing="loading" />
+  <jobs-create-new :show-new-dialog="showNewDialog" :form-default="formDefault" @cancel="showNewDialog = false" @finish="finish" />
 </template>
 
 <script setup>
 import { ref, nextTick, computed, markRaw, onMounted } from 'vue'
 import { m } from '@/paraglide/messages'
 import { useRoute, useRouter } from 'vue-router'
-import { useQuasar } from 'quasar'
+import { notify } from '@ds/composables/useNotify'
 import { DateTime } from 'luxon'
 import { formatDateTime } from '@shared/utils/dateTime'
 import { formatDuration } from '@shared/utils'
@@ -99,7 +110,6 @@ import { jobRunTypeOptions } from '@/config/jobs/jobs'
 
 const route = useRoute()
 const router = useRouter()
-const q = useQuasar()
 const queries = useEntityQueries()
 const { draft, updateField, buildPayload } = useEntityDetail('collections')
 const { mutateAsync: updateCollection } = queries.collections.useUpdate()
@@ -238,7 +248,7 @@ async function save() {
       await createCollection(currentRow.value)
     }
   } catch (error) {
-    q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: m.collections_failedToSaveSchedule(), timeout: 5000 })
+    notify.error(m.collections_failedToSaveSchedule())
   } finally {
     loading.value = false
   }
@@ -309,7 +319,6 @@ function cronToHumanReadable(cron) {
   const parts = [minute || '*', hour || '*', dayField || '*', month || '*', day_of_week || '*']
   return parts.join(' ')
 }
-
 async function finish(jobResult) {
   try {
     setJobId(jobResult.job_id)
@@ -320,17 +329,14 @@ async function finish(jobResult) {
   } catch (error) {
   }
 }
-
 function navigate(path = '') {
   if (route?.path !== `/${path}`) {
     router?.push(`/${path}`)
   }
 }
-
 async function openDetails(row) {
   router.push(`/observability-traces/${row.id}`)
 }
-
 function openJob() {
   if (!jobId.value) return
   router.push({
@@ -338,7 +344,6 @@ function openJob() {
     query: { job_id: jobId.value },
   })
 }
-
 function createJob() {
   router.push({
     name: 'Jobs',
@@ -352,7 +357,19 @@ function createJob() {
 
 <style scoped>
 .empty-state {
-  min-height: 300px;
-  padding: 2rem;
+  min-block-size: 300px;
+  padding: var(--ds-space-3xl);
+}
+
+.collections-scheduler__stats-grid {
+  display: grid;
+  gap: var(--ds-space-md);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 768px) {
+  .collections-scheduler__stats-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

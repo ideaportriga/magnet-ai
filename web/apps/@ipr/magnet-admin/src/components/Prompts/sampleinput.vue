@@ -1,8 +1,10 @@
-<template lang="pug">
-div
-  km-section(:title='m.section_notes()', :subTitle='m.subtitle_storeSampleInput()')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_notes() }}
-    km-input(ref='input', rows='20', :placeholder='m.prompts_typeYourText()', border-radius='8px', height='36px', type='textarea', v-model='sampleText')
+<template>
+  <div>
+    <km-section :title="m.section_notes()" :sub-title="m.subtitle_storeSampleInput()">
+      <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.common_notes() }}</div>
+      <km-input ref="input" v-model="sampleText" rows="20" :placeholder="m.prompts_typeYourText()" border-radius="8px" height="36px" type="textarea" />
+    </km-section>
+  </div>
 </template>
 
 <script>

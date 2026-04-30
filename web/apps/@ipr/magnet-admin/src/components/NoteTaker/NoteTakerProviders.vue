@@ -1,126 +1,68 @@
-<template lang="pug">
-.q-gutter-md
-
-  //- ── Toolbar ────────────────────────────────────────────────────────
-  .row.items-center.q-mb-sm
-    .col
-      km-input(:placeholder='m.common_search()', iconBefore='search', v-model='searchString', clearable, style='max-width: 320px')
-    .col-auto
-      km-btn(:label='m.common_newProvider()', icon='add', @click='openCreate')
-
-  //- §E.1.2 — migrated from q-table to km-data-table (TanStack).
-  //- Search is driven by useLocalDataTable's globalFilter — the input
-  //- debounces into the searchString ref and flows through.
-  km-data-table(
-    :table='table',
-    row-key='id',
-    :loading='loading',
-    hide-pagination,
-    :no-records-label='m.retrieval_noExamplesYet ? m.retrieval_noExamplesYet() : "No records found"'
-  )
-    template(#cell-system_name='{ row }')
-      .row.items-center.q-gap-4.no-wrap
-        span.text-mono.km-description {{ row.system_name }}
-        q-btn(flat, dense, round, size='xs', icon='content_copy', @click.stop='copy(row.system_name)')
-          q-tooltip Copy system name
-
-    template(#cell-oauth='{ row }')
-      span {{ row.connection_config?.auth_handler_id || '—' }}
-
-    template(#cell-webhook='{ row }')
-      .row.items-center.q-gap-4.no-wrap(v-if='row.system_name')
-        span.text-mono.km-description.text-grey-7(style='font-size: 11px') {{ webhookUrl(row.system_name) }}
-        q-btn(flat, dense, round, size='xs', icon='content_copy', @click.stop='copy(webhookUrl(row.system_name))')
-          q-tooltip Copy webhook URL
-      span.text-grey-4(v-else) —
-
-    template(#cell-actions='{ row }')
-      .row.items-center.no-wrap
-        km-btn(flat, dense, icon='edit', size='sm', @click.stop='openEdit(row)')
-          q-tooltip Edit
-        km-btn(flat, dense, icon='delete', size='sm', color='negative', @click.stop='confirmDelete(row)')
-          q-tooltip Delete
-
-  //- ── Create / Edit dialog ───────────────────────────────────────────
-  km-popup-confirm(
-    :visible='showDialog',
-    :title='editingProvider ? "Edit Provider" : "New Teams Note Taker Provider"',
-    :confirmButtonLabel='m.common_save()',
-    :cancelButtonLabel='m.common_cancel()',
-    notification='Credentials are encrypted at rest.',
-    @confirm='saveProvider',
-    @cancel='closeDialog'
-  )
-    .column.q-gap-16
-      .col
-        .km-field.text-secondary-text.q-pb-xs Provider Name
-        km-input(
-          v-if='showDialog',
-          height='30px',
-          :placeholder='m.noteTaker_myTeamsBot()',
-          v-model='form.name',
-          :rules='[required()]',
-          @input='onNameInput'
-        )
-      .col
-        .km-field.text-secondary-text.q-pb-xs System Name
-        km-input(
-          height='30px',
-          :placeholder='m.noteTaker_myTeamsBotSystemName()',
-          v-model='form.system_name',
-          :rules='[required()]',
-          :disable='!!editingProvider'
-        )
-        .km-description.text-secondary-text.q-pt-2(v-if='!editingProvider') Auto-generated from name. Used in the webhook URL.
-      .col
-        .km-field.text-secondary-text.q-pb-xs Client ID (App ID)
-        km-input(
-          v-if='showDialog',
-          height='30px',
-          :placeholder='m.placeholder_uuidFormat()',
-          v-model='form.client_id'
-        )
-      .col
-        .km-field.text-secondary-text.q-pb-xs Client Secret
-        km-input(
-          v-if='showDialog',
-          height='30px',
-          type='password',
-          :placeholder='editingProvider ? m.noteTaker_leaveBlankToKeepSecret() : m.noteTaker_azureBotClientSecret()',
-          v-model='form.client_secret'
-        )
-      .col
-        .km-field.text-secondary-text.q-pb-xs Tenant ID
-        km-input(
-          v-if='showDialog',
-          height='30px',
-          :placeholder='m.placeholder_uuidFormat()',
-          v-model='form.tenant_id'
-        )
-      .col
-        .km-field.text-secondary-text.q-pb-xs OAuth Connection Name
-        km-input(
-          v-if='showDialog',
-          height='30px',
-          :placeholder='m.noteTaker_exampleRecordings()',
-          v-model='form.auth_handler_id'
-        )
-        .km-description.text-secondary-text.q-pt-2 Name of the OAuth Connection in Azure Bot Service settings.
-
-  //- ── Delete confirmation ────────────────────────────────────────────
-  km-popup-confirm(
-    :visible='showDeleteConfirm',
-    title='Delete Provider',
-    :confirmButtonLabel='m.common_delete()',
-    :cancelButtonLabel='m.common_cancel()',
-    confirm-button-color='negative',
-    @confirm='deleteProvider',
-    @cancel='showDeleteConfirm = false'
-  )
-    .km-description
-      | Are you sure you want to delete provider
-      strong.q-mx-xs {{ deletingProvider?.name }}
-      | ? This cannot be undone.
+<template>
+  <div class="gap-md">
+    <div class="cluster mb-sm">
+      <div class="flex-1">
+        <km-input v-model="searchString" :placeholder="m.common_search()" icon-before="search" clearable style="max-inline-size: 320px" />
+      </div>
+      <div class="flex-none">
+        <km-btn :label="m.common_newProvider()" icon="add" @click="openCreate" />
+      </div>
+    </div>
+    <km-data-table :table="table" row-key="id" :loading="loading" hide-pagination :no-records-label="m.retrieval_noExamplesYet ? m.retrieval_noExamplesYet() : &quot;No records found&quot;">
+      <template #cell-system_name="{ row }">
+        <div class="cluster" data-gap="xs" data-wrap="no">
+          <span class="text-mono km-description">{{ row.system_name }}</span>
+          <km-btn flat dense round size="xs" icon="copy" tooltip="Copy system name" @click.stop="copy(row.system_name)" />
+        </div>
+      </template>
+      <template #cell-oauth="{ row }"><span>{{ row.connection_config?.auth_handler_id || '—' }}</span></template>
+      <template #cell-webhook="{ row }">
+        <div v-if="row.system_name" class="cluster" data-gap="xs" data-wrap="no">
+          <span class="text-mono km-description text-grey-7" style="font-size: 11px">{{ webhookUrl(row.system_name) }}</span>
+          <km-btn flat dense round size="xs" icon="copy" tooltip="Copy webhook URL" @click.stop="copy(webhookUrl(row.system_name))" />
+        </div><span v-else class="text-grey-4">—</span>
+      </template>
+      <template #cell-actions="{ row }">
+        <div class="cluster" data-wrap="no">
+          <km-btn flat dense icon="edit" size="sm" tooltip="Edit" @click.stop="openEdit(row)" />
+          <km-btn flat dense icon="delete" size="sm" tone="danger" tooltip="Delete" @click.stop="confirmDelete(row)" />
+        </div>
+      </template>
+    </km-data-table>
+    <km-popup-confirm :visible="showDialog" :title="editingProvider ? &quot;Edit Provider&quot; : &quot;New Teams Note Taker Provider&quot;" :confirm-button-label="m.common_save()" :cancel-button-label="m.common_cancel()" notification="Credentials are encrypted at rest." @confirm="saveProvider" @cancel="closeDialog">
+      <div class="stack" data-gap="lg">
+        <div class="flex-1">
+          <div class="km-field text-secondary-text pb-xs">Provider Name</div>
+          <km-input v-if="showDialog" v-model="form.name" height="30px" :placeholder="m.noteTaker_myTeamsBot()" :rules="[required()]" @input="onNameInput" />
+        </div>
+        <div class="flex-1">
+          <div class="km-field text-secondary-text pb-xs">System Name</div>
+          <km-input v-model="form.system_name" height="30px" :placeholder="m.noteTaker_myTeamsBotSystemName()" :rules="[required()]" :disable="!!editingProvider" />
+          <div v-if="!editingProvider" class="km-description text-secondary-text pt-2xs">Auto-generated from name. Used in the webhook URL.</div>
+        </div>
+        <div class="flex-1">
+          <div class="km-field text-secondary-text pb-xs">Client ID (App ID)</div>
+          <km-input v-if="showDialog" v-model="form.client_id" height="30px" :placeholder="m.placeholder_uuidFormat()" />
+        </div>
+        <div class="flex-1">
+          <div class="km-field text-secondary-text pb-xs">Client Secret</div>
+          <km-input v-if="showDialog" v-model="form.client_secret" height="30px" type="password" :placeholder="editingProvider ? m.noteTaker_leaveBlankToKeepSecret() : m.noteTaker_azureBotClientSecret()" />
+        </div>
+        <div class="flex-1">
+          <div class="km-field text-secondary-text pb-xs">Tenant ID</div>
+          <km-input v-if="showDialog" v-model="form.tenant_id" height="30px" :placeholder="m.placeholder_uuidFormat()" />
+        </div>
+        <div class="flex-1">
+          <div class="km-field text-secondary-text pb-xs">OAuth Connection Name</div>
+          <km-input v-if="showDialog" v-model="form.auth_handler_id" height="30px" :placeholder="m.noteTaker_exampleRecordings()" />
+          <div class="km-description text-secondary-text pt-2xs">Name of the OAuth Connection in Azure Bot Service settings.</div>
+        </div>
+      </div>
+    </km-popup-confirm>
+    <km-popup-confirm :visible="showDeleteConfirm" title="Delete Provider" :confirm-button-label="m.common_delete()" :cancel-button-label="m.common_cancel()" confirm-button-color="negative" @confirm="deleteProvider" @cancel="showDeleteConfirm = false">
+      <div class="km-description">Are you sure you want to delete provider<strong class="mx-xs">{{ deletingProvider?.name }}</strong>? This cannot be undone.</div>
+    </km-popup-confirm>
+  </div>
 </template>
 
 <script setup lang="ts">

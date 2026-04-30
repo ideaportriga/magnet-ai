@@ -1,149 +1,97 @@
-<template lang="pug">
-.column.no-wrap.full-height
-  .collection-container.q-mx-auto.full-width.column.full-height.q-px-md.q-pt-16
-    .col.ba-border.border-radius-12.bg-white.q-pa-16.column(style='min-height: 0')
-      .row.q-mb-12
-        .col-auto.center-flex-y
-          km-input(data-test='search-input', :placeholder='m.common_search()', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
-        .col-auto.center-flex-y.q-ml-md(v-if='groupBy !== "flat"')
-          .text-secondary-text.q-mr-sm {{ m.evaluation_groupBy() }}
-          km-select(
-            :options='groups',
-            v-model='groupBy',
-            bg-color='background',
-            height='30px',
-            map-options,
-            emit-value,
-            option-value='value',
-            option-label='label'
-          )
-        .col-auto.center-flex-y.q-ml-md
-          template(v-if='filterObject?.tool || filterObject?.job')
-            .text-secondary-text.q-mr-sm {{ filterObject?.tool ? m.evaluation_toolLabel() : m.evaluation_jobLabel() }}
-            q-chip.q-my-none(text-color='primary', color='primary-light', square, size='12px')
-              .row.fit.items-center
-                .col.text-center {{ filterObject?.tool ? filterObject?.tool : filterObject?.job }}
-                .col-auto.q-ml-xs
-                  q-icon.q-my-auto.cursor-pointer(name='fa fa-times', @click.stop.prevent='removeFilter')
-        q-space
-        .col-auto.center-flex-y
-          km-btn.q-mr-12(
-            v-if='groupBy == "flat"',
-            icon='fas fa-download',
-            :label='m.common_report()',
-            @click='getEvaluationReport',
-            iconColor='icon',
-            hoverColor='primary',
-            labelClass='km-title',
-            flat,
-            iconSize='16px',
-            hoverBg='primary-bg',
-            :disable='selected.length < 2',
-            :tooltip='selected.length < 2 ? m.evaluation_selectAtLeastRecords({ count: 2 }) : ""'
-          )
-        .col-auto.center-flex-y
-          km-btn.q-mr-12(
-            v-if='groupBy == "flat"',
-            icon='compare',
-            :label='m.common_compare()',
-            @click='compare(false)',
-            iconColor='icon',
-            hoverColor='primary',
-            labelClass='km-title',
-            flat,
-            iconSize='16px',
-            hoverBg='primary-bg',
-            :disable='selected.length < 2',
-            :tooltip='selected.length < 2 ? m.evaluation_selectAtLeastRecords({ count: 2 }) : ""'
-          )
-        .col-auto.center-flex-y
-          km-btn.q-mr-12(
-            v-if='groupBy == "flat"',
-            icon='delete',
-            :label='m.common_delete()',
-            @click='showDeleteDialog = true',
-            iconColor='icon',
-            hoverColor='primary',
-            labelClass='km-title',
-            flat,
-            iconSize='16px',
-            hoverBg='primary-bg',
-            :disable='selected.length < 1',
-            :tooltip='selected.length < 1 ? m.evaluation_selectAtLeastRecords({ count: 1 }) : ""'
-          )
-        .col-auto.center-flex-y
-          km-btn.q-mr-12(
-            icon='refresh',
-            :label='m.common_refreshList()',
-            @click='refetch',
-            iconColor='icon',
-            hoverColor='primary',
-            labelClass='km-title',
-            flat,
-            iconSize='16px',
-            hoverBg='primary-bg'
-          )
-        .col-auto.center-flex-y
-          km-btn.q-mr-12(data-test='new-btn', v-if='!filterObject?.row', :label='m.common_new()', @click='showNewDialog = true')
-      q-separator.q-my-sm
-      .row.q-mb-sm.items-center(v-if='filterObject?.row')
-        .col-auto
-          .column
-            .col(v-if='filterObject?.job')
-              .row.q-gap-12.no-wrap.items-baseline
-                .col-auto
-                  .km-field.text-secondary-text {{ m.evaluation_jobStart() }}
-                .col-auto
-                  .km-heading-3.q-mr-sm {{ filterObjectStartData }}
-            .col
-              .row.q-gap-12.no-wrap.items-baseline
-                .col-auto
-                  .km-field.text-secondary-text {{ m.evaluation_evaluatedTool() }}
-                .col-auto
-                  .km-heading-3.q-mr-sm {{ filterObject?.row?.tool?.name }}
-            .col(v-if='filterObject?.job')
-              .row.q-gap-12.no-wrap.items-baseline
-                .col-auto
-                  .km-field.text-secondary-text {{ m.evaluation_testSet() }}
-                .col-auto
-                  .km-heading-3.q-mr-sm {{ filterObject?.row?.test_sets?.[0] }}
-        .col.q-ml-md
-          q-chip.km-small-chip(
-            color='in-progress',
-            text-color='text-gray',
-            :label='filterObject.row?.type === "prompt_eval" ? m.entity_promptTemplate() : m.entity_ragTool()'
-          )
-      q-separator.q-my-sm(v-if='filterObject?.row')
-      .col(style='min-height: 0')
-        km-data-table(
-          :table='currentTable',
-          :loading='isLoading', :fetching='isFetching',
-          :fill-height='!filterObject?.row',
-          row-key='id',
-          @row-click='selectRecord'
-        )
-    evaluation-jobs-create-new(:showNewDialog='showNewDialog', @cancel='showNewDialog = false', v-if='showNewDialog')
-km-popup-confirm(
-  :visible='showDeleteDialog',
-  :confirmButtonLabel='m.common_delete()',
-  :cancelButtonLabel='m.common_cancel()',
-  notificationIcon='fas fa-triangle-exclamation',
-  @confirm='deleteSelected',
-  @cancel='showDeleteDialog = false'
-)
-  .row.item-center.justify-center.km-heading-7 {{ m.evaluation_deleteTitle() }}
-  .row.text-center.justify-center {{ m.evaluation_deleteSelectedConfirm({ count: selected?.length ?? 0 }) }}
-
-km-popup-confirm(
-  :visible='showRerunDialog',
-  :confirmButtonLabel='m.common_run()',
-  :cancelButtonLabel='m.common_cancel()',
-  notificationIcon='fas fa-triangle-exclamation',
-  @confirm='rerunSelected',
-  @cancel='showRerunDialog = false'
-)
-  .row.item-center.justify-center.km-heading-7 {{ m.evaluation_rerunTitle() }}
-  .row.text-center.justify-center {{ m.evaluation_rerunSelectedConfirm({ count: selected?.length ?? 0 }) }}
+<template>
+  <km-list-page>
+    <template #toolbar>
+      <div class="flex-none center-flex-y">
+        <km-input data-test="search-input" :placeholder="m.common_search()" icon-before="search" :model-value="globalFilter" clearable @input="globalFilter = $event" />
+      </div>
+      <div v-if="groupBy !== 'flat'" class="flex-none center-flex-y ml-md">
+        <div class="text-secondary-text mr-sm">{{ m.evaluation_groupBy() }}</div>
+        <km-select v-model="groupBy" :options="groups" height="30px" map-options emit-value option-value="value" option-label="label" />
+      </div>
+      <div class="flex-none center-flex-y ml-md">
+        <template v-if="filterObject?.tool || filterObject?.job">
+          <div class="text-secondary-text mr-sm">{{ filterObject?.tool ? m.evaluation_toolLabel() : m.evaluation_jobLabel() }}</div>
+          <km-chip tone="brand" class="my-0" square size="12px">
+            <div class="cluster fit">
+              <div class="flex-1 text-center">{{ filterObject?.tool ? filterObject?.tool : filterObject?.job }}</div>
+              <div class="flex-none ml-xs">
+                <km-glyph class="my-auto cursor-pointer" name="close" @click.stop.prevent="removeFilter" />
+              </div>
+            </div>
+          </km-chip>
+        </template>
+      </div>
+      <div class="km-space" />
+      <div class="flex-none center-flex-y">
+        <km-btn v-if="groupBy == 'flat'" class="mr-md" icon="download" :label="m.common_report()" interaction-tone="brand" label-class="km-title" flat icon-size="16px" :disable="selected.length < 2" :tooltip="selected.length < 2 ? m.evaluation_selectAtLeastRecords({ count: 2 }) : ''" @click="getEvaluationReport" />
+      </div>
+      <div class="flex-none center-flex-y">
+        <km-btn v-if="groupBy == 'flat'" class="mr-md" icon="compare" :label="m.common_compare()" interaction-tone="brand" label-class="km-title" flat icon-size="16px" :disable="selected.length < 2" :tooltip="selected.length < 2 ? m.evaluation_selectAtLeastRecords({ count: 2 }) : ''" @click="compare(false)" />
+      </div>
+      <div class="flex-none center-flex-y">
+        <km-btn v-if="groupBy == 'flat'" class="mr-md" icon="delete" :label="m.common_delete()" interaction-tone="brand" label-class="km-title" flat icon-size="16px" :disable="selected.length < 1" :tooltip="selected.length < 1 ? m.evaluation_selectAtLeastRecords({ count: 1 }) : ''" @click="showDeleteDialog = true" />
+      </div>
+      <div class="flex-none center-flex-y">
+        <km-btn class="mr-md" icon="refresh" :label="m.common_refreshList()" interaction-tone="brand" label-class="km-title" flat icon-size="16px" @click="refetch" />
+      </div>
+      <div class="flex-none center-flex-y">
+        <km-btn v-if="!filterObject?.row" class="mr-md" data-test="new-btn" :label="m.common_new()" @click="showNewDialog = true" />
+      </div>
+    </template>
+    <km-separator class="my-sm" />
+    <div v-if="filterObject?.row" class="cluster mb-sm" data-align="start">
+      <div class="flex-none">
+        <div class="stack">
+          <div v-if="filterObject?.job">
+            <div class="cluster" data-gap="md" data-wrap="no" data-align="baseline">
+              <div class="flex-none">
+                <div class="km-field text-secondary-text">{{ m.evaluation_jobStart() }}</div>
+              </div>
+              <div class="flex-none">
+                <div class="km-heading-3 mr-sm">{{ filterObjectStartData }}</div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div class="cluster" data-gap="md" data-wrap="no" data-align="baseline">
+              <div class="flex-none">
+                <div class="km-field text-secondary-text">{{ m.evaluation_evaluatedTool() }}</div>
+              </div>
+              <div class="flex-none">
+                <div class="km-heading-3 mr-sm">{{ filterObject?.row?.tool?.name }}</div>
+              </div>
+            </div>
+          </div>
+          <div v-if="filterObject?.job">
+            <div class="cluster" data-gap="md" data-wrap="no" data-align="baseline">
+              <div class="flex-none">
+                <div class="km-field text-secondary-text">{{ m.evaluation_testSet() }}</div>
+              </div>
+              <div class="flex-none">
+                <div class="km-heading-3 mr-sm">{{ filterObject?.row?.test_sets?.[0] }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="flex-1 ml-md">
+        <km-chip class="km-small-chip" tone="neutral" :label="filterObject.row?.type === 'prompt_eval' ? m.entity_promptTemplate() : m.entity_ragTool()" />
+      </div>
+    </div>
+    <km-separator v-if="filterObject?.row" class="my-sm" />
+    <km-data-table :table="currentTable" :loading="isLoading" :fetching="isFetching" :fill-height="!filterObject?.row" row-key="id" @row-click="selectRecord" />
+    <template #overlays>
+      <evaluation-jobs-create-new v-if="showNewDialog" :show-new-dialog="showNewDialog" @cancel="showNewDialog = false" />
+      <km-popup-confirm :visible="showDeleteDialog" :confirm-button-label="m.common_delete()" :cancel-button-label="m.common_cancel()" notification-icon="warning" @confirm="deleteSelected" @cancel="showDeleteDialog = false">
+        <div class="cluster km-heading-7" data-justify="center">{{ m.evaluation_deleteTitle() }}</div>
+        <div class="cluster text-center" data-justify="center">{{ m.evaluation_deleteSelectedConfirm({ count: selected?.length ?? 0 }) }}</div>
+      </km-popup-confirm>
+      <km-popup-confirm :visible="showRerunDialog" :confirm-button-label="m.common_run()" :cancel-button-label="m.common_cancel()" notification-icon="warning" @confirm="rerunSelected" @cancel="showRerunDialog = false">
+        <div class="cluster km-heading-7" data-justify="center">{{ m.evaluation_rerunTitle() }}</div>
+        <div class="cluster text-center" data-justify="center">{{ m.evaluation_rerunSelectedConfirm({ count: selected?.length ?? 0 }) }}</div>
+      </km-popup-confirm>
+    </template>
+  </km-list-page>
 </template>
 
 <script setup lang="ts">
@@ -479,7 +427,3 @@ async function rerunSelected() {
 }
 </script>
 
-<style lang="stylus">
-.km-input:not(.q-field--readonly) .q-field__control::before
-  background: #fff !important;
-</style>

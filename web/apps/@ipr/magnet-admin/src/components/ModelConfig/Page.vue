@@ -1,35 +1,26 @@
-<template lang="pug">
-.column.no-wrap.full-height
-  .collection-container.q-mx-auto.full-width.column.full-height.q-px-md.q-pt-16
-    q-tabs.bb-border.full-width.q-mb-lg(
-      v-model='tab',
-      narrow-indicator,
-      dense,
-      align='left',
-      active-color='primary',
-      indicator-color='primary',
-      active-bg-color='white',
-      no-caps,
-      content-class='km-tabs'
-    )
-      template(v-for='t in tabs')
-        q-tab(:name='t.name', :label='t.label')
-    .col.ba-border.border-radius-12.bg-white.q-pa-16.column(style='min-height: 0')
-      .row.q-mb-12
-        .col-auto.center-flex-y
-          km-input(data-test='search-input', :placeholder='m.common_search()', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
-        q-space
-        .col-auto.center-flex-y
-          km-btn.q-mr-12(data-test='new-btn', :label='m.common_new()', @click='showNewDialog = true')
-      .col(style='min-height: 0')
-        km-data-table(
-          :table='table',
-          :loading='isLoading', :fetching='isFetching',
-          fill-height,
-          row-key='id',
-          @row-click='openDetails'
-        )
-    model-config-create-new(:showNewDialog='showNewDialog', @cancel='showNewDialog = false', :type='tab', v-if='showNewDialog')
+<template>
+  <km-list-page>
+    <template #tabs>
+      <km-tabs v-model="tab" class="bb-border full-width mb-lg" narrow-indicator dense align="left" no-caps content-class="km-tabs">
+        <template v-for="t in tabs" :key="t">
+          <km-tab :name="t.name" :label="t.label" />
+        </template>
+      </km-tabs>
+    </template>
+    <template #toolbar>
+      <div class="flex-none center-flex-y">
+        <km-input data-test="search-input" :placeholder="m.common_search()" icon-before="search" :model-value="globalFilter" clearable @input="globalFilter = $event" />
+      </div>
+      <div class="km-space" />
+      <div class="flex-none center-flex-y">
+        <km-btn class="mr-md" data-test="new-btn" :label="m.common_new()" @click="showNewDialog = true" />
+      </div>
+    </template>
+    <km-data-table :table="table" :loading="isLoading" :fetching="isFetching" fill-height row-key="id" @row-click="openDetails" />
+    <template #overlays>
+      <model-config-create-new v-if="showNewDialog" :show-new-dialog="showNewDialog" :type="tab" @cancel="showNewDialog = false" />
+    </template>
+  </km-list-page>
 </template>
 
 <script setup lang="ts">
@@ -87,7 +78,3 @@ const openDetails = async (row: Model) => {
 }
 </script>
 
-<style lang="stylus">
-.km-input:not(.q-field--readonly) .q-field__control::before
-  background: var(--q-white) !important;
-</style>

@@ -209,3 +209,6 @@ async def _run_pipeline_and_cleanup(
 
         # Delete remote object (Azure)
         await _delete_object_if_needed(file_data)
+
+        # Drop the task handle so failed/cancelled jobs don't accumulate.
+        _RUNNING.pop(file_data.file_id, None)

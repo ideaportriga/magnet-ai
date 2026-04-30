@@ -1,34 +1,34 @@
-<template lang="pug">
-km-popup-confirm(
-  :visible='showNewDialog',
-  :title='m.dialog_newMcpServer()',
-  :confirmButtonLabel='m.common_save()',
-  :cancelButtonLabel='m.common_cancel()',
-  :notification='m.hint_addHeadersMcp()',
-  @confirm='createMCPServer',
-  @cancel='$emit("cancel")'
-)
-  .column.q-gap-16
-    .col
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_name() }}
-      .full-width
-        km-input(data-test='name-input', height='30px', v-model='name', ref='nameRef', :rules='[required()]')
-
-    .col
-      .km-field.text-secondary-text.q-pl-8 {{ m.common_systemName() }}
-      .full-width
-        km-input(data-test='system-name-input', height='30px', v-model='system_name', ref='systemRef', :rules='[required()]')
-      .km-description.text-secondary-text.q-pb-4.q-pl-8 {{ m.hint_systemNameUniqueId() }}
-
-    .col
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.label_url() }}
-      .full-width
-        km-input(data-test='url-input', height='30px', v-model='url', ref='urlRef', :rules='[required()]')
-    .col
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.label_transport() }}
-      .row.q-gap-16
-        q-radio.q-my-sm(name='transport', dense, label='streamable-http', val='streamable-http', v-model='transport', size='xs')
-        q-radio.q-my-sm(name='transport', dense, label='sse', val='sse', v-model='transport', size='xs')
+<template>
+  <km-popup-confirm :visible="showNewDialog" :title="m.dialog_newMcpServer()" :confirm-button-label="m.common_save()" :cancel-button-label="m.common_cancel()" :notification="m.hint_addHeadersMcp()" @confirm="createMCPServer" @cancel="$emit(&quot;cancel&quot;)">
+    <div class="stack" data-gap="lg">
+      <div class="flex-1">
+        <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.common_name() }}</div>
+        <div class="full-width">
+          <km-input ref="nameRef" v-model="name" data-test="name-input" height="30px" :rules="[required()]" />
+        </div>
+      </div>
+      <div class="flex-1">
+        <div class="km-field text-secondary-text pl-sm">{{ m.common_systemName() }}</div>
+        <div class="full-width">
+          <km-input ref="systemRef" v-model="system_name" data-test="system-name-input" height="30px" :rules="[required()]" />
+        </div>
+        <div class="km-description text-secondary-text pb-xs pl-sm">{{ m.hint_systemNameUniqueId() }}</div>
+      </div>
+      <div class="flex-1">
+        <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.label_url() }}</div>
+        <div class="full-width">
+          <km-input ref="urlRef" v-model="url" data-test="url-input" height="30px" :rules="[required()]" />
+        </div>
+      </div>
+      <div class="flex-1">
+        <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.label_transport() }}</div>
+        <div class="cluster" data-gap="lg">
+          <km-radio v-model="transport" class="my-sm" name="transport" dense label="streamable-http" val="streamable-http" size="xs" />
+          <km-radio v-model="transport" class="my-sm" name="transport" dense label="sse" val="sse" size="xs" />
+        </div>
+      </div>
+    </div>
+  </km-popup-confirm>
 </template>
 
 <script setup>

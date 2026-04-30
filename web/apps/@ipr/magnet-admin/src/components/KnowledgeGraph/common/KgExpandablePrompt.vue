@@ -1,13 +1,13 @@
 <template>
   <div class="kg-expandable-prompt" :style="sectionStyle" @focusin="onFocusIn" @focusout="onFocusOut">
     <div class="kg-expandable-prompt__inner" :style="innerSectionStyle">
-      <q-expansion-item v-model="isExpanded" expand-icon-class="text-grey-6" dense>
+      <km-expansion-item v-model="isExpanded" expand-icon-class="text-grey-6" dense>
         <template #header>
           <div class="kg-expandable-prompt__header">
-            <q-avatar icon="format_quote" color="primary-light" text-color="primary" size="32px" font-size="18px" />
+            <km-avatar icon="format_quote" tone="brand-soft" size="32px" font-size="18px" />
             <div class="kg-expandable-prompt__header-text">
               <span class="km-heading-8 text-weight-medium">{{ title }}</span>
-              <span class="q-mt-2 text-secondary-text km-caption">{{ description }}</span>
+              <span class="mt-2xs text-secondary-text km-caption">{{ description }}</span>
             </div>
           </div>
         </template>
@@ -24,14 +24,13 @@
             @update:model-value="$emit('update:modelValue', $event)"
           />
         </div>
-      </q-expansion-item>
+      </km-expansion-item>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { m } from '@/paraglide/messages'
 
 defineProps<{
   modelValue: string
@@ -56,32 +55,36 @@ const onFocusOut = () => {
 }
 
 const sectionStyle = computed(() => ({
-  background: 'var(--q-background)',
-  border: `1px solid var(--q-primary-light)`,
+  background: 'var(--ds-color-background)',
+  border: `1px solid var(--ds-color-primary-light)`,
 }))
 
 const innerSectionStyle = computed(() => ({
-  borderColor: isFocused.value ? 'var(--q-primary)' : 'transparent',
+  borderColor: isFocused.value ? 'var(--ds-color-primary)' : 'transparent',
 }))
 </script>
 
-<style scoped>
+<style>
 .kg-expandable-prompt {
-  border-radius: var(--radius-md);
+  border-radius: var(--ds-radius-md);
 }
 
-.kg-expandable-prompt :deep(.q-expansion-item) {
+.kg-expandable-prompt .km-expansion-item {
   background: transparent;
 }
 
-.kg-expandable-prompt :deep(.q-item) {
+.kg-expandable-prompt .km-expansion-item__trigger {
   padding: 0;
-  min-height: unset;
-  background: linear-gradient(135deg, var(--q-primary-bg) 0%, var(--q-white) 100%);
-  border-radius: var(--radius-md);
+  min-block-size: unset;
+  background: linear-gradient(135deg, var(--ds-color-primary-bg) 0%, var(--ds-color-white) 100%);
+  border-radius: var(--ds-radius-md);
 }
 
-.kg-expandable-prompt :deep(.q-expansion-item__container) {
+.kg-expandable-prompt .km-expansion-item__trigger:hover {
+  background: linear-gradient(135deg, var(--ds-color-primary-bg) 0%, var(--ds-color-white) 100%);
+}
+
+.kg-expandable-prompt .km-expansion-item__item {
   background: transparent;
 }
 
@@ -90,12 +93,12 @@ const innerSectionStyle = computed(() => ({
   align-items: flex-start;
   gap: 8px;
   padding: 8px 16px 8px 12px;
-  width: 100%;
-  border-radius: var(--radius-md);
+  inline-size: 100%;
+  border-radius: var(--ds-radius-md);
 }
 
 .kg-expandable-prompt:hover {
-  border-color: var(--q-primary) !important;
+  border-color: var(--ds-color-primary) !important;
 }
 
 .kg-expandable-prompt__header-text {
@@ -106,57 +109,47 @@ const innerSectionStyle = computed(() => ({
 
 .kg-expandable-prompt__content {
   padding: 12px 16px 16px;
-  border-top: 1px solid var(--section-border, var(--q-border));
+  border-block-start: 1px solid var(--section-border, var(--ds-color-border));
 }
 
-.kg-expandable-prompt__textarea :deep(.q-field__native) {
-  font-size: var(--km-font-size-label);
+.kg-expandable-prompt__textarea .ds-textarea {
+  font-size: var(--ds-font-size-label);
   line-height: 1.6;
-  color: var(--q-secondary);
+  color: var(--ds-color-secondary);
+  border-radius: var(--ds-radius-md) !important;
 }
 
-.kg-expandable-prompt__textarea :deep(.q-field__native::placeholder) {
-  color: var(--q-border-2);
+.kg-expandable-prompt__textarea .ds-textarea::placeholder {
+  color: var(--ds-color-border-2);
 }
 
 /* Expansion item styling overrides */
-.kg-expandable-prompt :deep(.q-expansion-item__content) {
+.kg-expandable-prompt .km-expansion-item__content-inner {
   background: transparent;
 }
 
-.kg-expandable-prompt :deep(.q-focus-helper) {
-  display: none;
-}
-
 .kg-expandable-prompt__inner {
-  border-radius: var(--radius-md);
+  border-radius: var(--ds-radius-md);
   position: relative;
-  margin: -1px -1px;
+  margin: -1px;
   border: 2px solid transparent;
   transition: border-color 0.36s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-:deep(.q-field__control:before) {
-  border-radius: var(--radius-md) !important;
+.kg-expandable-prompt__textarea .ds-textarea:focus-visible {
+  background: var(--ds-color-white) !important;
+  box-shadow: none;
 }
 
-:deep(.km-input:not(.q-field--readonly).q-field--outlined.q-field--highlighted .q-field__control::before) {
-  background: var(--q-white) !important;
+.kg-expandable-prompt__textarea .ds-textarea:hover {
+  border-color: var(--ds-color-control-border) !important;
 }
 
-:deep(.km-input:not(.q-field--readonly) .q-field__control:hover::before) {
-  border-color: var(--q-control-border) !important;
+.kg-expandable-prompt__textarea {
+  margin: 0px -12px -12px !important;
 }
 
-:deep(.q-field--outlined .q-field__control:after) {
-  border: none !important;
-}
-
-:deep(.km-input) {
-  margin: 0px -12px -12px -12px !important;
-}
-
-:deep(textarea) {
+.kg-expandable-prompt__textarea textarea {
   margin: 6px 4px !important;
 }
 </style>

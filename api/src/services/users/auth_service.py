@@ -11,9 +11,10 @@ from datetime import UTC, datetime
 from logging import getLogger
 from typing import Any
 
+from core.config.base import get_auth_settings
 from core.db.models.user.user import User
 from core.domain.users.service import UsersService
-from core.exceptions import AuthError, ConflictError
+from core.exceptions import AuthError
 from services.users.password import hash_password_async, verify_password_async
 from services.users.refresh_token_service import create_refresh_token
 
@@ -36,26 +37,30 @@ async def signup(
     email: str,
     password: str,
     name: str | None = None,
-) -> User:
+) -> User | None:
     """Register a new local user.
+
+    Returns the freshly created User on success, or ``None`` if an account
+    with this email already exists. Callers must NOT distinguish these
+    cases in the response — the public signup endpoint always replies
+    success to avoid leaking which emails are registered.
 
     Args:
         session: SQLAlchemy async session.
         email: User email (must be unique).
         password: Plaintext password (will be hashed).
         name: Optional display name.
-
-    Returns:
-        The created User.
-
-    Raises:
-        ConflictError: If email already exists.
     """
     service = UsersService(session=session)
 
     existing = await service.get_one_or_none(email=email)
     if existing is not None:
-        raise ConflictError("Email already registered")
+        # Avoid email enumeration: still spend Argon2 cycles so the response
+        # time matches a real signup, then return None for the caller to
+        # surface a generic success message.
+        await hash_password_async(password)
+        logger.info("signup outcome=duplicate email_known=true")
+        return None
 
     hashed = await hash_password_async(password)
 
@@ -113,6 +118,10 @@ async def authenticate(
 
     if not user.is_active:
         raise AuthError("Account is inactive")
+
+    settings = get_auth_settings()
+    if settings.REQUIRE_EMAIL_VERIFICATION and not user.is_verified:
+        raise AuthError("Email not verified — please confirm your email first")
 
     # Update last_login_at
     user.last_login_at = datetime.now(UTC)

@@ -1,62 +1,46 @@
-<template lang="pug">
-.full-width
-  km-section(:title='m.section_connectionSettings()', :subTitle='m.subtitle_endpointUrl()')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.label_url() }}
-    .row.items-center.q-gap-16.no-wrap
-      km-input.full-width(:model-value='server?.url', readonly)
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-pt-lg {{ m.apiServers_verifySsl() }}
-    .row.items-center.q-gap-16.no-wrap
-      q-toggle(v-model='verifySsl')
-        .text-secondary-text {{ verifySsl ? 'Yes' : 'No' }}
-  q-separator.q-mt-lg.q-mb-lg
-  km-section(:title='m.section_customHeaders()', :subTitle='m.apiServers_customHeadersNotification()')
-    km-notification-text(
-      notification='Define custom headers that will be sent with each API request. Use placeholders in curly braces to reference secrets.'
-    )
-    .row.items-center.q-gap-8.no-wrap.q-mt-lg(v-for='[key, value] in customHeaders', :key='key')
-      .col
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Header Name
-        km-input(:label='m.common_headerName()', :model-value='key', @update:model-value='updateCustomHeader(key, $event, value)')
-      .col
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Header Value
-        km-input(:label='m.common_headerValue()', :model-value='value', @update:model-value='updateCustomHeader(key, key, $event)')
-      .col-auto
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 &nbsp;
-        km-btn(@click='removeCustomHeader(key)', icon='o_delete', size='sm', flat, color='negative')
-    .row.q-pt-16
-      km-btn(:label='m.apiServers_addCustomHeader()', @click='addCustomHeader', size='sm', icon='o_add', flat)
-  q-separator.q-mt-lg.q-mb-lg
-  km-section(:title='m.section_securitySchema()', :subTitle='m.apiServers_securitySchemaSubtitle()')
-    km-notification-text
-      div Supported types: apiKey, basic, oauth2. Check
-        | &nbsp;
-        a.text-primary(href='https://swagger.io/docs/specification/v3_0/authentication/', target='_blank') OpenAPI documentation
-        |
-        | for information.
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-pt-lg Security schema
-    .row.items-center.q-gap-16.no-wrap
-      km-input.full-width(v-model='serverSecurityScheme', type='textarea', rows='4')
-    .km-small-chip.q-pa-4.q-pl-8.text-error-text(v-if='parsingError') Invalid JSON format. Please check your input and ensure it follows valid JSON syntax.
-  q-separator.q-mt-lg.q-mb-lg
-  km-section(:title='m.section_securityValues()', :subTitle='m.apiServers_securityValuesSubtitle()')
-    km-notification-text(
-      notification='Do not expose sensitive data in this section. Instead, use placeholders and provide actual values in the Secrets section. Use curly braces to insert placeholders.'
-    )
-    .row.items-center.q-gap-8.no-wrap.q-mt-lg(v-for='[key, value] in securityValues', :key='key')
-      .col
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Key
-        km-input(:label='m.common_key()', :model-value='key', @update:model-value='updateSecurityValue(key, $event, value)')
-      .col
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Value
-        km-input(:label='m.common_value()', :model-value='value', @update:model-value='updateSecurityValue(key, key, $event)')
-      .col-auto
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 &nbsp;
-        km-btn(@click='removeSecurityValue(key)', icon='o_delete', size='sm', flat, color='negative')
-    .row.q-pt-16
-      km-btn(:label='m.apiServers_addSecurityValue()', @click='addSecurityValue', size='sm', icon='o_add', flat)
-  q-separator.q-mt-lg.q-mb-lg
-  km-section(:title='m.section_secrets()', :subTitle='m.apiServers_secretsSubtitle()')
-    km-secrets(v-model:secrets='secrets', :original-secrets='originalApiSecrets', :remount-value='remountValue')
+<template>
+  <div class="full-width">
+    <km-section :title="m.section_connectionSettings()" :sub-title="m.subtitle_endpointUrl()">
+      <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.label_url() }}</div>
+      <div class="cluster" data-gap="lg" data-wrap="no">
+        <km-input class="full-width" :model-value="server?.url" readonly />
+      </div>
+      <div class="km-field text-secondary-text pb-xs pl-sm pt-lg">{{ m.apiServers_verifySsl() }}</div>
+      <div class="cluster" data-gap="lg" data-wrap="no">
+        <km-toggle v-model="verifySsl">
+          <div class="text-secondary-text">{{ verifySsl ? 'Yes' : 'No' }}</div>
+        </km-toggle>
+      </div>
+    </km-section>
+    <km-separator class="mt-lg mb-lg" />
+    <km-section :title="m.section_customHeaders()" :sub-title="m.apiServers_customHeadersNotification()">
+      <km-notification-text notification="Define custom headers that will be sent with each API request. Use placeholders in curly braces to reference secrets." />
+      <key-value-editor v-model="customHeadersObject" :key-label="m.common_headerName()" :value-label="m.common_headerValue()" :add-label="m.apiServers_addCustomHeader()" />
+    </km-section>
+    <km-separator class="mt-lg mb-lg" />
+    <km-section :title="m.section_securitySchema()" :sub-title="m.apiServers_securitySchemaSubtitle()">
+      <km-notification-text>
+        <div>
+          Supported types: apiKey, basic, oauth2. Check&nbsp;<a class="text-primary" href="https://swagger.io/docs/specification/v3_0/authentication/" target="_blank">OpenAPI documentation</a>
+          for information.
+        </div>
+      </km-notification-text>
+      <div class="km-field text-secondary-text pb-xs pl-sm pt-lg">Security schema</div>
+      <div class="cluster" data-gap="lg" data-wrap="no">
+        <km-input v-model="serverSecurityScheme" class="full-width" type="textarea" rows="4" />
+      </div>
+      <div v-if="parsingError" class="km-small-chip p-xs pl-sm text-error-text">Invalid JSON format. Please check your input and ensure it follows valid JSON syntax.</div>
+    </km-section>
+    <km-separator class="mt-lg mb-lg" />
+    <km-section :title="m.section_securityValues()" :sub-title="m.apiServers_securityValuesSubtitle()">
+      <km-notification-text notification="Do not expose sensitive data in this section. Instead, use placeholders and provide actual values in the Secrets section. Use curly braces to insert placeholders." />
+      <key-value-editor v-model="securityValuesObject" :add-label="m.apiServers_addSecurityValue()" />
+    </km-section>
+    <km-separator class="mt-lg mb-lg" />
+    <km-section :title="m.section_secrets()" :sub-title="m.apiServers_secretsSubtitle()">
+      <km-secrets v-model:secrets="secrets" :original-secrets="originalApiSecrets" :remount-value="remountValue" />
+    </km-section>
+  </div>
 </template>
 
 <script setup>
@@ -85,26 +69,6 @@ const serverSecurityScheme = computed({
       updateField('security_scheme', newValue)
       parsingError.value = true
     }
-  },
-})
-
-const securityValues = computed({
-  get() {
-    const securityValuesData = server.value?.security_values
-    // Always return Map for consistency
-    if (!securityValuesData) {
-      return new Map()
-    }
-    if (securityValuesData instanceof Map) {
-      return securityValuesData
-    }
-    // Convert object to Map
-    return new Map(Object.entries(securityValuesData))
-  },
-  set(value) {
-    // Convert Map to object for sending
-    const objectValue = value instanceof Map ? Object.fromEntries(value) : value
-    updateField('security_values', objectValue)
   },
 })
 
@@ -141,61 +105,31 @@ const secrets = computed({
   },
 })
 
-const customHeaders = computed({
-  get: () => server.value?.custom_headers || new Map(),
-  set: (value) => {
-    updateField('custom_headers', value)
+/* `custom_headers` and `security_values` are persisted as Maps elsewhere in
+ * the app, but `<key-value-editor>` works with plain objects. Adapt both
+ * directions in a single computed so the editor's `v-model` can drive
+ * `updateField` directly without bespoke add/remove/update helpers. */
+const customHeadersObject = computed({
+  get() {
+    const raw = server.value?.custom_headers
+    if (!raw) return {}
+    if (raw instanceof Map) return Object.fromEntries(raw)
+    return raw
+  },
+  set(value) {
+    updateField('custom_headers', new Map(Object.entries(value || {})))
   },
 })
 
-const updateCustomHeader = (oldKey, newKey, newValue) => {
-  const entries = [...customHeaders.value.entries()]
-  const idx = entries.findIndex(([k]) => k === oldKey)
-
-  if (idx !== -1) {
-    entries[idx] = [newKey, newValue]
-  } else {
-    entries.push([newKey, newValue])
-  }
-
-  customHeaders.value = new Map(entries)
-}
-
-const addCustomHeader = () => {
-  const newCustomHeaders = new Map(customHeaders.value)
-  newCustomHeaders.set('', '')
-  customHeaders.value = newCustomHeaders
-}
-
-const removeCustomHeader = (key) => {
-  const newCustomHeaders = new Map(customHeaders.value)
-  newCustomHeaders.delete(key)
-  customHeaders.value = newCustomHeaders
-}
-
-const updateSecurityValue = (oldKey, newKey, newValue) => {
-  const currentSecurityValues = securityValues.value
-  const entries = [...currentSecurityValues.entries()]
-  const idx = entries.findIndex(([k]) => k === oldKey)
-
-  if (idx !== -1) {
-    entries[idx] = [newKey, newValue] // replace in place
-  } else {
-    entries.push([newKey, newValue]) // add new
-  }
-
-  securityValues.value = new Map(entries)
-}
-
-const addSecurityValue = () => {
-  const newSecurityValues = new Map(securityValues.value)
-  newSecurityValues.set('', '')
-  securityValues.value = newSecurityValues
-}
-
-const removeSecurityValue = (key) => {
-  const newSecurityValues = new Map(securityValues.value)
-  newSecurityValues.delete(key)
-  securityValues.value = newSecurityValues
-}
+const securityValuesObject = computed({
+  get() {
+    const raw = server.value?.security_values
+    if (!raw) return {}
+    if (raw instanceof Map) return Object.fromEntries(raw)
+    return raw
+  },
+  set(value) {
+    updateField('security_values', value || {})
+  },
+})
 </script>

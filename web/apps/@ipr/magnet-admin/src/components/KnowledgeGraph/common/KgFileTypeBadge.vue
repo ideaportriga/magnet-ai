@@ -1,14 +1,13 @@
 <template>
-  <q-chip
-    :color="getTypeColor(type)"
-    text-color="white"
+  <km-chip
+    :tone="getTypeTone(type)"
     dense
     square
-    icon="insert_drive_file"
-    class="text-weight-medium text-caption q-py-12 q-px-sm q-mx-none"
+    icon="file"
+    class="text-weight-medium text-caption py-md px-sm mx-0"
   >
     {{ label }}
-  </q-chip>
+  </km-chip>
 </template>
 
 <script setup lang="ts">
@@ -21,24 +20,24 @@ const props = defineProps<{
 
 const label = computed(() => String(props.type || '').toUpperCase())
 
-function getTypeColor(type: string) {
+function getTypeTone(type: string) {
   switch (String(type || '').toLowerCase()) {
     case 'pdf':
-      return 'red-7'
+      return 'danger'
     case 'aspx':
     case 'html':
-      return 'orange-7'
+      return 'warning'
     case 'md':
     case 'markdown':
-      return 'blue-7'
+      return 'info'
     case 'txt':
     case 'text':
-      return 'grey-7'
+      return 'neutral-strong'
     case 'doc':
     case 'docx':
-      return 'blue-9'
+      return 'info'
     default:
-      return 'grey-5'
+      return 'neutral-strong'
   }
 }
 </script>

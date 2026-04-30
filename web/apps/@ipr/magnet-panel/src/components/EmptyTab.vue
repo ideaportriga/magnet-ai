@@ -1,6 +1,12 @@
-<template lang="pug">
-.bg-light.full-height.column.no-wrap
-  .bg-light.q-pt-xl.justify-center.flex.text-secondary-text.km-title {{ displayText }}
+<template>
+  <div
+    class="bg-light full-height stack"
+    data-gap="0"
+  >
+    <div class="bg-light pt-xl justify-center flex text-secondary-text km-title">
+      {{ displayText }}
+    </div>
+  </div>
 </template>
 
 <script>

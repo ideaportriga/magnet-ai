@@ -1,55 +1,60 @@
-<template lang="pug">
-div
-  km-section(title='Model configuration', subTitle='Foundational model settings')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Provider
-      km-select(
-        height='auto',
-        minHeight='30px',
-        :placeholder='m.common_provider()',
-        :options='providerItems',
-        v-model='provider',
-        ref='providerRef',
-        emit-value,
-        map-options,
-        option-value='id'
-      )
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Name
-      .full-width
-        km-input(height='30px', :placeholder='m.placeholder_exampleModelId()', v-model='model', ref='modelRef')
-
-  q-separator.q-my-lg(v-if='type === "prompts"')
-  km-section(v-if='type === "prompts"', title='Structured data support', subTitle='Model specific features')
-    .col-6.km-field.text-secondary-text.q-pb-xs.q-pl-8
-      .row.items-center
-        q-toggle(height='30px', :placeholder='m.placeholder_exampleModelName()', v-model='json_mode', ref='json_modeRef')
-        .km-field.text-secondary-text JSON mode
-    .col-6.km-field.text-secondary-text.q-pb-xs.q-pl-8
-      .row.items-center
-        q-toggle(height='30px', :placeholder='m.placeholder_exampleModelName()', v-model='json_schema', ref='json_schemaRef')
-        .km-field.text-secondary-text JSON schema
-    .col-6.km-field.text-secondary-text.q-pb-xs.q-pl-8
-      .row.items-center
-        q-toggle(height='30px', :placeholder='m.placeholder_exampleModelName()', v-model='tool_calling', ref='json_schemaRef')
-        .km-field.text-secondary-text Tool calling
-    .col-6.km-field.text-secondary-text.q-pb-xs.q-pl-8
-      .row.items-center
-        q-toggle(height='30px', :placeholder='m.placeholder_exampleModelName()', v-model='reasoning', ref='json_schemaRef')
-        .km-field.text-secondary-text Reasoning
-  q-separator.q-my-lg
-  km-section(title='Additional information', subTitle='Useful information about the model')
-    .row
-      .col.km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Resources
-        .full-width
-          km-input(
-            ref='resourcesRef',
-            rows='10',
-            :placeholder='m.placeholder_typeYourTextHere()',
-            :model-value='resources',
-            @input='resources = $event',
-            border-radius='8px',
-            height='36px',
-            type='textarea'
-          )
+<template>
+  <div>
+    <km-section title="Model configuration" sub-title="Foundational model settings">
+      <div class="km-field text-secondary-text pb-xs pl-sm mb-md">
+        Provider
+        <km-select ref="providerRef" v-model="provider" height="auto" min-height="30px" :placeholder="m.common_provider()" :options="providerItems" emit-value map-options option-value="id" />
+      </div>
+      <div class="km-field text-secondary-text pb-xs pl-sm mb-md">
+        {{ m.common_type() }}
+        <km-select ref="typeRef" v-model="type" height="auto" min-height="30px" :placeholder="m.common_type()" :options="categoryOptions" emit-value map-options />
+      </div>
+      <div class="km-field text-secondary-text pb-xs pl-sm mb-md">
+        Name
+        <div class="full-width">
+          <km-input ref="modelRef" v-model="model" height="30px" :placeholder="m.placeholder_exampleModelId()" />
+        </div>
+      </div>
+    </km-section>
+    <km-separator v-if="type === &quot;prompts&quot;" class="my-lg" />
+    <km-section v-if="type === &quot;prompts&quot;" title="Structured data support" sub-title="Model specific features">
+      <div class="basis-6 km-field text-secondary-text pb-xs pl-sm">
+        <div class="cluster">
+          <km-toggle ref="json_modeRef" v-model="json_mode" height="30px" :placeholder="m.placeholder_exampleModelName()" />
+          <div class="km-field text-secondary-text">JSON mode</div>
+        </div>
+      </div>
+      <div class="basis-6 km-field text-secondary-text pb-xs pl-sm">
+        <div class="cluster">
+          <km-toggle ref="json_schemaRef" v-model="json_schema" height="30px" :placeholder="m.placeholder_exampleModelName()" />
+          <div class="km-field text-secondary-text">JSON schema</div>
+        </div>
+      </div>
+      <div class="basis-6 km-field text-secondary-text pb-xs pl-sm">
+        <div class="cluster">
+          <km-toggle ref="json_schemaRef" v-model="tool_calling" height="30px" :placeholder="m.placeholder_exampleModelName()" />
+          <div class="km-field text-secondary-text">Tool calling</div>
+        </div>
+      </div>
+      <div class="basis-6 km-field text-secondary-text pb-xs pl-sm">
+        <div class="cluster">
+          <km-toggle ref="json_schemaRef" v-model="reasoning" height="30px" :placeholder="m.placeholder_exampleModelName()" />
+          <div class="km-field text-secondary-text">Reasoning</div>
+        </div>
+      </div>
+    </km-section>
+    <km-separator class="my-lg" />
+    <km-section title="Additional information" sub-title="Useful information about the model">
+      <div class="cluster">
+        <div class="flex-1 km-field text-secondary-text pb-xs pl-sm mb-md">
+          Resources
+          <div class="full-width">
+            <km-input ref="resourcesRef" rows="10" :placeholder="m.placeholder_typeYourTextHere()" :model-value="resources" border-radius="8px" height="36px" type="textarea" @input="resources = $event" />
+          </div>
+        </div>
+      </div>
+    </km-section>
+  </div>
 </template>
 
 <script>
@@ -57,6 +62,7 @@ import { ref, computed } from 'vue'
 import { m } from '@/paraglide/messages'
 import { useEntityQueries } from '@/queries/entities'
 import { useEntityDetail } from '@/composables/useEntityDetail'
+import { categoryOptions } from '@/config/model/model.js'
 export default {
   props: [],
   emits: [],
@@ -77,6 +83,7 @@ export default {
         { label: 'Characters', value: 'characters' },
         { label: 'Queries', value: 'queries' },
       ]),
+      categoryOptions,
     }
   },
   computed: {

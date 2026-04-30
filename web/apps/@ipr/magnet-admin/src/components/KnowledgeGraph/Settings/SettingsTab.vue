@@ -1,28 +1,28 @@
 <template>
-  <div class="q-px-md">
-    <div class="row items-center q-mb-md">
-      <div class="col">
+  <div class="px-md">
+    <div class="cluster mb-md">
+      <div class="flex-1">
         <div class="km-heading-7">{{ m.knowledgeGraph_graphSettings() }}</div>
         <div class="km-description text-secondary-text">{{ m.knowledgeGraph_graphSettingsDesc() }}</div>
       </div>
-      <div v-if="hasChanges" class="col-auto">
-        <div class="row q-gutter-sm">
-          <km-btn :label="m.common_cancel()" flat color="grey-7" @click="resetForm" />
+      <div v-if="hasChanges" class="flex-none">
+        <div class="cluster" data-gap="sm">
+          <km-btn :label="m.common_cancel()" flat tone="weak" @click="resetForm" />
           <km-btn :label="m.common_saveChanges()" :loading="saving" :disable="!hasChanges" @click="saveSettings" />
         </div>
       </div>
     </div>
 
-    <q-separator class="q-my-md" />
+    <km-separator class="my-md" />
 
-    <div class="q-mt-md">
-      <q-form @submit="saveSettings">
+    <div class="mt-md">
+      <form class="km-form" @submit="saveSettings">
         <km-section :title="m.knowledgeGraph_indexingSection()" :sub-title="m.knowledgeGraph_indexingSectionDesc()">
-          <div class="column q-gap-16">
-            <div class="col">
-              <div class="row items-center q-gutter-xs q-mb-xs">
+          <div class="stack" data-gap="lg">
+            <div class="flex-1">
+              <div class="cluster mb-xs" data-gap="xs">
                 <span class="km-input-label">{{ m.knowledgeGraph_embeddingModelLabel() }}</span>
-                <q-icon v-if="!embeddingModel" name="o_warning" color="red" size="xs" />
+                <km-glyph v-if="!embeddingModel" name="warning" tone="danger" size="xs" />
               </div>
               <kg-dropdown-field
                 v-model="embeddingModel"
@@ -39,8 +39,8 @@
           </div>
         </km-section>
 
-        <q-separator class="q-my-lg" />
-      </q-form>
+        <km-separator class="my-lg" />
+      </form>
     </div>
   </div>
 </template>

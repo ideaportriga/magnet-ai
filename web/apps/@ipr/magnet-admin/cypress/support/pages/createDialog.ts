@@ -7,12 +7,11 @@
  *
  *   A) `km-popup-confirm` based — most entities (Agents, Retrieval, Prompts,
  *      EvaluationSets, EvaluationJobs, ApiKeys, ModelConfig, ...).
- *      The dialog root has `data-test="popup-confirm"`. Save/Cancel buttons
- *      have *two* test attrs:
- *        - `data-test="<ButtonLabel>"` (legacy, e.g. `Save`)
- *        - `data-test-role="popup-confirm" | "popup-cancel"` (stable)
+ *      Current DS-backed dialogs expose `data-test="ds-alert-dialog"` or
+ *      `data-test="km-popup-confirm"`; actions use stable DS or popup-confirm
+ *      data-test hooks.
  *
- *   B) Custom `q-dialog` with manual button rows (Collections stepper,
+ *   B) Custom `km-dialog` with manual button rows (Collections stepper,
  *      AIApps, Mcp). Buttons tagged with `data-test="save-btn" | "cancel-btn"`
  *      (added via I.2 data-test audit).
  *
@@ -21,6 +20,9 @@
  */
 
 export const createDialog = {
+  confirmSelector: '[data-test-role="popup-confirm"]:visible, [data-test="ds-alert-dialog-confirm"]:visible, [data-test^="popup-confirm-"]:not([data-test^="popup-confirm-cancel-"]):not([data-test^="popup-confirm-secondary-"]):visible',
+  cancelSelector: '[data-test-role="popup-cancel"]:visible, [data-test="ds-alert-dialog-cancel"]:visible, [data-test^="popup-confirm-cancel-"]:visible',
+
   /**
    * Assert the create dialog is open and one of its action buttons is
    * actually visible (not mid-animation). Pages keep hidden popup-confirm
@@ -29,14 +31,17 @@ export const createDialog = {
    * dialogs) to be reachable.
    */
   expectOpen() {
-    // Step 1: a visible dialog exists
-    cy.get('.q-dialog--modal, [data-test="popup-confirm"]', { timeout: 15000 })
+    // Step 1: a visible dialog exists. Include `km-dialog` (custom-stepper
+    // dialogs like Collections wrap content in `<km-dialog>` instead of
+    // `<km-popup-confirm>`) and `cancel-btn` (always present, even before
+    // the next/save row renders).
+    cy.get('[data-test="km-dialog"], [data-test="km-popup-confirm"], [data-test="ds-alert-dialog"], [data-test="ds-dialog"], [data-test="save-btn"], [data-test="next-btn"], [data-test="cancel-btn"]', { timeout: 15000 })
       .filter(':visible')
       .should('have.length.gte', 1)
     // Step 2: wait for an interactive element inside the dialog (ride out
     // the fade-in animation so subsequent clicks don't miss).
     cy.get(
-      '[data-test-role="popup-confirm"]:visible, [data-test="save-btn"]:visible, [data-test="next-btn"]:visible',
+      `${createDialog.confirmSelector}, [data-test="save-btn"]:visible, [data-test="next-btn"]:visible, [data-test="cancel-btn"]:visible`,
       { timeout: 15000 },
     ).should('have.length.gte', 1)
   },
@@ -59,21 +64,32 @@ export const createDialog = {
     cy.get(`[data-test="${dataTest}"]:visible`).first().find('input').clear().type(value)
   },
 
-  /** Click Save — tries stable role first, then legacy label. Always filter to visible. */
+  /** Click Save — combines every known confirm hook into a single retried
+   *  selector. Single `cy.get` lets cypress retry while the dialog finishes
+   *  rendering or re-rendering (e.g. after a select-item picks a category
+   *  and the form validation re-paints). Includes:
+   *    - DS alert-dialog confirm (`ds-alert-dialog-confirm`)
+   *    - popup-confirm role / label-prefixed actions
+   *    - generic `save-btn` (custom km-dialog footers)
+   *    - stepper `next-btn` (Collections-style step 0 → step 1 advance)
+   */
   save() {
-    cy.get('body').then(($body) => {
-      const stable = $body.find('[data-test-role="popup-confirm"]:visible')
-      const generic = $body.find('[data-test="save-btn"]:visible')
-      if (stable.length) cy.wrap(stable).first().click()
-      else if (generic.length) cy.wrap(generic).first().click()
-      else cy.get('[data-test="Save"]:visible').first().click()
-    })
+    cy.get(
+      [
+        '[data-test-role="popup-confirm"]:visible',
+        '[data-test="ds-alert-dialog-confirm"]:visible',
+        '[data-test^="popup-confirm-"]:not([data-test^="popup-confirm-cancel-"]):not([data-test^="popup-confirm-secondary-"]):visible',
+        '[data-test="save-btn"]:visible',
+        '[data-test="next-btn"]:visible',
+      ].join(', '),
+      { timeout: 10000 },
+    ).first().click()
   },
 
   /** Click Cancel — tries stable role first, then legacy label, then custom. */
   cancel() {
     cy.get('body').then(($body) => {
-      const stable = $body.find('[data-test-role="popup-cancel"]:visible')
+      const stable = $body.find(createDialog.cancelSelector)
       const generic = $body.find('[data-test="cancel-btn"]:visible')
       if (stable.length) cy.wrap(stable).first().click()
       else if (generic.length) cy.wrap(generic).first().click()
@@ -83,6 +99,6 @@ export const createDialog = {
 
   /** Assert a validation message is visible in the dialog. */
   expectValidationError() {
-    cy.get('.q-field--error, [role="alert"]', { timeout: 5000 }).should('exist')
+    cy.get('[role="alert"], [aria-invalid="true"]', { timeout: 5000 }).should('exist')
   },
 }

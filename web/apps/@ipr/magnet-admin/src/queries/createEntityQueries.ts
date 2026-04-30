@@ -118,8 +118,9 @@ export function createEntityQueries<T extends BaseEntity>(
       const qc = useQueryClient()
       return useMutation<void, Error, string>({
         mutationFn: (id) => api.remove(id),
-        onSuccess: () => {
-          qc.invalidateQueries({ queryKey: keys.all })
+        onSuccess: (_, id) => {
+          qc.removeQueries({ queryKey: keys.detail(id) })
+          qc.invalidateQueries({ queryKey: keys.lists() })
           qc.invalidateQueries({ queryKey: ['catalog'] })
         },
         onError: (error) => handleMutationError(error, 'remove'),

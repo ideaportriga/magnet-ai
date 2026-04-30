@@ -1,7 +1,7 @@
 <template>
-  <div class="q-px-md">
-    <div class="row items-start q-col-gutter-md q-mb-md">
-      <div class="col">
+  <div class="px-md">
+    <div class="cluster mb-md" data-gap="md" data-align="start">
+      <div class="flex-1">
         <div class="km-heading-7">{{ m.knowledgeGraph_entityExtraction() }}</div>
         <div class="km-description text-secondary-text">
           {{ m.knowledgeGraph_entityExtractionDescription() }}
@@ -9,14 +9,14 @@
       </div>
     </div>
 
-    <q-separator class="q-my-md" />
+    <km-separator class="my-md" />
 
-    <div v-if="entities.length === 0" class="q-mt-md">
-      <div class="text-center q-pa-lg">
-        <q-icon name="o_category" size="64px" color="grey-5" />
-        <div class="km-heading-7 text-grey-7 q-mt-md">{{ m.knowledgeGraph_noEntitiesYet() }}</div>
+    <div v-if="entities.length === 0" class="mt-md">
+      <div class="text-center p-lg">
+        <km-glyph name="category" size="64px" tone="muted" />
+        <div class="km-heading-7 text-grey-7 mt-md">{{ m.knowledgeGraph_noEntitiesYet() }}</div>
         <div class="km-description text-grey-6">{{ m.knowledgeGraph_createFirstEntityHint() }}</div>
-        <q-btn no-caps unelevated color="primary" :label="m.knowledgeGraph_createFirstEntity()" class="q-mt-lg" :disable="saving" @click="openCreateDialog" />
+        <km-btn no-caps unelevated :label="m.knowledgeGraph_createFirstEntity()" class="mt-lg" :disable="saving" @click="openCreateDialog" />
       </div>
     </div>
 
@@ -28,26 +28,23 @@
             :label="m.common_cancel()"
             size="sm"
             flat
-            color="negative"
+            tone="danger"
             :disable="cancelling || extractionStarting"
             @click="showCancelConfirmDialog = true"
           />
-          <km-btn v-else :label="m.knowledgeGraph_runExtraction()" size="sm" :disable="!canRunExtraction || saving" @click="showRunConfirmDialog = true">
-            <q-tooltip v-if="!canRunExtraction && !saving">{{ m.knowledgeGraph_configurePromptFirst() }}</q-tooltip>
-          </km-btn>
+          <km-btn v-else :label="m.knowledgeGraph_runExtraction()" size="sm" :disable="!canRunExtraction || saving" :tooltip="m.knowledgeGraph_configurePromptFirst()" @click="showRunConfirmDialog = true" />
         </template>
 
         <template #status>
           <!-- Progress area when running/starting -->
           <template v-if="isExtractionActive || extractionStarting">
-            <q-linear-progress
+            <km-linear-progress
               :value="progressFraction"
               :indeterminate="!hasProgress"
-              color="primary"
               track-color="grey-3"
               rounded
               size="8px"
-              style="width: 160px"
+              style="inline-size: 160px"
             />
             <span v-if="hasProgress" class="text-caption text-grey-7">{{ progressPercentText }}</span>
             <span class="text-caption text-grey-6">
@@ -62,7 +59,7 @@
         </template>
 
         <template #trailing>
-          <km-btn flat icon="o_add_circle" :label="m.knowledgeGraph_newEntity()" size="sm" :disable="saving" @click="openCreateDialog" />
+          <km-btn flat icon="add-circle" :label="m.knowledgeGraph_newEntity()" size="sm" :disable="saving" @click="openCreateDialog" />
           <km-btn flat icon="settings" :label="m.common_settings()" size="sm" :disable="saving" @click="showExtractionDialog = true" />
           <km-btn flat icon="refresh" :label="m.common_refresh()" size="sm" :disable="saving" @click="emit('refresh')" />
         </template>
@@ -86,7 +83,7 @@
         </template>
 
         <template #cell-description="{ row }">
-          <span class="km-cell-ellipsis" style="max-width: 300px">{{ row.description }}</span>
+          <span class="km-cell-ellipsis" style="max-inline-size: 300px">{{ row.description }}</span>
         </template>
 
         <template #cell-columns_count="{ row }">
@@ -98,7 +95,7 @@
         </template>
 
         <template #cell-enabled="{ row }">
-          <q-toggle
+          <km-toggle
             :model-value="row.enabled"
             dense
             :disable="saving"
@@ -108,25 +105,20 @@
         </template>
 
         <template #cell-menu="{ row }">
-          <q-btn dense flat color="dark" icon="more_vert" :disable="saving" @click.stop>
-            <q-menu class="entity-row-menu" anchor="bottom right" self="top right" auto-close>
-              <q-list dense>
-                <q-item v-ripple="false" clickable :disable="saving" @click="editEntity(row)">
-                  <q-item-section thumbnail>
-                    <q-icon name="edit" color="primary" size="20px" class="q-ml-sm" />
-                  </q-item-section>
-                  <q-item-section>{{ m.common_edit() }}</q-item-section>
-                </q-item>
-                <q-separator />
-                <q-item v-ripple="false" clickable :disable="saving" @click="confirmDelete(row)">
-                  <q-item-section thumbnail>
-                    <q-icon name="delete" color="negative" size="20px" class="q-ml-sm" />
-                  </q-item-section>
-                  <q-item-section>{{ m.common_delete() }}</q-item-section>
-                </q-item>
-              </q-list>
-            </q-menu>
-          </q-btn>
+          <ds-dropdown-menu-root>
+            <ds-dropdown-menu-trigger as-child>
+              <km-btn dense flat tone="neutral" icon="more-vertical" :disable="saving" @click.stop />
+            </ds-dropdown-menu-trigger>
+            <ds-dropdown-menu-content side="bottom" align="end" :side-offset="4">
+              <ds-dropdown-menu-item :disabled="saving" @select="editEntity(row)">
+                <km-glyph name="edit" size="18px" /><span>{{ m.common_edit() }}</span>
+              </ds-dropdown-menu-item>
+              <ds-dropdown-menu-separator />
+              <ds-dropdown-menu-item variant="destructive" :disabled="saving" @select="confirmDelete(row)">
+                <km-glyph name="delete" size="18px" /><span>{{ m.common_delete() }}</span>
+              </ds-dropdown-menu-item>
+            </ds-dropdown-menu-content>
+          </ds-dropdown-menu-root>
         </template>
       </km-data-table>
     </div>
@@ -153,7 +145,7 @@
     <kg-confirm-dialog
       v-model="showDeleteDialog"
       :title="m.knowledgeGraph_deleteEntityTitle()"
-      icon="delete_outline"
+      icon="delete"
       :description="m.knowledgeGraph_deleteEntityConfirm({ name: selectedEntity?.name ?? '' })"
       :confirm-label="m.common_delete()"
       destructive
@@ -325,7 +317,6 @@ const progressFraction = computed(() => {
   if (!p || p.total <= 0) return 0
   return Math.min(p.processed / p.total, 1)
 })
-
 const progressPercentText = computed(() => {
   return `${Math.round(progressFraction.value * 100)}%`
 })
@@ -680,16 +671,6 @@ defineExpose({
 </script>
 
 <style scoped>
-:deep(.q-table thead th) {
-  font-size: var(--km-font-size-body);
-  font-weight: 600;
-}
-
-:deep(.q-table tbody td) {
-  height: 40px;
-  padding: 2px 16px;
-}
-
 .entity-name-cell {
   display: flex;
   align-items: center;
@@ -697,18 +678,10 @@ defineExpose({
 
 .entity-name-text {
   font-weight: 600;
-  color: var(--q-primary-text);
+  color: var(--ds-color-primary-text);
 }
 
 :deep(.entity-row--disabled) td:not(:last-child) {
   opacity: 0.45;
-}
-
-:deep(.entity-row-menu .q-focus-helper) {
-  opacity: 0 !important;
-}
-
-:deep(.entity-row-menu .q-item.q-focusable:hover) {
-  background: transparent !important;
 }
 </style>

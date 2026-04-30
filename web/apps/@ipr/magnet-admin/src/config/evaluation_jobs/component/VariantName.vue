@@ -1,23 +1,35 @@
-<template lang="pug">
-template(v-if='variants')
-  .km-field.text-left.cursor-pointer(v-for='variant in variants') 
-    div {{ variant?.name }}
-    q-tooltip(:offset='[0, 10]')
-      .row.items-center
-        .col-auto.q-mr-sm
-          .km-field Variant:
-        .col-auto
-          .km-heading-1 {{ variant?.name }}
-      .row.items-center.q-mt-xs(v-if='variant?.model')
-        .col-auto.q-mr-sm
-          .km-field Model:
-        .col-auto
-          .km-heading-1 {{ variant?.model }}
-      .row.items-center.q-mt-xs(v-if='variant?.description')
-        .col-auto.q-mr-sm
-          .km-field Description:
-        .col-auto
-          .km-heading-1 {{ variant?.description }}
+<template>
+  <template v-if="variants">
+    <div v-for="variant in variants" :key="variant" class="km-field text-left cursor-pointer"> 
+      <div>{{ variant?.name }}</div>
+      <km-tooltip :offset="[0, 10]">
+        <div class="cluster">
+          <div class="flex-none mr-sm">
+            <div class="km-field">Variant:</div>
+          </div>
+          <div class="flex-none">
+            <div class="km-heading-1">{{ variant?.name }}</div>
+          </div>
+        </div>
+        <div v-if="variant?.model" class="cluster mt-xs">
+          <div class="flex-none mr-sm">
+            <div class="km-field">Model:</div>
+          </div>
+          <div class="flex-none">
+            <div class="km-heading-1">{{ variant?.model }}</div>
+          </div>
+        </div>
+        <div v-if="variant?.description" class="cluster mt-xs">
+          <div class="flex-none mr-sm">
+            <div class="km-field">Description:</div>
+          </div>
+          <div class="flex-none">
+            <div class="km-heading-1">{{ variant?.description }}</div>
+          </div>
+        </div>
+      </km-tooltip>
+    </div>
+  </template>
 </template>
 <script>
 import { defineComponent } from 'vue'

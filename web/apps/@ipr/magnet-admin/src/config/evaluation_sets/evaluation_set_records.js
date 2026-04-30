@@ -1,7 +1,7 @@
 import { required, minLength } from '@shared/utils/validationRules'
 import TextWrap from './component/TextWrap.vue'
 import { markRaw, h } from 'vue'
-import RetrievalMetadataFilterChipList from '@ui/components/Retrieval/MetadataFilterChipList.vue'
+import RetrievalMetadataFilterChipList from '@/components/Retrieval/MetadataFilterChipList.vue'
 import { m } from '@/paraglide/messages'
 
 export const evaluationRecord = {

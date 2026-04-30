@@ -1,18 +1,15 @@
-<template lang="pug">
-.ba-border.bg-white.border-radius-12.q-pa-lg(style='min-width: 300px')
-  km-section(:title='m.common_promptTemplate()', :subTitle='m.subtitle_promptTemplate()')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_promptTemplate() }}
-    km-select(height='30px', :placeholder='m.retrieval_standardQaPrompt()', :options='prompts', v-model='generatePromptTemplate', hasDropdownSearch)
-    .row.q-mt-sm
-      .col-auto
-        km-btn(
-          flat,
-          simple,
-          :label='generatePromptTemplate ? m.common_openPromptTemplate() : m.common_openPromptTemplatesLibrary()',
-          iconSize='16px',
-          icon='fas fa-comment-dots',
-          @click='generatePromptTemplate ? navigate(`prompt-templates/${generatePromptTemplateId}`) : navigate("prompt-templates")'
-        )
+<template>
+  <div class="ba-border bg-white border-radius-12 p-lg" style="min-inline-size: 300px">
+    <km-section :title="m.common_promptTemplate()" :sub-title="m.subtitle_promptTemplate()">
+      <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.common_promptTemplate() }}</div>
+      <km-select v-model="generatePromptTemplate" height="30px" :placeholder="m.retrieval_standardQaPrompt()" :options="prompts" has-dropdown-search />
+      <div class="cluster mt-sm">
+        <div class="flex-none">
+          <km-btn flat simple :label="generatePromptTemplate ? m.common_openPromptTemplate() : m.common_openPromptTemplatesLibrary()" icon-size="16px" icon="chat" @click="generatePromptTemplate ? navigate(`prompt-templates/${generatePromptTemplateId}`) : navigate(&quot;prompt-templates&quot;)" />
+        </div>
+      </div>
+    </km-section>
+  </div>
 </template>
 
 <script>

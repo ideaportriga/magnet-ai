@@ -1,135 +1,104 @@
-<template lang="pug">
-.full-width
-  km-section(title='General info', subTitle='General Model Provider settings')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 Type
-    .row.items-center.q-gap-16.no-wrap
-      km-select.full-width(:model-value='provider.type', readonly, disabled)
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-lg Endpoint
-    .row.items-center.q-gap-8.no-wrap
-      .col
-        .row.items-center.q-gap-8.no-wrap.relative-position
-          km-input.full-width(
-            :model-value='endpointValue',
-            @update:model-value='tempEndpoint = $event',
-            :readonly='!isEditingEndpoint',
-            :placeholder='m.placeholder_exampleApiEndpoint()'
-          )
-          .controls.full-height.row.items-center
-            km-btn(v-if='!isEditingEndpoint', icon='fa fa-pen', flat, iconSize='12px', @click='startEditingEndpoint', size='xs')
-            km-btn(v-if='isEditingEndpoint', icon='fa fa-xmark', flat, iconSize='12px', @click='cancelEditingEndpoint', size='xs')
-            km-btn(v-if='isEditingEndpoint', icon='fa fa-check', flat, iconSize='12px', @click='saveEndpoint', size='xs', color='primary')
-    .km-description.text-secondary-text.q-pb-4.q-pl-8(v-if='!isEditingEndpoint') Click edit to change endpoint. Warning: this will clear all secrets.
-    .km-description.text-negative.q-pb-4.q-pl-8(v-if='isEditingEndpoint') Changing endpoint will permanently delete all secrets!
-
-  km-popup-confirm(
-    :visible='showEndpointWarning',
-    title='Change Endpoint',
-    confirmButtonLabel='Yes, Change Endpoint',
-    :cancelButtonLabel='m.common_cancel()',
-    notification='Changing the endpoint will permanently delete all encrypted secrets. You will need to re-enter all credentials after this change.',
-    @confirm='confirmEndpointChange',
-    @cancel='cancelEndpointChange'
-  )
-    .text-body1 Are you sure you want to change the endpoint?
-    .text-body2.q-mt-md Current endpoint: {{ provider.endpoint || 'Not set' }}
-    .text-body2 New endpoint: {{ tempEndpoint }}
-
-  q-separator.q-mt-lg.q-mb-lg
-  km-section(title='Connection', subTitle='Connection parameters like endpoints and headers')
-    .row.items-center.q-gap-8.no-wrap.q-mt-lg(v-for='[key, value] in connectionEntries', :key='key')
-      .col
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Key
-        km-input(:label='m.common_key()', :model-value='key', @update:model-value='updateConnectionKey(key, $event)')
-      .col
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Value
-        km-input(:label='m.common_value()', :model-value='value', @update:model-value='updateConnectionValue(key, $event)')
-      .col-auto
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 &nbsp;
-        km-btn(@click='removeConnection(key)', icon='o_delete', size='sm', flat, color='negative')
-    .row.q-pt-16.items-center
-      km-btn(:label='m.common_addRecord()', @click='addConnection', size='sm', icon='o_add', flat)
-      q-space
-      km-btn(
-        flat,
-        :label='testingConnection ? "Testing..." : "Test Connection"',
-        :loading='testingConnection',
-        @click='testProviderConnection',
-        icon='fas fa-plug',
-        color='primary',
-        size='sm'
-      )
-
-  //- Test Result Dialog
-  q-dialog(v-model='showTestDialog')
-    q-card(style='min-width: 580px; max-width: 720px')
-      q-card-section.row.items-center
-        .km-heading-7 Test Result
-        q-space
-        q-btn(icon='close', flat, round, dense, @click='showTestDialog = false')
-      q-card-section
-        .row.items-center.q-gap-12.q-mb-md
-          q-icon(
-            :name='testResult?.success ? "fas fa-check-circle" : "fas fa-times-circle"',
-            :color='testResult?.success ? "positive" : "negative"',
-            size='32px'
-          )
-          .text-h6(:class='testResult?.success ? "text-positive" : "text-negative"') {{ testResult?.success ? 'Success' : 'Failed' }}
-        .km-description.text-secondary-text.q-mb-sm {{ testResult?.message }}
-        .q-pa-sm.bg-negative-light.rounded-borders.q-mt-sm(v-if='testResult?.error')
-          .km-field.text-negative.q-mb-xs Error Details
-          .text-body2.text-negative {{ testResult?.error }}
-
-        //- LiteLLM Diagnostic Info
-        .q-mt-md.q-pa-sm.bg-grey-2.rounded-borders(
-          v-if='testResult?.litellm_model_string || testResult?.effective_endpoint || testResult?.computed_url || testResult?.via_router != null'
-        )
-          .km-field.text-secondary-text.q-mb-sm Connection Details
-          .q-gutter-y-xs
-            .row.items-start(v-if='testResult?.litellm_model_string')
-              .text-caption.text-grey-7.col-3 Model string
-              .text-caption.text-mono.col-9 {{ testResult.litellm_model_string }}
-            .row.items-start(v-if='testResult?.effective_endpoint')
-              .text-caption.text-grey-7.col-3 Endpoint
-              .text-caption.text-mono.col-9(style='word-break: break-all; white-space: normal') {{ testResult.effective_endpoint }}
-            .row.items-start(v-if='testResult?.via_router != null')
-              .text-caption.text-grey-7.col-3 Via Router
-              .col-9
-                q-badge.km-tiny(
-                  :color='testResult.via_router ? "positive" : "grey-6"',
-                  :label='testResult.via_router ? "Yes" : "No (direct call)"'
-                )
-            .row.items-start(v-if='testResult?.computed_url')
-              .text-caption.text-grey-7.col-3 Request URL
-              .text-caption.text-mono.col-9(style='word-break: break-all; white-space: normal') {{ testResult.computed_url }}
-      q-card-actions(align='right')
-        km-btn(flat, :label='m.common_close()', color='primary', @click='showTestDialog = false')
-
-  q-separator.q-mt-lg.q-mb-lg
-  km-section(title='Secrets', subTitle='Use to store sensitive values such as API keys or tokens.')
-    .row.items-center.q-gap-8.q-mb-md(v-if='recommendedSecretKeys.length')
-      .km-description.text-secondary-text Recommended for {{ formatProviderType(provider.type) }}:
-      q-space
-      km-btn(
-        flat,
-        :label='m.common_prePopulateKeys()',
-        size='sm',
-        icon='o_auto_fix_high',
-        color='primary',
-        @click='prefillRecommendedSecrets',
-        :disable='allRecommendedSecretsExist'
-      )
-    .row.q-gap-4.flex-wrap.q-mb-md(v-if='recommendedSecretKeys.length')
-      q-chip(
-        v-for='rec in recommendedSecretKeys',
-        :key='rec.key',
-        color='primary-light',
-        text-color='primary',
-        size='sm',
-        dense
-      )
-        q-icon.q-mr-xs(:name='secretExists(rec.key) ? "fas fa-check-circle" : "o_key"', size='14px', :color='secretExists(rec.key) ? "positive" : "primary"')
-        | {{ rec.label }}
-    km-secrets(v-model:secrets='secrets', :original-secrets='originalProviderSecrets', :remount-value='remountValue')
+<template>
+  <div class="full-width">
+    <km-section title="General info" sub-title="General Model Provider settings">
+      <div class="km-field text-secondary-text pb-xs pl-sm">Type</div>
+      <div class="cluster full-width" data-gap="lg" data-wrap="no">
+        <!-- Type is fixed for the lifetime of a provider (changing it would
+             invalidate every model + secret), so this is purely informational.
+             Render as a readonly text field showing the human label rather
+             than an unmappable empty select. -->
+        <km-input class="full-width" :model-value="formatProviderType(provider?.type)" readonly />
+      </div>
+      <div class="km-field text-secondary-text pb-xs pl-sm mt-lg">Endpoint</div>
+      <div class="cluster" data-gap="sm" data-wrap="no">
+        <div class="flex-1">
+          <div class="cluster" data-gap="sm" data-wrap="no" style="position: relative">
+            <km-input class="full-width" :model-value="endpointValue" :readonly="!isEditingEndpoint" :placeholder="m.placeholder_exampleApiEndpoint()" @update:model-value="tempEndpoint = $event" />
+            <div class="controls full-height cluster">
+              <km-btn v-if="!isEditingEndpoint" icon="edit" flat icon-size="12px" size="xs" @click="startEditingEndpoint" />
+              <km-btn v-if="isEditingEndpoint" icon="close" flat icon-size="12px" size="xs" @click="cancelEditingEndpoint" />
+              <km-btn v-if="isEditingEndpoint" icon="check" flat icon-size="12px" size="xs" tone="brand" @click="saveEndpoint" />
+            </div>
+          </div>
+        </div>
+      </div>
+      <div v-if="!isEditingEndpoint" class="km-description text-secondary-text pb-xs pl-sm">Click edit to change endpoint. Warning: this will clear all secrets.</div>
+      <div v-if="isEditingEndpoint" class="km-description text-negative pb-xs pl-sm">Changing endpoint will permanently delete all secrets!</div>
+    </km-section>
+    <km-popup-confirm :visible="showEndpointWarning" title="Change Endpoint" confirm-button-label="Yes, Change Endpoint" :cancel-button-label="m.common_cancel()" notification="Changing the endpoint will permanently delete all encrypted secrets. You will need to re-enter all credentials after this change." @confirm="confirmEndpointChange" @cancel="cancelEndpointChange">
+      <div class="text-body1">Are you sure you want to change the endpoint?</div>
+      <div class="text-body2 mt-md">Current endpoint: {{ provider.endpoint || 'Not set' }}</div>
+      <div class="text-body2">New endpoint: {{ tempEndpoint }}</div>
+    </km-popup-confirm>
+    <km-separator class="mt-lg mb-lg" />
+    <km-section title="Connection" sub-title="Connection parameters like endpoints and headers">
+      <key-value-editor :model-value="provider?.connection_config || {}" @update:model-value="updateField('connection_config', $event)">
+        <template #actions>
+          <km-btn flat :label="testingConnection ? &quot;Testing...&quot; : &quot;Test Connection&quot;" :loading="testingConnection" icon="plug" tone="brand" size="sm" @click="testProviderConnection" />
+        </template>
+      </key-value-editor>
+    </km-section>
+    <km-dialog v-model="showTestDialog">
+      <km-card style="min-inline-size: 580px; max-inline-size: 720px">
+        <div class="km-card-section cluster" data-justify="between">
+          <div class="km-heading-7">Test Result</div>
+          <div class="km-space" />
+          <km-btn icon="close" flat round dense @click="showTestDialog = false" />
+        </div>
+        <div class="km-card-section">
+          <div class="cluster mb-md" data-gap="md">
+            <km-glyph :name="testResult?.success ? &quot;check&quot; : &quot;error&quot;" :tone="testResult?.success ? &quot;success&quot; : &quot;danger&quot;" size="32px" />
+            <div class="text-h6" :class="testResult?.success ? &quot;text-positive&quot; : &quot;text-negative&quot;">{{ testResult?.success ? 'Success' : 'Failed' }}</div>
+          </div>
+          <div class="km-description text-secondary-text mb-sm">{{ testResult?.message }}</div>
+          <div v-if="testResult?.error" class="p-sm bg-negative-light rounded-borders mt-sm">
+            <div class="km-field text-negative mb-xs">Error Details</div>
+            <div class="text-body2 text-negative">{{ testResult?.error }}</div>
+          </div>
+          <div v-if="testResult?.litellm_model_string || testResult?.effective_endpoint || testResult?.computed_url || testResult?.via_router != null" class="mt-md p-sm bg-grey-2 rounded-borders">
+            <div class="km-field text-secondary-text mb-sm">Connection Details</div>
+            <div class="gap-y-xs">
+              <div v-if="testResult?.litellm_model_string" class="cluster" data-align="start">
+                <div class="provider-settings__detail-label flex-none text-caption text-grey-7">Model string</div>
+                <div class="provider-settings__detail-value flex-1 text-caption text-mono">{{ testResult.litellm_model_string }}</div>
+              </div>
+              <div v-if="testResult?.effective_endpoint" class="cluster" data-align="start">
+                <div class="provider-settings__detail-label flex-none text-caption text-grey-7">Endpoint</div>
+                <div class="provider-settings__detail-value flex-1 text-caption text-mono" style="word-break: break-all; white-space: normal">{{ testResult.effective_endpoint }}</div>
+              </div>
+              <div v-if="testResult?.via_router != null" class="cluster" data-align="start">
+                <div class="provider-settings__detail-label flex-none text-caption text-grey-7">Via Router</div>
+                <div class="provider-settings__detail-value flex-1">
+                  <km-badge class="km-tiny" :tone="testResult.via_router ? &quot;success&quot; : &quot;neutral&quot;" :label="testResult.via_router ? &quot;Yes&quot; : &quot;No (direct call)&quot;" />
+                </div>
+              </div>
+              <div v-if="testResult?.computed_url" class="cluster" data-align="start">
+                <div class="provider-settings__detail-label flex-none text-caption text-grey-7">Request URL</div>
+                <div class="provider-settings__detail-value flex-1 text-caption text-mono" style="word-break: break-all; white-space: normal">{{ testResult.computed_url }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="km-card-actions" align="right">
+          <km-btn flat :label="m.common_close()" tone="brand" @click="showTestDialog = false" />
+        </div>
+      </km-card>
+    </km-dialog>
+    <km-separator class="mt-lg mb-lg" />
+    <km-section title="Secrets" sub-title="Use to store sensitive values such as API keys or tokens.">
+      <div v-if="recommendedSecretKeys.length" class="cluster mb-md" data-gap="sm" data-justify="between">
+        <div class="km-description text-secondary-text">Recommended for {{ formatProviderType(provider.type) }}:</div>
+        <div class="km-space" />
+        <km-btn flat :label="m.common_prePopulateKeys()" size="sm" icon="o_auto_fix_high" tone="brand" :disable="allRecommendedSecretsExist" @click="prefillRecommendedSecrets" />
+      </div>
+      <div v-if="recommendedSecretKeys.length" class="cluster mb-md" data-gap="xs">
+        <km-chip v-for="rec in recommendedSecretKeys" :key="rec.key" tone="brand" size="sm" dense>
+          <km-glyph class="mr-xs" :name="secretExists(rec.key) ? &quot;check&quot; : &quot;o_key&quot;" size="14px" :tone="secretExists(rec.key) ? &quot;success&quot; : &quot;brand&quot;" />{{ rec.label }}
+        </km-chip>
+      </div>
+      <km-secrets v-model:secrets="secrets" :original-secrets="originalProviderSecrets" :remount-value="remountValue" />
+    </km-section>
+  </div>
 </template>
 
 <script setup>
@@ -267,11 +236,6 @@ const prefillRecommendedSecrets = () => {
   }
 }
 
-const connectionEntries = computed(() => {
-  const config = provider.value?.connection_config || {}
-  return Object.entries(config)
-})
-
 const originalProviderSecrets = computed(() => {
   const secrets = data.value?.secrets_encrypted
   if (!secrets) return []
@@ -291,31 +255,6 @@ const secrets = computed({
     updateField('secrets_encrypted', value)
   },
 })
-
-const addConnection = () => {
-  const newConfig = { ...provider.value.connection_config, '': '' }
-  updateField('connection_config', newConfig)
-}
-
-const removeConnection = (key) => {
-  const newConfig = { ...provider.value.connection_config }
-  delete newConfig[key]
-  updateField('connection_config', newConfig)
-}
-
-const updateConnectionKey = (oldKey, newKey) => {
-  const config = { ...provider.value.connection_config }
-  const value = config[oldKey]
-  delete config[oldKey]
-  config[newKey] = value
-  updateField('connection_config', config)
-}
-
-const updateConnectionValue = (key, newValue) => {
-  const config = { ...provider.value.connection_config }
-  config[key] = newValue
-  updateField('connection_config', config)
-}
 
 // Test provider connection
 const testProviderConnection = async () => {
@@ -344,9 +283,19 @@ const testProviderConnection = async () => {
 }
 </script>
 
-<style lang="stylus" scoped>
-.controls
-  position: absolute
-  right: 5px
-  top: 0
+<style scoped>
+.controls {
+  position: absolute;
+  inset-inline-end: 5px;
+  inset-block-start: 0;
+}
+
+.provider-settings__detail-label {
+  flex: 0 0 25%;
+  max-inline-size: 25%;
+}
+
+.provider-settings__detail-value {
+  min-inline-size: 0;
+}
 </style>

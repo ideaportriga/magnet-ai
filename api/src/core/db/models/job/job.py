@@ -45,5 +45,11 @@ class Job(UUIDv7AuditBase):
         DateTimeUTC, nullable=True, comment="Last execution time"
     )
 
+    taskiq_schedule_id: Mapped[Optional[str]] = mapped_column(
+        String(64),
+        nullable=True,
+        comment="Links to taskiq_schedules.id for recurring / one-time-scheduled jobs",
+    )
+
     def __repr__(self) -> str:
         return f"<Job, status='{self.status}')>"

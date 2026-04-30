@@ -1,0 +1,300 @@
+/* =============================================================================
+ * @ds reset
+ * =============================================================================
+ * Modern, opinionated CSS reset that replaces Quasar's
+ * `quasar/src/css/index.sass`. Inspired by Tailwind Preflight, modern-normalize,
+ * and Andy Bell's "modern CSS reset" (https://piccalil.li/blog/a-more-modern-css-reset/).
+ *
+ * Goals:
+ *   1. Neutralise browser defaults so token / composition / utility layers can
+ *      own visual decisions without "...but in Safari ____" surprises.
+ *   2. Stay framework-agnostic — no DS class names live here.
+ *   3. Be defensive: even mis-used elements (e.g. a stray <li> outside <ul>,
+ *      a heading without a typography utility) shouldn't leak browser bullets,
+ *      bold weights, or large font sizes.
+ *
+ * Anything beyond a true reset belongs in tokens / composition / utilities.
+ * ============================================================================= */
+
+/* -- 1. Universal box-sizing & margin reset -------------------------------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+}
+
+/* -- 2. Document & body ---------------------------------------------------- */
+
+html {
+  text-size-adjust: 100%;
+  tab-size: 4;
+  tab-size: 4;
+  line-height: var(--ds-line-height-normal, 1.4);
+}
+
+html,
+body {
+  block-size: 100%;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-family: var(--ds-font-default, system-ui, sans-serif);
+  font-size: var(--ds-font-size-body, 14px);
+  line-height: inherit;
+  color: var(--ds-color-black, #191b23);
+  background-color: var(--ds-color-background, #fbfbfe);
+  text-rendering: optimizeLegibility;
+}
+
+/* -- 3. Typography --------------------------------------------------------- */
+
+/*
+ * Headings inherit size & weight from their parent. Visual hierarchy is owned
+ * by the typography utilities (`.km-heading-*`), not by the tag.
+ */
+h1, h2, h3, h4, h5, h6 {
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+p,
+h1, h2, h3, h4, h5, h6 {
+  overflow-wrap: break-word;
+}
+
+b, strong {
+  font-weight: bolder;
+}
+
+small {
+  font-size: 80%;
+}
+
+sub, sup {
+  font-size: 75%;
+  line-height: 0;
+  position: relative;
+  vertical-align: baseline;
+}
+sub { bottom: -0.25em; }
+sup { top: -0.5em; }
+
+abbr[title] {
+  text-decoration: underline dotted;
+}
+
+address {
+  font-style: normal;
+}
+
+/* Monospace stack for code-like elements. */
+code, kbd, samp, pre {
+  font-family: var(--ds-font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
+  font-size: 1em;
+}
+
+pre {
+  white-space: pre;
+}
+
+/* -- 4. Links -------------------------------------------------------------- */
+
+a {
+  color: inherit;
+  text-decoration: inherit;
+  background-color: transparent;
+}
+
+/* -- 5. Lists -------------------------------------------------------------- *
+ * Defensive: `list-style: none` is applied to ul, ol AND li so that
+ * `<li>` elements used outside a list parent (a known pattern in this
+ * codebase, especially around legacy Quasar menu / item markup) don't
+ * show native browser bullets. */
+
+ul,
+ol,
+menu {
+  list-style: "";
+}
+
+li {
+  list-style: "";
+}
+
+/* -- 6. Replaced elements -------------------------------------------------- */
+
+img,
+picture,
+video,
+canvas,
+svg {
+  display: block;
+  max-inline-size: 100%;
+}
+
+img,
+video {
+  max-block-size: 100%;
+  block-size: auto;
+}
+
+/* SVG fill follows currentColor by default — components opt out via attrs. */
+svg {
+  fill: currentColor;
+}
+
+/* -- 7. Form controls ------------------------------------------------------ */
+
+button,
+input,
+optgroup,
+select,
+textarea {
+  font: inherit;
+  font-feature-settings: inherit;
+  font-variation-settings: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+  background: transparent;
+}
+
+button,
+[role="button"] {
+  cursor: pointer;
+}
+
+button {
+  border: 0;
+  padding: 0;
+  background: none;
+  appearance: auto;
+  appearance: button;
+}
+
+button:disabled,
+[role="button"][aria-disabled="true"],
+input:disabled,
+select:disabled,
+textarea:disabled {
+  cursor: not-allowed;
+}
+
+/* Search inputs lose Safari's native chrome unless we say otherwise. */
+[type="search"] {
+  appearance: textfield;
+  appearance: textfield;
+  outline-offset: -2px;
+}
+
+::-webkit-search-decoration,
+::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+[type="number"]::-webkit-inner-spin-button,
+[type="number"]::-webkit-outer-spin-button {
+  height: auto;
+}
+
+progress {
+  vertical-align: baseline;
+}
+
+::placeholder {
+  color: var(--ds-color-text-muted, currentColor);
+  opacity: 0.6;
+}
+
+textarea {
+  resize: vertical;
+}
+
+fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-inline-size: 0;
+}
+
+legend {
+  padding: 0;
+}
+
+::-webkit-file-upload-button {
+  font: inherit;
+  appearance: button;
+}
+
+/* -- 8. Tables ------------------------------------------------------------- */
+
+table {
+  text-indent: 0;
+  border-color: inherit;
+  border-collapse: collapse;
+}
+
+caption {
+  text-align: start;
+}
+
+th {
+  font-weight: inherit;
+  text-align: inherit;
+}
+
+/* -- 9. Interactive niceties ----------------------------------------------- */
+
+summary {
+  display: list-item;
+  cursor: pointer;
+}
+
+dialog {
+  padding: 0;
+}
+
+/* Hidden attribute should win over display from utilities. */
+[hidden]:where(:not([hidden="until-found"])) {
+  display: none !important;
+}
+
+/* -- 10. Horizontal rule --------------------------------------------------- */
+
+hr {
+  block-size: 0;
+  color: inherit;
+  border: 0;
+  border-top: 1px solid var(--ds-color-border, currentColor);
+}
+
+/* -- 11. Focus ------------------------------------------------------------- */
+
+/*
+ * Remove the default focus ring; primitives provide their own visible focus
+ * via `--ds-color-focus-ring`. `:focus-visible` keeps a ring authored styles
+ * still target keyboard users.
+ */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* -- 12. Motion preferences ------------------------------------------------ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

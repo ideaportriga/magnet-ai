@@ -1,45 +1,29 @@
-<template lang="pug">
-.full-width
-  km-section(:title='m.section_connectionSettings()', :subTitle='m.subtitle_endpointUrlTransport()')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.label_url() }}
-    .row.items-center.q-gap-16.no-wrap
-      km-input.full-width(:model-value='server.url', readonly)
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-lg {{ m.label_transport() }}
-    .row.items-center.q-gap-16.no-wrap
-      q-radio.q-my-sm(
-        :model-value='server.transport',
-        dense,
-        label='streamable-http',
-        val='streamable-http',
-        size='xs',
-        disabled,
-        color='grey-6',
-        disable
-      )
-      q-radio.q-my-sm(:model-value='server.transport', dense, label='sse', val='sse', size='xs', disabled, color='grey-6', disable)
-    .row.q-mt-lg
-      km-btn(:label='m.mcpServers_testConnection()', @click='testConnection', size='sm', icon='fa fa-arrow-right-arrow-left', flat, iconSize='14px')
-
-  q-separator.q-mt-lg.q-mb-lg
-  km-section(:title='m.section_headers()', :subTitle='m.subtitle_useHeaders()')
-    km-notification-text(
-      :notification='m.hint_noSensitiveData()'
-    )
-    .row.items-center.q-gap-8.no-wrap.q-mt-lg(v-for='[key, value] in headers', :key='key')
-      .col
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_key() }}
-        km-input(:label='m.common_key()', :model-value='key', @update:model-value='updateHeader(key, $event, value)')
-      .col
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_value() }}
-        km-input(:label='m.common_value()', :model-value='value', @update:model-value='updateHeader(key, key, $event)')
-      .col-auto
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 &nbsp;
-        km-btn(@click='removeHeader(key)', icon='o_delete', size='sm', flat, color='negative')
-    .row.q-pt-16
-      km-btn(:label='m.common_addHeaderRecord()', @click='addHeader', size='sm', icon='o_add', flat)
-  q-separator.q-mt-lg.q-mb-lg
-  km-section(:title='m.section_secrets()', :subTitle='m.subtitle_useSecretsMcp()')
-    km-secrets(v-model:secrets='secrets', :original-secrets='originalMcpSecrets', :remount-value='remountValue')
+<template>
+  <div class="full-width">
+    <km-section :title="m.section_connectionSettings()" :sub-title="m.subtitle_endpointUrlTransport()">
+      <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.label_url() }}</div>
+      <div class="cluster" data-gap="lg" data-wrap="no">
+        <km-input class="full-width" :model-value="server.url" readonly />
+      </div>
+      <div class="km-field text-secondary-text pb-xs pl-sm mt-lg">{{ m.label_transport() }}</div>
+      <div class="cluster" data-gap="lg" data-wrap="no">
+        <km-radio class="my-sm" :model-value="server.transport" dense label="streamable-http" val="streamable-http" size="xs" disabled disable />
+        <km-radio class="my-sm" :model-value="server.transport" dense label="sse" val="sse" size="xs" disabled disable />
+      </div>
+      <div class="cluster mt-lg">
+        <km-btn :label="m.mcpServers_testConnection()" size="sm" icon="swap" flat icon-size="14px" @click="testConnection" />
+      </div>
+    </km-section>
+    <km-separator class="mt-lg mb-lg" />
+    <km-section :title="m.section_headers()" :sub-title="m.subtitle_useHeaders()">
+      <km-notification-text :notification="m.hint_noSensitiveData()" />
+      <key-value-editor v-model="headersObject" :add-label="m.common_addHeaderRecord()" />
+    </km-section>
+    <km-separator class="mt-lg mb-lg" />
+    <km-section :title="m.section_secrets()" :sub-title="m.subtitle_useSecretsMcp()">
+      <km-secrets v-model:secrets="secrets" :original-secrets="originalMcpSecrets" :remount-value="remountValue" />
+    </km-section>
+  </div>
 </template>
 <script setup>
 import { computed } from 'vue'
@@ -55,12 +39,17 @@ const appStore = useAppStore()
 
 const server = computed(() => draft.value)
 
-const headers = computed({
+/* MCP servers persist `headers` as a Map; the editor speaks plain objects.
+ * Adapt both directions in a single computed. */
+const headersObject = computed({
   get() {
-    return draft.value?.headers || new Map()
+    const raw = draft.value?.headers
+    if (!raw) return {}
+    if (raw instanceof Map) return Object.fromEntries(raw)
+    return raw
   },
   set(value) {
-    updateField('headers', value)
+    updateField('headers', new Map(Object.entries(value || {})))
   },
 })
 
@@ -78,31 +67,6 @@ const secrets = computed({
     updateField('secrets_encrypted', value)
   },
 })
-
-const addHeader = () => {
-  const newHeaders = new Map(headers.value)
-  newHeaders.set('', '')
-  headers.value = newHeaders
-}
-
-const removeHeader = (key) => {
-  const newHeaders = new Map(headers.value)
-  newHeaders.delete(key)
-  headers.value = newHeaders
-}
-
-const updateHeader = (oldKey, newKey, newValue) => {
-  const entries = [...headers.value.entries()]
-  const idx = entries.findIndex(([k]) => k === oldKey)
-
-  if (idx !== -1) {
-    entries[idx] = [newKey, newValue] // replace in place
-  } else {
-    entries.push([newKey, newValue]) // add new
-  }
-
-  headers.value = new Map(entries)
-}
 
 const testConnection = async () => {
   try {

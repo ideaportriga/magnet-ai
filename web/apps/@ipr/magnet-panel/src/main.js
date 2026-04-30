@@ -3,9 +3,10 @@ window.appPublicPath = window.SiebelApp?.S_App ? window.kmPanelPublicPath : ''
 // Import Vue core modules
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-import { quasarConf } from '@shared'
-import { Quasar } from 'quasar'
-import 'quasar/src/css/index.sass'
+
+// @ds (Reka + CUBE CSS): tokens + composition + utilities + reset.
+import '@ds/styles'
+import '@ds/reset'
 
 // Import i18n (Paraglide JS)
 import * as runtime from '@/paraglide/runtime'
@@ -67,7 +68,6 @@ const app = {
       const apis = createPanelEntityApis(store.endpoint.admin, store.config?.credentials ?? 'include')
       initPanelEntityQueries(apis)
     }
-    appInstance.use(Quasar, quasarConf)
     appInstance.use(uiComps)
 
     // Register components, properties and directives
@@ -75,8 +75,16 @@ const app = {
     registerGlobalProperties(appInstance)
     registerDirectives(appInstance)
 
-    // Configure app instance
-    appInstance.config.globalProperties.$appPublicPath = window.SiebelApp?.S_App ? window.kmPanelPublicPath : ''
+    // Configure app instance.
+    //
+    // `$appPublicPath` is the URL prefix for static assets (images, etc.).
+    //   - In Siebel-hosted mode, the bridge sets `window.kmPanelPublicPath`
+    //     to the deployed asset root.
+    //   - In a dev / standalone build, we honour Vite's `base` config (e.g.
+    //     `/panel/`) so `<km-image src="strip.png">` resolves to the same
+    //     URL the dev server actually serves the file at.
+    const viteBase = (import.meta.env?.BASE_URL ?? '/').replace(/\/$/, '')
+    appInstance.config.globalProperties.$appPublicPath = window.SiebelApp?.S_App ? window.kmPanelPublicPath : viteBase
     appInstance.config.globalProperties.$appImagePath = appInstance.config.globalProperties.$appPublicPath + '/images/'
     appInstance.config.errorHandler = (error) => {
       useMainStore().setErrorMessage({

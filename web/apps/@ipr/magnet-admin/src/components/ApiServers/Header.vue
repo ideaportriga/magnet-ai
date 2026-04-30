@@ -1,25 +1,23 @@
-<template lang="pug">
-.col-auto.q-py-auto.row.items-center.no-wrap.q-gap-8
-  template(v-if='activeToolName')
-    .km-body.text-primary.km-breadcrumb-link(@click='navigateToServer') {{ server?.name }}
-    q-icon.text-secondary-text.km-breadcrumb-sep(name='chevron_right', size='18px')
-    .km-body {{ activeToolName }}
-  template(v-else)
-    .km-body {{ server?.name }}
+<template>
+  <div class="flex-1 min-w-0 py-auto">
+    <KmBreadcrumbNav :items="crumbs" />
+  </div>
 </template>
 <script setup>
 import { computed } from 'vue'
-import { m } from '@/paraglide/messages'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { useEntityDetail } from '@/composables/useEntityDetail'
+import KmBreadcrumbNav from '@ds/components/domain/KmBreadcrumbNav.vue'
 
 const { draft } = useEntityDetail('api_servers')
 const route = useRoute()
-const router = useRouter()
 
 const server = computed(() => draft.value)
 const activeToolName = computed(() => route.params?.name || '')
-const navigateToServer = () => {
-  if (server.value?.id) router.push(`/api-servers/${server.value.id}`)
-}
+
+const crumbs = computed(() => {
+  const trail = [{ label: server.value?.name ?? '', to: server.value?.id ? `/api-servers/${server.value.id}` : undefined }]
+  if (activeToolName.value) trail.push({ label: activeToolName.value })
+  return trail
+})
 </script>

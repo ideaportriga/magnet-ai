@@ -1,23 +1,25 @@
-<template lang="pug">
-km-popup-confirm(
-  :visible='showNewDialog',
-  :title='m.dialog_newApiServer()',
-  :confirmButtonLabel='m.common_save()',
-  :cancelButtonLabel='m.common_cancel()',
-  :notification='m.hint_addSecurityApiServer()',
-  @confirm='createRecord',
-  @cancel='$emit("cancel")'
-)
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.common_name() }}
-    .full-width
-      km-input(data-test='name-input', height='30px', v-model='name', ref='nameRef', :rules='[required()]')
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.common_systemName() }}
-    .full-width
-      km-input(data-test='system_name-input', height='30px', v-model='system_name', ref='system_nameRef', :rules='[required()]')
-    .km-description.text-secondary-text.q-pb-4 {{ m.hint_systemNameUniqueId() }}
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.label_url() }}
-    .full-width
-      km-input(data-test='url-input', height='30px', v-model='newRow.url', ref='urlRef', :rules='[required()]')
+<template>
+  <km-popup-confirm :visible="showNewDialog" :title="m.dialog_newApiServer()" :confirm-button-label="m.common_save()" :cancel-button-label="m.common_cancel()" :notification="m.hint_addSecurityApiServer()" @confirm="createRecord" @cancel="$emit(&quot;cancel&quot;)">
+    <div class="km-field text-secondary-text pb-xs pl-sm mb-md">
+      {{ m.common_name() }}
+      <div class="full-width">
+        <km-input ref="nameRef" v-model="name" data-test="name-input" height="30px" :rules="[required()]" />
+      </div>
+    </div>
+    <div class="km-field text-secondary-text pb-xs pl-sm mb-md">
+      {{ m.common_systemName() }}
+      <div class="full-width">
+        <km-input ref="system_nameRef" v-model="system_name" data-test="system_name-input" height="30px" :rules="[required()]" />
+      </div>
+      <div class="km-description text-secondary-text pb-xs">{{ m.hint_systemNameUniqueId() }}</div>
+    </div>
+    <div class="km-field text-secondary-text pb-xs pl-sm mb-md">
+      {{ m.label_url() }}
+      <div class="full-width">
+        <km-input ref="urlRef" v-model="newRow.url" data-test="url-input" height="30px" :rules="[required()]" />
+      </div>
+    </div>
+  </km-popup-confirm>
 </template>
 <script>
 import { ref, reactive, computed } from 'vue'
@@ -27,6 +29,7 @@ import { cloneDeep } from 'lodash'
 import { required, minLength } from '@/utils/validationRules'
 import { toUpperCaseWithUnderscores } from '@shared'
 import { useEntityDetail } from '@/composables/useEntityDetail'
+import { validateRef } from '@/utils/validateRef'
 
 export default {
   props: {
@@ -101,7 +104,7 @@ export default {
   },
   methods: {
     validateFields() {
-      const validStates = this.requiredFields.map((field) => this.$refs[`${field}Ref`]?.validate())
+      const validStates = this.requiredFields.map((field) => validateRef(this.$refs[`${field}Ref`]))
       return !validStates.includes(false)
     },
     async createRecord() {
@@ -116,7 +119,3 @@ export default {
 }
 </script>
 
-<style lang="stylus">
-.km-input:not(.q-field--readonly) .q-field__control::before
-  background: var(--q-white) !important;
-</style>

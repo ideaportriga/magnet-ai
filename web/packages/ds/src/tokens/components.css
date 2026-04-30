@@ -1,0 +1,113 @@
+/* =============================================================================
+ * COMPONENT-LEVEL TOKENS
+ * =============================================================================
+ * Per-component dimensions that cannot be expressed via the semantic spacing
+ * scale alone (button heights, dialog widths, …). Keep this list tight: most
+ * tokens belong in the semantic layer.
+ * ============================================================================= */
+
+:root {
+  /* Buttons */
+  --ds-btn-height-xs: 22px;
+  --ds-btn-height-sm: 36px;
+  --ds-btn-height-md: 34px;
+  --ds-btn-height-lg: 40px;
+  --ds-btn-radius: var(--ds-radius-md);
+
+  /* Inputs / fields */
+  --ds-field-height: 34px;
+  --ds-field-min-height: 34px;
+  --ds-field-max-height: 200px;
+  --ds-field-initial-height: 34px;
+  --ds-field-radius: var(--ds-radius-md);
+
+  /* Prompt input */
+  --ds-prompt-input-height: 36px;
+  --ds-prompt-input-icon-size: 16px;
+
+  /* Cards */
+  --ds-card-radius: var(--ds-radius-xl);
+  --ds-card-padding: var(--ds-space-lg);
+
+  /* Dialogs */
+  --ds-dialog-radius: var(--ds-radius-lg);
+  --ds-dialog-padding: var(--ds-space-2xl);
+  --ds-dialog-width-sm: 400px;
+  --ds-dialog-width-md: 500px;
+  --ds-dialog-width-lg: 676px;
+
+  /* Chips */
+  --ds-chip-height: 20px;
+  --ds-chip-radius: var(--ds-radius-sm);
+
+  /* Checkboxes */
+  --ds-checkbox-size: 40px;
+
+  /* Tables */
+  --ds-table-row-height: 48px;
+
+  /* Loader size scale — picks a semantic step instead of hardcoding pixel
+   * values per call-site. Map of intent:
+   *   xs   in-button, in-chip, dense status row
+   *   sm   inline-with-text, KG cell statuses
+   *   md   overlay spinner default (KmInnerLoading / DsLoadingHost)
+   *   lg   medium block placeholder (KmDataTable empty/loading row)
+   *   xl   large drawer placeholder (iframe-waiting, agent processing) */
+  --ds-loader-size-xs: 14px;
+  --ds-loader-size-sm: 24px;
+  --ds-loader-size-md: 32px;
+  --ds-loader-size-lg: 40px;
+  --ds-loader-size-xl: 62px;
+
+  /* Loader defaults. `--ds-loader-size` is the historic single-default; new
+   * code should pick from the size scale above instead of relying on it. */
+  --ds-loader-size:  var(--ds-loader-size-lg);
+  --ds-loader-speed: 0.9s;
+  --ds-loader-color: var(--ds-color-primary);
+
+  /* Loader overlay shape — same value across `DsLoadingHost`,
+   * `KmInnerLoading` and any future overlay loader so the frosted-glass
+   * affordance is consistent. */
+  --ds-loader-overlay-blur:        8px;
+  --ds-loader-overlay-saturation:  1.02;
+  --ds-loader-overlay-spinner-size: var(--ds-loader-size-md);
+  --ds-loader-overlay-radius:       var(--ds-radius-lg);
+
+  /* ----- LEGACY ALIASES (in-app CSS still references these) ------------- */
+  --btn-height-xs: var(--ds-btn-height-xs);
+  --btn-height-sm: var(--ds-btn-height-sm);
+  --btn-height-md: var(--ds-btn-height-md);
+  --btn-height-lg: var(--ds-btn-height-lg);
+  --btn-radius: var(--ds-btn-radius);
+  --button-sm: var(--ds-btn-height-sm);
+  --button-xs: var(--ds-btn-height-xs);
+
+  --field-height: var(--ds-field-height);
+  --field-radius: var(--ds-field-radius);
+  --field-min-height: var(--ds-field-min-height);
+  --field-max-height: var(--ds-field-max-height);
+  --field-initial-height: var(--ds-field-initial-height);
+  --field--border-radius: var(--ds-field-radius);
+
+  --prompt-input-height: var(--ds-prompt-input-height);
+  --prompt-input-icon-size: var(--ds-prompt-input-icon-size);
+
+  --card-radius: var(--ds-card-radius);
+  --card-padding: var(--ds-card-padding);
+
+  --dialog-radius: var(--ds-dialog-radius);
+  --dialog-padding: var(--ds-dialog-padding);
+  --dialog-width-sm: var(--ds-dialog-width-sm);
+  --dialog-width-md: var(--ds-dialog-width-md);
+  --dialog-width-lg: var(--ds-dialog-width-lg);
+
+  --chip-height: var(--ds-chip-height);
+  --chip-radius: var(--ds-chip-radius);
+
+  --checkbox-size: var(--ds-checkbox-size);
+  --table-row-height: var(--ds-table-row-height);
+
+  --uib-size: var(--ds-loader-size);
+  --uib-speed: var(--ds-loader-speed);
+  --uib-color: var(--ds-loader-color);
+}

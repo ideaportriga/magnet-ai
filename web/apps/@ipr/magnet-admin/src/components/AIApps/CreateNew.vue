@@ -1,33 +1,26 @@
-<template lang="pug">
-km-popup-confirm(
-  :visible='showNewDialog',
-  :title='m.dialog_newAiApp()',
-  :confirmButtonLabel='m.common_save()',
-  :cancelButtonLabel='m.common_cancel()',
-  :notification='m.hint_editAfterSaving()',
-  @confirm='createRecord',
-  @cancel='$emit("cancel")'
-)
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.common_name() }}
-    .full-width
-      km-input(data-test='name-input', height='30px', :placeholder='m.placeholder_exampleServiceAiApp()', v-model='name', ref='nameRef', :rules='config.name.rules')
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.common_systemName() }}
-    .full-width
-      km-input(
-        data-test='system_name-input',
-        height='30px',
-        :placeholder='m.placeholder_exampleSystemNameAiApp()',
-        v-model='system_name',
-        ref='system_nameRef',
-        :rules='config.system_name.rules'
-      )
-    .km-description.text-secondary-text.q-pb-4 {{ m.hint_systemNameUniqueId() }}
+<template>
+  <km-popup-confirm :visible="showNewDialog" :title="m.dialog_newAiApp()" :confirm-button-label="m.common_save()" :cancel-button-label="m.common_cancel()" :notification="m.hint_editAfterSaving()" @confirm="createRecord" @cancel="$emit(&quot;cancel&quot;)">
+    <div class="km-field text-secondary-text pb-xs pl-sm mb-md">
+      {{ m.common_name() }}
+      <div class="full-width">
+        <km-input ref="nameRef" v-model="name" data-test="name-input" height="30px" :placeholder="m.placeholder_exampleServiceAiApp()" :rules="config.name.rules" />
+      </div>
+    </div>
+    <div class="km-field text-secondary-text pb-xs pl-sm mb-md">
+      {{ m.common_systemName() }}
+      <div class="full-width">
+        <km-input ref="system_nameRef" v-model="system_name" data-test="system_name-input" height="30px" :placeholder="m.placeholder_exampleSystemNameAiApp()" :rules="config.system_name.rules" />
+      </div>
+      <div class="km-description text-secondary-text pb-xs">{{ m.hint_systemNameUniqueId() }}</div>
+    </div>
+  </km-popup-confirm>
 </template>
 <script>
 import { ref, reactive } from 'vue'
 import { m } from '@/paraglide/messages'
 import { toUpperCaseWithUnderscores } from '@shared'
 import { useEntityConfig } from '@/composables/useEntityConfig'
+import { validateRef } from '@/utils/validateRef'
 import { cloneDeep } from 'lodash'
 import { useEntityQueries } from '@/queries/entities'
 import { useEntityDetail } from '@/composables/useEntityDetail'
@@ -106,7 +99,7 @@ export default {
   },
   methods: {
     validateFields() {
-      const validStates = this.requiredFields.map((field) => this.$refs[`${field}Ref`]?.validate())
+      const validStates = this.requiredFields.map((field) => validateRef(this.$refs[`${field}Ref`]))
       return !validStates.includes(false)
     },
     async createRecord() {
@@ -120,7 +113,3 @@ export default {
 }
 </script>
 
-<style lang="stylus">
-.km-input:not(.q-field--readonly) .q-field__control::before
-  background: var(--q-white) !important;
-</style>

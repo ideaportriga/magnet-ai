@@ -16,17 +16,13 @@ const config = {
     fonts: [
       {
         name: 'Material Icons',
-        loadUrl: () => import('@quasar/extras/material-icons/web-font/flUhRq6tzZclQEJ-Vdg-IuiaDsNcIhQ8tQ.woff2'),
-        props: {
-          weight: '400',
-        },
+        loadUrl: () => import('../base/assets/fonts/material-icons/material-icons.woff2'),
+        props: { weight: '400' },
       },
       {
         name: 'Material Icons Outlined',
-        loadUrl: () => import('@quasar/extras/material-icons-outlined/web-font/gok-H7zzDkdnRel8-DQ6KAXJ69wP1tGnf4ZGhUcel5euIg.woff2'),
-        props: {
-          weight: '400',
-        },
+        loadUrl: () => import('../base/assets/fonts/material-icons/material-icons-outlined.woff2'),
+        props: { weight: '400' },
       },
     ],
     styles: [() => import(`../base/assets/css/material-icons.css`)],
@@ -129,10 +125,23 @@ export const addFont = (name, url, props = {}) => {
     })
 }
 
+const injectedCssLinks = new Set()
+
+const injectCssLink = (href) => {
+  if (injectedCssLinks.has(href)) return
+  injectedCssLinks.add(href)
+  const link = document.createElement('link')
+  link.rel = 'stylesheet'
+  link.href = href
+  document.head.appendChild(link)
+}
+
 const loadFonts = (familyNames) => {
-  console.log('familyNames', familyNames)
   familyNames.forEach((familyName) => {
-    const fonts = config[familyName].fonts
+    const family = config[familyName]
+    if (!family) return
+
+    const fonts = family.fonts || []
     fonts.forEach(({ name, loadUrl, props }) => {
       loadUrl().then((url) => {
         if (Array.isArray(props)) {
@@ -142,11 +151,13 @@ const loadFonts = (familyNames) => {
         }
       })
     })
-    const styles = config[familyName]?.styles || []
+
+    const cssLinks = family.cssLinks || []
+    cssLinks.forEach(injectCssLink)
+
+    const styles = family.styles || []
     styles.forEach((style) => {
-      style().then((style) => {
-        console.log('style', style)
-      })
+      style()
     })
   })
 }

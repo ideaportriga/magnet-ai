@@ -1,60 +1,32 @@
-<template lang="pug">
-km-popup-confirm(
-  :visible='showNewDialog',
-  :title='m.dialog_newTestSet()',
-  :confirmButtonLabel='m.common_save()',
-  :cancelButtonLabel='m.common_cancel()',
-  @confirm='createEvaluationSet',
-  @cancel='$emit("cancel")',
-  :loading='loading'
-)
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.common_name() }}
-    .full-width
-      km-input(height='30px', :placeholder='m.placeholder_exampleMyFirstTestSet()', v-model='name', ref='nameRef', :rules='config.name.rules')
-  //- .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Description
-  //-   .full-width
-  //-     km-input(
-  //-       height='30px',
-  //-       placeholder='E.g. My first test set for RAG',
-  //-       v-model='newRow.description',
-  //-       ref='descriptionRef',
-  //-       :rules='config.description.rules'
-  //-     )
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.common_systemName() }}
-    .full-width
-      km-input(height='30px', :placeholder='m.placeholder_exampleMyFirstTestSetSystemName()', v-model='system_name', ref='system_nameRef', :rules='config.system_name.rules')
-    .km-description.text-secondary-text.q-pb-4 {{ m.hint_systemNameUniqueId() }}
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.common_type() }}
-    km-select(
-      minHeight='30px',
-      maxHeight='30px',
-      :placeholder='m.common_type()',
-      :options='typeOptions',
-      v-model='newRow.type',
-      ref='typeRef',
-      option-value='value',
-      emit-value,
-      map-options,
-      :rules='config.type.rules'
-    )
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8(v-if='!copy') {{ m.label_file() }}
-    q-file.km-control.km-input.rounded-borders(
-      style='height: 30px',
-      outlined,
-      :label='m.common_fileUpload()',
-      ref='fileRef',
-      v-model='newRow.file',
-      accept='.xlsx, .xls',
-      dense
-    )
-      template(v-slot:append)
-        q-icon(name='attach_file')
-
-    .km-description.text-secondary-text.q-py-4 {{ m.hint_evaluationSetImportFormat() }}
-    //- template(v-slot:prepend)
-    //-   q-icon(name='attach_file')
-    //- template(v-slot:append)
-      //- q-icon(name='close', @click="newRow.file = null", color='icon', size='24px')
+<template>
+  <km-popup-confirm :visible="showNewDialog" :title="m.dialog_newTestSet()" :confirm-button-label="m.common_save()" :cancel-button-label="m.common_cancel()" :loading="loading" @confirm="createEvaluationSet" @cancel="$emit(&quot;cancel&quot;)">
+    <div class="km-field text-secondary-text pb-xs pl-sm mb-md">
+      {{ m.common_name() }}
+      <div class="full-width">
+        <km-input ref="nameRef" v-model="name" height="30px" :placeholder="m.placeholder_exampleMyFirstTestSet()" :rules="config.name.rules" />
+      </div>
+    </div>
+    <div class="km-field text-secondary-text pb-xs pl-sm mb-md">
+      {{ m.common_systemName() }}
+      <div class="full-width">
+        <km-input ref="system_nameRef" v-model="system_name" height="30px" :placeholder="m.placeholder_exampleMyFirstTestSetSystemName()" :rules="config.system_name.rules" />
+      </div>
+      <div class="km-description text-secondary-text pb-xs">{{ m.hint_systemNameUniqueId() }}</div>
+    </div>
+    <div class="km-field text-secondary-text pb-xs pl-sm mb-md">
+      {{ m.common_type() }}
+      <km-select ref="typeRef" v-model="newRow.type" min-height="30px" max-height="30px" :placeholder="m.common_type()" :options="typeOptions" option-value="value" emit-value map-options :rules="config.type.rules" />
+    </div>
+    <div v-if="!copy" class="km-field text-secondary-text pb-xs pl-sm">
+      {{ m.label_file() }}
+      <km-file-picker ref="fileRef" v-model="newRow.file" class="km-control km-input rounded-borders" style="block-size: 30px" outlined :label="m.common_fileUpload()" accept=".xlsx, .xls" dense>
+        <template #append>
+          <km-glyph name="attach" />
+        </template>
+      </km-file-picker>
+      <div class="km-description text-secondary-text py-xs">{{ m.hint_evaluationSetImportFormat() }}</div>
+    </div>
+  </km-popup-confirm>
 </template>
 <script>
 import { ref, reactive, computed, onMounted, onBeforeUnmount, getCurrentInstance } from 'vue'
@@ -66,6 +38,7 @@ import { toUpperCaseWithUnderscores } from '@shared'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useEntityConfig } from '@/composables/useEntityConfig'
 import { useSafeMutation } from '@/composables/useSafeMutation'
+import { validateRef } from '@/utils/validateRef'
 import { typeOptions } from '@/config/evaluation_sets/evaluation_sets'
 
 export default {
@@ -141,7 +114,7 @@ export default {
     })
 
     function validateFields() {
-      const validStates = requiredFields.value.map((field) => instance.refs[`${field}Ref`]?.validate())
+      const validStates = requiredFields.value.map((field) => validateRef(instance.refs[`${field}Ref`]))
       return !validStates.includes(false)
     }
 
@@ -174,7 +147,3 @@ export default {
 }
 </script>
 
-<style lang="stylus">
-.km-input:not(.q-field--readonly) .q-field__control::before
-  background: var(--q-white) !important;
-</style>

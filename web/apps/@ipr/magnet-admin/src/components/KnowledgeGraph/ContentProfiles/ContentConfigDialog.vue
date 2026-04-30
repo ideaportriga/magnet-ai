@@ -1,32 +1,32 @@
 <template>
-  <q-dialog v-model="dialogOpen" :persistent="!isReadonlyProfile && isDirty">
-    <q-card class="q-px-lg q-py-sm" style="min-width: 800px; max-width: 800px; height: 820px; display: flex; flex-direction: column">
-      <q-card-section>
-        <div class="row items-center">
-          <div class="col">
+  <km-dialog v-model="dialogOpen" :persistent="!isReadonlyProfile && isDirty">
+    <km-card class="px-lg py-sm content-config-dialog__card">
+      <div class="km-card-section">
+        <div class="cluster">
+          <div class="flex-1">
             <div class="km-heading-7">{{ dialogTitle }}</div>
           </div>
-          <div class="col-auto">
-            <q-btn icon="close" flat dense @click="cancel" />
+          <div class="flex-none">
+            <km-btn icon="close" flat dense @click="cancel" />
           </div>
         </div>
-      </q-card-section>
+      </div>
 
-      <q-card-section class="dialog-body">
-        <q-form @submit="save">
-          <div class="q-mb-lg">
-            <div class="row q-col-gutter-lg">
+      <div class="km-card-section dialog-body">
+        <form class="km-form" @submit="save">
+          <div class="mb-lg">
+            <div class="content-config-dialog__two-column-grid">
               <!-- Name -->
-              <div class="col-6">
-                <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Name</div>
-                <div class="km-description text-secondary-text q-mt-xs q-mb-md">Set profile name for this content configuration.</div>
+              <div>
+                <div class="km-heading-8 pb-xs bb-border text-weight-medium">Name</div>
+                <div class="km-description text-secondary-text mt-xs mb-md">Set profile name for this content configuration.</div>
                 <km-input ref="nameRef" v-model="form.name" :rules="nameRules" :readonly="isLockedNativeProfile || isReadonlyProfile" required />
               </div>
 
               <!-- Content Reader -->
-              <div class="col-6">
-                <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Content Reader</div>
-                <div class="km-description text-secondary-text q-mt-xs q-mb-md">Select tool used to read the content.</div>
+              <div>
+                <div class="km-heading-8 pb-xs bb-border text-weight-medium">Content Reader</div>
+                <div class="km-description text-secondary-text mt-xs mb-md">Select tool used to read the content.</div>
                 <km-select
                   v-model="form.reader.name"
                   :options="isLockedNativeProfile || isReadonlyProfile ? readerOptions : selectableReaderOptions"
@@ -38,13 +38,13 @@
             </div>
           </div>
 
-          <div class="q-mb-lg">
+          <div class="mb-lg">
             <!-- Content Matching -->
-            <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Content Matching</div>
-            <div class="km-description text-secondary-text q-mt-xs q-mb-sm">
+            <div class="km-heading-8 pb-xs bb-border text-weight-medium">Content Matching</div>
+            <div class="km-description text-secondary-text mt-xs mb-sm">
               Choose which content this profile should apply to by editing the highlighted parts below.
             </div>
-            <div class="content-matching-sentence q-mt-md">
+            <div class="content-matching-sentence mt-md">
               <template v-if="isReadonlyProfile">
                 <span>This built-in profile is automatically used only when no other content profile matches.</span>
               </template>
@@ -68,10 +68,10 @@
             </div>
           </div>
 
-          <div class="q-mb-lg">
+          <div class="mb-lg">
             <!-- Chunking Strategy -->
-            <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Chunking Strategy</div>
-            <div class="km-description text-secondary-text q-mt-xs q-mb-md">
+            <div class="km-heading-8 pb-xs bb-border text-weight-medium">Chunking Strategy</div>
+            <div class="km-description text-secondary-text mt-xs mb-md">
               {{
                 isReadonlyProfile
                   ? 'This built-in fallback always uses the Plain Text Reader and keeps the content as a single chunk up to the maximum size.'
@@ -80,8 +80,8 @@
                     : 'Select the strategy used to split content into chunks.'
               }}
             </div>
-            <div class="row q-col-gutter-lg items-center">
-              <div class="col-4">
+            <div class="content-config-dialog__strategy-grid">
+              <div>
                 <km-select
                   v-model="form.chunker.strategy"
                   :options="chunkingStrategyOptions"
@@ -90,31 +90,31 @@
                   :disable="isLockedNativeProfile || isReadonlyProfile"
                 />
               </div>
-              <div class="col-8">
+              <div>
                 <div class="km-description">{{ selectedChunkingStrategyDescription }}</div>
               </div>
             </div>
             <div
               v-if="!isLockedNativeProfile && !isReadonlyProfile && isLLMStrategy"
-              class="km-description q-mt-lg row items-center q-gap-8 q-pa-md rounded-borders bg-yellow-1 text-yellow-10"
-              style="border: 1px solid var(--q-warning)"
+              class="km-description mt-lg cluster p-md rounded-borders bg-yellow-1 text-yellow-10 content-config-dialog__warning"
+              data-gap="sm"
             >
-              <q-icon name="warning" color="yellow-8" size="26px" />
-              <div class="col">LLM-based chunking may incur significant costs and can run for a long time, especially on large documents.</div>
+              <km-glyph name="warning" tone="warning" size="26px" />
+              <div class="flex-1 km-flex-min-w-0">LLM-based chunking may incur significant costs and can run for a long time, especially on large documents.</div>
             </div>
           </div>
 
           <template v-if="!isLockedNativeProfile && !isReadonlyProfile && isLLMStrategy">
-            <div class="q-mb-lg">
-              <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Chunking Prompt</div>
-              <div class="km-description text-secondary-text q-mt-xs q-mb-md">Select a prompt template to use for chunking.</div>
-              <div class="row q-gap-8">
-                <div class="col-grow">
+            <div class="mb-lg">
+              <div class="km-heading-8 pb-xs bb-border text-weight-medium">Chunking Prompt</div>
+              <div class="km-description text-secondary-text mt-xs mb-md">Select a prompt template to use for chunking.</div>
+              <div class="cluster" data-gap="sm">
+                <div class="flex-1">
                   <km-select
                     ref="promptTemplateRef"
                     v-model="form.chunker.options.prompt_template_system_name"
                     placeholder="Select a prompt template"
-                    class="col-grow"
+                    class="full-width"
                     :options="templateOptions"
                     :loading="loadingTemplates"
                     :rules="[required()]"
@@ -128,8 +128,8 @@
                 </div>
                 <km-btn
                   flat
-                  icon="fa fa-external-link"
-                  color="secondary-text"
+                  icon="external-link"
+                  tone="subtle"
                   :disable="!form.chunker.options.prompt_template_system_name"
                   label-class="km-button-text"
                   icon-size="16px"
@@ -140,9 +140,9 @@
           </template>
 
           <template v-if="!isLockedNativeProfile && !isReadonlyProfile && isLLMStrategy">
-            <div class="q-mb-lg">
-              <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Handling Content Size</div>
-              <div class="km-description text-secondary-text q-mt-xs q-mb-md">
+            <div class="mb-lg">
+              <div class="km-heading-8 pb-xs bb-border text-weight-medium">Handling Content Size</div>
+              <div class="km-description text-secondary-text mt-xs mb-md">
                 LLMs have limited context window, so content must be divided into smaller segments before executing LLM-based chunking. The
                 <b>Segment Overlap</b>
                 parameter controls content repetition between consecutive segments. The
@@ -150,15 +150,15 @@
                 parameter allows the final segment to be expanded beyond the normal segment size to reduce small trailing remainders.
               </div>
 
-              <div class="row q-col-gutter-lg q-mb-lg">
-                <div class="col-4">
-                  <div class="km-input-label q-pb-sm">Segment Size (characters)</div>
+              <div class="content-config-dialog__three-column-grid mb-lg">
+                <div>
+                  <div class="km-input-label pb-sm">Segment Size (characters)</div>
                   <km-input v-model.number="form.chunker.options.llm_batch_size" type="number" min="100" />
                 </div>
-                <div class="col-4">
-                  <div class="km-input-label q-pb-sm">Segment Overlap (%)</div>
-                  <div class="row items-center" style="height: 36px">
-                    <q-slider
+                <div>
+                  <div class="km-input-label pb-sm">Segment Overlap (%)</div>
+                  <div class="cluster content-config-dialog__row-md">
+                    <km-slider
                       v-model="form.chunker.options.llm_batch_overlap"
                       :min="0"
                       :max="0.9"
@@ -168,10 +168,10 @@
                     />
                   </div>
                 </div>
-                <div class="col-4">
-                  <div class="km-input-label q-pb-sm">Last Segment Allowed Expansion (%)</div>
-                  <div class="row items-center q-pr-sm" style="height: 36px">
-                    <q-slider
+                <div>
+                  <div class="km-input-label pb-sm">Last Segment Allowed Expansion (%)</div>
+                  <div class="cluster pr-sm content-config-dialog__row-md">
+                    <km-slider
                       v-model="form.chunker.options.llm_last_segment_increase"
                       :min="0"
                       :max="1"
@@ -186,9 +186,9 @@
           </template>
 
           <template v-if="!isLockedNativeProfile && !isReadonlyProfile && isRecursiveStrategy">
-            <div class="q-mb-lg">
-              <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Chunking Settings</div>
-              <div class="km-description text-secondary-text q-mt-xs q-mb-md">
+            <div class="mb-lg">
+              <div class="km-heading-8 pb-xs bb-border text-weight-medium">Chunking Settings</div>
+              <div class="km-description text-secondary-text mt-xs mb-md">
                 Adjust how content is divided into chunks when using the recursive character text splitting strategy.
                 <b>Splitters</b>
                 control where content is split into smaller parts; each splitter is tried in order of priority, until content fits into the chunk max
@@ -197,44 +197,41 @@
                 allows a portion of content to be repeated between consecutive chunks to provide better context continuity.
               </div>
 
-              <div class="row q-col-gutter-lg">
-                <div class="col-8">
-                  <div class="km-input-label q-pb-xs">Splitters</div>
-                  <div class="splitters-container q-py-xs" style="border: 1px solid var(--q-border); border-radius: var(--radius-sm)">
-                    <div class="row items-center q-gutter-xs">
-                      <q-chip
+              <div class="content-config-dialog__wide-narrow-grid">
+                <div>
+                  <div class="km-input-label pb-xs">Splitters</div>
+                  <div class="splitters-container py-xs content-config-dialog__splitters">
+                    <div class="cluster" data-gap="2xs">
+                      <km-chip
                         v-for="(splitter, index) in form.chunker.options.splitters"
                         :key="index"
+                        tone="brand"
                         removable
-                        color="primary-light"
-                        text-color="primary"
                         square
                         size="12px"
                         @remove="removeSplitter(index)"
                       >
                         {{ formatSplitterDisplay(splitter) }}
-                      </q-chip>
+                      </km-chip>
                       <template v-if="showNewSplitterInput">
                         <km-input
                           ref="newSplitterInput"
                           v-model="newSplitter"
                           placeholder="Add (Enter)"
                           dense
-                          style="width: 160px"
+                          class="content-config-dialog__splitter-input"
                           @keyup.enter="addSplitter"
                           @keyup.esc.stop.prevent="cancelAddSplitter"
                           @blur="cancelAddSplitter"
                         />
                       </template>
                       <template v-else>
-                        <q-btn
+                        <km-btn
                           dense
                           flat
-                          color="primary-light"
-                          text-color="primary"
+                          tone="brand"
                           icon="add"
-                          class="q-ml-sm q-my-none q-pa-none"
-                          style="height: 24px; width: 28px; border-radius: var(--radius-sm)"
+                          class="ml-sm my-0 p-0 content-config-dialog__add-splitter-btn"
                           @click="showAddInput"
                         />
                       </template>
@@ -252,10 +249,10 @@
                     or escape sequences (\n, \t, ...).
                   </div>
                 </div>
-                <div class="col-4">
-                  <div class="km-input-label q-pb-xs">Chunk Overlap (%)</div>
-                  <div class="row items-center q-pr-sm" style="height: 36px">
-                    <q-slider
+                <div>
+                  <div class="km-input-label pb-xs">Chunk Overlap (%)</div>
+                  <div class="cluster pr-sm content-config-dialog__row-md">
+                    <km-slider
                       v-model="form.chunker.options.recursive_chunk_overlap"
                       :min="0"
                       :max="0.9"
@@ -264,27 +261,27 @@
                       :label-value="`${Math.round((form.chunker.options.recursive_chunk_overlap || 0) * 100)}%`"
                     />
                   </div>
-                  <div class="km-description text-secondary-text q-mt-xs">Percentage of chunk max size.</div>
+                  <div class="km-description text-secondary-text mt-xs">Percentage of chunk max size.</div>
                 </div>
               </div>
             </div>
           </template>
 
           <!-- Document Level Settings -->
-          <div class="q-mb-lg">
-            <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Document Level Settings</div>
-            <div class="km-description text-secondary-text q-mt-xs q-mb-md">
+          <div class="mb-lg">
+            <div class="km-heading-8 pb-xs bb-border text-weight-medium">Document Level Settings</div>
+            <div class="km-description text-secondary-text mt-xs mb-md">
               These settings apply to the produced document as a whole. Use it to configure document-level information.
             </div>
             <div>
-              <div class="km-input-label q-pb-xs">Document Title</div>
+              <div class="km-input-label pb-xs">Document Title</div>
               <km-input v-model="form.chunker.options.document_title_pattern" :readonly="isReadonlyProfile" placeholder="e.g., {title} — {filename}">
                 <template #append>
-                  <q-icon name="info" size="18px" class="q-ml-xs text-secondary cursor-pointer" />
-                  <q-tooltip anchor="top middle" self="bottom middle" class="q-ml-sm q-pa-sm" max-width="350px">
+                  <km-glyph name="info" size="18px" class="ml-xs text-secondary cursor-pointer" />
+                  <km-tooltip anchor="top middle" self="bottom middle" class="ml-sm p-sm" max-width="350px">
                     <div class="km-description">
-                      <div class="q-mb-xs text-weight-bold">Available variables:</div>
-                      <ul class="q-ml-md q-mb-none" style="padding-left: 16px">
+                      <div class="mb-xs text-weight-bold">Available variables:</div>
+                      <ul class="ml-md mb-0 content-config-dialog__hint-list">
                         <li>
                           <b>{filename}</b>
                           : Source file name
@@ -303,32 +300,32 @@
                         </li>
                       </ul>
                     </div>
-                  </q-tooltip>
+                  </km-tooltip>
                 </template>
               </km-input>
             </div>
           </div>
 
           <!-- Chunk Level Settings -->
-          <div class="q-mb-lg">
-            <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Chunk Level Settings</div>
-            <div class="km-description text-secondary-text q-mt-xs q-mb-md">
+          <div class="mb-lg">
+            <div class="km-heading-8 pb-xs bb-border text-weight-medium">Chunk Level Settings</div>
+            <div class="km-description text-secondary-text mt-xs mb-md">
               These settings apply to each chunk produced by the chunker. Use it to configure chunk-level information.
             </div>
-            <div class="row q-col-gutter-lg q-mb-md">
-              <div class="col-8">
-                <div class="km-input-label q-pb-xs">Chunk Title</div>
+            <div class="content-config-dialog__wide-narrow-grid mb-md">
+              <div>
+                <div class="km-input-label pb-xs">Chunk Title</div>
                 <km-input
                   v-model="form.chunker.options.chunk_title_pattern"
                   :readonly="isReadonlyProfile"
                   placeholder="e.g., Chunk {index} — Page {page}"
                 >
                   <template #append>
-                    <q-icon name="info" size="18px" class="q-ml-xs text-secondary cursor-pointer" />
-                    <q-tooltip anchor="top middle" self="bottom middle" class="q-ml-sm q-pa-sm" max-width="350px">
+                    <km-glyph name="info" size="18px" class="ml-xs text-secondary cursor-pointer" />
+                    <km-tooltip anchor="top middle" self="bottom middle" class="ml-sm p-sm" max-width="350px">
                       <div class="km-description">
-                        <div class="q-mb-xs text-weight-bold">Available variables:</div>
-                        <ul class="q-ml-md q-mb-none" style="padding-left: 16px">
+                        <div class="mb-xs text-weight-bold">Available variables:</div>
+                        <ul class="ml-md mb-0 content-config-dialog__hint-list">
                           <li>
                             <b>{index}</b>
                             : Chunk number
@@ -355,26 +352,26 @@
                           </li>
                         </ul>
                       </div>
-                    </q-tooltip>
+                    </km-tooltip>
                   </template>
                 </km-input>
               </div>
-              <div class="col-4">
-                <div class="km-input-label q-pb-xs">Chunk Max Size (characters)</div>
+              <div>
+                <div class="km-input-label pb-xs">Chunk Max Size (characters)</div>
                 <km-input v-model.number="form.chunker.options.chunk_max_size" :readonly="isReadonlyProfile" type="number" min="100" required />
               </div>
             </div>
           </div>
-        </q-form>
-      </q-card-section>
+        </form>
+      </div>
 
-      <q-card-actions class="q-py-lg q-pr-lg">
-        <km-btn :label="dismissLabel" flat color="primary" @click="cancel" />
-        <q-space v-if="!isReadonlyProfile" />
+      <div class="km-card-actions py-lg pr-lg">
+        <km-btn :label="dismissLabel" flat tone="brand" @click="cancel" />
+        <div v-if="!isReadonlyProfile" class="km-space" />
         <km-btn v-if="!isReadonlyProfile" :label="m.common_save()" @click="save" />
-      </q-card-actions>
-    </q-card>
-  </q-dialog>
+      </div>
+    </km-card>
+  </km-dialog>
 </template>
 
 <script setup lang="ts">
@@ -882,23 +879,85 @@ watch(
   overflow: auto;
 }
 
-:deep(.q-field__messages div[role='alert']) {
-  font-size: var(--km-tiny-size, 10px);
-  font-weight: 500;
-  color: var(--q-error-text) !important;
-}
-
 .content-matching-sentence {
   font-size: var(--km-body-sm-size, 13px);
   line-height: 2;
-  color: var(--q-secondary-text);
+  color: var(--ds-color-secondary-text);
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   gap: 4px;
   padding: 12px 16px;
-  background: var(--q-primary-bg);
-  border: 1px solid var(--q-border);
-  border-radius: var(--radius-sm);
+  background: var(--ds-color-primary-bg);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-sm);
+}
+
+.content-config-dialog__two-column-grid,
+.content-config-dialog__three-column-grid,
+.content-config-dialog__strategy-grid,
+.content-config-dialog__wide-narrow-grid {
+  display: grid;
+  gap: var(--ds-space-lg);
+}
+
+.content-config-dialog__two-column-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.content-config-dialog__three-column-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.content-config-dialog__strategy-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+}
+
+.content-config-dialog__wide-narrow-grid {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+}
+
+@media (max-width: 767px) {
+  .content-config-dialog__two-column-grid,
+  .content-config-dialog__three-column-grid,
+  .content-config-dialog__strategy-grid,
+  .content-config-dialog__wide-narrow-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.content-config-dialog__card {
+  min-inline-size: 800px;
+  max-inline-size: 800px;
+  block-size: 820px;
+  display: flex;
+  flex-direction: column;
+}
+
+.content-config-dialog__warning {
+  border: 1px solid var(--ds-color-warning);
+}
+
+.content-config-dialog__row-md {
+  block-size: 36px;
+}
+
+.content-config-dialog__splitters {
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-sm);
+}
+
+.content-config-dialog__splitter-input {
+  inline-size: 160px;
+}
+
+.content-config-dialog__add-splitter-btn {
+  block-size: 24px;
+  inline-size: 28px;
+  border-radius: var(--ds-radius-sm);
+}
+
+.content-config-dialog__hint-list {
+  padding-inline-start: var(--ds-space-md);
 }
 </style>

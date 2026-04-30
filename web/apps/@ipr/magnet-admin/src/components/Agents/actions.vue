@@ -1,39 +1,23 @@
-<template lang="pug">
-div
-  .row.q-mb-12
-    .col-auto.center-flex-y
-      km-input(:placeholder='m.common_search()', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
-    q-space
-    .col-auto.center-flex-y
-      km-btn.q-mr-12(
-        v-if='selectedRows.length > 0',
-        icon='delete',
-        :label='m.common_delete()',
-        @click='showDeleteDialog = true',
-        iconColor='icon',
-        hoverColor='primary',
-        labelClass='km-title',
-        flat,
-        iconSize='16px',
-        hoverBg='primary-bg'
-      )
-      .col-auto.center-flex-y
-  .row
-    km-data-table(
-      :table='table',
-      row-key='id',
-      @row-click='selectRecord'
-    )
-km-popup-confirm(
-  :visible='showDeleteDialog',
-  :confirmButtonLabel='m.common_delete()',
-  :cancelButtonLabel='m.common_cancel()',
-  notificationIcon='fas fa-triangle-exclamation',
-  @confirm='deleteSelected',
-  @cancel='showDeleteDialog = false'
-)
-  .row.item-center.justify-center.km-heading-7 {{ m.agents_deleteTopicActionRecords() }}
-  .row.text-center.justify-center {{ m.agents_deleteConfirmMessage({ count: selectedRows?.length }) }}
+<template>
+  <div>
+    <div class="cluster mb-md">
+      <div class="flex-none center-flex-y">
+        <km-input :placeholder="m.common_search()" icon-before="search" :model-value="globalFilter" clearable @input="globalFilter = $event" />
+      </div>
+      <div class="km-space" />
+      <div class="flex-none center-flex-y">
+        <km-btn v-if="selectedRows.length &gt; 0" class="mr-md" icon="delete" :label="m.common_delete()" interaction-tone="brand" label-class="km-title" flat icon-size="16px" @click="showDeleteDialog = true" />
+        <div class="flex-none center-flex-y" />
+      </div>
+    </div>
+    <div class="cluster">
+      <km-data-table :table="table" row-key="id" @row-click="selectRecord" />
+    </div>
+  </div>
+  <km-popup-confirm :visible="showDeleteDialog" :confirm-button-label="m.common_delete()" :cancel-button-label="m.common_cancel()" notification-icon="warning" @confirm="deleteSelected" @cancel="showDeleteDialog = false">
+    <div class="cluster" data-justify="center">{{ m.agents_deleteTopicActionRecords() }}</div>
+    <div class="cluster text-center" data-justify="center">{{ m.agents_deleteConfirmMessage({ count: selectedRows?.length }) }}</div>
+  </km-popup-confirm>
 </template>
 
 <script setup>

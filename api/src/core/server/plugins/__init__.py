@@ -8,6 +8,7 @@ from .openapi import OpenAPIPlugin
 from .oracle_monitoring import OracleMonitoringPlugin
 from .shutdown import ShutdownPlugin
 from .startup import StartupPlugin
+from .taskiq_runtime import TaskiqRuntimePlugin
 
 __all__ = [
     "CORSPlugin",
@@ -18,4 +19,5 @@ __all__ = [
     "OracleMonitoringPlugin",
     "ShutdownPlugin",
     "StartupPlugin",
+    "TaskiqRuntimePlugin",
 ]

@@ -1,16 +1,23 @@
-<template lang="pug">
-pre.cursor-pointer.wrapped-text.km-heading-1 {{ tool }}
-  q-tooltip(:offset='[0, 10]')
-    .row.items-center(v-if='row?.tool?.system_name')
-      .col-auto.q-mr-sm
-        .km-field System name:
-      .col-auto
-        .km-heading-1 {{ row?.tool?.system_name }}
-    .row.items-center.q-mt-xs(v-if='row?.tool?.description')
-      .col-auto.q-mr-sm
-        .km-field Description:
-      .col-auto
-        .km-heading-1 {{ row?.tool?.description }}
+<template>
+  <pre class="cursor-pointer wrapped-text km-heading-1">{{ tool }}
+    <km-tooltip :offset="[0, 10]">
+      <div v-if="row?.tool?.system_name" class="cluster">
+        <div class="flex-none mr-sm">
+          <div class="km-field">System name:</div>
+        </div>
+        <div class="flex-none">
+          <div class="km-heading-1">{{ row?.tool?.system_name }}</div>
+        </div>
+      </div>
+      <div v-if="row?.tool?.description" class="cluster mt-xs">
+        <div class="flex-none mr-sm">
+          <div class="km-field">Description:</div>
+        </div>
+        <div class="flex-none">
+          <div class="km-heading-1">{{ row?.tool?.description }}</div>
+        </div>
+      </div>
+    </km-tooltip></pre>
 </template>
 
 <script>
@@ -34,6 +41,6 @@ export default defineComponent({
 <style scoped>
 .wrapped-text {
   white-space: pre-wrap;
-  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 </style>

@@ -1,6 +1,6 @@
 <template>
   <div class="metadata-board" :class="{ 'metadata-board--dragging': isDragging }">
-    <q-linear-progress v-if="loading" indeterminate color="primary" class="q-mb-sm" />
+    <km-linear-progress v-if="loading" indeterminate class="mb-sm" />
 
     <!-- 4-Lane Board -->
     <div v-else class="board-lanes">
@@ -8,7 +8,7 @@
       <div class="board-lane">
         <div class="lane-header">
           <div class="lane-header__title">
-            <q-icon name="explore" size="18px" color="teal-7" />
+            <km-glyph name="explore" size="18px" tone="accent" />
             <span>{{ m.knowledgeGraph_discovered() }}</span>
             <span class="lane-header__count">{{ discoveredRows.length }}</span>
           </div>
@@ -16,7 +16,7 @@
         </div>
         <div class="lane-content">
           <div v-if="discoveredRows.length === 0" class="lane-empty">
-            <q-icon name="check_circle" size="32px" color="grey-4" />
+            <km-glyph name="check" size="32px" tone="muted" />
             <span>{{ search ? m.knowledgeGraph_noMatchesInSearch() : m.knowledgeGraph_noNewFields() }}</span>
           </div>
           <div
@@ -54,17 +54,11 @@
               </template>
               <div class="field-card__actions field-card__actions--samples">
                 <template v-if="row.is_defined">
-                  <q-btn flat dense size="sm" color="grey-7" icon="o_edit" @click.stop="editDefinedField(row)">
-                    <q-tooltip>{{ m.knowledgeGraph_editSchema() }}</q-tooltip>
-                  </q-btn>
+                  <km-btn flat dense size="sm" tone="weak" icon="edit" :tooltip="m.knowledgeGraph_editSchema()" @click.stop="editDefinedField(row)" />
                 </template>
                 <template v-else>
-                  <q-btn flat dense size="sm" color="teal-7" icon="o_add_circle" @click.stop="emit('promote-field', row)">
-                    <q-tooltip>{{ m.knowledgeGraph_addToSchema() }}</q-tooltip>
-                  </q-btn>
-                  <q-btn flat dense size="sm" color="negative" icon="o_block" @click.stop="emit('discard-field', row.name)">
-                    <q-tooltip>{{ m.knowledgeGraph_ignoreField() }}</q-tooltip>
-                  </q-btn>
+                  <km-btn flat dense size="sm" tone="accent" icon="add-circle" :tooltip="m.knowledgeGraph_addToSchema()" @click.stop="emit('promote-field', row)" />
+                  <km-btn flat dense size="sm" tone="danger" icon="o_block" :tooltip="m.knowledgeGraph_ignoreField()" @click.stop="emit('discard-field', row.name)" />
                 </template>
               </div>
             </div>
@@ -77,37 +71,31 @@
         <div class="lane-header">
           <div class="lane-header__top">
             <div class="lane-header__title">
-              <q-icon name="auto_awesome" size="18px" color="purple-7" />
+              <km-glyph name="magic" size="18px" tone="context" />
               <span>{{ m.knowledgeGraph_smartExtraction() }}</span>
               <span class="lane-header__count">{{ extractedRows.length }}</span>
             </div>
             <div class="lane-header__actions">
-              <q-btn round flat dense class="lane-icon-btn lane-icon-btn--ai" icon="o_add_circle" @click.stop="emit('add-extraction-field')">
-                <q-tooltip>{{ m.knowledgeGraph_addField() }}</q-tooltip>
-              </q-btn>
-              <q-btn round flat dense class="lane-icon-btn lane-icon-btn--ai" icon="settings" @click.stop="emit('open-extraction-settings')">
-                <q-tooltip>{{ m.common_settings() }}</q-tooltip>
-              </q-btn>
-              <q-btn
+              <km-btn round flat dense class="lane-icon-btn lane-icon-btn--ai" icon="add-circle" :tooltip="m.knowledgeGraph_addField()" @click.stop="emit('add-extraction-field')" />
+              <km-btn round flat dense class="lane-icon-btn lane-icon-btn--ai" icon="settings" :tooltip="m.common_settings()" @click.stop="emit('open-extraction-settings')" />
+              <km-btn
                 v-if="canRunExtraction"
                 round
                 flat
                 dense
                 class="lane-icon-btn lane-icon-btn--run"
-                icon="play_arrow"
+                icon="play"
                 :loading="runningExtraction"
                 :disable="runningExtraction"
-                @click.stop="emit('run-extraction')"
-              >
-                <q-tooltip>{{ m.knowledgeGraph_runExtractionTooltip() }}</q-tooltip>
-              </q-btn>
+                :tooltip="m.knowledgeGraph_runExtractionTooltip()" @click.stop="emit('run-extraction')"
+              />
             </div>
           </div>
           <div class="lane-header__subtitle">{{ m.knowledgeGraph_smartExtractionDesc() }}</div>
         </div>
         <div class="lane-content">
           <div v-if="extractedRows.length === 0" class="lane-empty">
-            <q-icon name="smart_toy" size="32px" color="grey-4" />
+            <km-glyph name="robot" size="32px" tone="muted" />
             <span>{{ search ? m.knowledgeGraph_noMatchesInSearch() : m.knowledgeGraph_noExtractionFields() }}</span>
             <span v-if="!search" class="lane-empty__hint">{{ m.knowledgeGraph_addFieldsHint() }}</span>
           </div>
@@ -134,12 +122,8 @@
                 <span v-if="row.sample_values.length > 2" class="sample-more">+{{ row.sample_values.length - 2 }}</span>
               </template>
               <div class="field-card__actions field-card__actions--samples">
-                <q-btn flat dense size="sm" color="grey-7" icon="o_edit" @click.stop="emit('edit-extraction-field', row)">
-                  <q-tooltip>{{ m.common_edit() }}</q-tooltip>
-                </q-btn>
-                <q-btn flat dense size="sm" color="negative" icon="o_delete" @click.stop="emit('delete-extraction-field', row)">
-                  <q-tooltip>{{ m.common_delete() }}</q-tooltip>
-                </q-btn>
+                <km-btn flat dense size="sm" tone="weak" icon="edit" :tooltip="m.common_edit()" @click.stop="emit('edit-extraction-field', row)" />
+                <km-btn flat dense size="sm" tone="danger" icon="delete" :tooltip="m.common_delete()" @click.stop="emit('delete-extraction-field', row)" />
               </div>
             </div>
           </div>
@@ -151,14 +135,12 @@
         <div class="lane-header">
           <div class="lane-header__top">
             <div class="lane-header__title">
-              <q-icon name="tune" size="18px" color="blue-7" />
+              <km-glyph name="tune" size="18px" tone="info" />
               <span>{{ m.knowledgeGraph_schemaLane() }}</span>
               <span class="lane-header__count">{{ schemaRows.length }}</span>
             </div>
             <div class="lane-header__actions">
-              <q-btn round flat dense class="lane-icon-btn lane-icon-btn--schema" icon="o_add_circle" @click.stop="emit('add-field')">
-                <q-tooltip>{{ m.knowledgeGraph_addField() }}</q-tooltip>
-              </q-btn>
+              <km-btn round flat dense class="lane-icon-btn lane-icon-btn--schema" icon="add-circle" :tooltip="m.knowledgeGraph_addField()" @click.stop="emit('add-field')" />
             </div>
           </div>
           <div class="lane-header__subtitle">{{ m.knowledgeGraph_schemaLaneDesc() }}</div>
@@ -172,7 +154,7 @@
           @drop="onSchemaDrop($event)"
         >
           <div v-if="schemaRows.length === 0" class="lane-empty lane-empty--drop-target">
-            <q-icon name="category" size="32px" color="grey-4" />
+            <km-glyph name="category" size="32px" tone="muted" />
             <span>{{ isDragOverSchema ? m.knowledgeGraph_dropToCreateField() : search ? m.knowledgeGraph_noMatchesInSearch() : m.knowledgeGraph_noSchemaFieldsShort() }}</span>
           </div>
           <div
@@ -192,16 +174,16 @@
               <div v-if="sources.length > 0" class="field-card__sources field-card__sources--top-right">
                 <template v-if="getSourceResolutionStatus(row).configured.length === sources.length">
                   <div class="source-status source-status--resolved">
-                    <q-icon name="check_circle" size="14px" />
+                    <km-glyph name="check" size="14px" />
                   </div>
                 </template>
                 <template v-else>
                   <div class="source-status source-status--unresolved">
-                    <q-icon name="error_outline" size="14px" />
+                    <km-glyph name="error" size="14px" />
                     <span>{{ getSourceResolutionStatus(row).configured.length }}/{{ sources.length }} sources</span>
                   </div>
                 </template>
-                <q-tooltip class="source-tooltip" :offset="[0, 6]">
+                <km-tooltip class="source-tooltip" :offset="[0, 6]">
                   <div class="source-tooltip__content">
                     <div class="source-tooltip__header">
                       <span>{{ m.knowledgeGraph_sourceResolution() }}</span>
@@ -216,7 +198,7 @@
                         :class="{ 'source-tooltip__row--missing': getSourceResolutionStatus(row).missing.some((m) => m.id === src.id) }"
                       >
                         <span class="source-tooltip__name">{{ src.name }}</span>
-                        <q-icon
+                        <km-glyph
                           :name="getSourceResolutionStatus(row).configured.some((c) => c.id === src.id) ? 'check' : 'remove'"
                           size="12px"
                           class="source-tooltip__status"
@@ -224,18 +206,14 @@
                       </div>
                     </div>
                   </div>
-                </q-tooltip>
+                </km-tooltip>
               </div>
             </div>
             <div v-if="getSchemaFieldType(row)" class="field-card__type">{{ getSchemaFieldType(row) }}</div>
             <div class="field-card__samples">
               <div class="field-card__actions field-card__actions--samples">
-                <q-btn flat dense size="sm" color="grey-7" icon="o_edit" @click.stop="emit('edit-field', row)">
-                  <q-tooltip>{{ m.common_edit() }}</q-tooltip>
-                </q-btn>
-                <q-btn flat dense size="sm" color="negative" icon="o_delete" @click.stop="emit('delete-field', row)">
-                  <q-tooltip>{{ m.common_delete() }}</q-tooltip>
-                </q-btn>
+                <km-btn flat dense size="sm" tone="weak" icon="edit" :tooltip="m.common_edit()" @click.stop="emit('edit-field', row)" />
+                <km-btn flat dense size="sm" tone="danger" icon="delete" :tooltip="m.common_delete()" @click.stop="emit('delete-field', row)" />
               </div>
             </div>
           </div>
@@ -253,8 +231,8 @@
       >
         <div class="lane-header lane-header--clickable" @click="discardedExpanded = !discardedExpanded">
           <div class="lane-header__title">
-            <q-icon :name="discardedExpanded ? 'expand_less' : 'expand_more'" size="18px" color="grey-5" class="collapse-icon" />
-            <q-icon v-if="discardedExpanded" name="block" size="18px" color="grey-6" />
+            <km-glyph :name="discardedExpanded ? 'chevron-up' : 'chevron-down'" size="18px" tone="muted" class="collapse-icon" />
+            <km-glyph v-if="discardedExpanded" name="block" size="18px" tone="muted" />
             <span>{{ m.knowledgeGraph_discarded() }}</span>
             <span v-if="discardedExpanded" class="lane-header__count">{{ discardedRows.length }}</span>
           </div>
@@ -264,15 +242,15 @@
         <transition name="lane-expand">
           <div v-if="discardedExpanded" class="lane-content">
             <div v-if="discardedRows.length === 0" class="lane-empty">
-              <q-icon name="check" size="32px" color="grey-4" />
+              <km-glyph name="check" size="32px" tone="muted" />
               <span>{{ search ? m.knowledgeGraph_noMatchesInSearch() : m.knowledgeGraph_nothingDiscarded() }}</span>
             </div>
             <div v-for="row in discardedRows" :key="row.id" class="field-card field-card--discarded">
               <div class="field-card__header">
                 <span class="field-card__name">{{ row.name }}</span>
                 <div class="field-card__actions">
-                  <q-btn flat dense size="sm" color="primary" :label="m.knowledgeGraph_restore()" @click.stop="emit('restore-field', row.name)" />
-                  <q-btn flat dense size="sm" color="grey-7" :label="m.knowledgeGraph_define()" @click.stop="emit('promote-field', row)" />
+                  <km-btn flat dense size="sm" tone="brand" :label="m.knowledgeGraph_restore()" @click.stop="emit('restore-field', row.name)" />
+                  <km-btn flat dense size="sm" tone="weak" :label="m.knowledgeGraph_define()" @click.stop="emit('promote-field', row)" />
                 </div>
               </div>
               <div class="field-card__type">{{ getTypeLabel(row.value_type) }}</div>
@@ -315,7 +293,7 @@ const sourceTypeVisuals: Record<string, { image?: string; icon?: string }> = {
 }
 
 const getSourceVisual = (type: string) => {
-  return sourceTypeVisuals[type] || { icon: 'description' }
+  return sourceTypeVisuals[type] || { icon: 'file-text' }
 }
 
 const props = defineProps<{
@@ -686,7 +664,7 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
   display: grid;
   grid-template-columns: repeat(3, 1fr) auto;
   gap: 16px;
-  min-height: 400px;
+  min-block-size: 400px;
 }
 
 @media (max-width: 1400px) {
@@ -705,12 +683,12 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
 .board-lane {
   display: flex;
   flex-direction: column;
-  background: var(--q-background);
-  border: 1px solid var(--q-border);
-  border-radius: var(--radius-lg);
+  background: var(--ds-color-background);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-lg);
   overflow: hidden;
-  min-height: 300px;
-  max-height: 500px;
+  min-block-size: 300px;
+  max-block-size: 500px;
 }
 
 .board-lane--ai {
@@ -724,18 +702,18 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
 }
 
 .board-lane--discarded {
-  background: var(--q-light);
-  border-color: var(--q-border-2);
+  background: var(--ds-color-light);
+  border-color: var(--ds-color-border-2);
   transition:
     width 0.25s ease,
     min-width 0.25s ease;
-  width: 280px;
-  min-width: 280px;
+  inline-size: 280px;
+  min-inline-size: 280px;
 }
 
 .board-lane--discarded.board-lane--collapsed {
-  width: 56px;
-  min-width: 56px;
+  inline-size: 56px;
+  min-inline-size: 56px;
 }
 
 .board-lane--collapsed .lane-header {
@@ -757,7 +735,7 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
 .board-lane--collapsed .lane-header__title > span:not(.lane-header__count) {
   /* "Discarded" label only */
   order: 3;
-  margin-top: 10px;
+  margin-block-start: 10px;
   writing-mode: vertical-rl;
   text-orientation: mixed;
   transform: rotate(180deg);
@@ -777,7 +755,7 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
 }
 
 .lane-header--clickable:hover {
-  background: var(--q-light);
+  background: var(--ds-color-light);
 }
 
 .lane-header__subtitle--collapsed {
@@ -791,27 +769,29 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
 /* Transition for lane content expand/collapse */
 .lane-expand-enter-active,
 .lane-expand-leave-active {
-  transition: all 0.25s ease;
+  transition:
+    opacity var(--ds-duration-slow) var(--ds-ease-out),
+    max-height var(--ds-duration-slow) var(--ds-ease-out);
   overflow: hidden;
 }
 
 .lane-expand-enter-from,
 .lane-expand-leave-to {
   opacity: 0;
-  max-height: 0;
+  max-block-size: 0;
 }
 
 .lane-expand-enter-to,
 .lane-expand-leave-from {
   opacity: 1;
-  max-height: 600px;
+  max-block-size: 600px;
 }
 
 /* Lane header */
 .lane-header {
   padding: 12px 14px;
-  background: var(--q-white);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  background: var(--ds-color-white);
+  border-block-end: 1px solid rgba(0, 0, 0, 0.06);
   position: relative;
 }
 
@@ -819,10 +799,10 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: var(--km-font-size-body);
+  font-size: var(--ds-font-size-body);
   font-weight: 600;
-  color: var(--q-black);
-  min-width: 0;
+  color: var(--ds-color-black);
+  min-inline-size: 0;
   overflow: hidden;
 }
 
@@ -836,21 +816,21 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 20px;
-  height: 18px;
+  min-inline-size: 20px;
+  block-size: 18px;
   padding: 0 6px;
-  background: var(--q-border);
-  border-radius: var(--radius-lg);
-  font-size: var(--km-font-size-sm);
+  background: var(--ds-color-border);
+  border-radius: var(--ds-radius-lg);
+  font-size: var(--ds-font-size-sm);
   font-weight: 600;
-  color: var(--q-label);
+  color: var(--ds-color-label);
   flex-shrink: 0;
 }
 
 .lane-header__subtitle {
-  font-size: var(--km-font-size-sm);
-  color: var(--q-label);
-  margin-top: 2px;
+  font-size: var(--ds-font-size-sm);
+  color: var(--ds-color-label);
+  margin-block-start: 2px;
 }
 
 .lane-header__top {
@@ -861,21 +841,21 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
 
 .lane-header__action {
   position: absolute;
-  top: 10px;
-  right: 10px;
+  inset-block-start: 10px;
+  inset-inline-end: 10px;
 }
 
 .lane-header__actions {
   display: flex;
   gap: 2px;
   flex-shrink: 0;
-  margin-left: auto;
+  margin-inline-start: auto;
 }
 
 /* Lane content (scrollable) */
 .lane-content {
   flex: 1;
-  overflow-y: auto;
+  overflow-block: auto;
   padding: 10px;
   display: flex;
   flex-direction: column;
@@ -889,25 +869,25 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
   justify-content: center;
   gap: 8px;
   flex: 1;
-  color: var(--q-label);
-  font-size: var(--km-font-size-caption);
+  color: var(--ds-color-label);
+  font-size: var(--ds-font-size-caption);
   text-align: center;
   padding: 24px;
 }
 
 .lane-empty__hint {
-  font-size: var(--km-font-size-sm);
-  color: var(--q-label);
-  max-width: 180px;
+  font-size: var(--ds-font-size-sm);
+  color: var(--ds-color-label);
+  max-inline-size: 180px;
   line-height: 1.4;
-  margin-top: 4px;
+  margin-block-start: 4px;
 }
 
 /* Field card */
 .field-card {
-  background: var(--q-white);
-  border: 1px solid var(--q-border);
-  border-radius: var(--radius-md);
+  background: var(--ds-color-white);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-md);
   padding: 10px 12px;
   cursor: default;
   transition:
@@ -917,12 +897,12 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
 
 .field-card:hover {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  border-color: var(--q-border-2);
+  border-color: var(--ds-color-border-2);
 }
 
 .field-card--defined {
   opacity: 0.6;
-  background: var(--q-light);
+  background: var(--ds-color-light);
 }
 
 .field-card--schema {
@@ -930,12 +910,12 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
 }
 
 .field-card--schema:hover {
-  border-color: var(--q-primary);
+  border-color: var(--ds-color-primary);
 }
 
 .field-card--discarded {
   opacity: 0.7;
-  background: var(--q-light);
+  background: var(--ds-color-light);
 }
 
 .field-card__header {
@@ -943,7 +923,7 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 6px;
+  margin-block-end: 6px;
   position: relative;
 }
 
@@ -951,14 +931,14 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
   display: flex;
   align-items: center;
   gap: 6px;
-  min-width: 0;
+  min-inline-size: 0;
   flex: 1;
 }
 
 .field-card__name {
-  font-size: var(--km-font-size-label);
+  font-size: var(--ds-font-size-label);
   font-weight: 600;
-  color: var(--q-black);
+  color: var(--ds-color-black);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -968,18 +948,18 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 6px;
+  margin-block-end: 6px;
 }
 
 .field-card__type-delimiter {
-  font-size: var(--km-font-size-xs);
-  color: var(--q-label);
+  font-size: var(--ds-font-size-xs);
+  color: var(--ds-color-label);
   margin: 0 2px;
 }
 
 .field-card__type {
-  font-size: var(--km-font-size-xs);
-  color: var(--q-label);
+  font-size: var(--ds-font-size-xs);
+  color: var(--ds-color-label);
   text-transform: uppercase;
   letter-spacing: 0.3px;
 }
@@ -988,17 +968,17 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 6px;
+  margin-block-end: 6px;
   flex-wrap: wrap;
 }
 
 .field-card__source {
-  font-size: var(--km-font-size-sm);
-  color: var(--q-secondary-text);
+  font-size: var(--ds-font-size-sm);
+  color: var(--ds-color-secondary-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 140px;
+  max-inline-size: 140px;
 }
 
 .field-card__samples {
@@ -1006,18 +986,18 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
   align-items: center;
   gap: 4px;
   flex-wrap: wrap;
-  margin-top: 4px;
-  padding-top: 6px;
-  border-top: 1px solid var(--q-light);
+  margin-block-start: 4px;
+  padding-block-start: 6px;
+  border-block-start: 1px solid var(--ds-color-light);
   position: relative;
-  min-height: 24px;
+  min-block-size: 24px;
 }
 
 .field-card__constraints {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 8px;
+  margin-block-end: 8px;
 }
 
 .field-card__actions {
@@ -1029,36 +1009,36 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
 }
 
 .field-card__actions--samples {
-  margin-left: auto;
+  margin-inline-start: auto;
 }
 
 /* Sample chips */
 .sample-chip {
   display: inline-block;
   padding: 2px 6px;
-  background: var(--q-light);
-  border-radius: var(--radius-sm);
-  font-size: var(--km-font-size-xs);
-  color: var(--q-secondary-text);
-  max-width: 80px;
+  background: var(--ds-color-light);
+  border-radius: var(--ds-radius-sm);
+  font-size: var(--ds-font-size-xs);
+  color: var(--ds-color-secondary-text);
+  max-inline-size: 80px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .sample-more {
-  font-size: var(--km-font-size-xs);
-  color: var(--q-label);
+  font-size: var(--ds-font-size-xs);
+  color: var(--ds-color-label);
 }
 
 /* Constraint chips */
 .constraint-chip {
   display: inline-block;
   padding: 2px 6px;
-  background: #dbeafe;
-  border-radius: var(--radius-sm);
-  font-size: var(--km-font-size-xs);
-  color: #1e40af;
+  background: var(--ds-color-info-soft);
+  border-radius: var(--ds-radius-sm);
+  font-size: var(--ds-font-size-xs);
+  color: var(--ds-color-info-on-soft);
 }
 
 /* Origin chips */
@@ -1067,8 +1047,8 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
   align-items: center;
   gap: 4px;
   padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  font-size: var(--km-font-size-xs);
+  border-radius: var(--ds-radius-sm);
+  font-size: var(--ds-font-size-xs);
   font-weight: 500;
 }
 
@@ -1088,13 +1068,13 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
 }
 
 .origin-chip--muted {
-  background: var(--q-border);
-  color: var(--q-secondary-text);
+  background: var(--ds-color-border);
+  color: var(--ds-color-secondary-text);
 }
 
 .origin-chip--type-style {
-  font-size: var(--km-font-size-xs);
-  color: var(--q-label);
+  font-size: var(--ds-font-size-xs);
+  color: var(--ds-color-label);
   text-transform: uppercase;
   letter-spacing: 0.3px;
   background: transparent !important;
@@ -1109,22 +1089,22 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
   align-items: center;
   gap: 4px;
   padding: 2px 8px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--ds-radius-sm);
   flex-shrink: 0;
-  max-width: 140px;
-  border: 1px solid var(--q-border-2);
+  max-inline-size: 140px;
+  border: 1px solid var(--ds-color-border-2);
 }
 
 .source-badge--top-right {
   position: absolute;
-  top: 0;
-  right: 0;
+  inset-block-start: 0;
+  inset-inline-end: 0;
 }
 
 .source-badge__name {
-  font-size: var(--km-font-size-sm);
+  font-size: var(--ds-font-size-sm);
   font-weight: 500;
-  color: var(--q-black);
+  color: var(--ds-color-black);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1133,12 +1113,8 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
 /* Action buttons for discovered/extracted fields */
 .action-btn {
   padding: 2px 10px;
-  min-height: 24px;
-  border-radius: var(--radius-sm);
-}
-
-.action-btn:deep(.q-btn__content) {
-  text-transform: none;
+  min-block-size: 24px;
+  border-radius: var(--ds-radius-sm);
 }
 
 /* Drag and drop styles */
@@ -1146,8 +1122,8 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
   opacity: 0.35;
   transform: scale(0.97);
   box-shadow: none;
-  border-color: var(--q-border-2) !important;
-  background: var(--q-light);
+  border-color: var(--ds-color-border-2) !important;
+  background: var(--ds-color-light);
 }
 
 .field-card[draggable='true'] {
@@ -1170,22 +1146,22 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
 .lane-content--drag-over {
   background: rgba(59, 130, 246, 0.06);
   border: 2px dashed #3b82f6;
-  border-radius: var(--radius-md);
+  border-radius: var(--ds-radius-md);
 }
 
 /* Schema field drop target - instant feedback */
 .field-card--drop-target {
-  border-color: var(--q-primary) !important;
+  border-color: var(--ds-color-primary) !important;
   box-shadow:
     0 0 0 3px rgba(59, 130, 246, 0.25),
     0 4px 12px rgba(59, 130, 246, 0.15);
-  background: var(--q-primary-bg);
+  background: var(--ds-color-primary-bg);
 }
 
 /* Discard lane drop zone - instant feedback */
 .board-lane--discarded.board-lane--drag-over {
-  background: var(--q-error-bg);
-  border-color: var(--q-error);
+  background: var(--ds-color-error-bg);
+  border-color: var(--ds-color-error);
   box-shadow:
     inset 0 0 0 2px rgba(239, 68, 68, 0.15),
     0 0 20px rgba(239, 68, 68, 0.1);
@@ -1215,7 +1191,7 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
   content: '';
   position: absolute;
   inset: 0;
-  border-radius: var(--radius-lg);
+  border-radius: var(--ds-radius-lg);
   pointer-events: none;
 }
 
@@ -1231,14 +1207,10 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
 
 /* Lane header icon buttons - clean minimal style */
 .lane-icon-btn {
-  width: 36px !important;
-  height: 36px !important;
-  min-width: 36px !important;
-  min-height: 36px !important;
-}
-
-.lane-icon-btn :deep(.q-icon) {
-  font-size: var(--km-font-size-display) !important;
+  inline-size: 36px !important;
+  block-size: 36px !important;
+  min-inline-size: 36px !important;
+  min-block-size: 36px !important;
 }
 
 /* AI lane buttons - Purple theme */
@@ -1253,69 +1225,69 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
 
 /* Run button - Green accent */
 .lane-icon-btn--run {
-  color: var(--q-success) !important;
+  color: var(--ds-color-success) !important;
 }
 
 .lane-icon-btn--run:hover {
   background: rgba(16, 185, 129, 0.1) !important;
-  color: var(--q-success) !important;
+  color: var(--ds-color-success) !important;
 }
 
 /* Schema lane button - Blue theme */
 .lane-icon-btn--schema {
-  color: var(--q-primary) !important;
+  color: var(--ds-color-primary) !important;
 }
 
 .lane-icon-btn--schema:hover {
-  background: var(--q-primary-bg) !important;
-  color: var(--q-primary) !important;
+  background: var(--ds-color-primary-bg) !important;
+  color: var(--ds-color-primary) !important;
 }
 
 /* Source resolution status indicator */
 .field-card__sources {
-  margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px solid var(--q-light);
+  margin-block-start: 6px;
+  padding-block-start: 6px;
+  border-block-start: 1px solid var(--ds-color-light);
 }
 
 .field-card__sources--top-right {
   position: absolute;
-  top: 0;
-  right: 0;
-  margin-top: 0;
-  padding-top: 0;
-  border-top: none;
+  inset-block-start: 0;
+  inset-inline-end: 0;
+  margin-block-start: 0;
+  padding-block-start: 0;
+  border-block-start: none;
 }
 
 .source-status {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  font-size: var(--km-font-size-caption);
+  font-size: var(--ds-font-size-caption);
   cursor: help;
 }
 
 .source-status--resolved {
-  color: var(--q-success);
+  color: var(--ds-color-success);
 }
 
 .source-status--unresolved {
-  color: var(--q-error);
+  color: var(--ds-color-error);
 }
 </style>
 
 <!-- Unscoped styles for tooltip (teleported to body) -->
 <style>
-.source-tooltip.q-tooltip {
-  background: var(--q-white) !important;
+.source-tooltip {
+  background: var(--ds-color-white) !important;
   padding: 0 !important;
-  border-radius: var(--radius-lg) !important;
-  border: 1px solid var(--q-border) !important;
+  border-radius: var(--ds-radius-lg) !important;
+  border: 1px solid var(--ds-color-border) !important;
   box-shadow:
     0 4px 16px rgba(0, 0, 0, 0.1),
     0 1px 4px rgba(0, 0, 0, 0.06) !important;
-  color: var(--q-black) !important;
-  max-width: 240px !important;
+  color: var(--ds-color-black) !important;
+  max-inline-size: 240px !important;
 }
 
 .source-tooltip .source-tooltip__content {
@@ -1332,28 +1304,28 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.4px;
-  color: var(--q-secondary-text);
-  border-bottom: 1px solid var(--q-border);
-  margin-bottom: 4px;
+  color: var(--ds-color-secondary-text);
+  border-block-end: 1px solid var(--ds-color-border);
+  margin-block-end: 4px;
 }
 
 .source-tooltip .source-tooltip__meta {
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.2px;
-  color: var(--q-black);
+  color: var(--ds-color-black);
 }
 
 .source-tooltip .source-tooltip__wildcard {
   padding: 6px 12px;
   font-size: 11px;
-  color: var(--q-success-text);
+  color: var(--ds-color-success-text);
 }
 
 .source-tooltip .source-tooltip__list {
   display: flex;
   flex-direction: column;
-  max-height: 220px;
+  max-block-size: 220px;
   overflow: auto;
 }
 
@@ -1364,15 +1336,15 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
   column-gap: 12px;
   padding: 6px 12px;
   font-size: 12px;
-  color: var(--q-black);
+  color: var(--ds-color-black);
 }
 
 .source-tooltip .source-tooltip__row:hover {
-  background: var(--q-light);
+  background: var(--ds-color-light);
 }
 
 .source-tooltip .source-tooltip__row--missing {
-  color: var(--q-label);
+  color: var(--ds-color-label);
 }
 
 .source-tooltip .source-tooltip__name {
@@ -1382,10 +1354,10 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
 }
 
 .source-tooltip .source-tooltip__status {
-  color: var(--q-success);
+  color: var(--ds-color-success);
 }
 
 .source-tooltip .source-tooltip__row--missing .source-tooltip__status {
-  color: var(--q-border-2);
+  color: var(--ds-color-border-2);
 }
 </style>

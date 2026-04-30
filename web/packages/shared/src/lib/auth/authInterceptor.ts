@@ -6,24 +6,12 @@
  *   const response = await authFetch('/api/some-endpoint', { method: 'GET' })
  */
 
+import { refreshAuthSession } from './refreshCoordinator'
+
 export function createAuthFetch(
   baseUrl: string,
   onUnauthorized: () => void,
 ) {
-  let refreshPromise: Promise<boolean> | null = null
-
-  async function doRefresh(): Promise<boolean> {
-    try {
-      const res = await fetch(`${baseUrl}/api/v2/auth/refresh`, {
-        method: 'POST',
-        credentials: 'include',
-      })
-      return res.ok
-    } catch {
-      return false
-    }
-  }
-
   return async function authFetch(
     input: string | URL | Request,
     init?: RequestInit,
@@ -32,14 +20,7 @@ export function createAuthFetch(
     let response = await fetch(input, opts)
 
     if (response.status === 401) {
-      // Deduplicate concurrent refresh attempts
-      if (!refreshPromise) {
-        refreshPromise = doRefresh().finally(() => {
-          refreshPromise = null
-        })
-      }
-
-      const refreshed = await refreshPromise
+      const refreshed = await refreshAuthSession(baseUrl)
 
       if (refreshed) {
         // Retry the original request

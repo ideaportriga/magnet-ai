@@ -1,0 +1,33 @@
+{
+  "generatedAt": "2026-04-29T19:14:22.567Z",
+  "scannedFiles": 1158,
+  "counts": {
+    "directQuasarImports": 0,
+    "quasarExtrasRefs": 0,
+    "vClosePopup": 0,
+    "vRipple": 0,
+    "qComponentTags": 0,
+    "qCssSelectors": 0,
+    "qCssVariables": 0,
+    "qCssVarRefs": 0,
+    "dynamicQCssVarFallbacks": 0,
+    "dsCompatImports": 0,
+    "stylusFiles": 0,
+    "vueStylusBlocks": 0,
+    "stylusPackageDeps": 0,
+    "deepQSelectors": 0,
+    "deepDsSelectors": 0,
+    "cypressQSelectors": 0,
+    "transitionAll": 0,
+    "templateVisualProps": 0,
+    "sanctionedTemplateVisualFallbacks": 0,
+    "legacyLayoutClasses": 0,
+    "kmZIndexTokens": 0,
+    "unprefixedRadiusTokens": 0,
+    "inlineStatusHexes": 0,
+    "varFallbacks": 14,
+    "legacyNumericSpacing": 0,
+    "legacyKmFontSize": 0,
+    "dsImports": 138
+  }
+}

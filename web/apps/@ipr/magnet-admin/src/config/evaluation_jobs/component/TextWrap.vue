@@ -1,5 +1,5 @@
-<template lang="pug">
-pre.wrapped-text.km-button-xs-text {{ displayText }}
+<template>
+  <pre class="wrapped-text km-button-xs-text">{{ displayText }}</pre>
 </template>
 
 <script>
@@ -27,8 +27,8 @@ export default defineComponent({
 <style scoped>
 .wrapped-text {
   white-space: pre-wrap;
-  word-wrap: break-word;
-  max-height: 4.5em;
+  overflow-wrap: break-word;
+  max-block-size: 4.5em;
   overflow: hidden;
   text-overflow: ellipsis;
 }

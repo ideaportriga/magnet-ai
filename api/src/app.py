@@ -26,6 +26,7 @@ from core.server.plugin_registry import (  # noqa: E402
     shutdown_plugin,
     startup_plugin,
     structlog,
+    taskiq_runtime_plugin,
 )
 from routes import get_route_handlers  # noqa: E402
 from core.config.base import (  # noqa: E402
@@ -77,8 +78,18 @@ def create_app() -> Litestar:
             openapi_plugin,
             shutdown_plugin,
             startup_plugin,
+            # Must come AFTER startup_plugin: it spawns the worker/scheduler
+            # tasks once `startup_plugin._startup_taskiq_broker` has booted
+            # the broker. See plugin docstring.
+            taskiq_runtime_plugin,
         ],
     )
+
+    # NOTE: worker-side startup/shutdown is wired via
+    # `tasks.worker_lifecycle.init(broker)` at `src/tasks/broker.py` import
+    # time (runs only when `broker.is_worker_process`). We intentionally do
+    # not reuse `taskiq_litestar.init` — its cross-task anyio cancel scopes
+    # hang the worker on shutdown.
 
     # Add Oracle monitoring if needed
     if VECTOR_DB_TYPE == "ORACLE":

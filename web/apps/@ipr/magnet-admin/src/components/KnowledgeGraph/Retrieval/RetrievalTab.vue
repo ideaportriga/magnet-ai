@@ -1,14 +1,14 @@
 <template>
-  <div class="q-px-md">
+  <div class="px-md">
     <!-- Header with Prompt Controls -->
-    <div class="row items-center q-mb-md">
-      <div class="col">
+    <div class="cluster mb-md" data-justify="between">
+      <div class="flex-1">
         <div class="km-heading-7">{{ m.retrieval_agentConfiguration() }}</div>
         <div class="km-description text-secondary-text">
           {{ m.retrieval_agentConfigurationDesc() }}
         </div>
       </div>
-      <div class="col-auto">
+      <div class="flex-none">
         <tab-controls
           :validation-errors="validationErrors"
           :available-variants="availableVariants"
@@ -27,12 +27,12 @@
       </div>
     </div>
 
-    <q-separator class="q-my-md" />
+    <km-separator class="my-md" />
 
-    <q-form class="column q-gap-32" @submit.prevent="saveToCurrentVariant">
+    <form class="km-form stack" data-gap="3xl" @submit.prevent="saveToCurrentVariant">
       <!-- Agent Prompt Cards -->
       <km-section :title="m.retrieval_promptConfiguration()" :sub-title="m.retrieval_promptConfigurationDesc()">
-        <div class="column q-gutter-y-sm">
+        <div class="stack" style="row-gap: var(--ds-space-sm)">
           <kg-expandable-prompt
             v-model="persona"
             :title="m.retrieval_agentIdentity()"
@@ -52,13 +52,11 @@
 
       <!-- Document Filtering Tools -->
       <km-section :title="m.retrieval_filteringTools()" :sub-title="m.retrieval_filteringToolsDesc()" class="retrieval-section">
-        <div class="column q-gap-8">
+        <div class="stack" data-gap="sm">
           <tool-section
             v-for="tool in filterTools"
             :key="tool.id"
             icon="filter_alt"
-            icon-color="primary-light"
-            icon-text-color="primary"
             variant="search"
             :label="tool.label"
             :description="tool.description"
@@ -77,7 +75,7 @@
               <template v-else>
                 <tool-stat icon="search" :label="getSearchMethodLabel(tool.searchMethod)" />
                 <tool-stat icon="tune" :label="m.retrieval_minScore({ value: ((tool.scoreThreshold || 0) * 100).toFixed(0) })" />
-                <tool-stat icon="format_list_numbered" :label="m.retrieval_limit({ value: tool.limit })" />
+                <tool-stat icon="list-numbered" :label="m.retrieval_limit({ value: tool.limit })" />
               </template>
             </template>
           </tool-section>
@@ -86,13 +84,11 @@
 
       <!-- Chunk Retrieval Tools -->
       <km-section :title="m.retrieval_chunkRetrievalTools()" :sub-title="m.retrieval_chunkRetrievalToolsDesc()">
-        <div class="column q-gap-8">
+        <div class="stack" data-gap="sm">
           <tool-section
             v-for="tool in retrievalTools"
             :key="tool.id"
             icon="search"
-            icon-color="primary-light"
-            icon-text-color="primary"
             variant="search"
             :label="tool.label"
             :description="tool.description"
@@ -104,7 +100,7 @@
             <template #stats>
               <tool-stat icon="search" :label="getSearchMethodLabel(tool.searchMethod)" />
               <tool-stat icon="tune" :label="m.retrieval_minScore({ value: ((tool.scoreThreshold || 0) * 100).toFixed(0) })" />
-              <tool-stat icon="format_list_numbered" :label="m.retrieval_limit({ value: tool.limit })" />
+              <tool-stat icon="list-numbered" :label="m.retrieval_limit({ value: tool.limit })" />
             </template>
           </tool-section>
         </div>
@@ -114,9 +110,7 @@
       <km-section :title="m.retrieval_loopTermination()" :sub-title="m.retrieval_loopTerminationDesc()">
         <tool-section
           v-if="exitTool"
-          icon="logout"
-          icon-color="deep-orange-1"
-          icon-text-color="deep-orange-9"
+          icon="sign-out"
           variant="exit"
           :label="exitTool.label"
           :description="exitTool.description"
@@ -125,7 +119,7 @@
           <template #stats>
             <tool-stat :icon="getStrategyIcon(exitTool.strategy)" :label="getStrategyLabel(exitTool.strategy)" />
             <tool-stat icon="repeat" :label="m.retrieval_maxIterationsValue({ value: exitTool.maxIterations })" />
-            <tool-stat icon="description" :label="getOutputFormatLabel(exitTool.outputFormat)" />
+            <tool-stat icon="file-text" :label="getOutputFormatLabel(exitTool.outputFormat)" />
             <tool-stat icon="output" :label="getAnswerModeLabel(exitTool.answerMode)" />
           </template>
         </tool-section>
@@ -133,14 +127,14 @@
 
       <!-- Generation Parameters -->
       <km-section :title="m.retrieval_generationSettings()" :sub-title="m.retrieval_generationSettingsDesc()">
-        <div class="row q-col-gutter-x-xl">
+        <div class="cluster gap-x-xl">
           <!-- Model Selection -->
-          <div class="col-6">
-            <div class="row items-center q-gutter-xs q-mb-xs">
+          <div class="basis-6">
+            <div class="cluster mb-xs" data-gap="xs">
               <span class="km-input-label">{{ m.retrieval_languageModel() }}</span>
-              <q-icon v-if="!model" name="o_info" color="grey-6" size="xs">
-                <q-tooltip class="text-body2">{{ m.retrieval_selectLlmTooltip() }}</q-tooltip>
-              </q-icon>
+              <km-glyph v-if="!model" name="info" tone="weak" size="xs">
+                <km-tooltip class="text-body2">{{ m.retrieval_selectLlmTooltip() }}</km-tooltip>
+              </km-glyph>
             </div>
             <kg-dropdown-field
               v-model="model"
@@ -155,24 +149,24 @@
             />
 
             <!-- Reasoning Effort -->
-            <div class="q-mt-md">
-              <div class="row items-center q-gutter-xs q-mb-xs">
+            <div class="mt-md">
+              <div class="cluster mb-xs" data-gap="xs">
                 <span class="km-input-label text-grey-6">{{ m.retrieval_reasoningEffort() }}</span>
-                <q-badge color="orange-1" text-color="orange-9" :label="m.common_comingSoon()" class="text-weight-medium" />
+                <km-badge tone="warning" :label="m.common_comingSoon()" class="text-weight-medium" />
               </div>
               <kg-dropdown-field model-value="" :options="reasoningEffortOptions" :placeholder="m.retrieval_selectReasoningEffort()" :disable="true" />
             </div>
           </div>
 
           <!-- Sampling Parameters -->
-          <div class="col-6 q-pr-md">
-            <div class="column q-col-gutter-lg">
-              <div class="col-12 col-md-6">
-                <div class="row items-center justify-between q-mb-6">
+          <div class="basis-6 pr-md">
+            <div class="stack" data-gap="lg">
+              <div class="basis-12 basis-md-6">
+                <div class="cluster mb-sm" data-justify="between">
                   <div class="km-input-label">{{ m.evaluation_temperature() }}</div>
                   <div class="param-value">{{ temperature.toFixed(2) }}</div>
                 </div>
-                <q-slider
+                <km-slider
                   v-model="temperature"
                   :min="0"
                   :max="2"
@@ -183,12 +177,12 @@
                   @update:model-value="markAsChanged"
                 />
               </div>
-              <div class="col-12 col-md-6">
-                <div class="row items-center justify-between q-mb-6">
+              <div class="basis-12 basis-md-6">
+                <div class="cluster mb-sm" data-justify="between">
                   <div class="km-input-label">{{ m.retrieval_topPNucleus() }}</div>
                   <div class="param-value">{{ topP.toFixed(2) }}</div>
                 </div>
-                <q-slider
+                <km-slider
                   v-model="topP"
                   :min="0"
                   :max="1"
@@ -208,7 +202,7 @@
       <km-section :title="m.retrieval_guidedExamples()" :sub-title="m.retrieval_guidedExamplesDesc()">
         <guided-examples-table :examples="examples" @save="saveExample" @remove="removeExample" />
       </km-section>
-    </q-form>
+    </form>
 
     <!-- Tool Configuration Dialog -->
     <component :is="getToolComponent(editingTool?.id)" v-if="showToolDialog" v-model="showToolDialog" :tool="editingTool" @save="onSaveTool" />
@@ -220,20 +214,19 @@
       :confirm-button-label2="m.retrieval_discardAndSwitch()"
       confirm-button-type2="secondary"
       :cancel-button-label="m.common_cancel()"
-      notification-icon="fas fa-triangle-exclamation"
+      notification-icon="warning"
       :loading="saving"
       @confirm="saveAndSwitchVariant"
       @confirm2="discardAndSwitchVariant"
       @cancel="cancelVariantSwitch"
     >
-      <div class="row item-center justify-center km-heading-7 q-mb-md">{{ m.retrieval_unsavedChanges() }}</div>
-      <div class="row text-center justify-center">{{ m.retrieval_unsavedChangesDesc() }}</div>
+      <div class="cluster km-heading-7 mb-md" data-justify="center">{{ m.retrieval_unsavedChanges() }}</div>
+      <div class="cluster text-center" data-justify="center">{{ m.retrieval_unsavedChangesDesc() }}</div>
     </km-popup-confirm>
   </div>
 </template>
 
 <script setup lang="ts">
-import { uid } from 'quasar'
 import { m } from '@/paraglide/messages'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -878,7 +871,7 @@ const saveExample = (example: RetrievalExample) => {
   if (!example.id || example.id === '0') {
     examples.value.push({
       ...example,
-      id: uid(),
+      id: crypto.randomUUID(),
     })
   } else {
     const idx = examples.value.findIndex((e) => e.id === example.id)
@@ -958,27 +951,23 @@ defineExpose({
 </script>
 
 <style scoped>
-:deep(.q-expansion-item__content) {
-  border-radius: 0 var(--radius-lg);
-}
-
 .retrieval-section :deep(> .col-4) {
-  width: 300px;
+  inline-size: 300px;
 }
 
 /* Generation Settings Section */
 .param-value {
   font-size: 0.875rem;
   font-weight: 600;
-  color: var(--q-primary);
-  min-width: 40px;
-  text-align: right;
+  color: var(--ds-color-primary);
+  min-inline-size: 40px;
+  text-align: end;
 }
 
 .param-hint {
   font-size: 0.75rem;
-  color: var(--q-secondary-text);
-  margin-top: 4px;
+  color: var(--ds-color-secondary-text);
+  margin-block-start: 4px;
   line-height: 1.4;
 }
 </style>

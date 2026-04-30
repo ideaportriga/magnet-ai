@@ -1,6 +1,6 @@
 <template>
   <div class="tool-stat">
-    <q-icon :name="icon" size="14px" color="grey-7" class="q-mr-xs" />
+    <km-glyph :name="icon" size="14px" tone="weak" class="mr-xs" />
     <span class="text-caption text-grey-8 km-tiny">{{ label }}</span>
   </div>
 </template>

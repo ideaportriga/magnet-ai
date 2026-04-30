@@ -1,28 +1,33 @@
-<template lang="pug">
-.row.no-wrap.overflow-hidden.full-height
-  .col.column.no-wrap.full-height
-    .collection-container.q-mx-auto.full-width.column.full-height.q-px-md.q-pt-16
-      .km-heading-4.q-pl-12 {{ m.common_chunks() }}
-      template(v-if='rows.length && !isLoading')
-        .row.q-mb-12.q-mt-md
-          .col-auto.center-flex
-            km-input(:placeholder='m.common_search()', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
-        .col.ba-border.border-radius-12.bg-white.q-pa-16(style='min-height: 0')
-          km-data-table(
-            :table='table',
-            fill-height,
-            row-key='id',
-            :activeRowId='selectedId',
-            @row-click='onSelectRecord'
-          )
-      template(v-else-if='isLoading')
-        .column.flex-center
-          q-spinner(size='40px', color='primary')
-      template(v-else)
-        .column.flex-center
-          .km-title.q-py-16.text-label {{ m.collectionItems_nothingInSourceYet() }}
-        km-icon(name='empty-collection', width='250', height='250')
-  collection-items-drawer
+<template>
+  <div class="cluster overflow-hidden full-height" data-wrap="no">
+    <div class="flex-1 stack full-height" data-gap="0">
+      <div class="collection-container mx-auto full-width stack full-height px-md pt-lg" data-gap="0">
+        <div class="km-heading-4 pl-md">{{ m.common_chunks() }}</div>
+        <template v-if="rows.length &amp;&amp; !isLoading">
+          <div class="cluster mb-md mt-md">
+            <div class="flex-none center-flex">
+              <km-input :placeholder="m.common_search()" icon-before="search" :model-value="globalFilter" clearable @input="globalFilter = $event" />
+            </div>
+          </div>
+          <div class="flex-1 ba-border border-radius-12 bg-white p-lg" style="min-block-size: 0">
+            <km-data-table :table="table" fill-height row-key="id" :active-row-id="selectedId" @row-click="onSelectRecord" />
+          </div>
+        </template>
+        <template v-else-if="isLoading">
+          <div class="flex" style="flex-direction: column; justify-content: center; align-items: center">
+            <km-loader size="40px" />
+          </div>
+        </template>
+        <template v-else>
+          <div class="flex" style="flex-direction: column; justify-content: center; align-items: center">
+            <div class="km-title py-lg text-label">{{ m.collectionItems_nothingInSourceYet() }}</div>
+          </div>
+          <km-icon name="empty-collection" width="250" height="250" />
+        </template>
+      </div>
+    </div>
+    <collection-items-drawer />
+  </div>
 </template>
 
 <script setup lang="ts">

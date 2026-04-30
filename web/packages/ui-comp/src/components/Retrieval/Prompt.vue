@@ -1,125 +1,121 @@
-<template lang="pug">
-.column.search-prompt-container.border-radius-12.q-mb-16.full-width.q-gap-8
-  .row
-    km-input.full-width(
-      ref='input',
-      autogrow,
-      :placeholder='mergedT.placeholder',
-      :model-value='prompt',
-      @input='prompt = $event',
-      @keydown.enter='submit',
-      border-radius='8px',
-      height='var(--prompt-input-height)'
-    )
-      template(#append='{ height }')
-        .self-end.center-flex(:style='{ height }')
-          q-btn.border-radius-6(color='primary', @click='getAnswer', unelevated, :padding='$theme != "salesforce" ? "6px 7px" : "9px 17px 9px 17px"')
-            template(v-slot:default)
-              q-icon(name='fas fa-search', size='var(--prompt-input-icon-size)')
-</template>
+<script setup lang="ts">
+/**
+ * Retrieval prompt input — used by both `magnet-admin` and `magnet-panel`
+ * to fire a retrieval request. Rewritten on `@ds` in Phase 4c. Public
+ * surface preserved: `hideCollectionPicker`, `retrieval`, `retrieval_tool`,
+ * `searchString`, `t`. Emits `onLoad`, `searchRetrieval`,
+ * `searchRetrievalExecute`. `refine(question)` exposed via defineExpose.
+ */
 
-<script>
+import { computed, ref, useTemplateRef, watch } from 'vue'
 import useState from '@shared/composables/useState'
+import KmBtn from '@ds/components/domain/KmBtn.vue'
+import KmInput from '@ds/components/domain/KmInput.vue'
 
-const DEFAULT_T = {
-  placeholder: 'Type your question here',
+const DEFAULT_T = { placeholder: 'Type your question here' }
+
+const props = withDefaults(
+  defineProps<{
+    hideCollectionPicker?: boolean
+    retrieval?: boolean
+    /** Underscore name kept for backwards compatibility with existing callers. */
+    retrieval_tool?: string
+    searchString?: string
+    t?: Record<string, string>
+  }>(),
+  {
+    hideCollectionPicker: false,
+    retrieval: false,
+    retrieval_tool: '',
+    searchString: '',
+    t: () => ({}),
+  },
+)
+
+const emit = defineEmits<{
+  onLoad: []
+  searchRetrieval: []
+  searchRetrievalExecute: [retrieval_tool: string]
+}>()
+
+const prompt = useState('searchPrompt')
+const inputRef = useTemplateRef<{ focus: () => void; blur: () => void }>('input')
+
+const mergedT = computed(() => ({ ...DEFAULT_T, ...props.t }))
+
+watch(
+  () => props.searchString,
+  (next, prev) => {
+    if (prev !== next) prompt.value = next || ''
+  },
+)
+
+function refine(question: string) {
+  prompt.value = question
+  inputRef.value?.focus()
 }
 
-export default {
-  expose: ['refine'],
-  props: {
-    hideCollectionPicker: {
-      default: false,
-      type: Boolean,
-    },
-    retrieval: {
-      default: false,
-      type: Boolean,
-    },
-    // eslint-disable-next-line vue/prop-name-casing
-    retrieval_tool: {
-      type: String,
-      default: '',
-    },
-    searchString: {
-      type: String,
-      default: '',
-    },
-    t: {
-      type: Object,
-      default: () => ({}),
-    },
-  },
-  emits: ['onLoad', 'searchRetrieval', 'searchRetrievalExecute'],
-  setup() {
-    const prompt = useState('searchPrompt')
-    const loading = useState('answersLoading')
-    return {
-      prompt,
-      loading,
-    }
-  },
-  computed: {
-    mergedT() {
-      return { ...DEFAULT_T, ...this.t }
-    },
-  },
-  watch: {
-    searchString: {
-      deep: true,
-      handler(next, prev) {
-        if (prev !== next) {
-          this.prompt = next || ''
-        }
-      },
-    },
-  },
-  created() {},
-  mounted() {},
-  methods: {
-    refine(question) {
-      this.prompt = question
-      this.$refs?.input.focus()
-    },
-    submit(event) {
-      if (!event.shiftKey) {
-        event.preventDefault()
-        this.getAnswer()
-      }
-    },
-    async getAnswer() {
-      if (this.retrieval) {
-        this.$emit('searchRetrieval')
-      } else {
-        this.$emit('searchRetrievalExecute', this.retrieval_tool)
-      }
-
-      this.prompt = ''
-      this.$refs?.input.blur()
-      this.$emit('onLoad')
-    },
-  },
+function updatePrompt(value: string) {
+  prompt.value = value
 }
+
+function submit(event: KeyboardEvent) {
+  if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return
+  event.preventDefault()
+  void getAnswer()
+}
+
+async function getAnswer() {
+  if (props.retrieval) emit('searchRetrieval')
+  else emit('searchRetrievalExecute', props.retrieval_tool)
+
+  prompt.value = ''
+  inputRef.value?.blur()
+  emit('onLoad')
+}
+
+defineExpose({ refine })
 </script>
 
-<style lang="stylus">
-.search-btn
-  min-height: 30px;
-  padding: 5px 8px;
-  // opacity: 0.5;
+<template>
+  <div class="retrieval-prompt stack" data-gap="sm">
+    <KmInput
+      ref="input"
+      autogrow
+      :min-rows="1"
+      :max-rows="10"
+      :placeholder="mergedT.placeholder"
+      :model-value="prompt"
+      class="retrieval-prompt__input"
+      @input="updatePrompt"
+      @keydown="submit"
+    >
+      <template #append>
+        <KmBtn
+          type="button"
+          size="icon-xs"
+          icon="search"
+          icon-size="16px"
+          icon-tone="inverse"
+          aria-label="Search"
+          @click="getAnswer"
+        />
+      </template>
+    </KmInput>
+  </div>
+</template>
 
-  .q-icon
-    font-size: var(--km-font-size-body-lg);
-</style>
+<style scoped>
+.retrieval-prompt {
+  border-radius: var(--ds-radius-xl);
+  margin-block-end: var(--ds-space-lg);
+  inline-size: 100%;
+  min-inline-size: 450px;
+  max-inline-size: 800px;
+}
 
-<style lang="stylus" scoped>
-.search-prompt-container
-  min-width: 450px;
-  max-width: 800px;
-  width: 100%;
+@media (max-width: 500px) {
+  .retrieval-prompt { min-inline-size: unset; max-inline-size: unset; }
+}
 
-@media (max-width: 500px)
-  .search-prompt-container
-    min-width: unset
-    max-width: unset
 </style>

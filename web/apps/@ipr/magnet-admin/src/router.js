@@ -9,10 +9,7 @@ const routes = [
   {
     path: '/',
     name: 'main',
-    component: () => import('@/components/AIApps/Page.vue'),
-    meta: {
-      pageLabel: () => m.entity_aiApp(),
-    },
+    redirect: '/agents',
   },
   {
     path: '/ai-apps/:id/items/:tab',
@@ -110,21 +107,21 @@ const routes = [
   },
   {
     path: '/rag-tools/:id?',
-    name: 'Configuration',
-    component: () => import('@/components/Configuration/Page.vue'),
+    name: 'RAG',
+    component: () => import('@/components/RAG/Page.vue'),
     meta: {
       pageLabel: () => m.entity_ragTools(),
     },
   },
   {
     path: '/rag-tools/:id',
-    name: 'ConfigurationItems',
-    component: () => import('@/components/Configuration/details.vue'),
+    name: 'RAGItems',
+    component: () => import('@/components/RAG/details.vue'),
     meta: {
       pageLabel: () => m.entity_ragTools(),
       chroma: true,
       entity: 'rag_tools',
-      headerComponent: 'configuration-header',
+      headerComponent: 'rag-header',
     },
   },
   {
@@ -435,6 +432,16 @@ const routes = [
     },
   },
   {
+    path: '/api-keys/:id',
+    name: 'ApiKeysDetail',
+    component: () => import('@/components/ApiKeys/Details.vue'),
+    meta: {
+      pageLabel: () => m.entity_apiKey(),
+      chroma: true,
+      entity: 'api_keys',
+    },
+  },
+  {
     path: '/api-servers',
     name: 'ApiServers',
     component: () => import('@/components/ApiServers/Page.vue'),
@@ -573,6 +580,19 @@ const routes = [
     },
   },
 ]
+
+if (import.meta.env.DEV) {
+  const devUiGalleryPath = ['.', 'components', 'Dev', 'UiGallery.vue'].join('/')
+
+  routes.push({
+    path: '/dev/ui-gallery',
+    name: 'DevUiGallery',
+    component: () => import(/* @vite-ignore */ devUiGalleryPath),
+    meta: {
+      pageLabel: 'UI Gallery',
+    },
+  })
+}
 
 const router = createRouter({
   history: createWebHashHistory(),

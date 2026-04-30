@@ -1,23 +1,18 @@
-<template lang="pug">
-km-drawer-layout(storageKey="drawer-api-tools")
-  template(#tabs)
-    .q-pt-16.q-px-16
-      q-tabs.bb-border.full-width(
-        v-model='tab',
-        narrow-indicator,
-        dense,
-        align='left',
-        active-color='primary',
-        indicator-color='primary',
-        active-bg-color='white',
-        no-caps,
-        content-class='km-tabs'
-      )
-        template(v-for='t in tabs')
-          q-tab(:name='t.name', :label='t.label')
-        .fit
-  api-tools-test(v-if='tab == "test"')
-  api-tools-input-details(v-if='tab == "details"', :selectedRow='selectedRow')
+<template>
+  <km-drawer-layout storage-key="drawer-api-tools">
+    <template #tabs>
+      <div class="pt-lg px-lg">
+        <km-tabs v-model="tab" class="full-width" narrow-indicator dense align="left" no-caps content-class="km-tabs">
+          <template v-for="t in tabs" :key="t.name">
+            <km-tab :name="t.name" :label="t.label" />
+          </template>
+          <div class="fit" />
+        </km-tabs>
+      </div>
+    </template>
+    <api-tools-test v-if="tab == &quot;test&quot;" />
+    <api-tools-input-details v-if="tab == &quot;details&quot;" :selected-row="selectedRow" />
+  </km-drawer-layout>
 </template>
 <script>
 import { ref } from 'vue'

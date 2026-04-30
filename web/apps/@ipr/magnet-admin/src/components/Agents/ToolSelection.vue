@@ -1,78 +1,39 @@
-<template lang="pug">
-.column.full-width
-  div
-    q-tabs.bb-border.full-width(
-      v-model='tab',
-      narrow-indicator,
-      dense,
-      align='left',
-      active-color='primary',
-      indicator-color='primary',
-      active-bg-color='white',
-      no-caps,
-      content-class='km-tabs'
-    )
-      template(v-for='t in tabs')
-        q-tab(:name='t.name')
-          .row.q-px-4(style='height: 24px')
-            .col.km-title {{ t.label }}
-            .col-auto.q-ml-sm(v-if='getSelectedQtyByType(t.name) > 0')
-              km-chip(round, size='24px', :label='getSelectedQtyByType(t.name)', color='primary-light', text-color='primary')
-
-  .row.q-mt-16
-    km-input(:placeholder='m.common_search()', iconBefore='search', v-model='searchString', @input='searchString = $event', clearable)
-  .column.no-wrap.q-gap-16.full-height.full-width.q-mb-md.q-mt-16.km-scroll-area-lg(
-    style='height: 100% !important',
-    :class='{ "overflow-auto": tab == "mcp_tool" || tab == "api" || tab == "knowledge_graph" }'
-  )
-    .column.full-height.full-width(v-if='tab != "mcp_tool" && tab != "api" && tab != "knowledge_graph"')
-      km-data-table.full-height(
-        :table='toolTable',
-        fill-height,
-        row-key='id',
-        :activeRowId='selectedRow?.id',
-        hide-pagination,
-        @row-click='selectRecord'
-      )
-    .column.full-width(v-else)
-      template(v-if='tab == "mcp_tool"')
-        agents-select-section(
-          v-for='(server, index) in mcp_servers',
-          :key='server.id',
-          :server='server',
-          :selected='selected',
-          @select='selectRecord',
-          @selectMultiple='selectMultiple',
-          :search-string='searchString',
-          system-name-key='name',
-          type='mcp_tool'
-        )
-      template(v-if='tab == "api"')
-        agents-select-section(
-          v-for='(server, index) in api_servers',
-          :key='server.id',
-          :server='server',
-          :selected='selected',
-          @select='selectRecord',
-          @selectMultiple='selectMultiple',
-          :search-string='searchString',
-          system-name-key='system_name',
-          :search-fields='["name", "description", "system_name"]',
-          type='api'
-        )
-      template(v-if='tab == "knowledge_graph"')
-        agents-select-section(
-          v-for='(server, index) in knowledge_graphs',
-          :key='server.id',
-          :server='server',
-          :selected='selected',
-          @select='selectRecord',
-          @selectMultiple='selectMultiple',
-          :search-string='searchString',
-          system-name-key='system_name',
-          :search-fields='["name", "description", "system_name"]',
-          type='knowledge_graph'
-        )
+<template>
+  <div class="stack full-width" data-gap="0">
+    <div>
+      <km-tabs v-model="tab" class="bb-border full-width" narrow-indicator dense align="left" no-caps content-class="km-tabs">
+        <template v-for="t in tabs" :key="t.name">
+          <km-tab :name="t.name">
+            <div class="cluster px-xs" style="block-size: 24px">
+              <div class="flex-1 km-title">{{ t.label }}</div>
+              <div v-if="getSelectedQtyByType(t.name) &gt; 0" class="flex-none ml-sm">
+                <km-chip tone="brand" round size="24px" :label="getSelectedQtyByType(t.name)" />
+              </div>
+            </div>
+          </km-tab>
+        </template>
+      </km-tabs>
+    </div>
+    <div class="cluster mt-lg">
+      <km-input v-model="searchString" :placeholder="m.common_search()" icon-before="search" clearable @input="searchString = $event" />
+    </div>
+    <div class="stack full-height full-width mb-md mt-lg km-scroll-area-lg" data-gap="lg" style="block-size: 100% !important" :class="{ 'overflow-auto': tab == 'mcp_tool' || tab == 'api' || tab == 'knowledge_graph' }">
+      <div v-if="tab != 'mcp_tool' && tab != 'api' && tab != 'knowledge_graph'" class="stack full-height full-width" data-gap="0">
+        <km-data-table class="full-height" :table="toolTable" fill-height row-key="id" :active-row-id="selectedRow?.id" hide-pagination @row-click="selectRecord" />
+      </div>
+      <div v-else class="stack full-width" data-gap="0">
+        <template v-if="tab == &quot;mcp_tool&quot;">
+          <agents-select-section v-for="server in mcp_servers" :key="server.id" :server="server" :selected="selected" :search-string="searchString" system-name-key="name" type="mcp_tool" @select="selectRecord" @select-multiple="selectMultiple" />
+        </template>
+        <template v-if="tab == &quot;api&quot;">
+          <agents-select-section v-for="server in api_servers" :key="server.id" :server="server" :selected="selected" :search-string="searchString" system-name-key="system_name" :search-fields="[&quot;name&quot;, &quot;description&quot;, &quot;system_name&quot;]" type="api" @select="selectRecord" @select-multiple="selectMultiple" />
+        </template>
+        <template v-if="tab == &quot;knowledge_graph&quot;">
+          <agents-select-section v-for="server in knowledge_graphs" :key="server.id" :server="server" :selected="selected" :search-string="searchString" system-name-key="system_name" :search-fields="[&quot;name&quot;, &quot;description&quot;, &quot;system_name&quot;]" type="knowledge_graph" @select="selectRecord" @select-multiple="selectMultiple" />
+        </template>
+      </div>
+    </div>
+  </div>
 </template>
 <script setup>
 import { fetchData } from '@shared'

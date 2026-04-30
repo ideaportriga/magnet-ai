@@ -1,5 +1,5 @@
-<template lang="pug">
-q-chip.km-small-chip(v-if='label', :color='color', :text-color='textColor', :label='label')
+<template>
+  <km-chip v-if="label" class="km-small-chip" tone="neutral" :label="label" />
 </template>
 
 <script>
@@ -36,14 +36,6 @@ export default defineComponent({
 
       // Fallback to status label if dates are invalid
       return ''
-    },
-
-    color() {
-      return 'in-progress'
-    },
-
-    textColor() {
-      return 'text-gray'
     },
   },
 })

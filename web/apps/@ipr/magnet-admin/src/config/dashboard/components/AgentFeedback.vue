@@ -1,11 +1,16 @@
-<template lang="pug">
-.column.q-gap-4
-  template(v-if='like')
-    .col
-      km-chip.text-like-text.block(:label='likesLabel', color='like-bg', round)
-  template(v-if='dislike')
-    .col
-      km-chip.text-error-text.block(:label='dislikesLabel', color='error-bg', round)
+<template>
+  <div class="stack" data-gap="xs">
+    <template v-if="like">
+      <div class="flex-1">
+        <km-chip class="block" :label="likesLabel" tone="success" round />
+      </div>
+    </template>
+    <template v-if="dislike">
+      <div class="flex-1">
+        <km-chip class="block" :label="dislikesLabel" tone="danger" round />
+      </div>
+    </template>
+  </div>
 </template>
 <script>
 export default {

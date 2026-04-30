@@ -41,7 +41,7 @@ describe('Tables — searchable pages', () => {
       })
 
       it('renders table', () => {
-        cy.get('.km-data-table, .q-table', { timeout: 15000 }).should('exist')
+        cy.get('.km-data-table', { timeout: 15000 }).should('exist')
         cy.dismissErrors()
       })
 
@@ -67,7 +67,7 @@ describe('Tables — data table pages', () => {
       cy.viewport(1920, 1080)
       cy.visit(route)
       // Table component or page content should render
-      cy.get('.km-data-table, .q-table, .q-page', { timeout: 15000 }).should('exist')
+      cy.get('.km-data-table, [data-test="search-input"], [data-test="new-btn"], .km-layout', { timeout: 15000 }).should('exist')
     })
   })
 })
@@ -77,7 +77,7 @@ describe('Tables — card grid pages', () => {
     it(`${label} — renders page content`, () => {
       cy.viewport(1920, 1080)
       cy.visit(route)
-      cy.get('.q-page, .q-layout', { timeout: 15000 }).should('exist')
+      cy.get('[data-test="table-row"], .card-hover, .km-layout', { timeout: 15000 }).should('exist')
     })
   })
 })
@@ -92,7 +92,10 @@ describe('Tables — row click navigation (requires data)', () => {
     cy.wait(3000)
     cy.get('body').then(($body) => {
       if ($body.find(rowSelector).length > 0) {
-        cy.get(rowSelector).first().click()
+        // Click at the row's left edge — middle cells often have a
+        // `<km-chip-copy>` (`@click.stop`) that would swallow the click
+        // before the row's `@row-click` listener fires.
+        cy.get(rowSelector).first().click('left')
         cy.url().should('match', urlPattern)
       } else {
         cy.log(`No rows found for ${route} — skipping row click test`)
@@ -109,6 +112,6 @@ describe('Tables — row click navigation (requires data)', () => {
   })
 
   it('clicking an Agent card opens detail page', () => {
-    testRowClick('#/agents', '.q-card.card-hover', /agents\/[a-f0-9-]+/)
+    testRowClick('#/agents', '[data-test="table-row"]', /agents\/[a-f0-9-]+/)
   })
 })

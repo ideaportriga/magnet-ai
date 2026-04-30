@@ -1,25 +1,23 @@
-<template lang="pug">
-.row.q-mb-12
-  .col-12
-    km-filter-bar(v-model:config='currentFilter', v-model:filterObject='activeFilters', ref='filterRef')
-    .column.q-gap-16.full-width
-      km-data-table.q-mt-md(
-        :table='detailsTable',
-        row-key='start_time',
-        hide-pagination,
-        @row-click='selectRow'
-      )
-      .row.items-center.q-px-md.q-py-sm.text-grey.ba-border(v-if='pagination.rowsNumber')
-        .km-description {{ m.common_recordCount({ total: pagination.rowsNumber }) }}
-        q-space
-        .row.items-center.q-gap-8
-          span.km-description {{ m.common_rowsPerPage() }} {{ pagination.rowsPerPage }}
-        .row.items-center.q-ml-md.q-gap-4
-          q-btn(flat, dense, round, icon='first_page', size='sm', :disable='pagination.page <= 1', @click='goToPage(1)')
-          q-btn(flat, dense, round, icon='chevron_left', size='sm', :disable='pagination.page <= 1', @click='goToPage(pagination.page - 1)')
-          span.km-description {{ pagination.page }} / {{ totalPages }}
-          q-btn(flat, dense, round, icon='chevron_right', size='sm', :disable='pagination.page >= totalPages', @click='goToPage(pagination.page + 1)')
-          q-btn(flat, dense, round, icon='last_page', size='sm', :disable='pagination.page >= totalPages', @click='goToPage(totalPages)')
+<template>
+  <div class="cluster mb-md">
+    <div class="basis-12">
+      <km-filter-bar ref="filterRef" v-model:config="currentFilter" v-model:filter-object="activeFilters" />
+      <div class="stack full-width" data-gap="lg">
+        <km-data-table class="mt-md" :table="detailsTable" row-key="start_time" hide-pagination @row-click="selectRow" />
+        <div v-if="pagination.rowsNumber" class="cluster px-md py-sm text-grey ba-border">
+          <div class="km-description">{{ m.common_recordCount({ total: pagination.rowsNumber }) }}</div>
+          <div class="km-space" />
+          <div class="cluster" data-gap="sm"><span class="km-description">{{ m.common_rowsPerPage() }} {{ pagination.rowsPerPage }}</span></div>
+          <div class="cluster ml-md" data-gap="xs">
+            <km-btn flat dense round icon="first-page" size="sm" :disable="pagination.page &lt;= 1" @click="goToPage(1)" />
+            <km-btn flat dense round icon="chevron_left" size="sm" :disable="pagination.page &lt;= 1" @click="goToPage(pagination.page - 1)" /><span class="km-description">{{ pagination.page }} / {{ totalPages }}</span>
+            <km-btn flat dense round icon="chevron_right" size="sm" :disable="pagination.page &gt;= totalPages" @click="goToPage(pagination.page + 1)" />
+            <km-btn flat dense round icon="last-page" size="sm" :disable="pagination.page &gt;= totalPages" @click="goToPage(totalPages)" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 <script>
 import { fetchData } from '@shared'
@@ -215,4 +213,3 @@ export default {
   },
 }
 </script>
-<style lang="stylus"></style>

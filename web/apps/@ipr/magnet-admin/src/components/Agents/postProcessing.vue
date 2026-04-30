@@ -1,51 +1,34 @@
-<template lang="pug">
-div
-  km-section(:title='m.section_conversationClosureInterval()', :subTitle='m.subtitle_closureInterval()')
-    q-btn-toggle(
-      v-model='conversationClosureInterval',
-      toggle-color='primary-light',
-      :options='intervals',
-      dense,
-      text-color='text-weak',
-      toggle-text-color='primary'
-    )
-  q-separator.q-my-lg
-  km-section(:title='m.section_postProcessing()', :subTitle='m.subtitle_turnOnPostProcessing()')
-    q-toggle(v-model='postProcessing', color='primary')
-  q-separator.q-my-lg
-  km-section(
-    :title='m.agents_postProcessingPromptTemplate()',
-    :subTitle='m.subtitle_postProcessing()'
-  )
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_promptTemplate() }}
-    km-select(
-      height='30px',
-      :placeholder='m.agents_postProcessPromptPlaceholder()',
-      :options='promptTemplatesOptions',
-      v-model='postProcessTemplate',
-      hasDropdownSearch,
-      emit-value,
-      map-options,
-      option-value='system_name',
-      :option-show='(item) => item?.category === "agent"'
-    )
-    .row.q-mt-sm
-      .col-auto
-        km-btn(
-          flat,
-          simple,
-          :label='postProcessTemplate ? m.common_openPromptTemplate() : m.common_openPromptTemplatesLibrary()',
-          iconSize='16px',
-          icon='fas fa-comment-dots',
-          @click='postProcessTemplate ? navigate(`prompt-templates/${postProcessTemplateId}`) : navigate("prompt-templates")'
-        )
-  q-separator.q-my-lg
-  km-section(:title='m.section_messagePostProcessing()', :subTitle='m.subtitle_turnOnMessagePostProcessing()')
-    .column
-      .col.q-mb-md
-        q-chip.km-small-chip(color='primary-light', text-color='primary', :label='m.common_upcomingFeature()')
-      .col
-        q-toggle(:model-value='false', disable, dense)
+<template>
+  <div>
+    <km-section :title="m.section_conversationClosureInterval()" :sub-title="m.subtitle_closureInterval()">
+      <km-btn-toggle v-model="conversationClosureInterval" :options="intervals" dense />
+    </km-section>
+    <km-separator class="my-lg" />
+    <km-section :title="m.section_postProcessing()" :sub-title="m.subtitle_turnOnPostProcessing()">
+      <km-toggle v-model="postProcessing" />
+    </km-section>
+    <km-separator class="my-lg" />
+    <km-section :title="m.agents_postProcessingPromptTemplate()" :sub-title="m.subtitle_postProcessing()">
+      <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.common_promptTemplate() }}</div>
+      <km-select v-model="postProcessTemplate" height="30px" :placeholder="m.agents_postProcessPromptPlaceholder()" :options="promptTemplatesOptions" has-dropdown-search emit-value map-options option-value="system_name" :option-show="(item) =&gt; item?.category === &quot;agent&quot;" />
+      <div class="cluster mt-sm">
+        <div class="flex-none">
+          <km-btn flat simple :label="postProcessTemplate ? m.common_openPromptTemplate() : m.common_openPromptTemplatesLibrary()" icon-size="16px" icon="chat" @click="postProcessTemplate ? navigate(`prompt-templates/${postProcessTemplateId}`) : navigate(&quot;prompt-templates&quot;)" />
+        </div>
+      </div>
+    </km-section>
+    <km-separator class="my-lg" />
+    <km-section :title="m.section_messagePostProcessing()" :sub-title="m.subtitle_turnOnMessagePostProcessing()">
+      <div class="stack" data-gap="0">
+        <div class="flex-1 mb-md">
+          <km-chip tone="brand" class="km-small-chip" :label="m.common_upcomingFeature()" />
+        </div>
+        <div class="flex-1">
+          <km-toggle :model-value="false" disable dense />
+        </div>
+      </div>
+    </km-section>
+  </div>
 </template>
 
 <script>

@@ -19,7 +19,7 @@
       :description="m.knowledgeGraph_conf_sectionProviderDesc()"
       icon="key"
     >
-      <q-select
+      <km-select
         v-model="selectedProvider"
         :options="providerOptions"
         option-label="name"
@@ -33,7 +33,7 @@
         :no-options-label="loadingProviders ? m.knowledgeGraph_conf_loadingProviders() : m.knowledgeGraph_conf_noProvidersFound()"
         @update:model-value="clearError"
       />
-      <div v-if="!loadingProviders && providerOptions.length === 0" class="text-caption text-negative q-mt-xs">
+      <div v-if="!loadingProviders && providerOptions.length === 0" class="text-caption text-negative mt-xs">
         {{ m.knowledgeGraph_conf_noProvidersFoundMsg() }}
       </div>
     </kg-dialog-section>
@@ -56,7 +56,7 @@
       :description="m.knowledgeGraph_conf_sectionRootPrefixDesc()"
       icon="account_tree"
     >
-      <q-toggle
+      <km-toggle
         v-model="includeRootPrefix"
         :label="m.knowledgeGraph_conf_prependRootAncestorLabel()"
         @update:model-value="clearError"

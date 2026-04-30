@@ -1,0 +1,21 @@
+/* =============================================================================
+ * .switcher — switch between horizontal and vertical layout based on width
+ * =============================================================================
+ * Every Layout's "switcher" (https://every-layout.dev/layouts/switcher/).
+ * Children sit side by side until the container is narrower than
+ * `--switcher-threshold`, then they stack.
+ * ============================================================================= */
+
+.switcher {
+  --switcher-gap: var(--ds-space-lg);
+  --switcher-threshold: 30rem;
+
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--switcher-gap);
+}
+
+.switcher > * {
+  flex-grow: 1;
+  flex-basis: calc((var(--switcher-threshold) - 100%) * 999);
+}

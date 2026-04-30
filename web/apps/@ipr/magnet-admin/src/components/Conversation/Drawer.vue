@@ -1,96 +1,107 @@
-<template lang="pug">
-km-drawer-layout(storageKey="drawer-conversation")
-  template(#tabs)
-    .q-pt-16.q-px-16
-      q-tabs.bb-border.full-width(
-        v-model='tab',
-        narrow-indicator,
-        dense,
-        align='left',
-        active-color='primary',
-        indicator-color='primary',
-        active-bg-color='white',
-        no-caps,
-        content-class='km-tabs'
-      )
-        template(v-for='t in tabs')
-          q-tab(:name='t.name', :label='t.label')
-        .fit
-  .column.q-gap-16(v-if='tab === "details"')
-    .col-6
-      .km-description.text-secondary-text.q-pb-6 Agent Name
-      .row.q-gap-16.items-center
-        .km-label {{ analytics.feature_name }}
-        q-icon.cursor-pointer(name='fa fa-external-link', color='secondary', size='10', @click='openAgent', v-if='analytics?.feature_id')
-        km-chip.text-grey(:label='variant', color='in-progress', round)
-    .col-6
-      .km-description.text-secondary-text.q-pb-6 Consumer type
-      .row.q-gap-8.items-center
-        .km-label {{ analytics?.source ?? '-' }}
-    .col-6
-      .km-description.text-secondary-text.q-pb-6 Start Time
-      .km-field.text-black {{ formatDateTime(analytics.start_time) }}
-    .col-6
-      .km-description.text-secondary-text.q-pb-6 End Time
-      .km-field.text-black {{ formatDateTime(analytics.end_time) }}
-    .col-6
-      .km-description.text-secondary-text.q-pb-6 Duration
-      .km-field.text-black {{ duration }}
-    .col-6
-      .km-description.text-secondary-text.q-pb-6 Total Assistant Messages
-      .km-field.text-black {{ assistantMessagesCount }}
-
-  .column.q-gap-16(v-if='tab === "costs"')
-    .col-6
-      .km-description.text-secondary-text.q-pb-6 Total Agent messages cost
-      .km-field.text-black {{ totalCost }} $
-    .col-6
-      .km-description.text-secondary-text.q-pb-6 Average latency
-      .km-field.text-black {{ analytics?.conversation_data?.avg_tool_call_latency ? formatDuration(analytics?.conversation_data?.avg_tool_call_latency) : '-' }}
-
-  .column.q-gap-16(v-if='tab === "insights"')
-    .km-button-text.bb-border.q-pb-4 Agent Processing
-    .col-6
-      .km-description.text-secondary-text.q-pb-6 Agent topics
-      .km-field.text-black {{ topics }}
-    .km-button-text.bb-border.q-pb-4 Post-processing results
-    .col-6
-      .km-description.text-secondary-text Resolution status
-      .row
-        km-select.full-width(v-model='resolution', :options='statusOptions')
-    .col-6
-      .km-description.text-secondary-text Final sentiment
-      .row
-        km-select.full-width(v-model='sentiment', :options='sentimentOptions')
-    .col-6
-      .km-description.text-secondary-text.q-pb-6 Language
-      .row
-        km-input.full-width(v-model='analytics.conversation_data.language')
-    .km-button-text.bb-border.q-pb-4 User satisfaction
-    .col-6
-      .km-description.text-secondary-text.q-pb-6 User feedback
-      .km-field.text-black {{ feedback }}
-    .col-6
-      .km-description.text-secondary-text.q-pb-6 Copied
-      .km-field.text-black {{ analytics?.extra_data?.answer_copy ? 'Yes' : 'No' }}
-    .km-button-text.bb-border.q-pb-4 Substandard Result analysis
-    .col-6
-      .km-description.text-secondary-text Substandard Result Reason
-      .row
-        km-select.full-width(v-model='resultReason', :options='substandartResultReasons')
-    .col-6
-      .km-description.text-secondary-text Comment
-      .row
-        km-input.full-width.q-pb-16(autogrow, :rows='3', type='textarea', v-model='comment')
-  .row.items-center.q-pa-16.justify-between.bt-border.relative(style='z-index: 10')
-    .row.items-center.q-gap-8.cursor-pointer(@click='openDetails', v-if='conversation?.trace_id')
-      km-btn(flat, :label='m.conversation_viewTrace()', icon='fa fa-external-link', color='secondary-text', labelClass='km-button-text', iconSize='16px')
-    .col-auto
-    .row.items-center.q-gap-8
-      km-btn.self-end(:label='m.common_cancel()', @click='cancelUpdate', v-if='isUpdated', flat)
-      km-btn.self-end(:label='m.common_update()', @click='updateAnalytics', v-if='isUpdated')
-
-  q-inner-loading(:showing='loading')
+<template>
+  <km-drawer-layout storage-key="drawer-conversation">
+    <template #tabs>
+      <div class="pt-lg px-lg">
+        <km-tabs v-model="tab" class="bb-border full-width" narrow-indicator dense align="left" no-caps content-class="km-tabs">
+          <template v-for="t in tabs" :key="t">
+            <km-tab :name="t.name" :label="t.label" />
+          </template>
+          <div class="fit" />
+        </km-tabs>
+      </div>
+    </template>
+    <div v-if="tab === &quot;details&quot;" class="stack" data-gap="lg">
+      <div class="basis-6">
+        <div class="km-description text-secondary-text pb-sm">Agent Name</div>
+        <div class="cluster" data-gap="lg">
+          <div class="km-label">{{ analytics.feature_name }}</div>
+          <km-glyph v-if="analytics?.feature_id" class="cursor-pointer" name="external-link" size="10" @click="openAgent" />
+          <km-chip class="text-grey" :label="variant" tone="neutral" round />
+        </div>
+      </div>
+      <div class="basis-6">
+        <div class="km-description text-secondary-text pb-sm">Consumer type</div>
+        <div class="cluster" data-gap="sm">
+          <div class="km-label">{{ analytics?.source ?? '-' }}</div>
+        </div>
+      </div>
+      <div class="basis-6">
+        <div class="km-description text-secondary-text pb-sm">Start Time</div>
+        <div class="km-field text-black">{{ formatDateTime(analytics.start_time) }}</div>
+      </div>
+      <div class="basis-6">
+        <div class="km-description text-secondary-text pb-sm">End Time</div>
+        <div class="km-field text-black">{{ formatDateTime(analytics.end_time) }}</div>
+      </div>
+      <div class="basis-6">
+        <div class="km-description text-secondary-text pb-sm">Duration</div>
+        <div class="km-field text-black">{{ duration }}</div>
+      </div>
+      <div class="basis-6">
+        <div class="km-description text-secondary-text pb-sm">Total Assistant Messages</div>
+        <div class="km-field text-black">{{ assistantMessagesCount }}</div>
+      </div>
+    </div>
+    <div v-if="tab === &quot;costs&quot;" class="stack" data-gap="lg">
+      <div class="basis-6">
+        <div class="km-description text-secondary-text pb-sm">Total Agent messages cost</div>
+        <div class="km-field text-black">{{ totalCost }} $</div>
+      </div>
+      <div class="basis-6">
+        <div class="km-description text-secondary-text pb-sm">Average latency</div>
+        <div class="km-field text-black">{{ analytics?.conversation_data?.avg_tool_call_latency ? formatDuration(analytics?.conversation_data?.avg_tool_call_latency) : '-' }}</div>
+      </div>
+    </div>
+    <div v-if="tab === &quot;insights&quot;" class="stack" data-gap="lg">
+      <div class="km-button-text bb-border pb-xs">Agent Processing</div>
+      <div class="basis-6">
+        <div class="km-description text-secondary-text pb-sm">Agent topics</div>
+        <div class="km-field text-black">{{ topics }}</div>
+      </div>
+      <div class="km-button-text bb-border pb-xs">Post-processing results</div>
+      <div class="basis-6">
+        <div class="km-description text-secondary-text">Resolution status</div>
+        <km-select v-model="resolution" class="full-width" :options="statusOptions" />
+      </div>
+      <div class="basis-6">
+        <div class="km-description text-secondary-text">Final sentiment</div>
+        <km-select v-model="sentiment" class="full-width" :options="sentimentOptions" />
+      </div>
+      <div class="basis-6">
+        <div class="km-description text-secondary-text pb-sm">Language</div>
+        <km-input v-model="analytics.conversation_data.language" class="full-width" />
+      </div>
+      <div class="km-button-text bb-border pb-xs">User satisfaction</div>
+      <div class="basis-6">
+        <div class="km-description text-secondary-text pb-sm">User feedback</div>
+        <div class="km-field text-black">{{ feedback }}</div>
+      </div>
+      <div class="basis-6">
+        <div class="km-description text-secondary-text pb-sm">Copied</div>
+        <div class="km-field text-black">{{ analytics?.extra_data?.answer_copy ? 'Yes' : 'No' }}</div>
+      </div>
+      <div class="km-button-text bb-border pb-xs">Substandard Result analysis</div>
+      <div class="basis-6">
+        <div class="km-description text-secondary-text">Substandard Result Reason</div>
+        <km-select v-model="resultReason" class="full-width" :options="substandartResultReasons" />
+      </div>
+      <div class="basis-6">
+        <div class="km-description text-secondary-text">Comment</div>
+        <km-input v-model="comment" class="full-width pb-lg" autogrow :rows="3" type="textarea" />
+      </div>
+    </div>
+    <div class="cluster p-lg bt-border relative" data-justify="between" style="z-index: 10">
+      <div v-if="conversation?.trace_id" class="cluster cursor-pointer" data-gap="sm" @click="openDetails">
+        <km-btn flat :label="m.conversation_viewTrace()" icon="external-link" tone="subtle" label-class="km-button-text" icon-size="16px" />
+      </div>
+      <div class="flex-none" />
+      <div class="cluster" data-gap="sm">
+        <km-btn v-if="isUpdated" class="self-end" :label="m.common_cancel()" flat @click="cancelUpdate" />
+        <km-btn v-if="isUpdated" class="self-end" :label="m.common_update()" @click="updateAnalytics" />
+      </div>
+    </div>
+    <km-inner-loading :showing="loading" />
+  </km-drawer-layout>
 </template>
 
 <script>

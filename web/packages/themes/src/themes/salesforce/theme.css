@@ -1,0 +1,432 @@
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100..900;1,100..900&display=swap");
+[data-theme=salesforce] {
+  --button-sm: 36px;
+  --button-xs: 30px;
+  --font-default: 'Noto Sans' !important;
+  --prompt-input-height: 44px;
+  --checkbox-size: 30px;
+  --input-height-default: 34px;
+  --field-height: 32px;
+  font-family: 'Noto Sans', serif;
+  --ds-color-primary: #0070d2;
+  --ds-color-light: #fff;
+  --ds-color-primary-bg: #eaf5fe;
+  --ds-color-btn-primary-bg: var(--ds-color-primary);
+  --ds-color-user-input-bg: #cfe9fe;
+  --ds-color-btn-primary-hover-bg: var(--ds-color-primary);
+  --ds-color-btn-primary-active-bg: var(--ds-color-primary);
+  --ds-color-btn-flat-hover-bg: #f3f3f3;
+  --ds-color-header-bg: var(--ds-color-primary);
+  --ds-color-control-bg: #fff;
+  --ds-color-control-border: #dddbda;
+  --ds-color-success: #fff;
+  --ds-color-message-bg: #fafaf9;
+  --ds-color-message-border: #f3f2f2;
+  --ds-color-chip-bg: #ecebea;
+  --ds-color-success-chip: #04844b;
+  --ds-color-black: #080707;
+  --ds-color-control-active-bg: #fff;
+  --ds-color-control-hover-bg: #fff;
+  --ds-color-footer-bg: #fafaf9;
+  --ds-color-user-grey: #c9c7c5;
+  --ds-color-score-relevant: transparent;
+  --ds-color-score-relevant-text: var(--ds-color-black);
+  --ds-color-panel-main-bg: var(--ds-color-light);
+  --ds-color-btn-flat-hover-icon: #00417a;
+  --ds-color-system-message-bg: rgba(0,112,210,0.2);
+  --ds-color-agent-message: #f1efed;
+  --ds-color-agent-user-message: #d8edff;
+}
+[data-theme=salesforce] .km-tab-text {
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 20px;
+  text-align: left;
+}
+[data-theme=salesforce] .bg-primary {
+  background: var(--ds-color-primary) !important;
+}
+[data-theme=salesforce] .text-primary {
+  color: var(--ds-color-primary) !important;
+}
+[data-theme=salesforce] .hover-bg-primary:hover {
+  background: var(--ds-color-primary) !important;
+}
+[data-theme=salesforce] .hover-text-primary:hover {
+  color: var(--ds-color-primary) !important;
+}
+[data-theme=salesforce] .bg-light {
+  background: var(--ds-color-light) !important;
+}
+[data-theme=salesforce] .text-light {
+  color: var(--ds-color-light) !important;
+}
+[data-theme=salesforce] .hover-bg-light:hover {
+  background: var(--ds-color-light) !important;
+}
+[data-theme=salesforce] .hover-text-light:hover {
+  color: var(--ds-color-light) !important;
+}
+[data-theme=salesforce] .bg-primary-bg {
+  background: var(--ds-color-primary-bg) !important;
+}
+[data-theme=salesforce] .text-primary-bg {
+  color: var(--ds-color-primary-bg) !important;
+}
+[data-theme=salesforce] .hover-bg-primary-bg:hover {
+  background: var(--ds-color-primary-bg) !important;
+}
+[data-theme=salesforce] .hover-text-primary-bg:hover {
+  color: var(--ds-color-primary-bg) !important;
+}
+[data-theme=salesforce] .bg-btn-primary-bg {
+  background: var(--ds-color-btn-primary-bg) !important;
+}
+[data-theme=salesforce] .text-btn-primary-bg {
+  color: var(--ds-color-btn-primary-bg) !important;
+}
+[data-theme=salesforce] .hover-bg-btn-primary-bg:hover {
+  background: var(--ds-color-btn-primary-bg) !important;
+}
+[data-theme=salesforce] .hover-text-btn-primary-bg:hover {
+  color: var(--ds-color-btn-primary-bg) !important;
+}
+[data-theme=salesforce] .bg-user-input-bg {
+  background: var(--ds-color-user-input-bg) !important;
+}
+[data-theme=salesforce] .text-user-input-bg {
+  color: var(--ds-color-user-input-bg) !important;
+}
+[data-theme=salesforce] .hover-bg-user-input-bg:hover {
+  background: var(--ds-color-user-input-bg) !important;
+}
+[data-theme=salesforce] .hover-text-user-input-bg:hover {
+  color: var(--ds-color-user-input-bg) !important;
+}
+[data-theme=salesforce] .bg-btn-primary-hover-bg {
+  background: var(--ds-color-btn-primary-hover-bg) !important;
+}
+[data-theme=salesforce] .text-btn-primary-hover-bg {
+  color: var(--ds-color-btn-primary-hover-bg) !important;
+}
+[data-theme=salesforce] .hover-bg-btn-primary-hover-bg:hover {
+  background: var(--ds-color-btn-primary-hover-bg) !important;
+}
+[data-theme=salesforce] .hover-text-btn-primary-hover-bg:hover {
+  color: var(--ds-color-btn-primary-hover-bg) !important;
+}
+[data-theme=salesforce] .bg-btn-primary-active-bg {
+  background: var(--ds-color-btn-primary-active-bg) !important;
+}
+[data-theme=salesforce] .text-btn-primary-active-bg {
+  color: var(--ds-color-btn-primary-active-bg) !important;
+}
+[data-theme=salesforce] .hover-bg-btn-primary-active-bg:hover {
+  background: var(--ds-color-btn-primary-active-bg) !important;
+}
+[data-theme=salesforce] .hover-text-btn-primary-active-bg:hover {
+  color: var(--ds-color-btn-primary-active-bg) !important;
+}
+[data-theme=salesforce] .bg-btn-flat-hover-bg {
+  background: var(--ds-color-btn-flat-hover-bg) !important;
+}
+[data-theme=salesforce] .text-btn-flat-hover-bg {
+  color: var(--ds-color-btn-flat-hover-bg) !important;
+}
+[data-theme=salesforce] .hover-bg-btn-flat-hover-bg:hover {
+  background: var(--ds-color-btn-flat-hover-bg) !important;
+}
+[data-theme=salesforce] .hover-text-btn-flat-hover-bg:hover {
+  color: var(--ds-color-btn-flat-hover-bg) !important;
+}
+[data-theme=salesforce] .bg-header-bg {
+  background: var(--ds-color-header-bg) !important;
+}
+[data-theme=salesforce] .text-header-bg {
+  color: var(--ds-color-header-bg) !important;
+}
+[data-theme=salesforce] .hover-bg-header-bg:hover {
+  background: var(--ds-color-header-bg) !important;
+}
+[data-theme=salesforce] .hover-text-header-bg:hover {
+  color: var(--ds-color-header-bg) !important;
+}
+[data-theme=salesforce] .bg-control-bg {
+  background: var(--ds-color-control-bg) !important;
+}
+[data-theme=salesforce] .text-control-bg {
+  color: var(--ds-color-control-bg) !important;
+}
+[data-theme=salesforce] .hover-bg-control-bg:hover {
+  background: var(--ds-color-control-bg) !important;
+}
+[data-theme=salesforce] .hover-text-control-bg:hover {
+  color: var(--ds-color-control-bg) !important;
+}
+[data-theme=salesforce] .bg-control-border {
+  background: var(--ds-color-control-border) !important;
+}
+[data-theme=salesforce] .text-control-border {
+  color: var(--ds-color-control-border) !important;
+}
+[data-theme=salesforce] .hover-bg-control-border:hover {
+  background: var(--ds-color-control-border) !important;
+}
+[data-theme=salesforce] .hover-text-control-border:hover {
+  color: var(--ds-color-control-border) !important;
+}
+[data-theme=salesforce] .bg-success {
+  background: var(--ds-color-success) !important;
+}
+[data-theme=salesforce] .text-success {
+  color: var(--ds-color-success) !important;
+}
+[data-theme=salesforce] .hover-bg-success:hover {
+  background: var(--ds-color-success) !important;
+}
+[data-theme=salesforce] .hover-text-success:hover {
+  color: var(--ds-color-success) !important;
+}
+[data-theme=salesforce] .bg-message-bg {
+  background: var(--ds-color-message-bg) !important;
+}
+[data-theme=salesforce] .text-message-bg {
+  color: var(--ds-color-message-bg) !important;
+}
+[data-theme=salesforce] .hover-bg-message-bg:hover {
+  background: var(--ds-color-message-bg) !important;
+}
+[data-theme=salesforce] .hover-text-message-bg:hover {
+  color: var(--ds-color-message-bg) !important;
+}
+[data-theme=salesforce] .bg-message-border {
+  background: var(--ds-color-message-border) !important;
+}
+[data-theme=salesforce] .text-message-border {
+  color: var(--ds-color-message-border) !important;
+}
+[data-theme=salesforce] .hover-bg-message-border:hover {
+  background: var(--ds-color-message-border) !important;
+}
+[data-theme=salesforce] .hover-text-message-border:hover {
+  color: var(--ds-color-message-border) !important;
+}
+[data-theme=salesforce] .bg-chip-bg {
+  background: var(--ds-color-chip-bg) !important;
+}
+[data-theme=salesforce] .text-chip-bg {
+  color: var(--ds-color-chip-bg) !important;
+}
+[data-theme=salesforce] .hover-bg-chip-bg:hover {
+  background: var(--ds-color-chip-bg) !important;
+}
+[data-theme=salesforce] .hover-text-chip-bg:hover {
+  color: var(--ds-color-chip-bg) !important;
+}
+[data-theme=salesforce] .bg-success-chip {
+  background: var(--ds-color-success-chip) !important;
+}
+[data-theme=salesforce] .text-success-chip {
+  color: var(--ds-color-success-chip) !important;
+}
+[data-theme=salesforce] .hover-bg-success-chip:hover {
+  background: var(--ds-color-success-chip) !important;
+}
+[data-theme=salesforce] .hover-text-success-chip:hover {
+  color: var(--ds-color-success-chip) !important;
+}
+[data-theme=salesforce] .bg-black {
+  background: var(--ds-color-black) !important;
+}
+[data-theme=salesforce] .text-black {
+  color: var(--ds-color-black) !important;
+}
+[data-theme=salesforce] .hover-bg-black:hover {
+  background: var(--ds-color-black) !important;
+}
+[data-theme=salesforce] .hover-text-black:hover {
+  color: var(--ds-color-black) !important;
+}
+[data-theme=salesforce] .bg-control-active-bg {
+  background: var(--ds-color-control-active-bg) !important;
+}
+[data-theme=salesforce] .text-control-active-bg {
+  color: var(--ds-color-control-active-bg) !important;
+}
+[data-theme=salesforce] .hover-bg-control-active-bg:hover {
+  background: var(--ds-color-control-active-bg) !important;
+}
+[data-theme=salesforce] .hover-text-control-active-bg:hover {
+  color: var(--ds-color-control-active-bg) !important;
+}
+[data-theme=salesforce] .bg-control-hover-bg {
+  background: var(--ds-color-control-hover-bg) !important;
+}
+[data-theme=salesforce] .text-control-hover-bg {
+  color: var(--ds-color-control-hover-bg) !important;
+}
+[data-theme=salesforce] .hover-bg-control-hover-bg:hover {
+  background: var(--ds-color-control-hover-bg) !important;
+}
+[data-theme=salesforce] .hover-text-control-hover-bg:hover {
+  color: var(--ds-color-control-hover-bg) !important;
+}
+[data-theme=salesforce] .bg-footer-bg {
+  background: var(--ds-color-footer-bg) !important;
+}
+[data-theme=salesforce] .text-footer-bg {
+  color: var(--ds-color-footer-bg) !important;
+}
+[data-theme=salesforce] .hover-bg-footer-bg:hover {
+  background: var(--ds-color-footer-bg) !important;
+}
+[data-theme=salesforce] .hover-text-footer-bg:hover {
+  color: var(--ds-color-footer-bg) !important;
+}
+[data-theme=salesforce] .bg-user-grey {
+  background: var(--ds-color-user-grey) !important;
+}
+[data-theme=salesforce] .text-user-grey {
+  color: var(--ds-color-user-grey) !important;
+}
+[data-theme=salesforce] .hover-bg-user-grey:hover {
+  background: var(--ds-color-user-grey) !important;
+}
+[data-theme=salesforce] .hover-text-user-grey:hover {
+  color: var(--ds-color-user-grey) !important;
+}
+[data-theme=salesforce] .bg-score-relevant {
+  background: var(--ds-color-score-relevant) !important;
+}
+[data-theme=salesforce] .text-score-relevant {
+  color: var(--ds-color-score-relevant) !important;
+}
+[data-theme=salesforce] .hover-bg-score-relevant:hover {
+  background: var(--ds-color-score-relevant) !important;
+}
+[data-theme=salesforce] .hover-text-score-relevant:hover {
+  color: var(--ds-color-score-relevant) !important;
+}
+[data-theme=salesforce] .bg-score-relevant-text {
+  background: var(--ds-color-score-relevant-text) !important;
+}
+[data-theme=salesforce] .text-score-relevant-text {
+  color: var(--ds-color-score-relevant-text) !important;
+}
+[data-theme=salesforce] .hover-bg-score-relevant-text:hover {
+  background: var(--ds-color-score-relevant-text) !important;
+}
+[data-theme=salesforce] .hover-text-score-relevant-text:hover {
+  color: var(--ds-color-score-relevant-text) !important;
+}
+[data-theme=salesforce] .bg-panel-main-bg {
+  background: var(--ds-color-panel-main-bg) !important;
+}
+[data-theme=salesforce] .text-panel-main-bg {
+  color: var(--ds-color-panel-main-bg) !important;
+}
+[data-theme=salesforce] .hover-bg-panel-main-bg:hover {
+  background: var(--ds-color-panel-main-bg) !important;
+}
+[data-theme=salesforce] .hover-text-panel-main-bg:hover {
+  color: var(--ds-color-panel-main-bg) !important;
+}
+[data-theme=salesforce] .bg-btn-flat-hover-icon {
+  background: var(--ds-color-btn-flat-hover-icon) !important;
+}
+[data-theme=salesforce] .text-btn-flat-hover-icon {
+  color: var(--ds-color-btn-flat-hover-icon) !important;
+}
+[data-theme=salesforce] .hover-bg-btn-flat-hover-icon:hover {
+  background: var(--ds-color-btn-flat-hover-icon) !important;
+}
+[data-theme=salesforce] .hover-text-btn-flat-hover-icon:hover {
+  color: var(--ds-color-btn-flat-hover-icon) !important;
+}
+[data-theme=salesforce] .bg-system-message-bg {
+  background: var(--ds-color-system-message-bg) !important;
+}
+[data-theme=salesforce] .text-system-message-bg {
+  color: var(--ds-color-system-message-bg) !important;
+}
+[data-theme=salesforce] .hover-bg-system-message-bg:hover {
+  background: var(--ds-color-system-message-bg) !important;
+}
+[data-theme=salesforce] .hover-text-system-message-bg:hover {
+  color: var(--ds-color-system-message-bg) !important;
+}
+[data-theme=salesforce] .bg-agent-message {
+  background: var(--ds-color-agent-message) !important;
+}
+[data-theme=salesforce] .text-agent-message {
+  color: var(--ds-color-agent-message) !important;
+}
+[data-theme=salesforce] .hover-bg-agent-message:hover {
+  background: var(--ds-color-agent-message) !important;
+}
+[data-theme=salesforce] .hover-text-agent-message:hover {
+  color: var(--ds-color-agent-message) !important;
+}
+[data-theme=salesforce] .bg-agent-user-message {
+  background: var(--ds-color-agent-user-message) !important;
+}
+[data-theme=salesforce] .text-agent-user-message {
+  color: var(--ds-color-agent-user-message) !important;
+}
+[data-theme=salesforce] .hover-bg-agent-user-message:hover {
+  background: var(--ds-color-agent-user-message) !important;
+}
+[data-theme=salesforce] .hover-text-agent-user-message:hover {
+  color: var(--ds-color-agent-user-message) !important;
+}
+[data-theme=salesforce] #km-app .header-select {
+  --ds-color-control-bg: transparent;
+  --ds-color-control-active-bg: transparent;
+  --ds-color-control-hover-bg: transparent;
+}
+[data-theme=salesforce] #km-app .header-select > .km-select {
+  border: 1px solid var(--ds-color-light) !important;
+}
+[data-theme=salesforce] .km-button.km-button-flat:not(.km-button-icon) {
+  background-color: transparent;
+  color: var(--ds-color-primary);
+  border: 1px solid var(--ds-color-control-border);
+  border-radius: 4px;
+}
+[data-theme=salesforce] .km-button .km-button-text {
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 20px;
+  text-align: center;
+}
+[data-theme=salesforce] .km-small-chip {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: left;
+}
+[data-theme=salesforce] .km-heading-3 {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 20px;
+}
+[data-theme=salesforce] .km-paragraph {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+}
+[data-theme=salesforce] .km-title {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 20px;
+}
+[data-theme=salesforce] .km-chip-text {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 18px;
+}
+[data-theme=salesforce] .km-input-label {
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 18px;
+}

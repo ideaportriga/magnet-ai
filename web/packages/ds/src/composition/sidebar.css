@@ -1,0 +1,32 @@
+/* =============================================================================
+ * .sidebar — fixed-width side area + flexible main area
+ * =============================================================================
+ * Every Layout's "sidebar" (https://every-layout.dev/layouts/sidebar/). When
+ * combined width drops below `--sidebar-content-min`, the layout collapses
+ * into a single column.
+ * ============================================================================= */
+
+.sidebar {
+  --sidebar-gap: var(--ds-space-lg);
+  --sidebar-side-width: 18rem;
+  --sidebar-content-min: 50%;
+
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sidebar-gap);
+}
+
+.sidebar > :first-child {
+  flex-grow: 1;
+  flex-basis: var(--sidebar-side-width);
+}
+
+.sidebar > :last-child {
+  flex-grow: 999;
+  flex-basis: 0;
+  min-inline-size: var(--sidebar-content-min);
+}
+
+.sidebar[data-side='right'] {
+  flex-direction: row-reverse;
+}

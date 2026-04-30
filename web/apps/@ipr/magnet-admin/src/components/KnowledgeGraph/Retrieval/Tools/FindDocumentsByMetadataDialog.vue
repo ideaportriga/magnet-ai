@@ -20,13 +20,13 @@
       :title="m.retrieval_searchControl()"
       :description="m.retrieval_searchControlDesc()"
       icon="tune"
-      icon-color="teal-7"
+      tone="accent"
     >
       <template #header-actions>
         <kg-section-control v-model="localTool.searchControl" :options="searchControlOptions" />
       </template>
 
-      <div class="column q-gap-16">
+      <div class="stack" data-gap="lg">
         <!-- Control mode description -->
         <div class="control-description">
           <span class="text-grey-8">{{ controlModeDescription }}</span>
@@ -34,7 +34,7 @@
 
         <!-- Merge Strategy - only shown for 'collaborative' mode -->
         <div v-if="localTool.searchControl === 'collaborative'" class="merge-strategy-section">
-          <div class="km-input-label q-pb-sm">{{ m.retrieval_conflictResolution() }}</div>
+          <div class="km-input-label pb-sm">{{ m.retrieval_conflictResolution() }}</div>
           <km-select v-model="localTool.filterMergeStrategy" :options="mergeStrategyOptions" emit-value map-options />
         </div>
       </div>
@@ -110,12 +110,12 @@ const save = () => {
   display: flex;
   align-items: flex-start;
   padding: 16px;
-  background-color: var(--q-light);
-  border-radius: var(--radius-lg);
+  background-color: var(--ds-color-light);
+  border-radius: var(--ds-radius-lg);
   line-height: 1.5;
 }
 
 .merge-strategy-section {
-  padding-top: 8px;
+  padding-block-start: 8px;
 }
 </style>

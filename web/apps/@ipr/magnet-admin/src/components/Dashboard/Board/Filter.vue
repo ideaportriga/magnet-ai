@@ -1,31 +1,15 @@
-<template lang="pug">
-.row.q-gap-16.items-center.q-pb-16
-  q-icon(name='filter_list', size='24px', color='secondary')
-  template(v-for='filter in filter')
-    .row.items-center.q-gap-4(v-if='!filter.hide')
-      km-select(
-        :modelValue='activeFilters[filter.key]',
-        @update:modelValue='setFilter(filter.key, $event)',
-        :hasDropdownSearch='filter.search',
-        :options='filter.options',
-        useChips,
-        mapOption,
-        optionLabel='label',
-        optionValue='value',
-        :permanentPlaceholder='filter.label',
-        :multiple='filter.multiple',
-        :placeholder='m.common_all()'
-      )
-      q-icon.q-my-auto.cursor-pointer(v-if='filter.hidden', color='secondary', name='fa fa-times', @click.stop.prevent='hideFilter(filter.key)')
-
-  km-select-flat(
-    v-if='hiddenFilters.length',
-    :placeholder='m.common_addFilter()',
-    @update:modelValue='updateVisibleFilters',
-    :options='hiddenFilters',
-    modelValue=''
-  )
-  km-btn(:label='m.common_clearAllFilters()', @click='clearAll', flat, v-if='showClearAll')
+<template>
+  <div class="cluster pb-lg" data-gap="lg">
+    <km-glyph name="filter" size="24px" />
+    <template v-for="filter in filter" :key="filter">
+      <div v-if="!filter.hide" class="cluster" data-gap="xs">
+        <km-select :model-value="activeFilters[filter.key]" :has-dropdown-search="filter.search" :options="filter.options" use-chips map-option option-label="label" option-value="value" :permanent-placeholder="filter.label" :multiple="filter.multiple" :placeholder="m.common_all()" @update:model-value="setFilter(filter.key, $event)" />
+        <km-glyph v-if="filter.hidden" class="my-auto cursor-pointer" name="close" @click.stop.prevent="hideFilter(filter.key)" />
+      </div>
+    </template>
+    <km-select-flat v-if="hiddenFilters.length" :placeholder="m.common_addFilter()" :options="hiddenFilters" model-value="" @update:model-value="updateVisibleFilters" />
+    <km-btn v-if="showClearAll" :label="m.common_clearAllFilters()" flat @click="clearAll" />
+  </div>
 </template>
 <script>
 import { m } from '@/paraglide/messages'

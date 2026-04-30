@@ -15,7 +15,7 @@
       :title="m.knowledgeGraph_chooseAction()"
       :description="m.knowledgeGraph_chooseActionDesc()"
       icon="add_circle"
-      icon-color="primary"
+      tone="brand"
     >
       <kg-tile-select v-model="selectedAction" :options="actionOptions" :cols="2" />
     </kg-dialog-section>
@@ -26,33 +26,33 @@
       :title="m.knowledgeGraph_selectSchemaField()"
       :description="m.knowledgeGraph_selectSchemaFieldDesc()"
       icon="link"
-      icon-color="teal-7"
+      tone="accent"
     >
       <div v-if="existingFields.length === 0" class="no-fields-message">
-        <q-icon name="info" size="24px" color="grey-5" />
+        <km-glyph name="info" size="24px" tone="muted" />
         <span>{{ m.knowledgeGraph_noSchemaFieldsYet() }}</span>
       </div>
-      <q-list v-else class="field-list" bordered separator>
-        <q-item
+      <ul v-else class="km-list field-list" bordered separator>
+        <li
           v-for="field in existingFields"
           :key="field.id"
+          class="km-item field-item"
           clickable
           :active="selectedFieldId === field.id"
           active-class="field-item--active"
-          class="field-item"
           @click="selectedFieldId = field.id"
         >
-          <q-item-section side>
-            <q-radio v-model="selectedFieldId" :val="field.id" color="primary" />
-          </q-item-section>
-          <q-item-section>
-            <q-item-label class="field-item__name">{{ field.display_name || field.name }}</q-item-label>
-            <q-item-label caption class="field-item__meta">
+          <div class="km-item-section" side>
+            <km-radio v-model="selectedFieldId" :val="field.id" />
+          </div>
+          <div class="km-item-section">
+            <span class="km-item-label field-item__name">{{ field.display_name || field.name }}</span>
+            <span class="km-item-label field-item__meta" caption>
               <span v-if="field.description" class="field-item__description">{{ field.description }}</span>
-            </q-item-label>
-          </q-item-section>
-        </q-item>
-      </q-list>
+            </span>
+          </div>
+        </li>
+      </ul>
     </kg-dialog-section>
   </kg-dialog-base>
 </template>
@@ -133,14 +133,14 @@ watch(
   align-items: center;
   gap: 12px;
   padding: 16px;
-  background: var(--q-background);
-  border-radius: var(--radius-lg);
-  color: var(--q-secondary-text);
-  font-size: var(--km-font-size-label);
+  background: var(--ds-color-background);
+  border-radius: var(--ds-radius-lg);
+  color: var(--ds-color-secondary-text);
+  font-size: var(--ds-font-size-label);
 }
 
 .field-list {
-  border-radius: var(--radius-lg);
+  border-radius: var(--ds-radius-lg);
   overflow: hidden;
 }
 
@@ -149,32 +149,32 @@ watch(
 }
 
 .field-item:hover {
-  background-color: var(--q-background);
+  background-color: var(--ds-color-background);
 }
 
 .field-item--active {
-  background-color: var(--q-primary-bg) !important;
+  background-color: var(--ds-color-primary-bg) !important;
 }
 
 .field-item__name {
   font-weight: 500;
-  font-size: var(--km-font-size-label);
-  color: var(--q-black);
+  font-size: var(--ds-font-size-label);
+  color: var(--ds-color-black);
 }
 
 .field-item__meta {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 2px;
+  margin-block-start: 2px;
 }
 
 .field-item__description {
-  font-size: var(--km-font-size-caption);
-  color: var(--q-secondary-text);
+  font-size: var(--ds-font-size-caption);
+  color: var(--ds-color-secondary-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 300px;
+  max-inline-size: 300px;
 }
 </style>

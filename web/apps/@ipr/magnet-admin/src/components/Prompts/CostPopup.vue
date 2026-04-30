@@ -1,131 +1,66 @@
-<template lang="pug">
-.col-auto.q-mb-md
-  .col-auto
-    .row.q-gap-16.justify-between
-      .km-input-label.text-text-grey {{ m.common_model() }}
-        km-input(
-          ref='input',
-          :placeholder='m.prompts_typeYourText()',
-          :model-value='modelLabel',
-          @input='modelLabel = $event',
-          border-radius='8px',
-          height='36px',
-          type='text',
-          readonly
-        )
-    q-separator.q-my-md
-    .row.q-gap-16.justify-between
-      .km-input-label.text-text-grey {{ m.agents_totalTokens() }}
-        km-input(
-          ref='input',
-          :placeholder='m.prompts_typeYourText()',
-          :model-value='totalTokens',
-          @input='totalTokens = $event',
-          border-radius='8px',
-          height='36px',
-          type='text',
-          readonly
-        )
-      .km-input-label.text-text-grey {{ m.agents_totalCost() }}
-        km-input(
-          ref='input',
-          :placeholder='m.prompts_typeYourText()',
-          :model-value='totalCost',
-          @input='totalCost = $event',
-          border-radius='8px',
-          height='36px',
-          type='text',
-          readonly
-        )
-    q-separator.q-my-md
-
-    .row.q-gap-16.justify-between.q-mb-sm
-      .km-input-label.text-text-grey {{ m.agents_inputTokens() }}
-        km-input(
-          ref='input',
-          :placeholder='m.prompts_typeYourText()',
-          :model-value='inputTokens',
-          @input='inputTokens = $event',
-          border-radius='8px',
-          height='36px',
-          type='text',
-          readonly
-        )
-      .km-input-label.text-text-grey {{ m.agents_inputCost() }}
-        km-input(
-          ref='input',
-          :placeholder='m.prompts_typeYourText()',
-          :model-value='inputCost',
-          @input='inputCost = $event',
-          border-radius='8px',
-          height='36px',
-          type='text',
-          readonly
-        )
-        .km-description.text-secondary-text {{ m.agents_1mTokensPrice({ price: priceInput }) }}
-
-    .row.q-gap-16.justify-between.q-mb-sm
-      .km-input-label.text-text-grey {{ m.agents_outputTokens() }}
-        km-input(
-          ref='input',
-          :placeholder='m.prompts_typeYourText()',
-          :model-value='outputTokens',
-          @input='outputTokens = $event',
-          border-radius='8px',
-          height='36px',
-          type='text',
-          readonly
-        )
-      .km-input-label.text-text-grey {{ m.agents_outputCost() }}
-        km-input(
-          ref='input',
-          :placeholder='m.prompts_typeYourText()',
-          :model-value='outputCost',
-          @input='outputCost = $event',
-          border-radius='8px',
-          height='36px',
-          type='text',
-          readonly
-        )
-        .km-description.text-secondary-text {{ m.agents_1mTokensPrice({ price: priceOutput }) }}
-    .row.q-gap-16.justify-between.q-mb-sm
-      .km-input-label.text-text-grey {{ m.agents_cachedTokens() }}
-        km-input(
-          ref='input',
-          :placeholder='m.prompts_typeYourText()',
-          :model-value='cachedTokens',
-          @input='cachedTokens = $event',
-          border-radius='8px',
-          height='36px',
-          type='text',
-          readonly
-        )
-      .km-input-label.text-text-grey {{ m.agents_cachedCost() }}
-        km-input(
-          ref='input',
-          :placeholder='m.prompts_typeYourText()',
-          :model-value='cachedCost',
-          @input='cachedCost = $event',
-          border-radius='8px',
-          height='36px',
-          type='text',
-          readonly
-        )
-        .km-description.text-secondary-text {{ m.agents_1mTokensPrice({ price: priceCached }) }}
-
-    q-separator.q-my-md
-    .row.q-gap-16.justify-between
-      .km-input-label.text-text-grey {{ m.agents_latency() }}
-        km-input(
-          ref='input',
-          :placeholder='m.prompts_typeYourText()',
-          :model-value='latency',
-          @input='latency = $event',
-          border-radius='8px',
-          height='36px',
-          type='text',
-          readonly
-        )
+<template>
+  <div class="flex-none mb-md">
+    <div class="flex-none">
+      <div class="cluster" data-gap="lg" data-justify="between">
+        <div class="km-input-label text-text-grey">
+          {{ m.common_model() }}
+          <km-input ref="input" :placeholder="m.prompts_typeYourText()" :model-value="modelLabel" border-radius="8px" height="36px" type="text" readonly @input="modelLabel = $event" />
+        </div>
+      </div>
+      <km-separator class="my-md" />
+      <div class="cluster" data-gap="lg" data-justify="between">
+        <div class="km-input-label text-text-grey">
+          {{ m.agents_totalTokens() }}
+          <km-input ref="input" :placeholder="m.prompts_typeYourText()" :model-value="totalTokens" border-radius="8px" height="36px" type="text" readonly @input="totalTokens = $event" />
+        </div>
+        <div class="km-input-label text-text-grey">
+          {{ m.agents_totalCost() }}
+          <km-input ref="input" :placeholder="m.prompts_typeYourText()" :model-value="totalCost" border-radius="8px" height="36px" type="text" readonly @input="totalCost = $event" />
+        </div>
+      </div>
+      <km-separator class="my-md" />
+      <div class="cluster mb-sm" data-gap="lg" data-justify="between">
+        <div class="km-input-label text-text-grey">
+          {{ m.agents_inputTokens() }}
+          <km-input ref="input" :placeholder="m.prompts_typeYourText()" :model-value="inputTokens" border-radius="8px" height="36px" type="text" readonly @input="inputTokens = $event" />
+        </div>
+        <div class="km-input-label text-text-grey">
+          {{ m.agents_inputCost() }}
+          <km-input ref="input" :placeholder="m.prompts_typeYourText()" :model-value="inputCost" border-radius="8px" height="36px" type="text" readonly @input="inputCost = $event" />
+          <div class="km-description text-secondary-text">{{ m.agents_1mTokensPrice({ price: priceInput }) }}</div>
+        </div>
+      </div>
+      <div class="cluster mb-sm" data-gap="lg" data-justify="between">
+        <div class="km-input-label text-text-grey">
+          {{ m.agents_outputTokens() }}
+          <km-input ref="input" :placeholder="m.prompts_typeYourText()" :model-value="outputTokens" border-radius="8px" height="36px" type="text" readonly @input="outputTokens = $event" />
+        </div>
+        <div class="km-input-label text-text-grey">
+          {{ m.agents_outputCost() }}
+          <km-input ref="input" :placeholder="m.prompts_typeYourText()" :model-value="outputCost" border-radius="8px" height="36px" type="text" readonly @input="outputCost = $event" />
+          <div class="km-description text-secondary-text">{{ m.agents_1mTokensPrice({ price: priceOutput }) }}</div>
+        </div>
+      </div>
+      <div class="cluster mb-sm" data-gap="lg" data-justify="between">
+        <div class="km-input-label text-text-grey">
+          {{ m.agents_cachedTokens() }}
+          <km-input ref="input" :placeholder="m.prompts_typeYourText()" :model-value="cachedTokens" border-radius="8px" height="36px" type="text" readonly @input="cachedTokens = $event" />
+        </div>
+        <div class="km-input-label text-text-grey">
+          {{ m.agents_cachedCost() }}
+          <km-input ref="input" :placeholder="m.prompts_typeYourText()" :model-value="cachedCost" border-radius="8px" height="36px" type="text" readonly @input="cachedCost = $event" />
+          <div class="km-description text-secondary-text">{{ m.agents_1mTokensPrice({ price: priceCached }) }}</div>
+        </div>
+      </div>
+      <km-separator class="my-md" />
+      <div class="cluster" data-gap="lg" data-justify="between">
+        <div class="km-input-label text-text-grey">
+          {{ m.agents_latency() }}
+          <km-input ref="input" :placeholder="m.prompts_typeYourText()" :model-value="latency" border-radius="8px" height="36px" type="text" readonly @input="latency = $event" />
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 <script>
 import { defineComponent, ref, computed } from 'vue'

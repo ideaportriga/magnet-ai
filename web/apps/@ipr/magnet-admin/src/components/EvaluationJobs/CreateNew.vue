@@ -1,122 +1,50 @@
-<template lang="pug">
-km-popup-confirm(
-  :visible='showNewDialog',
-  :title='m.dialog_newEvaluation()',
-  :confirmButtonLabel='m.common_saveAndRun()',
-  :cancelButtonLabel='m.common_cancel()',
-  @confirm='createEvaluationJob',
-  @cancel='$emit("cancel")',
-  :loading='loading'
-)
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.entity_testSet() }}
-    .full-width
-      km-select(
-        height='auto',
-        minHeight='36px',
-        :placeholder='m.entity_testSet()',
-        :options='filteredSetItems',
-        v-model='newRow.evaluation_set',
-        option-value='system_name',
-        option-label='name',
-        emit-value,
-        map-options,
-        ref='test_set_typeRef',
-        :rules='config.test_set_type.rules',
-        hasDropdownSearch
-      )
-
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md(v-if='evaluationSetType == "prompt_template"') {{ m.evaluation_evaluatedPromptTemplates() }}
-    |
-    .full-width
-      km-select(
-        height='auto',
-        minHeight='36px',
-        :placeholder='m.evaluation_selectPromptTemplate()',
-        :options='promptTemplates',
-        v-model='evaluationTargetTools',
-        hasDropdownSearch,
-        option-value='system_name',
-        option-label='name',
-        emit-value,
-        map-options,
-        ref='evaluated_toolsRef',
-        :rules='config.evaluated_tools.rules',
-        :disabled='disablePromptSelection'
-      )
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md(v-if='evaluationSetType == "prompt_template"') {{ m.evaluation_promptTemplateVariants() }}
-    .full-width
-      km-select(
-        height='auto',
-        minHeight='36px',
-        :placeholder='m.evaluation_selectVariants()',
-        multiple,
-        use-chips,
-        selectAll,
-        :options='variants',
-        v-model='newRow.evaluation_target_tools_variants',
-        hasDropdownSearch,
-        option-value='value',
-        option-label='label',
-        emit-value,
-        map-options,
-        ref='evaluated_toolsRef',
-        :rules='config.evaluated_tools.rules'
-      )
-
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md(v-if='evaluationSetType == "rag_tool"') {{ m.evaluation_evaluatedRags() }}
-    |
-    .full-width
-      km-select(
-        height='auto',
-        minHeight='36px',
-        :placeholder='m.evaluation_selectRagTool()',
-        :options='ragItems',
-        v-model='evaluationTargetTools',
-        hasDropdownSearch,
-        option-value='system_name',
-        option-label='name',
-        emit-value,
-        map-options,
-        ref='evaluated_toolsRef',
-        :rules='config.evaluated_tools.rules',
-        :disabled='disableRagSelection'
-      )
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md(v-if='evaluationSetType == "rag_tool"') {{ m.evaluation_evaluatedRagVariants() }}
-    .full-width
-      km-select(
-        height='auto',
-        minHeight='36px',
-        :placeholder='m.evaluation_selectVariants()',
-        multiple,
-        use-chips,
-        selectAll,
-        :options='ragVariants',
-        v-model='newRow.evaluation_target_tools_variants',
-        hasDropdownSearch,
-        option-value='value',
-        option-label='label',
-        emit-value,
-        map-options,
-        ref='evaluated_toolsRef',
-        :rules='config.evaluated_tools.rules'
-      )
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.evaluation_numberOfIterations() }}
-    .full-width
-      km-input(
-        type='number',
-        height='36px',
-        :placeholder='m.evaluation_numberOfIterations()',
-        v-model='newRow.iteration_count',
-        ref='iteration_countRef',
-        :rules='config.iteration_count.rules'
-      )
-    km-notification-text.q-mt-md(v-if='notification', :notification='notification')
+<template>
+  <km-popup-confirm :visible="showNewDialog" :title="m.dialog_newEvaluation()" :confirm-button-label="m.common_saveAndRun()" :cancel-button-label="m.common_cancel()" :loading="loading" @confirm="createEvaluationJob" @cancel="$emit(&quot;cancel&quot;)">
+    <div class="km-field text-secondary-text pb-xs pl-sm mb-md">
+      {{ m.entity_testSet() }}
+      <div class="full-width">
+        <km-select ref="test_set_typeRef" v-model="newRow.evaluation_set" height="auto" min-height="36px" :placeholder="m.entity_testSet()" :options="filteredSetItems" option-value="system_name" option-label="name" emit-value map-options :rules="config.test_set_type.rules" has-dropdown-search />
+      </div>
+    </div>
+    <div v-if="evaluationSetType == &quot;prompt_template&quot;" class="km-field text-secondary-text pb-xs pl-sm mb-md">
+      {{ m.evaluation_evaluatedPromptTemplates() }}
+      <div class="full-width">
+        <km-select ref="evaluated_toolsRef" v-model="evaluationTargetTools" height="auto" min-height="36px" :placeholder="m.evaluation_selectPromptTemplate()" :options="promptTemplates" has-dropdown-search option-value="system_name" option-label="name" emit-value map-options :rules="config.evaluated_tools.rules" :disabled="disablePromptSelection" />
+      </div>
+    </div>
+    <div v-if="evaluationSetType == &quot;prompt_template&quot;" class="km-field text-secondary-text pb-xs pl-sm mb-md">
+      {{ m.evaluation_promptTemplateVariants() }}
+      <div class="full-width">
+        <km-select ref="evaluated_toolsRef" v-model="newRow.evaluation_target_tools_variants" height="auto" min-height="36px" :placeholder="m.evaluation_selectVariants()" multiple use-chips select-all :options="variants" has-dropdown-search option-value="value" option-label="label" emit-value map-options :rules="config.evaluated_tools.rules" />
+      </div>
+    </div>
+    <div v-if="evaluationSetType == &quot;rag_tool&quot;" class="km-field text-secondary-text pb-xs pl-sm mb-md">
+      {{ m.evaluation_evaluatedRags() }}
+      <div class="full-width">
+        <km-select ref="evaluated_toolsRef" v-model="evaluationTargetTools" height="auto" min-height="36px" :placeholder="m.evaluation_selectRagTool()" :options="ragItems" has-dropdown-search option-value="system_name" option-label="name" emit-value map-options :rules="config.evaluated_tools.rules" :disabled="disableRagSelection" />
+      </div>
+    </div>
+    <div v-if="evaluationSetType == &quot;rag_tool&quot;" class="km-field text-secondary-text pb-xs pl-sm mb-md">
+      {{ m.evaluation_evaluatedRagVariants() }}
+      <div class="full-width">
+        <km-select ref="evaluated_toolsRef" v-model="newRow.evaluation_target_tools_variants" height="auto" min-height="36px" :placeholder="m.evaluation_selectVariants()" multiple use-chips select-all :options="ragVariants" has-dropdown-search option-value="value" option-label="label" emit-value map-options :rules="config.evaluated_tools.rules" />
+      </div>
+    </div>
+    <div class="km-field text-secondary-text pb-xs pl-sm mb-md">
+      {{ m.evaluation_numberOfIterations() }}
+      <div class="full-width">
+        <km-input ref="iteration_countRef" v-model="newRow.iteration_count" type="number" height="36px" :placeholder="m.evaluation_numberOfIterations()" :rules="config.iteration_count.rules" />
+      </div>
+      <km-notification-text v-if="notification" class="mt-md" :notification="notification" />
+    </div>
+  </km-popup-confirm>
 </template>
 <script>
 import { ref, reactive, computed } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
 import { useEvaluationStore } from '@/stores/evaluationStore'
 import { useEntityConfig } from '@/composables/useEntityConfig'
+import { validateRef } from '@/utils/validateRef'
 import { m } from '@/paraglide/messages'
 import { notify } from '@shared/utils/notify'
 
@@ -261,7 +189,7 @@ export default {
       return `${m.common_variant()} ${match?.[1]}`
     },
     validateFields() {
-      const validStates = this.requiredFields.map((field) => this.$refs[`${field}Ref`]?.validate())
+      const validStates = this.requiredFields.map((field) => validateRef(this.$refs[`${field}Ref`]))
       return !validStates.includes(false)
     },
     async createEvaluationJob() {
@@ -309,8 +237,3 @@ export default {
 }
 </script>
 
-<style lang="stylus">
-.km-input:not(.q-field--readonly) .q-field__control::before {
-  background: var(--q-white) !important;
-}
-</style>

@@ -1,43 +1,33 @@
-<template lang="pug">
-div
-  .km-button-text {{ m.agents_userConfirmation() }}
-  q-separator.q-mb-16
-  .row.items-center.q-pb-xs
-    .km-label.text-label {{ m.agents_requireConfirmationLabel() }}
-    km-toggle(v-model='requires_confirmation', label-class='text-label')
-  .km-description.text-label {{ m.agents_requireConfirmationDesc() }}
-  .col(v-if='requires_confirmation')
-    .row.items-center.q-pl-8.q-gap-4.q-pb-xs.q-pt-lg
-      .km-field.text-label {{ m.agents_customActionDescription() }}
-    km-input(v-model='action_message_llm_description', border-radius='8px', height='36px', type='textarea', rows='3')
-    .km-description.text-label.q-pl-8.q-pt-xs {{ m.agents_instructionsOverrideGlobal() }}
-    .row.items-center(@click='openGlobalInstructions = !openGlobalInstructions')
-      km-btn.q-mt-8.q-mb-6(:label='m.agents_viewGlobalInstructions()', flat, simple, dropdown)
-    km-input(
-      :model-value='globalIntructions',
-      border-radius='8px',
-      height='36px',
-      type='textarea',
-      rows='3',
-      readonly,
-      v-if='openGlobalInstructions'
-    )
-
-  .km-button-text.q-mt-lg {{ m.agents_other() }}
-    q-separator.q-mb-16
-  .row.items-center.q-pb-xs
-    .km-label.text-label {{ m.agents_useResponseAsAssistantMessage() }}
-    km-toggle(v-model='use_response_as_assistant_message', label-class='text-label')
-  .km-description.text-label {{ m.agents_useResponseAsAssistantMessageDesc() }}
-
-  //- .km-button-text.q-pt-md End user display options
-  //- q-separator.q-mb-lg
-  //- .row.items-center.q-pl-8.q-gap-4.q-pb-xs
-  //-   .km-field.text-label End user name
-  //-   q-icon.col-auto(name='o_info', color='secondary')
-  //-     q-tooltip.bg-white.block-shadow.km-description(self='top middle', :offset='[-50, -50]')
-  //-       .text-secondary-text This name will be displayed for the end user when the action is selected by an Agent. Keep it short and non-technical.
-  //- km-input(v-model='display_name', border-radius='8px', height='36px', type='text')
+<template>
+  <div>
+    <div class="km-button-text">{{ m.agents_userConfirmation() }}</div>
+    <km-separator class="mb-lg" />
+    <div class="cluster pb-xs">
+      <div class="km-label text-label">{{ m.agents_requireConfirmationLabel() }}</div>
+      <km-toggle v-model="requires_confirmation" label-class="text-label" />
+    </div>
+    <div class="km-description text-label">{{ m.agents_requireConfirmationDesc() }}</div>
+    <div v-if="requires_confirmation" class="flex-1">
+      <div class="cluster pl-sm pb-xs pt-lg" data-gap="xs">
+        <div class="km-field text-label">{{ m.agents_customActionDescription() }}</div>
+      </div>
+      <km-input v-model="action_message_llm_description" border-radius="8px" height="36px" type="textarea" rows="3" />
+      <div class="km-description text-label pl-sm pt-xs">{{ m.agents_instructionsOverrideGlobal() }}</div>
+      <div class="cluster" @click="openGlobalInstructions = !openGlobalInstructions">
+        <km-btn class="mt-sm mb-sm" :label="m.agents_viewGlobalInstructions()" flat simple dropdown />
+      </div>
+      <km-input v-if="openGlobalInstructions" :model-value="globalIntructions" border-radius="8px" height="36px" type="textarea" rows="3" readonly />
+    </div>
+    <div class="km-button-text mt-lg">
+      {{ m.agents_other() }}
+      <km-separator class="mb-lg" />
+    </div>
+    <div class="cluster pb-xs">
+      <div class="km-label text-label">{{ m.agents_useResponseAsAssistantMessage() }}</div>
+      <km-toggle v-model="use_response_as_assistant_message" label-class="text-label" />
+    </div>
+    <div class="km-description text-label">{{ m.agents_useResponseAsAssistantMessageDesc() }}</div>
+  </div>
 </template>
 
 <script>

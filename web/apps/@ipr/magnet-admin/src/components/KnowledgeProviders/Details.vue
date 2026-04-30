@@ -1,76 +1,33 @@
-<template lang="pug">
-km-inner-loading(:showing='loading')
-layouts-details-layout(v-if='!loading', :contentContainerStyle='{ maxWidth: "1200px", margin: "0 auto" }')
-  template(#header)
-    .col
-      .row.items-center
-        km-input-flat.km-heading-4.full-width.text-black(data-test='name-input', :placeholder='m.common_name()', :model-value='name', @change='name = $event')
-      .row.items-center.q-pl-6
-        q-icon.col-auto(name='o_info', color='text-secondary')
-          q-tooltip.bg-white.block-shadow.text-secondary-text.km-description(self='top middle', :offset='[-50, -50]') {{ m.tooltip_systemNameUniqueId() }}
-        km-input-flat.col.km-description.text-black.full-width(
-          data-test='system-name-input',
-          :placeholder='m.placeholder_enterSystemNameReadable()',
-          :model-value='system_name',
-          @change='system_name = $event',
-          @focus='showInfo = true',
-          @blur='showInfo = false'
-        )
-      .km-description.text-secondary.q-pl-6(v-if='showInfo') {{ m.hint_systemNameRecommendation() }}
-  template(#header-actions)
-    km-btn(:label='m.common_recordInfo()', flat, icon='info', iconSize='16px')
-      q-tooltip.bg-white.block-shadow
-        .q-pa-sm
-          .q-mb-sm
-            .text-secondary-text.km-button-xs-text {{ m.common_createdLabel() }}
-            .text-secondary-text.km-description {{ created_at }}
-          .q-mb-sm
-            .text-secondary-text.km-button-xs-text {{ m.common_modified() }}
-            .text-secondary-text.km-description {{ modified_at }}
-          .q-mb-sm
-            .text-secondary-text.km-button-xs-text {{ m.common_createdBy() }}
-            .text-secondary-text.km-description {{ created_by }}
-          div
-            .text-secondary-text.km-button-xs-text {{ m.common_modifiedBy() }}
-            .text-secondary-text.km-description {{ updated_by }}
-    km-btn(data-test='revert-btn', :label='m.common_revert()', icon='fas fa-undo', iconSize='16px', flat, @click='revert()', v-if='isDirty')
-    km-btn(data-test='save-btn', :label='m.common_save()', flat, icon='far fa-save', iconSize='16px', @click='handleSave', :loading='saving', :disable='saving || !isDirty')
-    q-btn.q-px-xs(data-test='show-more-btn', flat, :icon='"fas fa-ellipsis-v"', size='13px')
-      q-menu(anchor='bottom right', self='top right')
-        q-item(data-test='clone-btn', clickable, @click='showNewDialog = true', dense)
-          q-item-section
-            .km-heading-3 {{ m.common_clone() }}
-        q-item(data-test='delete-btn', clickable, @click='showDeleteDialog = true', dense)
-          q-item-section
-            .km-heading-3 {{ m.common_delete() }}
-    km-popup-confirm(
-      :visible='showDeleteDialog',
-      :confirmButtonLabel='m.deleteConfirm_deleteEntity({ entity: m.entity_knowledgeSourceProvider() })',
-      :cancelButtonLabel='m.common_cancel()',
-      notificationIcon='fas fa-triangle-exclamation',
-      @confirm='confirmDelete',
-      @cancel='showDeleteDialog = false'
-    )
-      .row.item-center.justify-center.km-heading-7 {{ m.deleteConfirm_aboutToDelete({ entity: m.entity_knowledgeSourceProvider() }) }}
-      .row.text-center.justify-center {{ m.deleteConfirm_permanentDeleteDisable({ entity: m.entity_knowledgeSourceProvider() }) }}
-  template(#content)
-    .column.full-height(style='min-height: 0')
-      q-tabs.bb-border.full-width(
-        v-model='tab',
-        narrow-indicator,
-        dense,
-        align='left',
-        active-color='primary',
-        indicator-color='primary',
-        active-bg-color='white',
-        no-caps,
-        content-class='km-tabs'
-      )
-        template(v-for='t in tabs')
-          q-tab(:name='t.name', :label='t.label')
-      .col(style='min-height: 0; padding-top: 16px; padding-bottom: 16px')
-        knowledge-providers-knowledge-sources(v-if='tab == "knowledge-sources"')
-        knowledge-providers-settings(v-if='tab == "settings"')
+<template>
+  <km-inner-loading :showing="loading" />
+  <layouts-details-layout v-if="!loading" :name="name" :system-name="system_name" :created-at="provider?.created_at" :updated-at="provider?.updated_at" :created-by="provider?.created_by" :updated-by="provider?.updated_by" show-record-info :show-description="false" :content-container-style="{ maxWidth: &quot;1200px&quot;, margin: &quot;0 auto&quot; }" @update:name="name = $event" @update:system-name="system_name = $event">
+    <template #header-actions>
+      <km-btn v-if="isDirty" data-test="revert-btn" :label="m.common_revert()" icon="undo" icon-size="16px" flat @click="revert()" />
+      <km-btn data-test="save-btn" :label="m.common_save()" flat icon="save" icon-size="16px" :loading="saving" :disable="saving || !isDirty" @click="handleSave" />
+      <ds-dropdown-menu-root>
+        <ds-dropdown-menu-trigger as-child>
+          <km-btn class="px-xs" data-test="show-more-btn" flat icon="more-vertical" size="13px" />
+        </ds-dropdown-menu-trigger>
+        <ds-dropdown-menu-content side="bottom" align="end" :side-offset="4">
+          <ds-dropdown-menu-item data-test="clone-btn" @select="showNewDialog = true">{{ m.common_clone() }}</ds-dropdown-menu-item>
+          <ds-dropdown-menu-item data-test="delete-btn" variant="destructive" @select="showDeleteDialog = true">{{ m.common_delete() }}</ds-dropdown-menu-item>
+        </ds-dropdown-menu-content>
+      </ds-dropdown-menu-root>
+      <km-popup-confirm :visible="showDeleteDialog" :confirm-button-label="m.deleteConfirm_deleteEntity({ entity: m.entity_knowledgeSourceProvider() })" :cancel-button-label="m.common_cancel()" notification-icon="warning" @confirm="confirmDelete" @cancel="showDeleteDialog = false">
+        <div class="cluster km-heading-7" data-justify="center">{{ m.deleteConfirm_aboutToDelete({ entity: m.entity_knowledgeSourceProvider() }) }}</div>
+        <div class="cluster text-center" data-justify="center">{{ m.deleteConfirm_permanentDeleteDisable({ entity: m.entity_knowledgeSourceProvider() }) }}</div>
+      </km-popup-confirm>
+    </template>
+    <template #content>
+      <div class="stack full-height" data-gap="0" style="min-block-size: 0">
+        <km-tabs v-model="tab" :items="tabs" class="bb-border full-width" narrow-indicator dense align="left" no-caps content-class="km-tabs" />
+        <div class="flex-1" style="min-block-size: 0; padding-block: 16px">
+          <knowledge-providers-knowledge-sources v-if="tab == &quot;knowledge-sources&quot;" />
+          <knowledge-providers-settings v-if="tab == &quot;settings&quot;" />
+        </div>
+      </div>
+    </template>
+  </layouts-details-layout>
 </template>
 
 <script>
@@ -101,10 +58,9 @@ export default {
       showNewDialog: ref(false),
       tab: ref('knowledge-sources'),
       tabs: ref([
-        { name: 'knowledge-sources', label: m.section_knowledgeSources() },
-        { name: 'settings', label: m.common_settings() },
+        { value: 'knowledge-sources', label: m.section_knowledgeSources() },
+        { value: 'settings', label: m.common_settings() },
       ]),
-      showInfo: ref(false),
     }
   },
   computed: {
@@ -126,18 +82,6 @@ export default {
       set(value) {
         this.updateField('system_name', value)
       },
-    },
-    created_at() {
-      return this.provider?.created_at ? this.formatDate(this.provider.created_at) : ''
-    },
-    modified_at() {
-      return this.provider?.updated_at ? this.formatDate(this.provider.updated_at) : ''
-    },
-    created_by() {
-      return this.provider?.created_by || 'Unknown'
-    },
-    updated_by() {
-      return this.provider?.updated_by || 'Unknown'
     },
   },
   methods: {
@@ -162,10 +106,6 @@ export default {
         notify.success('Knowledge Provider has been deleted.')
         this.$router.push('/knowledge-providers')
       }
-    },
-    formatDate(date) {
-      const d = new Date(date)
-      return `${d.toLocaleDateString()} ${d.toLocaleTimeString()}`
     },
   },
 }

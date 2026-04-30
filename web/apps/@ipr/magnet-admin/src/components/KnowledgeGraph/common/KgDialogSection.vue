@@ -3,8 +3,10 @@
     <div class="kg-dialog-section__inner" :style="innerSectionStyle">
       <!-- Header -->
       <div class="kg-dialog-section__header" :style="headerStyle">
-        <div class="row q-gap-8 items-center">
-          <q-icon v-if="icon" :name="icon" size="18px" :color="iconColor" />
+        <div class="cluster" data-gap="sm">
+          <span v-if="icon" class="kg-dialog-section__icon" :style="iconStyle">
+            <km-glyph :name="icon" size="18px" tone="current" />
+          </span>
           <span class="km-heading-8 text-weight-medium">{{ title }}</span>
           <slot name="title-badge" />
         </div>
@@ -25,14 +27,14 @@
 </template>
 
 <script setup lang="ts">
-import { colors } from 'quasar'
-import { m } from '@/paraglide/messages'
 import { computed, ref } from 'vue'
+import { resolveKgDialogToneColor, type KgDialogTone } from './kgDialogTone'
 
 interface Props {
   title: string
   description?: string
   icon?: string
+  tone?: KgDialogTone
   iconColor?: string
   borderColor?: string
   backgroundColor?: string
@@ -42,15 +44,13 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   icon: '',
-  iconColor: 'primary',
-  borderColor: 'var(--q-border)',
-  backgroundColor: 'var(--q-background)',
+  tone: 'brand',
+  borderColor: 'var(--ds-color-border)',
+  backgroundColor: 'var(--ds-color-background)',
   description: '',
   focusHighlight: false,
   disabled: false,
 })
-
-const { getPaletteColor } = colors
 
 const isFocused = ref(false)
 
@@ -62,13 +62,19 @@ const onFocusOut = () => {
   if (props.focusHighlight) isFocused.value = false
 }
 
+const sectionAccentColor = computed(() => resolveKgDialogToneColor(props.tone, props.iconColor))
+
+const iconStyle = computed(() => ({
+  color: sectionAccentColor.value,
+}))
+
 const sectionStyle = computed(() => ({
   background: props.backgroundColor,
   border: `1px solid ${props.borderColor}`,
 }))
 
 const innerSectionStyle = computed(() => ({
-  borderColor: isFocused.value ? getPaletteColor(props.iconColor) : 'transparent',
+  borderColor: isFocused.value ? sectionAccentColor.value : 'transparent',
 }))
 
 const headerStyle = computed(() => ({
@@ -76,13 +82,13 @@ const headerStyle = computed(() => ({
 }))
 </script>
 
-<style scoped>
+<style>
 .kg-dialog-section {
-  border-radius: var(--radius-lg);
+  border-radius: var(--ds-radius-lg);
 }
 
 .kg-dialog-section__inner {
-  border-radius: var(--radius-lg);
+  border-radius: var(--ds-radius-lg);
   position: relative;
   margin: -1px;
   border: 2px solid transparent;
@@ -94,15 +100,18 @@ const headerStyle = computed(() => ({
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-bottom: 8px;
+  padding-block-end: 8px;
+}
+
+.kg-dialog-section__icon {
+  display: inline-flex;
 }
 
 .kg-dialog-section__description {
-  font-size: var(--km-font-size-caption);
-  color: var(--q-secondary-text);
+  font-size: var(--ds-font-size-caption);
+  color: var(--ds-color-secondary-text);
   line-height: 1.4;
-  margin-top: 4px;
-  margin-bottom: 16px;
+  margin-block: 4px 16px;
 }
 
 .kg-dialog-section__content--disabled {
@@ -112,18 +121,18 @@ const headerStyle = computed(() => ({
 }
 
 /* Ensure form controls inside section have white background */
-:deep(.km-control),
-:deep(.km-select.km-open-popup) {
-  background-color: var(--q-white) !important;
+.kg-dialog-section .km-control,
+.kg-dialog-section .km-select[data-state='open'] {
+  background-color: var(--ds-color-white) !important;
 }
 
-:deep(.km-input:not(.q-field--readonly).q-field--outlined.q-field--highlighted .q-field__control::before) {
-  background-color: var(--q-white) !important;
-}
-
-:deep(.q-field--outlined .q-field__control:before) {
-  border-color: var(--q-control-border) !important;
-  transition: all 600ms;
+.kg-dialog-section .km-input .ds-input,
+.kg-dialog-section .km-input .ds-textarea {
+  background-color: var(--ds-color-white) !important;
+  border-color: var(--ds-color-control-border) !important;
+  transition:
+    border-color 600ms,
+    background-color 600ms;
 }
 </style>
 

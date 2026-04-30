@@ -1,75 +1,94 @@
-<template lang="pug">
-layouts-details-layout(noHeader)
-  template(#content)
-    km-tabs(v-model='tab')
-      q-tab(name='profile', :label='m.user_profile()')
-      q-tab(name='access', :label='m.common_access()')
-      q-tab(name='security', :label='m.user_security()')
-    .column.no-wrap.q-gap-16.full-height.full-width.overflow-auto.q-mb-md.q-mt-lg(style='min-height: 0')
-      .row.q-gap-16.full-height.full-width
-        .col.full-height.full-width
-          .column.items-center.full-height.full-width.q-gap-16.overflow-auto
-            .col-auto.full-width
-              template(v-if='tab === "profile"')
-                km-section(:title='m.section_account()', :subTitle='m.subtitle_yourAccount()')
-                  .row.q-gap-16
-                    .col
-                      .km-input-label {{ m.common_name() }}
-                      km-input(:modelValue='editName', @input='editName = $event', :placeholder='m.profile_yourName()')
-                    .col
-                      .km-input-label {{ m.auth_email() }}
-                      km-input(:modelValue='displayEmail', readonly)
-                  .q-mt-md
-                    .km-input-label {{ m.user_lastLogin() }}
-                    .km-description.q-mt-xs {{ userInfo?.last_login_at ? new Date(userInfo.last_login_at).toLocaleString() : m.user_na() }}
-
-                q-separator.q-my-lg
-
-                km-section(:title='m.section_linkedAccounts()', :subTitle='m.subtitle_linkedIdentityProviders()')
-                  template(v-if='oauthAccounts.length')
-                    .column.q-gap-sm(style='max-width: 400px')
-                      .row.items-center.no-wrap.q-pa-sm.q-pl-md.ba-border.border-radius-8(v-for='account in oauthAccounts', :key='account.provider')
-                        q-icon.q-mr-sm(name='fas fa-check-circle', size='16px', color='positive')
-                        .km-title.q-mr-md {{ providerLabel(account.provider) }}
-                        .km-description.text-grey(v-if='account.email') {{ account.email }}
-                  .km-description.text-grey(v-else) {{ m.user_noLinkedAccounts() }}
-
-              template(v-if='tab === "access"')
-                km-section(:title='m.section_roles()', :subTitle='m.subtitle_yourRoles()')
-                  .column.q-gap-sm(style='max-width: 400px')
-                    .row.items-center.no-wrap.q-pa-sm.q-pl-md.ba-border.border-radius-8(v-for='role in roles', :key='role')
-                      q-icon.q-mr-sm(name='fas fa-shield-alt', size='16px', color='primary')
-                      .km-title {{ role }}
-                    .km-description.text-grey(v-if='!roles.length') No roles assigned
-
-                q-separator.q-my-lg
-
-                km-section(:title='m.section_groups()', :subTitle='m.subtitle_groups()')
-                  .km-description.text-grey No groups assigned
-                  .km-description.text-grey.q-mt-sm Group management is available for administrators.
-
-              template(v-if='tab === "security"')
-                km-section(:title='m.section_twoFactorAuth()', :subTitle='m.subtitle_addSecurityLayer()')
-                  .row.items-center.q-gap-sm
-                    .km-description {{ m.common_status() }}:
-                    q-chip(
-                      :color='userInfo?.is_two_factor_enabled ? "positive" : "grey-4"',
-                      :text-color='userInfo?.is_two_factor_enabled ? "white" : "dark"',
-                      size='sm'
-                    ) {{ userInfo?.is_two_factor_enabled ? m.common_enabled() : m.common_disabled() }}
-
-                q-separator.q-my-lg
-
-                km-section(:title='m.section_activeSessions()', :subTitle='m.subtitle_activeDevices()')
-                  .row.items-center.justify-end.q-mb-sm(v-if='sessions.length > 1')
-                    km-btn(flat, :label='m.user_revokeAllOthers()', size='sm', @click='revokeAllSessions')
-                  .column.q-gap-sm
-                    .row.items-center.justify-between.q-pa-md.ba-border.border-radius-8(v-for='session in sessions', :key='session.id')
-                      .column
-                        .km-title {{ session.device_info || m.user_unknownDevice() }}
-                        .km-description.text-grey {{ m.user_since({ date: new Date(session.created_at).toLocaleString() }) }}
-                      km-btn(flat, :label='m.user_revoke()', size='sm', @click='revokeSession(session.id)')
-                    .km-description.text-grey(v-if='!sessions.length') {{ m.user_noActiveSessions() }}
+<template>
+  <layouts-details-layout no-header>
+    <template #content>
+      <km-tabs v-model="tab">
+        <km-tab name="profile" :label="m.user_profile()" />
+        <km-tab name="access" :label="m.common_access()" />
+        <km-tab name="security" :label="m.user_security()" />
+      </km-tabs>
+      <div class="stack full-height full-width overflow-auto mb-md mt-lg" data-gap="lg" style="min-block-size: 0">
+        <div class="cluster full-height full-width" data-gap="lg">
+          <div class="flex-1 full-height full-width">
+            <div class="stack items-center full-height full-width overflow-auto" data-gap="lg">
+              <div class="flex-none full-width">
+                <template v-if="tab === &quot;profile&quot;">
+                  <km-section :title="m.section_account()" :sub-title="m.subtitle_yourAccount()">
+                    <div class="cluster gap-lg">
+                      <div class="flex-1">
+                        <div class="km-input-label">{{ m.common_name() }}</div>
+                        <km-input :model-value="editName" :placeholder="m.profile_yourName()" @input="editName = $event" />
+                      </div>
+                      <div class="flex-1">
+                        <div class="km-input-label">{{ m.auth_email() }}</div>
+                        <km-input :model-value="displayEmail" readonly />
+                      </div>
+                    </div>
+                    <div class="mt-md">
+                      <div class="km-input-label">{{ m.user_lastLogin() }}</div>
+                      <div class="km-description mt-xs">{{ userInfo?.last_login_at ? new Date(userInfo.last_login_at).toLocaleString() : m.user_na() }}</div>
+                    </div>
+                  </km-section>
+                  <km-separator class="my-lg" />
+                  <km-section :title="m.section_linkedAccounts()" :sub-title="m.subtitle_linkedIdentityProviders()">
+                    <template v-if="oauthAccounts.length">
+                      <div class="stack" data-gap="sm" style="max-inline-size: 400px">
+                        <div v-for="account in oauthAccounts" :key="account.provider" class="cluster p-sm pl-md ba-border border-radius-8" data-wrap="no">
+                          <km-glyph class="mr-sm" name="check" size="16px" tone="success" />
+                          <div class="km-title mr-md">{{ providerLabel(account.provider) }}</div>
+                          <div v-if="account.email" class="km-description text-grey">{{ account.email }}</div>
+                        </div>
+                      </div>
+                    </template>
+                    <div v-else class="km-description text-grey">{{ m.user_noLinkedAccounts() }}</div>
+                  </km-section>
+                </template>
+                <template v-if="tab === &quot;access&quot;">
+                  <km-section :title="m.section_roles()" :sub-title="m.subtitle_yourRoles()">
+                    <div class="stack" data-gap="sm" style="max-inline-size: 400px">
+                      <div v-for="role in roles" :key="role" class="cluster p-sm pl-md ba-border border-radius-8" data-wrap="no">
+                        <km-glyph class="mr-sm" name="shield-check" size="16px" tone="brand" />
+                        <div class="km-title">{{ role }}</div>
+                      </div>
+                      <div v-if="!roles.length" class="km-description text-grey">No roles assigned</div>
+                    </div>
+                  </km-section>
+                  <km-separator class="my-lg" />
+                  <km-section :title="m.section_groups()" :sub-title="m.subtitle_groups()">
+                    <div class="km-description text-grey">No groups assigned</div>
+                    <div class="km-description text-grey mt-sm">Group management is available for administrators.</div>
+                  </km-section>
+                </template>
+                <template v-if="tab === &quot;security&quot;">
+                  <km-section :title="m.section_twoFactorAuth()" :sub-title="m.subtitle_addSecurityLayer()">
+                    <div class="cluster" data-gap="sm">
+                      <div class="km-description">{{ m.common_status() }}:</div>
+                      <km-chip :tone="userInfo?.is_two_factor_enabled ? &quot;success&quot; : &quot;neutral&quot;" size="sm">{{ userInfo?.is_two_factor_enabled ? m.common_enabled() : m.common_disabled() }}</km-chip>
+                    </div>
+                  </km-section>
+                  <km-separator class="my-lg" />
+                  <km-section :title="m.section_activeSessions()" :sub-title="m.subtitle_activeDevices()">
+                    <div v-if="sessions.length &gt; 1" class="cluster mb-sm" data-justify="end">
+                      <km-btn flat :label="m.user_revokeAllOthers()" size="sm" @click="revokeAllSessions" />
+                    </div>
+                    <div class="stack" data-gap="sm">
+                      <div v-for="session in sessions" :key="session.id" class="cluster p-md ba-border border-radius-8" data-justify="between">
+                        <div class="stack">
+                          <div class="km-title">{{ session.device_info || m.user_unknownDevice() }}</div>
+                          <div class="km-description text-grey">{{ m.user_since({ date: new Date(session.created_at).toLocaleString() }) }}</div>
+                        </div>
+                        <km-btn flat :label="m.user_revoke()" size="sm" @click="revokeSession(session.id)" />
+                      </div>
+                      <div v-if="!sessions.length" class="km-description text-grey">{{ m.user_noActiveSessions() }}</div>
+                    </div>
+                  </km-section>
+                </template>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+  </layouts-details-layout>
 </template>
 
 <script>

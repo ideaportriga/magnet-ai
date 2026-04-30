@@ -1,19 +1,71 @@
-<template lang="pug">
-q-dialog(position='top', v-model='value', persistent, square, @hide='clearError')
-  .q-mt-none.bg-red.text-white(style='width: 640px; border-radius: 0px 0px 8px 8px !important')
-    .row.bg-red.q-px-md.q-py-sm.items-center(style='height: 48px')
-      q-icon.q-mr-sm(name='error_outline', size='28px')
-      .col
-        .km-heading-6 {{ m.error_dialog() }}
-      q-btn(icon='close', flat, round, dense, v-close-popup)
-    .column.q-px-lg.q-py-sm
-      .q-my-xs.km-body(v-if='!text && !technicalError') {{ m.error_unknownError() }}
-      .q-my-xs.km-body(v-if='text') {{ errorMessage?.text }}
-      .q-mt-sm.q-mb-xs.km-chip(v-if='technicalError') {{ errorMessage?.technicalError }}
-      //- .q-my-xs(v-if="showDisclaimer")
-      .q-mt-md.q-mb-sm.self-end
-        div
-          q-btn(color='white', v-close-popup, flat) {{ m.common_ok() }}
+<template>
+  <km-dialog
+    v-model="value"
+    position="top"
+    persistent
+    square
+    @hide="clearError"
+  >
+    <div
+      class="mt-0 bg-red text-white"
+      style="inline-size: 640px; border-radius: 0px 0px 8px 8px !important"
+    >
+      <div
+        class="cluster bg-red px-md py-sm"
+        data-wrap="no"
+        style="block-size: 48px"
+      >
+        <km-glyph
+          class="mr-sm"
+          name="error"
+          size="28px"
+        />
+        <div class="flex-1">
+          <div class="km-heading-6">
+            {{ m.error_dialog() }}
+          </div>
+        </div>
+        <km-btn
+          icon="close"
+          flat
+          round
+          dense
+          @click="close"
+        />
+      </div>
+      <div class="stack px-lg py-sm">
+        <div
+          v-if="!text &amp;&amp; !technicalError"
+          class="my-xs km-body"
+        >
+          {{ m.error_unknownError() }}
+        </div>
+        <div
+          v-if="text"
+          class="my-xs km-body"
+        >
+          {{ errorMessage?.text }}
+        </div>
+        <div
+          v-if="technicalError"
+          class="mt-sm mb-xs km-chip"
+        >
+          {{ errorMessage?.technicalError }}
+        </div>
+        <div class="mt-md mb-sm self-end">
+          <div>
+            <km-btn
+              tone="inverse"
+              flat
+              @click="close"
+            >
+              {{ m.common_ok() }}
+            </km-btn>
+          </div>
+        </div>
+      </div>
+    </div>
+  </km-dialog>
 </template>
 
 <script>
@@ -42,8 +94,8 @@ export default {
   },
   methods: {
     close() {
-      // this.value = false
-      // this.$nextTick()
+      this.value = false
+      this.clearError()
     },
     clearError() {
       this.mainStore.setErrorMessage(undefined)
@@ -51,5 +103,3 @@ export default {
   },
 }
 </script>
-
-<style lang="stylus" scoped></style>

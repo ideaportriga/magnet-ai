@@ -1,82 +1,69 @@
-<template lang="pug">
-km-popup-confirm(
-  :visible='showNewDialog',
-  :title='popupName',
-  :confirmButtonLabel='confirmLabel',
-  :cancelButtonLabel='cancelLabel',
-  notification='You will be able to edit these and other settings after saving.',
-  @confirm='confirm',
-  @cancel='cancel'
-)
-  km-stepper.full-width(v-if='steps?.length > 1', :steps='steps', :stepper='stepper')
-  template(v-if='stepper == 0')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Provider
-      |
-      km-select(
-        height='auto',
-        minHeight='30px',
-        :placeholder='m.common_provider()',
-        :options='providerOptions',
-        v-model='selectedProviderId',
-        ref='providerRef',
-        :rules='config.provider.rules',
-        emit-value,
-        map-options,
-        option-value='value'
-      )
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Provider model name
-      .full-width
-        km-input(height='30px', :placeholder='m.placeholder_exampleModelId()', v-model='model', ref='modelRef', :rules='config.model.rules')
-        .km-description.text-secondary-text Name used by the provider to identify the model
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md System name
-      .full-width
-        km-input(height='30px', :placeholder='m.placeholder_exampleModelSystemName()', v-model='system_name', ref='system_nameRef', :rules='config.system_name.rules')
-        .km-description.text-secondary-text System name serves as a unique ID
-
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Display name
-      .full-width
-        km-input(
-          height='30px',
-          :placeholder='m.placeholder_exampleModelName()',
-          v-model='newRow.display_name',
-          ref='display_nameRef',
-          :rules='config.display_name.rules'
-        )
-        .km-description.text-secondary-text How the model name is displayed
-
-  template(v-if='stepper == 1') 
-    div(v-if='type === "prompts"')
-      .km-title.q-mb-md Structured outputs
-      .row.items-center
-        q-toggle(height='30px', :placeholder='m.placeholder_exampleModelName()', v-model='newRow.json_mode', ref='json_modeRef', :rules='config.json_mode.rules')
-        .km-field.text-secondary-text Supports JSON mode
-      .row.items-center
-        q-toggle(
-          height='30px',
-          :placeholder='m.placeholder_exampleModelName()',
-          v-model='newRow.json_schema',
-          ref='json_schemaRef',
-          :rules='config.json_schema.rules'
-        )
-        .km-field.text-secondary-text Supports JSON schema
-
-      q-separator.q-my-md
-      .km-title.q-mb-md Tool calling
-      .row.items-center
-        q-toggle(height='30px', :placeholder='m.placeholder_exampleModelName()', v-model='newRow.tool_calling', ref='json_modeRef', :rules='config.json_mode.rules')
-        .km-field.text-secondary-text Tool calling
-      q-separator.q-my-md
-      .km-title.q-mb-md Reasoning
-      .row.items-center
-        q-toggle(height='30px', :placeholder='m.placeholder_exampleModelName()', v-model='newRow.reasoning', ref='json_modeRef', :rules='config.json_mode.rules')
-        .km-field.text-secondary-text Reasoning
-
-    div(v-if='type === "embeddings"')
-      .km-title.q-mb-md Vector Configuration
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Vector Size
-        .full-width
-          km-input(height='30px', :placeholder='m.placeholder_exampleVectorSize()', v-model.number='vectorSize', ref='vectorSizeRef', type='number')
-          .km-description.text-secondary-text Dimension of the embedding vector (default: 1536). Common values: 1536 (ada-002), 1024 (embed-3-small), 3072 (embed-3-large)
+<template>
+  <km-popup-confirm :visible="showNewDialog" :title="popupName" :confirm-button-label="confirmLabel" :cancel-button-label="cancelLabel" notification="You will be able to edit these and other settings after saving." @confirm="confirm" @cancel="cancel">
+    <km-stepper v-if="steps?.length &gt; 1" class="full-width" :steps="steps" :stepper="stepper" />
+    <template v-if="stepper == 0">
+      <div class="km-field text-secondary-text pb-xs pl-sm mb-md">
+        Provider
+        <km-select ref="providerRef" v-model="selectedProviderId" height="auto" min-height="30px" :placeholder="m.common_provider()" :options="providerOptions" :rules="config.provider.rules" emit-value map-options option-value="value" />
+      </div>
+      <div class="km-field text-secondary-text pb-xs pl-sm mb-md">
+        Provider model name
+        <div class="full-width">
+          <km-input ref="modelRef" v-model="model" height="30px" :placeholder="m.placeholder_exampleModelId()" :rules="config.model.rules" />
+          <div class="km-description text-secondary-text">Name used by the provider to identify the model</div>
+        </div>
+      </div>
+      <div class="km-field text-secondary-text pb-xs pl-sm mb-md">
+        System name
+        <div class="full-width">
+          <km-input ref="system_nameRef" v-model="system_name" height="30px" :placeholder="m.placeholder_exampleModelSystemName()" :rules="config.system_name.rules" />
+          <div class="km-description text-secondary-text">System name serves as a unique ID</div>
+        </div>
+      </div>
+      <div class="km-field text-secondary-text pb-xs pl-sm mb-md">
+        Display name
+        <div class="full-width">
+          <km-input ref="display_nameRef" v-model="newRow.display_name" height="30px" :placeholder="m.placeholder_exampleModelName()" :rules="config.display_name.rules" />
+          <div class="km-description text-secondary-text">How the model name is displayed</div>
+        </div>
+      </div>
+    </template>
+    <template v-if="stepper == 1"> 
+      <div v-if="type === &quot;prompts&quot;">
+        <div class="km-title mb-md">Structured outputs</div>
+        <div class="cluster">
+          <km-toggle ref="json_modeRef" v-model="newRow.json_mode" height="30px" :placeholder="m.placeholder_exampleModelName()" :rules="config.json_mode.rules" />
+          <div class="km-field text-secondary-text">Supports JSON mode</div>
+        </div>
+        <div class="cluster">
+          <km-toggle ref="json_schemaRef" v-model="newRow.json_schema" height="30px" :placeholder="m.placeholder_exampleModelName()" :rules="config.json_schema.rules" />
+          <div class="km-field text-secondary-text">Supports JSON schema</div>
+        </div>
+        <km-separator class="my-md" />
+        <div class="km-title mb-md">Tool calling</div>
+        <div class="cluster">
+          <km-toggle ref="json_modeRef" v-model="newRow.tool_calling" height="30px" :placeholder="m.placeholder_exampleModelName()" :rules="config.json_mode.rules" />
+          <div class="km-field text-secondary-text">Tool calling</div>
+        </div>
+        <km-separator class="my-md" />
+        <div class="km-title mb-md">Reasoning</div>
+        <div class="cluster">
+          <km-toggle ref="json_modeRef" v-model="newRow.reasoning" height="30px" :placeholder="m.placeholder_exampleModelName()" :rules="config.json_mode.rules" />
+          <div class="km-field text-secondary-text">Reasoning</div>
+        </div>
+      </div>
+      <div v-if="type === &quot;embeddings&quot;">
+        <div class="km-title mb-md">Vector Configuration</div>
+        <div class="km-field text-secondary-text pb-xs pl-sm mb-md">
+          Vector Size
+          <div class="full-width">
+            <km-input ref="vectorSizeRef" v-model.number="vectorSize" height="30px" :placeholder="m.placeholder_exampleVectorSize()" type="number" />
+            <div class="km-description text-secondary-text">Dimension of the embedding vector (default: 1536). Common values: 1536 (ada-002), 1024 (embed-3-small), 3072 (embed-3-large)</div>
+          </div>
+        </div>
+      </div>
+    </template>
+  </km-popup-confirm>
 </template>
 <script>
 import { ref, reactive, computed } from 'vue'
@@ -85,6 +72,7 @@ import { useEntityQueries } from '@/queries/entities'
 import { cloneDeep } from 'lodash'
 import { toUpperCaseWithUnderscores } from '@shared'
 import { useEntityConfig } from '@/composables/useEntityConfig'
+import { validateRef } from '@/utils/validateRef'
 
 export default {
   props: {
@@ -276,7 +264,7 @@ export default {
     },
 
     validateFields() {
-      const validStates = this.requiredFields.map((field) => this.$refs[`${field}Ref`]?.validate())
+      const validStates = this.requiredFields.map((field) => validateRef(this.$refs[`${field}Ref`]))
       return !validStates.includes(false)
     },
     async createModel() {
@@ -308,7 +296,3 @@ export default {
 }
 </script>
 
-<style lang="stylus">
-.km-input:not(.q-field--readonly) .q-field__control::before
-  background: var(--q-white) !important;
-</style>

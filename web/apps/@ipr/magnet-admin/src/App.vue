@@ -1,57 +1,47 @@
-<template lang="pug">
-.full-height.full-width(:key='locale', :class='{ "no-wrap column": $route.query.viewMode === "panel" || ai_app }')
-  //- Show spinner during initial config load or auth check
-  template(v-if='initialLoading || authCheckInProgress')
-    .flex.flex-center.full-height
-      q-spinner(size='30px', color='primary')
-  template(v-else-if='authRequired')
-      auth-signup-page(
-        v-if='authPage === "signup"',
-        :auth-client='authClient',
-        @navigate='authPage = $event'
-      )
-      auth-forgot-password(
-        v-else-if='authPage === "forgot-password"',
-        :auth-client='authClient',
-        @navigate='authPage = $event'
-      )
-      auth-login-page(
-        v-else,
-        :auth-client='authClient',
-        :providers='authProviders',
-        :signup-enabled='signupEnabled',
-        @success='onAuthCompleted',
-        @navigate='authPage = $event'
-      )
-  template(v-else-if='!hasAdminAccess')
-    .flex.flex-center.full-height
-      .column.items-center.q-pa-xl(style='max-width: 480px')
-        q-icon(name='fas fa-lock', size='48px', color='grey-5')
-        .text-h6.q-mt-md.text-center {{ m.access_restricted() }}
-        .text-body2.text-grey.q-mt-sm.text-center
-          | {{ m.access_noPermissions() }}
-          |  {{ m.access_contactAdmin() }}
-        .text-caption.text-grey.q-mt-md {{ m.access_loggedInAs({ name: userDisplayName }) }}
-        q-btn.q-mt-lg(
-          outline,
-          color='primary',
-          :label='m.auth_logout()',
-          no-caps,
-          @click='handleLogout'
-        )
-  template(v-else)
-    layout-default
-  km-error-dialog(v-if='appStore.errorMessage')
-  //- §D.3 — dev-only debug strip; `env` string was brittle (depends on a
-  //- globalProperty). Vite's import.meta.env.DEV is statically tree-shaken.
-  template(v-if='isDev')
-    .fixed-bottom-right.q-pa-sm.row(:style='{ zIndex: "var(--km-z-base)" }')
+<template>
+  <div :key="locale" class="full-height full-width" :class="{ &quot;stack&quot;: $route.query.viewMode === &quot;panel&quot; || ai_app }" :data-gap="($route.query.viewMode === &quot;panel&quot; || ai_app) ? '0' : undefined">
+    <template v-if="initialLoading || authCheckInProgress">
+      <div class="flex flex-center full-height">
+        <km-loader size="30px" />
+      </div>
+    </template>
+    <template v-else-if="authRequired">
+      <auth-signup-page v-if="authPage === &quot;signup&quot;" :auth-client="authClient" @navigate="authPage = $event" />
+      <auth-forgot-password v-else-if="authPage === &quot;forgot-password&quot;" :auth-client="authClient" @navigate="authPage = $event" />
+      <auth-login-page v-else :auth-client="authClient" :providers="authProviders" :signup-enabled="signupEnabled" @success="onAuthCompleted" @navigate="authPage = $event" />
+    </template>
+    <template v-else-if="!hasAdminAccess">
+      <div class="flex flex-center full-height">
+        <div class="stack items-center p-xl" data-gap="0" style="max-inline-size: 480px">
+          <km-glyph name="lock" size="48px" tone="muted" />
+          <div class="text-h6 mt-md text-center">{{ m.access_restricted() }}</div>
+          <div class="text-body2 text-grey mt-sm text-center">
+            {{ m.access_noPermissions() }}
+            {{ m.access_contactAdmin() }}
+          </div>
+          <div class="text-caption text-grey mt-md">{{ m.access_loggedInAs({ name: userDisplayName }) }}</div>
+          <km-btn class="mt-lg" outline tone="brand" :label="m.auth_logout()" no-caps @click="handleLogout" />
+        </div>
+      </div>
+    </template>
+    <template v-else>
+      <layout-default />
+    </template>
+    <km-error-dialog v-if="appStore.errorMessage" />
+    <template v-if="isDev">
+      <div class="fixed-bottom-right p-sm cluster" :style="{ zIndex: 'var(--ds-z-raised)' }" />
+    </template>
+    <ds-toast-host />
+    <ds-dialog-host />
+    <ds-loading-host />
+  </div>
 </template>
 
 <script>
 import { useState } from '@shared'
 import { useAuth } from '@shared'
 import { getCurrentInstance, computed, ref } from 'vue'
+import { useLoading } from '@ds/composables/useLoading'
 import { m } from '@/paraglide/messages'
 import { useLocale } from '@shared/i18n'
 import { useAppStore } from '@/stores/appStore'
@@ -63,9 +53,12 @@ import { initializePlugins } from '@/config/collections/collections'
 import AuthLoginPage from '@ui/components/auth/AuthLoginPage.vue'
 import AuthSignupPage from '@ui/components/auth/AuthSignupPage.vue'
 import AuthForgotPassword from '@ui/components/auth/AuthForgotPassword.vue'
+import DsToastHost from '@ds/hosts/DsToastHost.vue'
+import DsDialogHost from '@ds/hosts/DsDialogHost.vue'
+import DsLoadingHost from '@ds/hosts/DsLoadingHost.vue'
 
 export default {
-  components: { AuthLoginPage, AuthSignupPage, AuthForgotPassword },
+  components: { AuthLoginPage, AuthSignupPage, AuthForgotPassword, DsToastHost, DsDialogHost, DsLoadingHost },
   setup() {
     const loading = useState('globalLoading')
     const auth = useAuth()
@@ -145,10 +138,12 @@ export default {
     loading: {
       immediate: true,
       handler(val) {
+        const ds = useLoading()
         if (val) {
-          this.$q.loading.show()
-        } else {
-          this.$q.loading.hide()
+          this._dsLoadingHide = ds.show()
+        } else if (this._dsLoadingHide) {
+          this._dsLoadingHide()
+          this._dsLoadingHide = null
         }
       },
     },

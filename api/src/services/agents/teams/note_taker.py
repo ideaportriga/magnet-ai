@@ -57,7 +57,7 @@ from .graph import (
     get_meeting_recordings,
     get_recording_by_id,
 )
-from .note_taker_salesforce import (
+from services.integrations.salesforce.note_taker import (
     send_stt_recording_to_salesforce as sf_send_stt_recording_to_salesforce,
 )
 from .note_taker_meeting import ensure_meeting_title
@@ -119,18 +119,18 @@ async def _load_note_taker_settings_by_system_name(
     if not system_name:
         raise ValueError("Missing note taker settings system name.")
 
-    async with async_session_maker() as session:
-        stmt = select(NoteTakerSettingsModel.config).where(
-            NoteTakerSettingsModel.system_name == system_name
-        )
-        result = await session.execute(stmt)
-        config = result.scalar_one_or_none()
+    from core.domain.note_taker_settings.service import NoteTakerSettingsService
 
-    if config is None:
+    async with async_session_maker() as session:
+        service = NoteTakerSettingsService(session=session)
+        record = await service.get_one_or_none(system_name=system_name)
+
+    if record is None:
         raise LookupError(
             f"Note taker settings record not found (system_name={system_name})."
         )
 
+    config = record.config
     if isinstance(config, str):
         try:
             config = json.loads(config)
@@ -145,17 +145,16 @@ async def get_superuser_id_for_bot(bot_app_id: str | None) -> str | None:
     if not bot_app_id:
         return None
     try:
+        from core.domain.note_taker_settings.service import NoteTakerSettingsService
+
         async with async_session_maker() as session:
+            service = NoteTakerSettingsService(session=session)
             # bot_app_id is the client_id stored in Provider.secrets_encrypted.
             # Find the NoteTakerSettings record via provider_system_name.
-            from core.db.models.provider.provider import Provider as _Provider
-
-            stmt = select(NoteTakerSettingsModel).join(
-                _Provider,
-                NoteTakerSettingsModel.provider_system_name == _Provider.system_name,
+            records, _ = await service.list_and_count(
+                NoteTakerSettingsModel.provider_system_name.is_not(None),
             )
-            result = await session.execute(stmt)
-            for record in result.scalars().all():
+            for record in records:
                 if record.superuser_id:
                     return record.superuser_id
     except Exception:

@@ -1,58 +1,32 @@
-<template lang="pug">
-q-separator.q-my-sm
-.row.items-center
-  km-select-flat.bg-white(
-    :options='variantsOptions',
-    :modelValue='variantValue',
-    @update:modelValue='selectVariant',
-    bg-color='background',
-    height='30px',
-    hasDropdownSearch
-  )
-    template(#option='{ itemProps, select, option }')
-      q-item.bb-border(clickable, v-bind='itemProps', dense, @click='select(option)')
-        q-item-section
-          q-item-label.km-label {{ option.label }}
-        q-item-section(v-if='option?.active_variant', avatar)
-          q-chip.q-mr-sm(:label='m.common_activate()', color='primary-light', text-color='primary', flat, size='sm')
-  .col.q-mx-sm
-    km-input-flat.km-description.full-width(:placeholder='m.common_description()', :modelValue='variant_description', @change='updateVariantDescription')
-  .col-auto.q-mr-sm
-    km-btn.width-100(
-      v-if='!isActive',
-      :label='m.common_activate()',
-      icon='far fa-circle-check',
-      iconColor='icon',
-      hoverColor='primary',
-      labelClass='km-title',
-      flat,
-      iconSize='16px',
-      hoverBg='primary-bg',
-      @click='activateVariant'
-    )
-    q-chip.q-mr-sm(v-if='isActive', :label='m.common_activate()', color='primary-light', text-color='primary')
-  q-separator(vertical, color='white')
-  .col-auto.text-white.q-mx-md
-    km-btn(
-      :label='m.common_copyToNew()',
-      icon='fas fa-plus',
-      iconColor='icon',
-      hoverColor='primary',
-      labelClass='km-title',
-      flat,
-      iconSize='16px',
-      hoverBg='primary-bg',
-      @click='addVariant'
-    )
-  .col-auto.text-white.q-mr-md
-    km-btn.q-mx-xs(flat, :icon='"far fa-trash-can"', iconSize='16px', size='13px', @click='deleteVariant', :disable='variants?.length === 1')
+<template>
+  <div>
+    <km-separator class="my-sm" />
+    <div class="cluster">
+      <km-dropdown-select :model-value="selectedVariantValue" :options="variantsOptions" @update:model-value="selectVariant" />
+      <div class="flex-1 mx-sm">
+        <km-input-flat class="km-description full-width" :placeholder="m.common_description()" :model-value="variant_description" @change="updateVariantDescription" />
+      </div>
+      <div class="flex-none mr-sm">
+        <km-btn v-if="!isActive" class="width-100" :label="m.common_activate()" icon="check" interaction-tone="brand" label-class="km-title" flat icon-size="16px" @click="activateVariant" />
+        <km-chip v-if="isActive" class="mr-sm" :label="m.common_active()" tone="brand" />
+      </div>
+      <km-separator vertical tone="inverse" />
+      <div class="flex-none text-white mx-md">
+        <km-btn :label="m.common_copyToNew()" icon="add" interaction-tone="brand" label-class="km-title" flat icon-size="16px" @click="addVariant" />
+      </div>
+      <div class="flex-none text-white mr-md">
+        <km-btn class="mx-xs" flat :icon="&quot;delete&quot;" icon-size="16px" size="13px" :disable="variants?.length === 1" @click="deleteVariant" />
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
 /* eslint-disable */
 import { m } from '@/paraglide/messages'
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
 import { useNotify } from '@/composables/useNotify'
+import KmDropdownSelect from '@ds/components/domain/KmDropdownSelect.vue'
 
 const { notifySuccess, notifyConfirm } = useNotify()
 
@@ -62,8 +36,8 @@ const props = defineProps({
     default: () => [],
   },
   selectedVariant: {
-    type: Object,
-    default: () => {},
+    type: [String, Object],
+    default: '',
   },
   activeVariant: {
     type: String,
@@ -72,8 +46,17 @@ const props = defineProps({
 })
 const emit = defineEmits(['addVariant', 'deleteVariant', 'activateVariant', 'selectVariant', 'updateVariantProperty'])
 
-const isActive = computed(() => props.activeVariant === props.selectedVariant)
-const variant_description = computed(() => props.selectedVariant?.description)
+const selectedVariantValue = computed(() => {
+  if (props.selectedVariant && typeof props.selectedVariant === 'object') {
+    return props.selectedVariant.variant ?? props.selectedVariant.value
+  }
+  return props.selectedVariant
+})
+const selectedVariantRecord = computed(() => {
+  return props.variants.find((variant) => variant.variant === selectedVariantValue.value) ?? (typeof props.selectedVariant === 'object' ? props.selectedVariant : null)
+})
+const isActive = computed(() => props.activeVariant === selectedVariantValue.value)
+const variant_description = computed(() => selectedVariantRecord.value?.description)
 
 const getVariantLabel = (variant) => {
   return variant?.replace('variant_', 'Variant ')
@@ -83,13 +66,11 @@ const variantsOptions = computed(() => {
   return props.variants.map((variant) => ({
     label: getVariantLabel(variant.variant),
     value: variant.variant,
-    active_variant: variant.variant === props.activeVariant,
+    badgeLabel: variant.variant === props.activeVariant ? m.common_active() : '',
+    badgeTone: 'brand',
+    badgeIcon: 'check',
   }))
 })
-const variantValue = computed(() => {
-  return { label: getVariantLabel(props.selectedVariant), value: props.selectedVariant }
-})
-
 const activateVariant = () => {
   emit('activateVariant')
   notifySuccess('Variant has been activated.')
@@ -109,7 +90,7 @@ const deleteVariant = () => {
     },
   })
 }
-const selectVariant = ({ value }) => {
+const selectVariant = (value) => {
   emit('selectVariant', value)
 }
 

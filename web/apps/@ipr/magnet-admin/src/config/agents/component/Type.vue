@@ -1,5 +1,5 @@
-<template lang="pug">
-q-chip.km-small-chip(v-if='latency !== 0', :color='color', :text-color='textColor', :label='typeLabel')
+<template>
+  <km-chip v-if="latency !== 0" class="km-small-chip" tone="neutral" :label="typeLabel" />
 </template>
 
 <script>
@@ -41,15 +41,6 @@ export default defineComponent({
         return 'Knowledge Graph'
       }
       return this.row?.type
-    },
-    statusStyles() {
-      return { color: 'in-progress', textColor: 'text-gray' }
-    },
-    color() {
-      return this.statusStyles?.color || ''
-    },
-    textColor() {
-      return this.statusStyles?.textColor || ''
     },
   },
 })

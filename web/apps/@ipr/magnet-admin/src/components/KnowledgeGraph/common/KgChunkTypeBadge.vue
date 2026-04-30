@@ -1,8 +1,8 @@
 <template>
-  <div class="q-mx-none" style="width: 60px">
-    <q-chip color="grey-7" text-color="white" dense square class="text-weight-medium text-caption q-py-12 q-px-sm q-mx-none">
+  <div class="mx-0" style="inline-size: 60px">
+    <km-chip tone="neutral-strong" dense square class="text-weight-medium text-caption py-md px-sm mx-0">
       {{ label }}
-    </q-chip>
+    </km-chip>
   </div>
 </template>
 

@@ -1,15 +1,15 @@
 <template>
-  <div class="row no-wrap overflow-hidden full-height">
-    <div class="col row no-wrap full-height justify-center overflow-hidden">
-      <div class="col-auto full-width">
-        <div class="full-height q-pb-md relative-position q-px-md">
+  <div class="cluster overflow-hidden full-height" data-wrap="no">
+    <div class="flex-1 flex full-height overflow-hidden" style="justify-content: center; flex-wrap: nowrap">
+      <div class="flex-none full-width">
+        <div class="full-height pb-md relative-position px-md">
           <!-- Graph Header Card -->
-          <div class="kg-header-card q-mt-lg q-mb-sm">
+          <div class="kg-header-card mt-lg mb-sm">
             <div class="kg-header-content">
               <!-- Graph Icon & Info Section -->
               <div class="kg-header-main">
                 <div class="kg-icon-wrapper">
-                  <q-icon name="o_hub" size="22px" color="primary" />
+                  <km-glyph name="graph" size="22px" tone="brand" />
                 </div>
                 <div class="kg-info-section">
                   <div class="kg-name-row">
@@ -35,13 +35,13 @@
               <div class="kg-header-actions">
                 <div class="kg-system-name-section">
                   <div class="kg-system-name-label">
-                    <q-icon name="o_key" size="12px" class="q-mr-xs" />
+                    <km-glyph name="o_key" size="12px" class="mr-xs" />
                     <span>{{ m.knowledgeGraph_systemId() }}</span>
-                    <q-icon name="o_info" size="12px" class="kg-info-icon">
-                      <q-tooltip class="bg-white block-shadow text-secondary-text km-description" self="top middle" :offset="[0, 8]">
+                    <km-glyph name="info" size="12px" class="kg-info-icon">
+                      <km-tooltip class="bg-white block-shadow text-secondary-text km-description" self="top middle" :offset="[0, 8]">
                         {{ m.knowledgeGraph_systemNameHint() }}
-                      </q-tooltip>
-                    </q-icon>
+                      </km-tooltip>
+                    </km-glyph>
                   </div>
                   <km-input-flat
                     class="kg-system-name-input km-description text-black"
@@ -53,7 +53,7 @@
                   />
                   <transition name="kg-fade">
                     <div v-if="showInfo" class="kg-system-name-hint">
-                      <q-icon name="o_lightbulb" size="11px" />
+                      <km-glyph name="o_lightbulb" size="11px" />
                       <span>{{ m.knowledgeGraph_setOnce() }}</span>
                     </div>
                   </transition>
@@ -63,7 +63,7 @@
 
                 <button class="test-retrieval-btn" @click="openRetrievalDrawer">
                   <span class="btn-label">{{ m.knowledgeGraph_testRetrieval() }}</span>
-                  <q-icon name="arrow_forward" size="16px" class="btn-arrow" />
+                  <km-glyph name="arrow_forward" size="16px" class="btn-arrow" />
                 </button>
               </div>
             </div>
@@ -71,43 +71,41 @@
           <!-- Missing Embedding Model Warning -->
           <div
             v-if="!hasEmbeddingModel && !loading"
-            class="row items-center no-wrap q-mt-md bg-red-1 text-red-9 q-px-sm q-py-md border-radius-8 cursor-pointer q-mb-md ba-error"
+            class="cluster no-wrap mt-md bg-red-1 text-red-9 px-sm py-md border-radius-8 cursor-pointer mb-md ba-error"
+            data-wrap="no"
             @click="goToSettings"
           >
-            <q-icon name="o_warning" size="xs" class="q-mr-sm" />
+            <km-glyph name="warning" size="xs" class="mr-sm" />
             <div class="text-caption text-weight-medium">{{ m.knowledgeGraph_noEmbeddingModel() }}</div>
-            <q-space />
-            <div class="row items-center q-gutter-xs text-red-8">
+            <div class="km-space" />
+            <div class="cluster" data-gap="xs" style="color: var(--km-red-8)">
               <span class="text-caption">{{ m.common_goToSettings() }}</span>
-              <q-icon name="chevron_right" size="xs" />
+              <km-glyph name="chevron_right" size="xs" />
             </div>
           </div>
-          <div class="column no-wrap ba-border bg-white border-radius-12 q-pa-16" style="min-width: 300px; height: calc(100vh - 190px)">
-            <div class="row items-center bb-border q-pb-sm">
-              <q-tabs
+          <div class="stack no-wrap ba-border bg-white border-radius-12 p-lg" data-gap="0" style="min-inline-size: 300px; block-size: calc(100vb - 190px)">
+            <div class="cluster bb-border pb-sm">
+              <km-tabs
                 :model-value="activeTab"
-                class="col"
+                class="flex-1"
                 narrow-indicator
                 dense
                 align="left"
-                active-color="primary"
-                indicator-color="primary"
-                active-bg-color="white"
                 no-caps
                 content-class="km-tabs"
                 @update:model-value="onTabAttemptChange"
               >
-                <q-tab name="sources" :label="m.knowledgeGraph_sources()" />
-                <q-tab name="explorer" :label="m.knowledgeGraph_dataExplorer()" />
-                <q-tab name="metadata" :label="m.knowledgeGraph_metadataStudio()" :alert="metadataUnsaved" alert-color="orange-9" />
-                <q-tab name="entityExtraction" :label="m.knowledgeGraph_entityExtraction()" />
-                <q-tab name="contentProfiles" :label="m.knowledgeGraph_contentProfiles()" />
-                <q-tab name="retrieval" :label="m.knowledgeGraph_retrieval()" :alert="retrievalUnsaved" alert-color="orange-9" />
-                <q-tab name="settings" :label="m.common_settings()" :alert="!hasEmbeddingModel && !loading" alert-color="orange-9" />
-              </q-tabs>
+                <km-tab name="sources" :label="m.knowledgeGraph_sources()" />
+                <km-tab name="explorer" :label="m.knowledgeGraph_dataExplorer()" />
+                <km-tab name="metadata" :label="m.knowledgeGraph_metadataStudio()" :alert="metadataUnsaved" alert-color="orange-9" />
+                <km-tab name="entityExtraction" :label="m.knowledgeGraph_entityExtraction()" />
+                <km-tab name="contentProfiles" :label="m.knowledgeGraph_contentProfiles()" />
+                <km-tab name="retrieval" :label="m.knowledgeGraph_retrieval()" :alert="retrievalUnsaved" alert-color="orange-9" />
+                <km-tab name="settings" :label="m.common_settings()" :alert="!hasEmbeddingModel && !loading" alert-color="orange-9" />
+              </km-tabs>
             </div>
 
-            <div class="col overflow-auto q-mt-lg" style="min-height: 0">
+            <div class="flex-1 overflow-auto mt-lg" style="min-block-size: 0">
               <sources-tab
                 v-show="activeTab === 'sources'"
                 v-if="graphDetails"
@@ -166,7 +164,7 @@
         </div>
       </div>
     </div>
-    <div class="col-auto">
+    <div class="flex-none">
       <retrieval-test-drawer
         v-show="drawerOpen && drawerType === 'retrieval'"
         :graph-id="graphId"
@@ -181,7 +179,7 @@
   <div v-if="isDragging" class="kg-dnd-overlay">
     <div class="kg-dnd-content">
       <div class="kg-dnd-icon-wrapper">
-        <q-icon name="cloud_upload" class="kg-dnd-icon" />
+        <km-glyph name="cloud_upload" class="kg-dnd-icon" />
       </div>
       <div class="kg-dnd-title">{{ m.knowledgeGraph_dropFilesHere() }}</div>
       <div class="kg-dnd-subtitle">{{ m.knowledgeGraph_releaseToUpload() }}</div>
@@ -195,13 +193,13 @@
     :confirm-button-label2="m.common_dontSave()"
     confirm-button-type2="secondary"
     :cancel-button-label="m.knowledgeGraph_stayOnRetrieval()"
-    notification-icon="fas fa-triangle-exclamation"
+    notification-icon="warning"
     @confirm="handleRetrievalSaveAndSwitch"
     @confirm2="handleRetrievalDiscard"
     @cancel="handleRetrievalStay"
   >
-    <div class="row item-center justify-center km-heading-7 q-mb-md">{{ m.common_unsavedChanges() }}</div>
-    <div class="row text-center justify-center">{{ m.knowledgeGraph_unsavedRetrievalChanges() }}</div>
+    <div class="cluster km-heading-7 mb-md" data-justify="center">{{ m.common_unsavedChanges() }}</div>
+    <div class="cluster text-center" data-justify="center">{{ m.knowledgeGraph_unsavedRetrievalChanges() }}</div>
   </km-popup-confirm>
 
   <!-- Leave Metadata Tab Confirmation -->
@@ -211,13 +209,13 @@
     :confirm-button-label2="m.common_dontSave()"
     confirm-button-type2="secondary"
     :cancel-button-label="m.knowledgeGraph_stayOnMetadata()"
-    notification-icon="fas fa-triangle-exclamation"
+    notification-icon="warning"
     @confirm="handleMetadataSaveAndSwitch"
     @confirm2="handleMetadataDiscard"
     @cancel="handleMetadataStay"
   >
-    <div class="row item-center justify-center km-heading-7 q-mb-md">{{ m.common_unsavedChanges() }}</div>
-    <div class="row text-center justify-center">{{ m.knowledgeGraph_unsavedMetadataChanges() }}</div>
+    <div class="cluster km-heading-7 mb-md" data-justify="center">{{ m.common_unsavedChanges() }}</div>
+    <div class="cluster text-center" data-justify="center">{{ m.knowledgeGraph_unsavedMetadataChanges() }}</div>
   </km-popup-confirm>
 </template>
 
@@ -623,7 +621,6 @@ const onDrop = async (event: DragEvent) => {
   justify-content: center;
   background: rgba(7, 14, 30, 0.45); /* intentional dark overlay */
   backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
   pointer-events: none;
   animation: kg-overlay-fade-in 0.15s ease-out;
   will-change: opacity;
@@ -643,17 +640,17 @@ const onDrop = async (event: DragEvent) => {
   align-items: center;
   justify-content: center;
   gap: 16px;
-  width: 480px;
-  max-width: calc(100vw - 48px);
+  inline-size: 480px;
+  max-inline-size: calc(100vi - 48px);
   padding: 48px 32px;
   border-radius: 20px;
-  background: var(--q-white);
+  background: var(--ds-color-white);
   border: none;
-  outline: 3px dashed color-mix(in srgb, var(--q-primary) 60%, transparent);
+  outline: 3px dashed color-mix(in srgb, var(--ds-color-primary) 60%, transparent);
   outline-offset: -12px;
   box-shadow:
     0 20px 50px rgba(0, 0, 0, 0.2),
-    inset 0 0 0 1px var(--q-primary-light);
+    inset 0 0 0 1px var(--ds-color-primary-light);
   animation: kg-content-scale-in 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
   transform-origin: center;
   will-change: transform, opacity;
@@ -675,26 +672,26 @@ const onDrop = async (event: DragEvent) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 96px;
-  height: 96px;
-  border-radius: var(--radius-full);
+  inline-size: 96px;
+  block-size: 96px;
+  border-radius: var(--ds-radius-full);
   background: linear-gradient(
     135deg,
-    color-mix(in srgb, var(--q-primary) 8%, transparent) 0%,
-    color-mix(in srgb, var(--q-primary) 15%, transparent) 100%
+    color-mix(in srgb, var(--ds-color-primary) 8%, transparent) 0%,
+    color-mix(in srgb, var(--ds-color-primary) 15%, transparent) 100%
   );
-  margin-bottom: 8px;
+  margin-block-end: 8px;
 }
 
 .kg-dnd-icon {
   font-size: 48px !important;
-  color: var(--q-primary);
+  color: var(--ds-color-primary);
 }
 
 .kg-dnd-title {
   font-size: 26px;
   font-weight: 600;
-  color: var(--q-black);
+  color: var(--ds-color-black);
   letter-spacing: -0.3px;
   margin: 0;
   line-height: 1.2;
@@ -702,7 +699,7 @@ const onDrop = async (event: DragEvent) => {
 
 .kg-dnd-subtitle {
   font-size: 15px;
-  color: var(--q-label);
+  color: var(--ds-color-label);
   margin: 0;
   font-weight: 400;
   letter-spacing: 0.1px;
@@ -713,9 +710,9 @@ const onDrop = async (event: DragEvent) => {
    ============================================ */
 
 .kg-header-card {
-  background: linear-gradient(135deg, var(--q-white) 0%, var(--q-background) 100%);
+  background: linear-gradient(135deg, var(--ds-color-white) 0%, var(--ds-color-background) 100%);
   border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: var(--radius-xl);
+  border-radius: var(--ds-radius-xl);
   padding: 16px 24px;
   transition: border-color 0.25s ease;
 }
@@ -734,15 +731,15 @@ const onDrop = async (event: DragEvent) => {
   display: flex;
   align-items: flex-start;
   gap: 16px;
-  min-width: 0;
+  min-inline-size: 0;
 }
 
 .kg-icon-wrapper {
   flex-shrink: 0;
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius-xl);
-  background: var(--q-primary-bg);
+  inline-size: 44px;
+  block-size: 44px;
+  border-radius: var(--ds-radius-xl);
+  background: var(--ds-color-primary-bg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -750,12 +747,12 @@ const onDrop = async (event: DragEvent) => {
 
 .kg-info-section {
   flex: 1;
-  min-width: 0;
-  padding-top: 2px;
+  min-inline-size: 0;
+  padding-block-start: 2px;
 }
 
 .kg-name-row {
-  margin-bottom: 2px;
+  margin-block-end: 2px;
 }
 
 .kg-name-input {
@@ -767,7 +764,7 @@ const onDrop = async (event: DragEvent) => {
 }
 
 .kg-description-row {
-  margin-bottom: 0;
+  margin-block-end: 0;
 }
 
 .kg-description-input {
@@ -793,7 +790,7 @@ const onDrop = async (event: DragEvent) => {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding-top: 4px;
+  padding-block-start: 4px;
 }
 
 .kg-system-name-section {
@@ -802,19 +799,19 @@ const onDrop = async (event: DragEvent) => {
   flex-direction: column;
   align-items: flex-end;
   gap: 2px;
-  min-width: 160px;
+  min-inline-size: 160px;
 }
 
 .kg-system-name-label {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: var(--km-font-size-xs);
+  font-size: var(--ds-font-size-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: var(--q-label);
-  padding-right: 4px;
+  color: var(--ds-color-label);
+  padding-inline-end: 4px;
 }
 .kg-system-name-label .kg-info-icon {
   opacity: 0.6;
@@ -826,29 +823,29 @@ const onDrop = async (event: DragEvent) => {
 }
 
 .kg-system-name-input {
-  text-align: right;
-  font-family: var(--km-font-mono);
-  font-size: var(--km-font-size-caption) !important;
+  text-align: end;
+  font-family: var(--ds-font-mono);
+  font-size: var(--ds-font-size-caption) !important;
   letter-spacing: 0.2px;
-  color: var(--q-secondary-text) !important;
+  color: var(--ds-color-secondary-text) !important;
 }
 .kg-system-name-input :deep(input) {
-  text-align: right;
+  text-align: end;
   font-family: inherit;
   color: inherit;
 }
 
 .kg-system-name-hint {
   position: absolute;
-  top: 100%;
-  right: 0;
+  inset-block-start: 100%;
+  inset-inline-end: 0;
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: var(--km-font-size-xs);
-  color: var(--q-warning);
-  padding-right: 4px;
-  margin-top: 4px;
+  font-size: var(--ds-font-size-xs);
+  color: var(--ds-color-warning);
+  padding-inline-end: 4px;
+  margin-block-start: 4px;
   white-space: nowrap;
 }
 
@@ -867,8 +864,8 @@ const onDrop = async (event: DragEvent) => {
 
 /* Action Divider */
 .kg-action-divider {
-  width: 1px;
-  height: 36px;
+  inline-size: 1px;
+  block-size: 36px;
   background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.08) 20%, rgba(0, 0, 0, 0.08) 80%, transparent 100%);
 }
 
@@ -879,15 +876,15 @@ const onDrop = async (event: DragEvent) => {
   gap: 10px;
   padding: 10px 18px;
   border: none;
-  border-radius: var(--radius-xl);
-  background-color: var(--q-primary);
-  color: var(--q-white);
-  font-size: var(--km-font-size-label);
+  border-radius: var(--ds-radius-xl);
+  background-color: var(--ds-color-primary);
+  color: var(--ds-color-static-white);
+  font-size: var(--ds-font-size-label);
   font-weight: 600;
   letter-spacing: 0.2px;
   cursor: pointer;
   white-space: nowrap;
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--q-primary) 35%, transparent);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--ds-color-primary) 35%, transparent);
   transition:
     box-shadow 0.2s ease,
     transform 0.2s ease,
@@ -901,7 +898,7 @@ const onDrop = async (event: DragEvent) => {
 }
 .test-retrieval-btn:hover {
   filter: brightness(1.1);
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--q-primary) 45%, transparent);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--ds-color-primary) 45%, transparent);
   transform: translateY(-1px);
 }
 .test-retrieval-btn:hover .btn-icon {
@@ -913,11 +910,11 @@ const onDrop = async (event: DragEvent) => {
 }
 .test-retrieval-btn:active {
   filter: brightness(0.9);
-  box-shadow: 0 1px 4px color-mix(in srgb, var(--q-primary) 30%, transparent);
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--ds-color-primary) 30%, transparent);
   transform: translateY(0);
 }
 .test-retrieval-btn:focus-visible {
-  outline: 2px solid var(--q-primary);
+  outline: 2px solid var(--ds-color-primary);
   outline-offset: 2px;
 }
 </style>

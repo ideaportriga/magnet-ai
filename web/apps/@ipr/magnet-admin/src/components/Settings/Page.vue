@@ -1,180 +1,135 @@
-<template lang="pug">
-.row.no-wrap.overflow-hidden.full-height
-  q-scroll-area.fit
-    .row.no-wrap.full-height.justify-center.fit
-      .col-auto.collection-container.full-width
-        .full-height.q-pb-md.relative-position.q-px-md.q-mt-lg
-          q-tabs(
-            :model-value='activeTab',
-            align='left',
-            active-color='primary',
-            indicator-color='primary',
-            active-bg-color='white',
-            no-caps,
-            content-class='km-tabs',
-            @update:model-value='onTabChange'
-          )
-            q-tab(name='import', :label='m.common_import()')
-            q-tab(name='export', :label='m.common_export()')
-
-          .border.border-radius-12.bg-white.ba-border.q-my-16.q-pa-16.q-gap-16.full-width.relative-position(v-if='activeTab === "import"')
-            q-inner-loading(:showing='loadingPreview || populating || checkingExists')
-              q-spinner-dots(color='primary', size='40px')
-              .km-description.text-primary.q-mt-sm {{ loadingPreview ? m.settings_loadingSeedRecords() : populating ? m.settings_importingRecords() : m.settings_checkingRecords() }}
-            .row.items-center.q-mb-md
-              .km-heading-7 {{ m.settings_importHeading() }}
-              q-space
-              km-btn.q-mr-8(flat, :label='m.common_addFromJson()', icon='fas fa-upload', @click='showUploadDialog = true')
-              km-btn.q-mr-8(flat, :label='m.common_addFromSeed()', icon='fas fa-database', :loading='loadingPreview', @click='addFromSeed')
-              km-btn.q-mr-8(
-                :label='m.common_loadSelected()',
-                :disable='selected.length === 0 || populating',
-                :loading='populating',
-                @click='loadSelected'
-              )
-              km-btn(flat, :label='m.common_clearList()', icon='fas fa-trash', :disable='rows.length === 0 || populating', @click='clearList')
-            .row.bg-light.full-width.q-py-4.q-px-8.q-gap-8.no-wrap.items-center.q-mb-md
-              km-notification-text(:notification='m.settings_importHint()')
-            .row.q-col-gutter-md.q-mb-md
-              .col-2
-                km-input(:placeholder='m.common_search()', iconBefore='search', v-model='importSearch', clearable)
-              .col-1
-                km-select(
-                  v-model='importEntityTypeFilter',
-                  :options='importEntityTypeOptions',
-                  emit-value,
-                  map-options,
-                  option-label='label',
-                  option-value='value',
-                  :placeholder='m.settings_entityTypePlaceholder()'
-                )
-              .col-1
-                km-select(
-                  v-model='importStatusFilter',
-                  :options='importStatusOptions',
-                  emit-value,
-                  map-options,
-                  option-label='label',
-                  option-value='value',
-                  :placeholder='m.common_status()'
-                )
-            .row(v-if='rows.length === 0').q-mb-md.bg-light.q-pa-sm.border-radius-6
-              .km-description.text-secondary-text {{ m.settings_importListEmpty() }}
-            .row(v-if='selectedHasExisting').q-mb-md.bg-warning-low.q-pa-sm.border-radius-6
-              .km-description.text-primary {{ m.settings_existingWillBeOverwritten() }}
-            //- §E.3.1 — km-data-table. Multi-selection still tracked by the
-            //- external `selected` ref (preserves per-filter select-all
-            //- semantics); the checkbox column reads/writes that ref.
-            km-data-table(
-              :table='importTable',
-              row-key='row_key',
-              :loading='loadingPreview || populating',
-              hide-pagination
-            )
-              template(#cell-_select='{ row }')
-                q-checkbox(
-                  dense,
-                  size='sm',
-                  :model-value='selectedKeySet.has(row.row_key)',
-                  @update:model-value='toggleImportRow(row, $event)',
-                  @click.stop
-                )
-              template(#cell-source='{ row }')
-                q-chip(size='sm', color='primary-light', text-color='primary') {{ row.source === 'seed' ? m.settings_sourceSeed() : m.settings_sourceJson() }}
-              template(#cell-exists='{ row }')
-                q-chip(size='sm', color='primary-light', text-color='primary', v-if='row.exists === null') {{ m.settings_unknown() }}
-                q-chip(size='sm', :color='row.exists ? "orange-2" : "green-2"', :text-color='row.exists ? "orange-8" : "green-8"', v-else)
-                  | {{ row.exists ? m.settings_alreadyLoaded() : m.settings_missing() }}
-              template(#cell-overwrite='{ row }')
-                .km-description.text-primary(v-if='row.overwrite') {{ m.settings_willBeOverwritten() }}
-              template(#cell-progress='{ row }')
-                .row.items-center.q-gap-8
-                  q-spinner(size='14px', color='primary', v-if='row.progress === "loading"')
-                  q-chip(size='sm', color='green-2', text-color='green-8', v-if='row.progress === "success"') {{ m.settings_progressLoaded() }}
-                  q-chip(size='sm', color='red-2', text-color='red-8', v-if='row.progress === "error"') {{ m.settings_progressError() }}
-                  .km-description.text-secondary-text(v-if='row.progressMessage') {{ row.progressMessage }}
-
-            .row.q-mt-md.items-center
-              .col
-                q-linear-progress(v-if='populating', :value='progressValue', color='primary', rounded, size='8px')
-
-          .border.border-radius-12.bg-white.ba-border.q-my-16.q-pa-16.q-gap-16.full-width.relative-position(v-if='activeTab === "export"')
-            q-inner-loading(:showing='loadingExportPreview || exportingJson')
-              q-spinner-dots(color='primary', size='40px')
-              .km-description.text-primary.q-mt-sm {{ loadingExportPreview ? m.settings_loadingFromDb() : m.settings_exportingRecords() }}
-            .row.items-center.q-mb-md
-              .km-heading-7 {{ m.settings_exportHeading() }}
-              q-space
-              km-btn.q-mr-8(flat, :label='m.common_addFromDatabase()', icon='fas fa-database', :loading='loadingExportPreview', @click='addFromDatabase')
-              km-btn.q-mr-8(
-                :label='m.common_exportSelected()',
-                :disable='selectedExport.length === 0 || exportingJson',
-                :loading='exportingJson',
-                @click='exportSelected'
-              )
-              km-btn(flat, :label='m.common_clearList()', icon='fas fa-trash', :disable='exportRows.length === 0 || exportingJson', @click='clearExportList')
-            .row.q-col-gutter-md.q-mb-md
-              .col-4
-                km-input(:placeholder='m.common_search()', iconBefore='search', v-model='exportSearch', clearable)
-              .col-4
-                km-select(
-                  v-model='exportEntityTypeFilter',
-                  :options='exportEntityTypeOptions',
-                  emit-value,
-                  map-options,
-                  option-label='label',
-                  option-value='value',
-                  :placeholder='m.settings_entityTypePlaceholder()'
-                )
-              .col-4
-                km-input(:placeholder='m.settings_filterByName()', v-model='exportNameFilter', clearable)
-            //- .row.bg-light.full-width.q-py-4.q-px-8.q-gap-8.no-wrap.items-center.q-mb-md
-              q-icon(name='o_info', color='icon', size='20px', style='min-width: 20px')
-              .km-paragraph Add records from any entity, select needed rows, then click Export Selected to download JSON in import format.
-            .row(v-if='exportRows.length === 0').q-mb-md.bg-light.q-pa-sm.border-radius-6
-              .km-description.text-secondary-text {{ m.settings_exportListEmpty() }}
-            km-data-table(
-              :table='exportTable',
-              row-key='row_key',
-              :loading='loadingExportPreview || exportingJson',
-              hide-pagination
-            )
-              template(#cell-_select='{ row }')
-                q-checkbox(
-                  dense,
-                  size='sm',
-                  :model-value='selectedExportKeySet.has(row.row_key)',
-                  @update:model-value='toggleExportRow(row, $event)',
-                  @click.stop
-                )
-
-  q-dialog(:model-value='showUploadDialog', @update:model-value='showUploadDialog = $event')
-    q-card.card-style(style='min-width: 700px')
-      q-card-section.card-section-style
-        .row.items-center
-          .km-heading-7 {{ m.settings_addFromJsonTitle() }}
-          q-space
-          q-btn(icon='close', flat, dense, @click='showUploadDialog = false')
-      q-card-section.card-section-style
-        .row.q-col-gutter-md
-          .col-12
-            .km-field.text-secondary-text.q-pb-xs {{ m.settings_jsonFileLabel() }}
-            q-file(
-              outlined,
-              dense,
-              :label='m.common_uploadFile()',
-              accept='.json,application/json',
-              v-model='uploadFile',
-              clearable
-            )
-      q-card-actions.card-section-style(align='right')
-        km-btn(flat, :label='m.common_cancel()', @click='showUploadDialog = false')
-        km-btn(
-          :label='m.common_addToList()',
-          :disable='!uploadFile || uploadingJson',
-          :loading='uploadingJson',
-          @click='addFromJson'
-        )
+<template>
+  <div class="cluster overflow-hidden full-height" data-wrap="no">
+    <km-scroll-area class="fit">
+      <div class="flex full-height fit" style="justify-content: center; flex-wrap: nowrap">
+        <div class="flex-none collection-container full-width">
+          <div class="full-height pb-md relative-position px-md mt-lg">
+            <km-tabs :model-value="activeTab" align="left" no-caps content-class="km-tabs" @update:model-value="onTabChange">
+              <km-tab name="import" :label="m.common_import()" />
+              <km-tab name="export" :label="m.common_export()" />
+            </km-tabs>
+            <div v-if="activeTab === &quot;import&quot;" class="border border-radius-12 bg-white ba-border my-lg p-lg gap-lg full-width relative-position">
+              <km-inner-loading :showing="loadingPreview || populating || checkingExists">
+                <km-loader size="40px" />
+                <div class="km-description text-primary mt-sm">{{ loadingPreview ? m.settings_loadingSeedRecords() : populating ? m.settings_importingRecords() : m.settings_checkingRecords() }}</div>
+              </km-inner-loading>
+              <div class="cluster mb-md" data-justify="between">
+                <div class="km-heading-7">{{ m.settings_importHeading() }}</div>
+                <div class="km-space" />
+                <km-btn class="mr-sm" flat :label="m.common_addFromJson()" icon="upload" @click="showUploadDialog = true" />
+                <km-btn class="mr-sm" flat :label="m.common_addFromSeed()" icon="database" :loading="loadingPreview" @click="addFromSeed" />
+                <km-btn class="mr-sm" :label="m.common_loadSelected()" :disable="selected.length === 0 || populating" :loading="populating" @click="loadSelected" />
+                <km-btn flat :label="m.common_clearList()" icon="delete" :disable="rows.length === 0 || populating" @click="clearList" />
+              </div>
+              <div class="cluster full-width py-xs px-sm mb-md bg-light" data-gap="sm" data-wrap="no">
+                <km-notification-text :notification="m.settings_importHint()" />
+              </div>
+              <div class="cluster mb-md" data-gap="md">
+                <div class="basis-2">
+                  <km-input v-model="importSearch" :placeholder="m.common_search()" icon-before="search" clearable />
+                </div>
+                <div class="basis-1">
+                  <km-select v-model="importEntityTypeFilter" :options="importEntityTypeOptions" emit-value map-options option-label="label" option-value="value" :placeholder="m.settings_entityTypePlaceholder()" />
+                </div>
+                <div class="basis-1">
+                  <km-select v-model="importStatusFilter" :options="importStatusOptions" emit-value map-options option-label="label" option-value="value" :placeholder="m.common_status()" />
+                </div>
+              </div>
+              <div v-if="rows.length === 0" class="cluster mb-md bg-light p-sm border-radius-6">
+                <div class="km-description text-secondary-text">{{ m.settings_importListEmpty() }}</div>
+              </div>
+              <div v-if="selectedHasExisting" class="cluster mb-md bg-warning-low p-sm border-radius-6">
+                <div class="km-description text-primary">{{ m.settings_existingWillBeOverwritten() }}</div>
+              </div>
+              <km-data-table :table="importTable" row-key="row_key" :loading="loadingPreview || populating" hide-pagination>
+                <template #cell-_select="{ row }">
+                  <km-checkbox dense size="sm" :model-value="selectedKeySet.has(row.row_key)" @update:model-value="toggleImportRow(row, $event)" @click.stop />
+                </template>
+                <template #cell-source="{ row }">
+                  <km-chip tone="brand" size="sm">{{ row.source === 'seed' ? m.settings_sourceSeed() : m.settings_sourceJson() }}</km-chip>
+                </template>
+                <template #cell-exists="{ row }">
+                  <km-chip v-if="row.exists === null" tone="brand" size="sm">{{ m.settings_unknown() }}</km-chip>
+                  <km-chip v-else size="sm" :tone="row.exists ? &quot;warning&quot; : &quot;success&quot;">{{ row.exists ? m.settings_alreadyLoaded() : m.settings_missing() }}</km-chip>
+                </template>
+                <template #cell-overwrite="{ row }">
+                  <div v-if="row.overwrite" class="km-description text-primary">{{ m.settings_willBeOverwritten() }}</div>
+                </template>
+                <template #cell-progress="{ row }">
+                  <div class="cluster" data-gap="sm">
+                    <km-loader v-if="row.progress === &quot;loading&quot;" size="14px" />
+                    <km-chip v-if="row.progress === &quot;success&quot;" size="sm" tone="success">{{ m.settings_progressLoaded() }}</km-chip>
+                    <km-chip v-if="row.progress === &quot;error&quot;" size="sm" tone="danger">{{ m.settings_progressError() }}</km-chip>
+                    <div v-if="row.progressMessage" class="km-description text-secondary-text">{{ row.progressMessage }}</div>
+                  </div>
+                </template>
+              </km-data-table>
+              <div class="cluster mt-md">
+                <div class="flex-1">
+                  <km-linear-progress v-if="populating" :value="progressValue" rounded size="8px" />
+                </div>
+              </div>
+            </div>
+            <div v-if="activeTab === &quot;export&quot;" class="border border-radius-12 bg-white ba-border my-lg p-lg gap-lg full-width relative-position">
+              <km-inner-loading :showing="loadingExportPreview || exportingJson">
+                <km-loader size="40px" />
+                <div class="km-description text-primary mt-sm">{{ loadingExportPreview ? m.settings_loadingFromDb() : m.settings_exportingRecords() }}</div>
+              </km-inner-loading>
+              <div class="cluster mb-md" data-justify="between">
+                <div class="km-heading-7">{{ m.settings_exportHeading() }}</div>
+                <div class="km-space" />
+                <km-btn class="mr-sm" flat :label="m.common_addFromDatabase()" icon="database" :loading="loadingExportPreview" @click="addFromDatabase" />
+                <km-btn class="mr-sm" :label="m.common_exportSelected()" :disable="selectedExport.length === 0 || exportingJson" :loading="exportingJson" @click="exportSelected" />
+                <km-btn flat :label="m.common_clearList()" icon="delete" :disable="exportRows.length === 0 || exportingJson" @click="clearExportList" />
+              </div>
+              <div class="cluster mb-md" data-gap="md">
+                <div class="basis-4">
+                  <km-input v-model="exportSearch" :placeholder="m.common_search()" icon-before="search" clearable />
+                </div>
+                <div class="basis-4">
+                  <km-select v-model="exportEntityTypeFilter" :options="exportEntityTypeOptions" emit-value map-options option-label="label" option-value="value" :placeholder="m.settings_entityTypePlaceholder()" />
+                </div>
+                <div class="basis-4">
+                  <km-input v-model="exportNameFilter" :placeholder="m.settings_filterByName()" clearable />
+                </div>
+              </div>
+              <div v-if="exportRows.length === 0" class="cluster mb-md bg-light p-sm border-radius-6">
+                <div class="km-description text-secondary-text">{{ m.settings_exportListEmpty() }}</div>
+              </div>
+              <km-data-table :table="exportTable" row-key="row_key" :loading="loadingExportPreview || exportingJson" hide-pagination>
+                <template #cell-_select="{ row }">
+                  <km-checkbox dense size="sm" :model-value="selectedExportKeySet.has(row.row_key)" @update:model-value="toggleExportRow(row, $event)" @click.stop />
+                </template>
+              </km-data-table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </km-scroll-area>
+    <km-dialog :model-value="showUploadDialog" @update:model-value="showUploadDialog = $event">
+      <km-card class="card-style" style="min-inline-size: 700px">
+        <div class="km-card-section card-section-style">
+          <div class="cluster" data-justify="between">
+            <div class="km-heading-7">{{ m.settings_addFromJsonTitle() }}</div>
+            <div class="km-space" />
+            <km-btn icon="close" flat dense @click="showUploadDialog = false" />
+          </div>
+        </div>
+        <div class="km-card-section card-section-style">
+          <div class="cluster" data-gap="md">
+            <div class="basis-12">
+              <div class="km-field text-secondary-text pb-xs">{{ m.settings_jsonFileLabel() }}</div>
+              <km-file-picker v-model="uploadFile" outlined dense :label="m.common_uploadFile()" accept=".json,application/json" clearable />
+            </div>
+          </div>
+        </div>
+        <div class="km-card-actions card-section-style" align="right">
+          <km-btn flat :label="m.common_cancel()" @click="showUploadDialog = false" />
+          <km-btn :label="m.common_addToList()" :disable="!uploadFile || uploadingJson" :loading="uploadingJson" @click="addFromJson" />
+        </div>
+      </km-card>
+    </km-dialog>
+  </div>
 </template>
 
 <script setup>
@@ -418,7 +373,7 @@ const clearList = () => {
 // The header-level select-all is not exposed by km-data-table, but users
 // can still drive multi-selection via individual checkboxes; bulk actions
 // above the table should call this helper.
- 
+
 const toggleSelectAllSeedRows = (value) => {
   if (value) {
     const selectedMap = new Map(selected.value.map((row) => [row.row_key, row]))
@@ -441,7 +396,7 @@ const clearExportList = () => {
   exportNameFilter.value = ''
 }
 
- 
+
 const toggleSelectAllExportRows = (value) => {
   if (value) {
     const selectedMap = new Map(selectedExport.value.map((row) => [row.row_key, row]))

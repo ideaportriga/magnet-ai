@@ -1,108 +1,121 @@
-<template lang="pug">
-.column.no-wrap.full-height
-  .collection-container.q-mx-auto.full-width.column.full-height.q-px-md.q-pt-16
-    .col.ba-border.border-radius-12.bg-white.q-pa-16.column(style='min-height: 0')
-      .row.q-mb-12
-        .col-auto.center-flex-y
-          km-input(data-test='search-input', :placeholder='m.common_search()', iconBefore='search', :modelValue='searchString', @input='searchString = $event', clearable)
-        q-space
-        .col-auto.center-flex-y
-          km-btn.q-mr-12(data-test='new-btn', :label='m.common_new()', @click='showNewDialog = true')
-      .col.overflow-auto(style='min-height: 0')
-        template(v-if='isLoading && !visibleRows.length')
-          .flex.flex-center.full-height
-            q-spinner(size='40px', color='primary')
-        template(v-else-if='visibleRows.length')
-          .row
-            .q-pa-md.col-xs-12.col-sm-6.col-md-6.col-lg-6(data-test='table-row', v-for='row in visibleRows', :key='row.id', @click='openDetails(row)')
-              q-card.card-hover(bordered, flat, style='min-width: 400px')
-                q-card-section.q-pa-lg
-                  .row
-                    .col-auto
-                      .km-heading-4 {{ row.name }}
-                      .km-label {{ row.description }}
-                    .col-auto.q-ml-auto
-                      q-chip.km-button-text(text-color='primary', color='primary-light')
-                        q-icon.q-mr-xs(name='fas fa-wand-magic-sparkles')
-                        div {{ row?.variants?.find((v) => v?.variant == row?.active_variant)?.value?.topics?.length || 0 }} {{ m.agents_topics() }}
-                  .row.q-mt-sm
-                    km-chip-copy(:label='row?.system_name')
-                q-separator
-                .row.justify-between
-                  q-item.q-pa-lg
-                    q-item-section
-                      q-item-label {{ m.common_created() }}
-                      q-item-label(caption) {{ formatDate(row.created_at) }}
-                  q-item.q-pa-lg
-                    q-item-section
-                      q-item-label {{ m.common_updated() }}
-                      q-item-label(caption) {{ formatDate(row.updated_at) }}
-        template(v-else)
-          .flex.flex-center.full-height
-            .km-description.text-grey-6 {{ m.agents_noAgentsFound() }}
-      .row.items-center.q-px-md.q-py-sm.text-grey(style='flex-shrink: 0; border-top: 1px solid rgba(0,0,0,0.12)')
-        .km-description {{ visibleRows.length }} {{ m.common_records() }}
+<template>
+  <div class="stack full-height" data-gap="0">
+    <div class="collection-container mx-auto full-width stack full-height px-md pt-lg" data-gap="0">
+      <div class="flex-1 ba-border border-radius-12 bg-white p-lg stack" data-gap="0" style="min-block-size: 0">
+        <div class="cluster mb-md" data-justify="between">
+          <div class="flex-none center-flex-y">
+            <km-input data-test="search-input" :placeholder="m.common_search()" icon-before="search" :model-value="globalFilter" clearable @input="globalFilter = $event" />
+          </div>
+          <div class="km-space" />
+          <div class="flex-none center-flex-y">
+            <km-btn class="mr-md" data-test="new-btn" :label="m.common_new()" @click="showNewDialog = true" />
+          </div>
+        </div>
+        <div class="flex-1 overflow-auto relative-position" style="min-block-size: 0">
+          <km-inner-loading :showing="isLoading && rows.length === 0" />
+          <template v-if="rows.length">
+            <div class="agents-grid">
+              <button
+                v-for="row in rows"
+                :key="row.original.id"
+                type="button"
+                class="agent-card"
+                data-test="table-row"
+                @click="openDetails(row.original)"
+              >
+                <div class="agent-card__header">
+                  <div class="agent-card__title-block">
+                    <div class="km-heading-3 agent-card__title">{{ row.original.name }}</div>
+                    <div v-if="row.original.description" class="km-description text-secondary-text agent-card__desc">
+                      {{ row.original.description }}
+                    </div>
+                  </div>
+                  <km-chip
+                    tone="brand"
+                    class="agent-card__topics"
+                    icon="magic"
+                    icon-size="14px"
+                    icon-margin-right="6px"
+                    :label="`${topicCount(row.original)} ${m.agents_topics()}`"
+                  />
+                </div>
 
-    agents-create-new(:showNewDialog='showNewDialog', @cancel='showNewDialog = false', v-if='showNewDialog')
+                <div class="agent-card__sysname" @click.stop>
+                  <km-chip-copy :label="row.original.system_name" />
+                </div>
+
+                <km-separator class="my-0" />
+
+                <div class="agent-card__footer cluster" data-gap="lg">
+                  <span class="agent-card__meta">
+                    <span class="agent-card__meta-label">{{ m.common_created() }}</span>
+                    <span class="agent-card__meta-value">{{ formatDate(row.original.created_at) }}</span>
+                  </span>
+                  <span class="agent-card__meta">
+                    <span class="agent-card__meta-label">{{ m.common_updated() }}</span>
+                    <span class="agent-card__meta-value">{{ formatDate(row.original.updated_at) }}</span>
+                  </span>
+                </div>
+              </button>
+            </div>
+          </template>
+          <template v-else-if="!isLoading">
+            <div class="flex flex-center full-height">
+              <div class="km-description text-grey-6">{{ m.agents_noAgentsFound() }}</div>
+            </div>
+          </template>
+        </div>
+        <km-separator />
+        <div class="cluster px-md py-sm text-grey" style="flex-shrink: 0">
+          <div class="km-description">{{ totalRows }} {{ m.common_records() }}</div>
+        </div>
+      </div>
+      <agents-create-new v-if="showNewDialog" :show-new-dialog="showNewDialog" @cancel="showNewDialog = false" />
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onBeforeUnmount } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { formatDateTime } from '@shared/utils'
-import { useEntityQueries } from '@/queries/entities'
+import { useDataTable } from '@/composables/useDataTable'
+import { textColumn, dateColumn } from '@/utils/columnHelpers'
 import { m } from '@/paraglide/messages'
 import type { Agent } from '@/types'
 
-
 const router = useRouter()
-const queries = useEntityQueries()
 const showNewDialog = ref(false)
-const searchString = ref('')
-const debouncedSearch = ref('')
 
-// §B.5 — debounce + teardown on unmount so late setTimeout callbacks
-// don't fire after navigation (they'd try to mutate an unmounted ref).
-let searchTimer: ReturnType<typeof setTimeout> | null = null
-watch(searchString, (val) => {
-  if (searchTimer) clearTimeout(searchTimer)
-  searchTimer = setTimeout(() => { debouncedSearch.value = val }, 300)
-})
-onBeforeUnmount(() => {
-  if (searchTimer) {
-    clearTimeout(searchTimer)
-    searchTimer = null
-  }
-})
+// `useDataTable` owns the search-debounce + sort + pagination params and
+// returns a TanStack `table` instance plus the live row models. We don't
+// render columns visually (the page is a card grid), but the column
+// definitions still drive server-side search and sort.
+const columns = [
+  textColumn<Agent>('name', m.common_name()),
+  textColumn<Agent>('system_name', m.common_systemName()),
+  dateColumn<Agent>('created_at', m.common_created()),
+  dateColumn<Agent>('updated_at', m.common_lastUpdated()),
+]
 
-const queryParams = computed(() => {
-  const params: Record<string, unknown> = {
-    orderBy: 'updated_at',
-    sortOrder: 'desc',
-    currentPage: 1,
-    pageSize: 50,
-  }
-  if (debouncedSearch.value) params.search = debouncedSearch.value
-  return params
+const { table, totalRows, isLoading, globalFilter } = useDataTable<Agent>('agents', columns, {
+  defaultSort: [{ id: 'updated_at', desc: true }],
+  defaultPageSize: 50,
 })
 
-const { data, isLoading } = queries.agents.useList(queryParams)
+const rows = computed(() => table.getRowModel().rows)
 
-const visibleRows = computed<Agent[]>(() => (data.value?.items ?? []) as Agent[])
+function topicCount(agent: Agent): number {
+  const active = agent?.variants?.find?.((v: { variant?: string }) => v?.variant === agent?.active_variant)
+  return (active as { value?: { topics?: unknown[] } } | undefined)?.value?.topics?.length ?? 0
+}
 
-const formatDate = (val?: string) => (val ? formatDateTime(val) : '-')
+function formatDate(val?: string | null): string {
+  return val ? formatDateTime(val) : '-'
+}
 
-const openDetails = async (row: Agent) => {
-  await router.push(`/agents/${row.id}`)
+function openDetails(agent: Agent) {
+  router.push(`/agents/${agent.id}`)
 }
 </script>
 
-<style lang="stylus">
-.km-input:not(.q-field--readonly) .q-field__control::before
-  background: var(--q-white) !important;
-
-.card-hover:hover
-  background: var(--q-background)
-  cursor pointer
-  border-color: var(--q-primary)
-</style>

@@ -1,6 +1,7 @@
-<template lang="pug">
-.row.q-gap-4.no-wrap
-  q-chip.text-uppercase.q-ma-none(v-for='feature in activeFeatures', :key='feature.value', size='sm') {{ feature.label }}
+<template>
+  <div class="cluster" data-gap="xs">
+    <km-chip v-for="feature in activeFeatures" :key="feature.value" class="text-uppercase m-0" size="sm">{{ feature.label }}</km-chip>
+  </div>
 </template>
 <script>
 import { defineComponent, computed } from 'vue'

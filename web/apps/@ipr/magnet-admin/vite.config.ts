@@ -4,7 +4,6 @@ import vue from '@vitejs/plugin-vue'
 import { nxViteTsPaths } from '@nx/vite/plugins/nx-tsconfig-paths.plugin'
 import { nxCopyAssetsPlugin } from '@nx/vite/plugins/nx-copy-assets.plugin'
 import vueDevTools from 'vite-plugin-vue-devtools'
-import { quasar, transformAssetUrls } from '@quasar/vite-plugin'
 import path from 'path'
 import basicSsl from '@vitejs/plugin-basic-ssl'
 import { paraglideVitePlugin } from '@inlang/paraglide-js'
@@ -22,14 +21,7 @@ export default defineConfig({
   },
   plugins: [
     basicSsl(),
-    vue({
-      template: {
-        transformAssetUrls,
-      },
-    }),
-    quasar({
-      sassVariables: '@/styles/quasar-variables.sass',
-    }),
+    vue(),
     nxViteTsPaths(),
     nxCopyAssetsPlugin(['*.md']),
     vueDevTools(),
@@ -45,15 +37,12 @@ export default defineConfig({
     commonjsOptions: {
       transformMixedEsModules: true,
     },
-    // §C.1 — split heavy vendor libs into named async chunks. Without this the
-    // main bundle bundled Vue, Quasar, TanStack and codemirror together (~800KB),
-    // and every route hit had to parse the whole thing. Named chunks let the
-    // browser cache each library independently across deploys.
+    // §C.1 — split heavy vendor libs into named async chunks so each lib
+    // caches independently across deploys.
     rollupOptions: {
       output: {
         manualChunks: {
           vue: ['vue', 'vue-router', 'pinia'],
-          quasar: ['quasar', '@quasar/extras'],
           query: ['@tanstack/vue-query', '@tanstack/vue-table'],
           editor: ['vue-codemirror'],
         },

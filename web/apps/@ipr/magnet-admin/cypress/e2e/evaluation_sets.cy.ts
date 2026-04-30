@@ -19,7 +19,7 @@ runCrudContract({
       const typeSelect = $body.find('[data-test="typeRef"], [ref="typeRef"]')
       if (typeSelect.length) {
         cy.wrap(typeSelect.first()).click()
-        cy.get('[data-test="options"]').first().click()
+        cy.get('[data-test="km-select-item"], [data-test="ds-select-item"]').first().click({ force: true })
       }
     })
   },

@@ -1,6 +1,8 @@
 import { h, resolveComponent, type Component } from 'vue'
 import { createColumnHelper, type ColumnDef, type Table, type Row } from '@tanstack/vue-table'
 import { formatDateTime } from '@shared/utils'
+import KmGlyph from '@ds/components/domain/KmGlyph.vue'
+import KmCheckbox from '@ds/components/domain/KmCheckbox.vue'
 import type { BaseEntity } from '@/types'
 
 /**
@@ -87,6 +89,9 @@ export function componentColumn<T extends BaseEntity>(
     align?: 'left' | 'center' | 'right'
     sortFn?: (a: T, b: T) => number
     props?: (row: T) => Record<string, unknown>
+    /** When true, the cell wraps its content onto multiple lines and the row
+     *  grows to fit (useful for a cluster of chips). */
+    wrap?: boolean
   },
 ): ColumnDef<T, unknown> {
   return {
@@ -101,6 +106,7 @@ export function componentColumn<T extends BaseEntity>(
     ...(options?.sortFn ? { sortingFn: (a, b) => options.sortFn!(a.original, b.original) } : {}),
     meta: {
       align: options?.align ?? 'left',
+      class: options?.wrap ? 'km-data-table__td--wrap' : undefined,
     } as KmColumnMeta,
   }
 }
@@ -162,10 +168,7 @@ export function drilldownColumn<T extends BaseEntity>(
     id,
     accessorFn: () => null,
     header: '',
-    cell: () => {
-      const QIcon = resolveComponent('q-icon')
-      return h(QIcon, { name: 'chevron_right', size: '20px', class: 'text-grey-6' })
-    },
+    cell: () => h(KmGlyph, { name: 'chevron_right', size: '20px', class: 'text-grey-6' }),
     enableSorting: false,
     meta: { align: 'center', width: '40px' } as KmColumnMeta,
   }
@@ -178,9 +181,8 @@ export function drilldownColumn<T extends BaseEntity>(
 export function selectionColumn<T extends BaseEntity>(): ColumnDef<T, unknown> {
   return {
     id: '_select',
-    header: ({ table }: { table: Table<T> }) => {
-      const QCheckbox = resolveComponent('q-checkbox')
-      return h(QCheckbox, {
+    header: ({ table }: { table: Table<T> }) =>
+      h(KmCheckbox, {
         modelValue: table.getIsAllRowsSelected(),
         indeterminate: table.getIsSomeRowsSelected() && !table.getIsAllRowsSelected(),
         'onUpdate:modelValue': () => table.toggleAllRowsSelected(),
@@ -188,11 +190,9 @@ export function selectionColumn<T extends BaseEntity>(): ColumnDef<T, unknown> {
         size: 'sm',
         color: 'primary',
         class: 'selection-checkbox',
-      })
-    },
-    cell: ({ row }: { row: Row<T> }) => {
-      const QCheckbox = resolveComponent('q-checkbox')
-      return h(QCheckbox, {
+      }),
+    cell: ({ row }: { row: Row<T> }) =>
+      h(KmCheckbox, {
         modelValue: row.getIsSelected(),
         'onUpdate:modelValue': () => row.toggleSelected(),
         dense: true,
@@ -200,8 +200,7 @@ export function selectionColumn<T extends BaseEntity>(): ColumnDef<T, unknown> {
         color: 'primary',
         onClick: (e: Event) => e.stopPropagation(),
         class: 'selection-checkbox',
-      })
-    },
+      }),
     enableSorting: false,
     meta: { align: 'center', width: '40px' } as KmColumnMeta,
   }

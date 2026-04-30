@@ -1,0 +1,33 @@
+/* =============================================================================
+ * SPACING TOKENS
+ * =============================================================================
+ * 4px-based scale. Shared by spacing utilities (.p-sm, .gap-md) and CUBE
+ * composition primitives (--cluster-gap, --flow-space).
+ * ============================================================================= */
+
+:root {
+  --ds-space-0: 0;
+  --ds-space-2xs: 2px;
+  --ds-space-xs: 4px;
+  --ds-space-sm: 8px;
+  --ds-space-md: 12px;
+  --ds-space-lg: 16px;
+  --ds-space-xl: 20px;
+  --ds-space-2xl: 24px;
+  --ds-space-3xl: 32px;
+  --ds-space-4xl: 40px;
+  --ds-space-5xl: 48px;
+  --ds-space-6xl: 64px;
+
+  /* Numeric aliases for legacy 4px-step spots (kept stable across themes) */
+  --ds-space-1: 4px;
+  --ds-space-2: 8px;
+  --ds-space-3: 12px;
+  --ds-space-4: 16px;
+  --ds-space-5: 20px;
+  --ds-space-6: 24px;
+  --ds-space-7: 32px;
+  --ds-space-8: 40px;
+  --ds-space-9: 48px;
+  --ds-space-10: 64px;
+}

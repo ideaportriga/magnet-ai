@@ -1,60 +1,147 @@
-<template lang="pug">
-.col.q-pa-md.full-height.bg-light.row.justify-center
-  .column.full-width(style='max-width: 800px')
-    .col-auto
-      .row.q-gap-16.no-wrap
-        template(v-if='tools')
-          km-btn(color='primary', link, @click='showTools = true') {{ m.panel_viewTools() }}
-
-    .col-auto.row.items-center.q-mt-md
-      .km-field.text-secondary-text.q-mr-md {{ m.panel_showInternalMessages() }}
-      q-toggle(v-model='showAllMessages', dense)
-
-    .col.column.q-gap-12.q-mt-md.full-width
-      template(v-for='(message, index) in messages')
-        .ba-border.bg-white.border-radius-12.q-pa-lg.full-width
-          .km-title {{ message.role }}
-
-          template(v-if='message.role == "tool"')
-            .km-field.q-mb-sm {{ m.panel_toolResult({ toolCallId: message.tool_call_id }) }}
-            km-markdown(:source='message.content')
-
-          template(v-else-if='!!message.content')
-            //- .km-field.text-pre-wrap {{ message.content }}
-            km-markdown(:source='message.content')
-
-          template(v-else-if='!!message.tool_calls')
-            .km-field.text-pre-wrap(style='overflow-wrap: break-word') {{ message.tool_calls }}
-
-    template(v-if='processing')
-      .col-auto.row.justify-center
-        q-spinner-dots(size='62px', color='primary')
-
-    .col-auto.q-mt-md
-      form(@submit.prevent='sendUserMessage')
-        km-input(
-          ref='input',
-          rows='10',
-          :placeholder='m.placeholder_enterUserMessage()',
-          :model-value='userMessage',
-          @input='userMessage = $event',
-          border-radius='8px',
-          height='36px',
-          type='textarea',
-          @keydown.enter='handleUserMessageEnter'
-        )
-        .row.justify-end.q-py-md
-          .col-auto.q-mr-md
-            km-btn(flat, simple, :label='m.panel_clearChat()', iconSize='16px', icon='fas fa-eraser', @click='clearChat')
-          .col-auto
-            q-btn(type='submit', color='primary', :disable='cantSendUserMessage', unelevated, padding='6px 7px', style='maxheight: 28px')
-              template(v-slot:default)
-                q-icon(name='fas fa-paper-plane', size='16px')
-
-  km-popup-confirm(:visible='showTools', title='Function tools', cancelButtonLabel='Cancel', @cancel='showTools = false')
-    .row.justify-between.q-pt-8.q-pl-8
-      .col-12.q-py-8
-        km-codemirror(v-model='toolsString', :readonly='true', language='json')
+<template>
+  <div
+    class="flex-1 p-md full-height bg-light flex"
+    style="justify-content: center"
+  >
+    <div
+      class="stack full-width"
+      style="max-inline-size: 800px"
+    >
+      <div class="flex-none">
+        <div
+          class="cluster"
+          data-gap="lg"
+          data-wrap="no"
+        >
+          <template v-if="tools">
+            <km-btn
+              tone="brand"
+              link
+              @click="showTools = true"
+            >
+              {{ m.panel_viewTools() }}
+            </km-btn>
+          </template>
+        </div>
+      </div>
+      <div class="flex-none cluster mt-md">
+        <div class="km-field text-secondary-text mr-md">
+          {{ m.panel_showInternalMessages() }}
+        </div>
+        <km-toggle
+          v-model="showAllMessages"
+          dense
+        />
+      </div>
+      <div
+        class="flex-1 stack mt-md full-width"
+        data-gap="md"
+      >
+        <template
+          v-for="(message, index) in messages"
+          :key="index"
+        >
+          <div class="ba-border bg-white border-radius-12 p-lg full-width">
+            <div class="km-title">
+              {{ message.role }}
+            </div>
+            <template v-if="message.role == &quot;tool&quot;">
+              <div class="km-field mb-sm">
+                {{ m.panel_toolResult({ toolCallId: message.tool_call_id }) }}
+              </div>
+              <km-markdown :source="message.content" />
+            </template>
+            <template v-else-if="!!message.content">
+              <km-markdown :source="message.content" />
+            </template>
+            <template v-else-if="!!message.tool_calls">
+              <div
+                class="km-field text-pre-wrap"
+                style="overflow-wrap: break-word"
+              >
+                {{ message.tool_calls }}
+              </div>
+            </template>
+          </div>
+        </template>
+      </div>
+      <template v-if="processing">
+        <div
+          class="flex-none cluster"
+          data-justify="center"
+        >
+          <km-loader
+            size="62px"
+          />
+        </div>
+      </template>
+      <div class="flex-none mt-md">
+        <form @submit.prevent="sendUserMessage">
+          <km-input
+            ref="input"
+            rows="10"
+            :placeholder="m.placeholder_enterUserMessage()"
+            :model-value="userMessage"
+            border-radius="8px"
+            height="36px"
+            type="textarea"
+            @input="userMessage = $event"
+            @keydown.enter="handleUserMessageEnter"
+          />
+          <div
+            class="cluster py-md"
+            data-justify="end"
+          >
+            <div class="flex-none mr-md">
+              <km-btn
+                flat
+                simple
+                :label="m.panel_clearChat()"
+                icon-size="16px"
+                icon="eraser"
+                @click="clearChat"
+              />
+            </div>
+            <div class="flex-none">
+              <km-btn
+                type="submit"
+                :disable="cantSendUserMessage"
+                unelevated
+                padding="6px 7px"
+                style="max-block-size: 28px"
+              >
+                <template #default>
+                  <km-glyph
+                    name="send"
+                    size="16px"
+                  />
+                </template>
+              </km-btn>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    <km-popup-confirm
+      :visible="showTools"
+      title="Function tools"
+      cancel-button-label="Cancel"
+      @cancel="showTools = false"
+    >
+      <div
+        class="cluster pt-sm pl-sm"
+        data-justify="between"
+      >
+        <div class="basis-12 py-sm">
+          <km-codemirror
+            v-model="toolsString"
+            :readonly="true"
+            language="json"
+          />
+        </div>
+      </div>
+    </km-popup-confirm>
+  </div>
 </template>
 <script>
 import { ref, computed } from 'vue'

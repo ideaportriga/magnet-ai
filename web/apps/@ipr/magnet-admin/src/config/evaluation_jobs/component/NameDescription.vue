@@ -1,5 +1,5 @@
-<template lang="pug">
-.km-field.text-left {{ test_set }}
+<template>
+  <div class="km-field text-left">{{ test_set }}</div>
 </template>
 <script>
 import { defineComponent } from 'vue'

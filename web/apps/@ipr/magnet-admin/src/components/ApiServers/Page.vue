@@ -1,35 +1,44 @@
-<template lang="pug">
-.column.no-wrap.full-height.q-page
-  .collection-container.q-mx-auto.full-width.column.full-height.q-px-md.q-pt-16
-    template(v-if='isLoading')
-      .flex.flex-center.full-height
-        q-spinner(size='40px', color='primary')
-    template(v-else-if='rows.length')
-      .col.ba-border.border-radius-12.bg-white.q-pa-16.column(style='min-height: 0')
-        .row.q-mb-12
-          .col-auto.center-flex-y
-            km-input(data-test='search-input', :placeholder='m.common_search()', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
-          q-space
-          .col-auto.center-flex-y
-            km-btn.q-mr-12(data-test='new-btn', :label='m.common_new()', @click='showNewDialog = true')
-        .col(style='min-height: 0')
-          km-data-table(
-            :table='table',
-            :loading='isLoading', :fetching='isFetching',
-            fill-height,
-            row-key='system_name',
-            @row-click='openDetails'
-          )
-    template(v-else)
-      .row.items-center.justify-center
-        .col-auto.q-pa-xl.bg-light.border-radius-12
-          .row.items-center.justify-center.q-mb-md
-            q-icon(name='fa fa-arrow-right-arrow-left', size='48px', color='primary')
-          .km-heading-7.text-black {{ m.apiServers_noApiServersYet() }}
-          .km-description.text-black {{ m.apiServers_useApiServerManual() }}
-          .row.items-center.justify-center.q-mt-lg
-            km-btn(data-test='new-btn', :label='m.common_addApiServer()', @click='showNewDialog = true')
-  api-servers-new-server(:showNewDialog='showNewDialog', @cancel='showNewDialog = false')
+<template>
+  <div class="stack full-height km-page" data-gap="0">
+    <div class="collection-container mx-auto full-width stack full-height px-md pt-lg" data-gap="0">
+      <template v-if="isLoading">
+        <div class="flex flex-center full-height">
+          <km-loader size="40px" />
+        </div>
+      </template>
+      <template v-else-if="rows.length">
+        <div class="flex-1 ba-border border-radius-12 bg-white p-lg stack" data-gap="0" style="min-block-size: 0">
+          <div class="cluster mb-md">
+            <div class="flex-none center-flex-y">
+              <km-input data-test="search-input" :placeholder="m.common_search()" icon-before="search" :model-value="globalFilter" clearable @input="globalFilter = $event" />
+            </div>
+            <div class="km-space" />
+            <div class="flex-none center-flex-y">
+              <km-btn class="mr-md" data-test="new-btn" :label="m.common_new()" @click="showNewDialog = true" />
+            </div>
+          </div>
+          <div class="flex-1" style="min-block-size: 0">
+            <km-data-table :table="table" :loading="isLoading" :fetching="isFetching" fill-height row-key="system_name" @row-click="openDetails" />
+          </div>
+        </div>
+      </template>
+      <template v-else>
+        <div class="cluster" data-justify="center">
+          <div class="flex-none p-xl bg-light border-radius-12">
+            <div class="cluster mb-md" data-justify="center">
+              <km-glyph name="swap" size="48px" tone="brand" />
+            </div>
+            <div class="km-heading-7 text-black">{{ m.apiServers_noApiServersYet() }}</div>
+            <div class="km-description text-black">{{ m.apiServers_useApiServerManual() }}</div>
+            <div class="cluster mt-lg" data-justify="center">
+              <km-btn data-test="new-btn" :label="m.common_addApiServer()" @click="showNewDialog = true" />
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+    <api-servers-new-server :show-new-dialog="showNewDialog" @cancel="showNewDialog = false" />
+  </div>
 </template>
 
 <script setup lang="ts">

@@ -9,7 +9,7 @@ from typing import Any, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 from core.db.models.knowledge_graph import KnowledgeGraphChunk
-from scheduler.types import CronConfig
+from tasks.types import CronConfig
 from services.knowledge_graph.models import (
     KnowledgeGraphRetrievalSource,
     KnowledgeGraphRetrievalWorkflowStep,

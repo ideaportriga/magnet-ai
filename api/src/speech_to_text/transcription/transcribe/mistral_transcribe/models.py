@@ -5,6 +5,7 @@ import os
 from io import BytesIO
 from typing import Any, Dict
 
+from cachetools import TTLCache
 from openai_model.utils import get_model_by_system_name
 from services.ai_services.factory import get_ai_provider
 
@@ -14,7 +15,9 @@ from ...storage.postgres_storage import PgDataStorage
 from ..base import BaseTranscriber
 
 
-_MISTRAL_CACHE: dict[str, Dict[str, Any]] = {}
+# Inter-stage payload (transcribe → diarize). Bounded so failed/timeout
+# pipelines don't leak — their entry expires after `ttl` seconds.
+_MISTRAL_CACHE: TTLCache[str, Dict[str, Any]] = TTLCache(maxsize=256, ttl=3600)
 
 
 def _read_bytes(path: str) -> bytes:
@@ -105,8 +108,9 @@ class MistralVoxtralTranscriber(BaseTranscriber):
                 "model_cfg": model_cfg,
             }
 
-            if self._cfg.keyterms:
-                stt_opts["keyterms"] = self._cfg.keyterms
+            safe_terms = self._sanitize_keyterms(self._cfg.keyterms)
+            if safe_terms:
+                stt_opts["keyterms"] = safe_terms
 
             tx = await provider.transcribe(
                 file=BytesIO(file_bytes),

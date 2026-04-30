@@ -14,18 +14,16 @@
       @row-click="onEntityTypeClick"
     >
       <template #cell-menu="{ row }">
-        <q-btn dense flat color="dark" icon="more_vert" :disable="deletingEntityTypes.has(row.entity)" @click.stop>
-          <q-menu anchor="bottom right" self="top right" auto-close>
-            <q-list dense>
-              <q-item clickable @click="emit('delete-entity-type', row)">
-                <q-item-section thumbnail>
-                  <q-icon name="delete" color="negative" size="20px" class="q-ml-sm" />
-                </q-item-section>
-                <q-item-section>{{ m.dataExplorer_deleteAllEntities() }}</q-item-section>
-              </q-item>
-            </q-list>
-          </q-menu>
-        </q-btn>
+        <ds-dropdown-menu-root>
+          <ds-dropdown-menu-trigger as-child>
+            <km-btn dense flat tone="neutral" icon="more-vertical" :disable="deletingEntityTypes.has(row.entity)" @click.stop />
+          </ds-dropdown-menu-trigger>
+          <ds-dropdown-menu-content side="bottom" align="end" :side-offset="4">
+            <ds-dropdown-menu-item variant="destructive" @select="emit('delete-entity-type', row)">
+              <km-glyph name="delete" size="18px" /><span>{{ m.dataExplorer_deleteAllEntities() }}</span>
+            </ds-dropdown-menu-item>
+          </ds-dropdown-menu-content>
+        </ds-dropdown-menu-root>
       </template>
     </km-data-table>
   </div>
@@ -33,18 +31,16 @@
   <div v-else class="km-table-scroll">
     <km-data-table :table="recordsTable" row-key="id">
       <template #cell-menu="{ row }">
-        <q-btn dense flat color="dark" icon="more_vert" :disable="deletingEntityRecordIds.has(row.id)" @click.stop>
-          <q-menu anchor="bottom right" self="top right" auto-close>
-            <q-list dense>
-              <q-item clickable @click="emit('delete-entity-record', row)">
-                <q-item-section thumbnail>
-                  <q-icon name="delete" color="negative" size="20px" class="q-ml-sm" />
-                </q-item-section>
-                <q-item-section>{{ m.common_delete() }}</q-item-section>
-              </q-item>
-            </q-list>
-          </q-menu>
-        </q-btn>
+        <ds-dropdown-menu-root>
+          <ds-dropdown-menu-trigger as-child>
+            <km-btn dense flat tone="neutral" icon="more-vertical" :disable="deletingEntityRecordIds.has(row.id)" @click.stop />
+          </ds-dropdown-menu-trigger>
+          <ds-dropdown-menu-content side="bottom" align="end" :side-offset="4">
+            <ds-dropdown-menu-item variant="destructive" @select="emit('delete-entity-record', row)">
+              <km-glyph name="delete" size="18px" /><span>{{ m.common_delete() }}</span>
+            </ds-dropdown-menu-item>
+          </ds-dropdown-menu-content>
+        </ds-dropdown-menu-root>
       </template>
     </km-data-table>
   </div>
@@ -262,16 +258,16 @@ const recordsTable = useVueTable<EntityRecord>({
 <style scoped>
 :deep(.sticky-col) {
   position: sticky;
-  right: 0;
+  inset-inline-end: 0;
   z-index: 1;
-  background: var(--q-white);
+  background: var(--ds-color-white);
 }
 :deep(tr:hover .sticky-col) {
-  background: var(--q-white);
+  background: var(--ds-color-white);
 }
 :deep(thead th:last-child) {
   position: sticky;
-  right: 0;
+  inset-inline-end: 0;
   z-index: 2;
   background: inherit;
 }

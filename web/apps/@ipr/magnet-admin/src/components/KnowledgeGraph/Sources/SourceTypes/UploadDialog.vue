@@ -11,28 +11,26 @@
     @confirm="uploadDocument"
   >
     <kg-dialog-section
+      class="upload-dialog__section"
       :title="m.knowledgeGraph_fileSource()"
       :description="m.knowledgeGraph_fileSourceDesc()"
-      icon-color="primary"
+      tone="brand"
     >
       <template #header-actions>
-        <q-btn-toggle
+        <km-btn-toggle
           v-model="uploadMode"
           class="section-control-toggle"
           no-caps
           rounded
           unelevated
-          toggle-color="primary"
-          color="grey-3"
-          text-color="grey-8"
           dense
           :options="modeOptions"
         />
       </template>
 
-      <div class="q-mt-md">
+      <div class="mt-md">
         <div v-if="uploadMode === 'local'">
-          <q-file
+          <km-file-picker
             v-model="files"
             outlined
             dense
@@ -45,14 +43,14 @@
             @rejected="onRejected"
           >
             <template #prepend>
-              <q-icon name="fas fa-file" />
+              <km-glyph name="file" />
             </template>
-          </q-file>
+          </km-file-picker>
         </div>
 
         <div v-if="uploadMode === 'url'">
           <km-input v-model="urlInput" :label="m.knowledgeGraph_fileUrl()" :placeholder="m.knowledgeGraph_fileUrlPlaceholder()" dense @keyup.enter="uploadDocument" />
-          <div class="q-ml-12 q-mt-8 q-mb-1 km-tiny text-secondary-text">
+          <div class="ml-md mt-sm mb-1 km-tiny text-secondary-text">
             {{ m.knowledgeGraph_enterFileUrl() }}
           </div>
         </div>
@@ -232,39 +230,8 @@ const onCancel = () => {
 }
 </script>
 
-<style scoped>
-:deep(.q-field--auto-height.q-field--dense .q-field__control) {
-  min-height: 42px;
-}
-
-:deep(.q-file .q-chip) {
-  max-width: 120px;
-  height: 22px;
-  padding: 0 10px;
-  font-size: var(--km-font-size-caption);
-}
-
-:deep(.q-file .q-chip__content) {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-:deep(.q-field--outlined .q-field__control:before) {
-  border-color: var(--q-control-border) !important;
-  transition: all 600ms;
-  background-color: var(--q-white) !important;
-}
-
-.section-control-toggle :deep(.q-btn) {
-  padding: 4px 12px;
-  min-height: 28px;
-  font-size: var(--km-font-size-label);
-  font-weight: 500;
-}
-
-:deep(.km-control) {
+<style>
+.upload-dialog__section .km-control {
   --field-height: 42px !important;
 }
 </style>

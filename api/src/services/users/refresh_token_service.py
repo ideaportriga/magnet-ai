@@ -18,10 +18,43 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from sqlalchemy import select, update
+from sqlalchemy.exc import DBAPIError, OperationalError
 
 from core.config.base import get_auth_settings
 from core.db.models.user.refresh_token import RefreshToken
-from core.exceptions import AuthError
+from core.exceptions import AuthError, ConflictError
+
+_LOCK_NOT_AVAILABLE_PGCODE = "55P03"
+
+
+def _is_lock_not_available(exc: BaseException) -> bool:
+    """Return True if exc represents PostgreSQL row-lock contention from NOWAIT."""
+    pgcode = getattr(getattr(exc, "orig", None), "pgcode", None)
+    if pgcode == _LOCK_NOT_AVAILABLE_PGCODE:
+        return True
+    message = str(exc).lower()
+    return "could not obtain lock" in message or "lock not available" in message
+
+
+async def _has_active_token_in_family(session: Any, family_id: UUID) -> bool:
+    """Return True if family still has at least one non-revoked, non-expired token.
+
+    Used to distinguish a benign rotation race (active successor exists)
+    from a cascaded family revoke after reuse detection (no successor).
+    """
+    now = datetime.now(UTC)
+    stmt = (
+        select(RefreshToken.id)
+        .where(
+            RefreshToken.family_id == family_id,
+            RefreshToken.revoked_at.is_(None),
+            RefreshToken.expires_at > now,
+        )
+        .limit(1)
+    )
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none() is not None
+
 
 logger = getLogger(__name__)
 
@@ -104,9 +137,10 @@ async def validate_and_rotate(
     )
     try:
         result = await session.execute(stmt)
-    except Exception:
-        # Row locked by concurrent request — treat as contention
-        raise AuthError("Token validation in progress, please retry")
+    except (OperationalError, DBAPIError) as exc:
+        if _is_lock_not_available(exc):
+            raise ConflictError("Token validation in progress, please retry") from exc
+        raise
     db_token = result.scalar_one_or_none()
 
     if db_token is None:
@@ -116,6 +150,26 @@ async def validate_and_rotate(
 
     # Reuse detection: token already revoked → compromise!
     if db_token.revoked_at is not None:
+        settings = get_auth_settings()
+        reuse_grace_seconds = settings.REFRESH_TOKEN_REUSE_GRACE_SECONDS
+        within_grace_window = (
+            reuse_grace_seconds > 0
+            and (now - db_token.revoked_at).total_seconds() <= reuse_grace_seconds
+        )
+        # Only treat as benign rotation race if the family still has an
+        # active successor token. A revoked token without an active sibling
+        # means the family was revoked as a whole (logout / reuse cascade)
+        # and must not be soft-failed.
+        if within_grace_window and await _has_active_token_in_family(
+            session, db_token.family_id
+        ):
+            logger.info(
+                "Refresh token already rotated within grace window for family %s user %s",
+                db_token.family_id,
+                db_token.user_id,
+            )
+            raise ConflictError("Refresh token already rotated, please retry")
+
         logger.warning(
             "Refresh token reuse detected! Revoking entire family %s for user %s",
             db_token.family_id,

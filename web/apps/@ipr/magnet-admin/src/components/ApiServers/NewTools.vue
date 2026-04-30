@@ -1,73 +1,81 @@
-<template lang="pug">
-q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")', @hide='$emit("cancel")')
-  q-card.card-style(style='min-width: 800px')
-    q-card-section.card-section-style.q-mb-md
-      .row
-        .col
-          .km-heading-7 {{ m.apiServers_newApiTool() }}
-        .col-auto
-          q-btn(icon='close', flat, dense, @click='$emit("cancel")')
-    q-card-section.card-section-style.q-mb-md
-      .row.items-center.justify-center
-        km-stepper.full-width(
-          :steps='[ { step: 0, description: "Api spec", icon: "pen" }, { step: 1, description: "Select API Tools", icon: "circle" }, ]',
-          :stepper='stepper'
-        )
-      .column.full-width(v-if='stepper === 0')
-        .row.bg-light.full-width.q-py-4.q-px-8.q-gap-8.no-wrap.items-center.q-mb-lg
-          q-icon(name='o_info', color='icon', size='20px', style='min-width: 20px')
-          .km-paragraph.q-pb-4 Upload your API specification that may include one or multiple operations. You will be able to select which operations to convert to API tools in the next step.
-
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-lg.q-pr-8 API specification
-        div(style='--field-height: 40px')
-          q-file.km-control.km-input.rounded-borders(
-            :multiple='false',
-            max-files='1',
-            rounded,
-            outlined,
-            :label='m.common_uploadFile()',
-            v-model='file',
-            accept='.json, .yaml',
-            dense,
-            labelClass='km-heading-2'
-          )
-          .km-description-2.text-secondary-text.q-pb-4.q-pl-8 File format: JSON or YAML. Please make sure your API spec contains operation Ids and descriptions.
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-lg.q-pr-8 API specification Preview
-        km-input(v-model='actionsDefinition', @input='actionsDefinition = $event', type='textarea', rows='10')
-      .column.full-width(v-if='stepper === 1')
-        .row.bg-light.full-width.q-py-4.q-px-8.q-gap-8.no-wrap.items-center.q-mb-lg
-          q-icon(name='o_info', color='icon', size='20px', style='min-width: 20px')
-          .km-paragraph.q-pb-4 The following API Tools can be created from operations detected in the API Specification provided. Please select the API Tools you want to create.
-
-        .row.bg-warning-low.q-pa-16(v-if='apiTools.some((tool) => tool.duplicate)')
-          .km-label We have identified some API Tools that match existing API Tool names. What would you like to do with each of such tools?
-          .column.q-pt-md.q-gap-16
-            //- q-radio(dense, v-model='addAsVariant', :val='true', label='Add as tool variant', size='30px')
-            q-radio(dense, v-model='addAsVariant', :val='false', label='Add as new tool', size='30px')
-        .row.q-pa-16.items-center
-          km-checkbox(size='40px', :model-value='allSelected', @update:model-value='updateAllTools')
-          //- .km-paragraph {{ allSelected ? 'Deselect all' : 'Select all' }}
-
-        template(v-for='(tool, index) in apiTools') 
-          .row.q-py-8.q-px-16.bg-table-header.bb-border
-            km-checkbox.q-mr-sm(:model-value='tool.selected === true', @update:model-value='updateTool(index, $event)', size='40px')
-            .col
-              .row.items-center.justify-between
-                .km-button-text.q-pb-4 {{ tool.name }}
-                .row.q-gap-4.items-center(v-if='tool.duplicate')
-                  q-icon(name='warning', color='primary', size='14px')
-                  .km-button-text.text-primary.km-description-2 Duplicate
-              .km-description.text-secondary-text {{ tool.description }}
-              .km-description.text-secondary-text {{ !!tool.duplicate && addAsVariant ? `${tool.original_name} (${tool.duplicate})` : tool.system_name }}
-      .row.q-mt-lg
-        .col-auto
-          km-btn(flat, :label='m.common_cancel()', color='primary', @click='$emit("cancel")')
-        .col
-        .col-auto
-          template(v-if='stepper === 0')
-            km-btn(:label='m.common_next()', @click='processFile', :disable='!readyForNext')
-          template(v-else)
-            km-btn(:label='m.common_create()', @click='finish')
+<template>
+  <km-dialog :model-value="showNewDialog" @cancel="$emit(&quot;cancel&quot;)" @hide="$emit(&quot;cancel&quot;)">
+    <km-card class="card-style" style="min-inline-size: 800px">
+      <div class="km-card-section card-section-style mb-md">
+        <div class="cluster" data-justify="between">
+          <div class="flex-1">
+            <div class="km-heading-7">{{ m.apiServers_newApiTool() }}</div>
+          </div>
+          <div class="flex-none">
+            <km-btn icon="close" flat dense @click="$emit(&quot;cancel&quot;)" />
+          </div>
+        </div>
+      </div>
+      <div class="km-card-section card-section-style mb-md">
+        <div class="cluster" data-justify="center">
+          <km-stepper class="full-width" :steps="[ { step: 0, description: &quot;Api spec&quot;, icon: &quot;pen&quot; }, { step: 1, description: &quot;Select API Tools&quot;, icon: &quot;circle&quot; }, ]" :stepper="stepper" />
+        </div>
+        <div v-if="stepper === 0" class="stack full-width">
+          <div class="cluster full-width py-xs px-sm mb-lg bg-light" data-gap="sm" data-wrap="no">
+            <km-glyph name="info" size="20px" style="min-inline-size: 20px" />
+            <div class="km-paragraph pb-xs">Upload your API specification that may include one or multiple operations. You will be able to select which operations to convert to API tools in the next step.</div>
+          </div>
+          <div class="km-field text-secondary-text pb-xs pl-sm mt-lg pr-sm">API specification</div>
+          <div style="--field-height: 40px">
+            <km-file-picker v-model="file" class="km-control km-input rounded-borders" :multiple="false" max-files="1" rounded outlined :label="m.common_uploadFile()" accept=".json, .yaml" dense label-class="km-heading-2" />
+            <div class="km-description-2 text-secondary-text pb-xs pl-sm">File format: JSON or YAML. Please make sure your API spec contains operation Ids and descriptions.</div>
+          </div>
+          <div class="km-field text-secondary-text pb-xs pl-sm mt-lg pr-sm">API specification Preview</div>
+          <km-input v-model="actionsDefinition" type="textarea" rows="10" @input="actionsDefinition = $event" />
+        </div>
+        <div v-if="stepper === 1" class="stack full-width">
+          <div class="cluster full-width py-xs px-sm mb-lg bg-light" data-gap="sm" data-wrap="no">
+            <km-glyph name="info" size="20px" style="min-inline-size: 20px" />
+            <div class="km-paragraph pb-xs">The following API Tools can be created from operations detected in the API Specification provided. Please select the API Tools you want to create.</div>
+          </div>
+          <div v-if="apiTools.some((tool) =&gt; tool.duplicate)" class="p-lg bg-warning-low">
+            <div class="km-label">We have identified some API Tools that match existing API Tool names. What would you like to do with each of such tools?</div>
+            <div class="stack pt-md" data-gap="lg">
+              <km-radio v-model="addAsVariant" dense :val="false" label="Add as new tool" size="30px" />
+            </div>
+          </div>
+          <div class="cluster p-lg">
+            <km-checkbox size="40px" :model-value="allSelected" @update:model-value="updateAllTools" />
+          </div>
+          <template v-for="(tool, index) in apiTools" :key="index">
+            <div class="py-sm px-lg bg-table-header bb-border">
+              <km-checkbox class="mr-sm" :model-value="tool.selected === true" size="40px" @update:model-value="updateTool(index, $event)" />
+              <div class="flex-1">
+                <div class="cluster" data-justify="between">
+                  <div class="km-button-text pb-xs">{{ tool.name }}</div>
+                  <div v-if="tool.duplicate" class="cluster" data-gap="xs">
+                    <km-glyph name="warning" tone="brand" size="14px" />
+                    <div class="km-button-text text-primary km-description-2">Duplicate</div>
+                  </div>
+                </div>
+                <div class="km-description text-secondary-text">{{ tool.description }}</div>
+                <div class="km-description text-secondary-text">{{ !!tool.duplicate && addAsVariant ? `${tool.original_name} (${tool.duplicate})` : tool.system_name }}</div>
+              </div>
+            </div>
+          </template>
+        </div>
+        <div class="cluster mt-lg" data-justify="between">
+          <div class="flex-none">
+            <km-btn flat :label="m.common_cancel()" tone="brand" @click="$emit(&quot;cancel&quot;)" />
+          </div>
+          <div class="flex-1" />
+          <div class="flex-none">
+            <template v-if="stepper === 0">
+              <km-btn :label="m.common_next()" :disable="!readyForNext" @click="processFile" />
+            </template>
+            <template v-else>
+              <km-btn :label="m.common_create()" @click="finish" />
+            </template>
+          </div>
+        </div>
+      </div>
+    </km-card>
+  </km-dialog>
 </template>
 <script>
 import { ref, computed } from 'vue'

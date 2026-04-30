@@ -1,184 +1,195 @@
-<template lang="pug">
-km-drawer-layout(storageKey="drawer-agents-preview", :defaultWidth="500", :maxWidth="1200", noScroll)
-  template(#header)
-    .row
-      .col.km-field.text-secondary-text
-      .col-auto.q-ml-sm(v-if='selectedMessage')
-        q-btn(icon='close', flat, dense, @click='selectedMessage = null')
-    .row
-      .col.km-heading-7 {{ m.agents_agentPreview() }}
-  .row.full-height.no-wrap
-    .col.full-height(v-if='selectedMessage', style='overflow: hidden')
-      .column.full-height
-        .col(style='min-height: 0')
-          .column.full-height.no-wrap.bg-white
-            .full-height.column.no-wrap.text-scroll.q-pl-sm(style='overflow-y: auto; overflow-x: hidden')
-              q-timeline
-                q-timeline-entry(
-                  v-for='(step, index) in selectedMessagePrepared',
-                  :key='step.started_at',
-                  :icon='step.icon',
-                  :color='expandedStep[index] ? "status-ready-text" : "primary"'
-                )
-                  template(v-slot:subtitle)
-                    .row.items-center.justify-between(style='text-transform: none !important')
-                      .col.q-mr-md
-                        km-chip(
-                          iconColor='icon',
-                          hoverColor='primary',
-                          labelClass='km-heading-2',
-                          flat,
-                          dense,
-                          iconSize='16px',
-                          hoverBg='primary-bg',
-                          @click='step.type === "classification" || (step.type === "topic_completion" && !step?.details?.action_call_requests) ? null : toggleExpand(index)'
-                        )
-                          .row.items-center.justify-center.full-width
-                            q-icon(
-                              v-if='!(step.type === "classification" || (step.type === "topic_completion" && !step?.details?.action_call_requests))',
-                              name='fas fa-chevron-right',
-                              flat,
-                              :style='{ transform: expandedStep[index] ? "rotate(90deg)" : "rotate(0deg)", transition: "0.2s" }'
-                            )
-                            .q-ml-sm.text-secondary-text.cursor-pointer {{ step?.typeLabel }}
-
-                      .col-auto.q-mr-md.km-field {{ step?.duration_seconds }}
-                  .column.q-gap-8
-                    template(v-if='step.type === "classification"')
-                      .col
-                        .row
-                          .col-1.q-mr-md
-                            .km-field.text-secondary-text Intent
-                          .col
-                            km-chip(:label='step.details.intent', color='light')
-                      .col(v-if='step.details?.topic')
-                        .row
-                          .col-1.q-mr-md
-                            .km-field.text-secondary-text Topic
-                          .col
-                            km-chip(:label='step.details?.topic', color='light')
-                      .col
-                        .row
-                          .col-auto.q-mr-md
-                            .km-field.text-secondary-text Reason
-                          .col-auto
-                            | {{ step.details.reason }}
-                    template(v-else-if='step.type === "topic_completion"')
-                      .col
-                        .row
-                          .col-auto.q-mr-md
-                            .km-field.text-secondary-text Topic
-                          .col {{ step.details.topic.name }}
-                      .col
-                        .row
-                          .col-auto.q-mr-md
-                            .km-field.text-secondary-text Topic Description
-                          .col-auto {{ step.details.topic.description }}
-
-                        .q-mt-sm(v-if='step.details?.action_call_requests')
-                          q-slide-transition
-                            .q-mt-sm(v-if='step.details?.action_call_requests && expandedStep[index]')
-                              .text-secondary-text(v-for='rq in step.details.action_call_requests')
-                                .row.q-mb-sm.items-center
-                                  km-chip(:label='rq.action_type', color='light')
-                                  .q-ml-sm {{ rq.function_name }}
-                                .km-field.text-secondary-text Request
-                                km-codemirror(:model-value='stringify(rq.arguments)', readonly, style='min-height: 100px')
-
-                    template(v-else-if='step.type === "topic_action_call"')
-                      .q-mt-sm(v-if='step.details')
-                        .text-secondary-text
-                          .row.q-mb-sm.items-center
-                            km-chip(:label='step.details.request.action_type', color='light')
-                            .q-ml-sm {{ step.details.request.function_name }}
-                          .km-field.text-secondary-text(v-if='step.details?.request && !expandedStep[index]') Request
-                            km-codemirror(:model-value='stringify(step.details.request.arguments)', readonly, style='min-height: 50px')
-                      div(v-if='step.details')
-                        q-slide-transition
-                          div(v-if='step.details?.request && expandedStep[index]')
-                            .km-field.text-secondary-text Request
-                            km-codemirror(:model-value='stringify(step?.details?.request)', readonly, style='min-height: 100px')
-                            .km-field.text-secondary-text Response
-                            km-codemirror(:model-value='stringify(step?.details?.response)', readonly, style='min-height: 100px')
-
-                    template(v-else)
-                      km-codemirror(v-model='step.detailsJSON', style='max-height: 300px', readonly)
-
-    .col-auto(v-if='selectedMessage')
-      .row.items-center.full-height
-        .bg-white(style='width: 10px; height: 12px')
-    .col.full-height
-      .column.full-height
-        .col(style='min-height: 0')
-          .column.full-height.no-wrap.bg-white
-            .full-height.q-py-16.column.reverse.no-wrap.text-scroll(ref='messagesContainer', style='overflow-y: auto; max-height: 100%')
-              template(v-if='processing')
-                .column.justify-center.items-center
-                  q-spinner-dots(size='62px', color='primary')
-                  km-btn(flat, simple, :label='m.panel_stop()', iconSize='16px', icon='fas fa-times', @click='abortController.abort()')
-              .column.no-wrap.q-px-16.q-gap-8
-                template(v-for='(message, index) in allMessages')
-                  agent-message(
-                    :isSelected='selectedMessage?.id === message?.id',
-                    :message='message',
-                    v-if='showAllMessages || message?.role === "user" || message?.role === "assistant"',
-                    :previewMode='true',
-                    @copy='copyMessage(message)',
-                    @save='saveMessage(index)',
-                    @delete='deleteMessage(index)',
-                    @focus='message?.role === "assistant" ? (selectedMessage = message) : null',
-                    :lastMessage='index === allMessages.length - 1',
-                    @confirm='confirmMessage($event)'
-                  )
-                //- agent-confirmation(
-
-                //- )
-                //- agent-confirmation(
-                //-   :multiple='true',
-                //- )
-            agents-feedback-modal(
-              :feedbackModal='feedbackModal',
-              :feedbackConfirmModal='feedbackConfirmModal',
-              @update:feedbackModal='feedbackModal = $event',
-              @update:feedbackConfirmModal='feedbackConfirmModal = $event',
-              @submit='submitForm'
-            )
-            .col-auto.q-mt-md.q-px-16
-              form(@submit.prevent='sendUserMessage')
-                km-input(
-                  data-test='preview-input',
-                  ref='input',
-                  rows='8',
-                  :placeholder='m.agents_typeYourQuestion()',
-                  :model-value='userMessage',
-                  @input='userMessage = $event',
-                  border-radius='8px',
-                  height='36px',
-                  type='textarea',
-                  @keydown.enter='handleUserMessageEnter'
-                )
-                template(v-if='isShowHints')
-                  .row.items-center.q-mt-sm
-                    .col.km-heading-3 {{ m.common_youCanAskLikeThis() }}
-                    .col-auto
-                      km-btn(flat, color='primary', @click='showHints = false')
-                        .km-button-text {{ m.common_dontShowHints() }}
-                  template(v-for='(item, index) in sampleQuestion', :key='index')
-                    km-btn(flat, @click='refine(item)')
-                      .wrapped-text {{ item }}
-                .row.justify-end.q-py-md.items-center
-                  .col-auto.q-mr-md
-                    km-btn(flat, simple, iconSize='16px', icon='fas fa-rotate-right', @click='clearChat')
-                  .col
-                  .col-auto
-                    q-btn(data-test='preview-btn', type='submit', color='primary', :disable='cantSendUserMessage', unelevated, padding='6px 7px', style='maxheight: 28px')
-                      template(v-slot:default)
-                        q-icon(name='fas fa-paper-plane', size='16px')
+<template>
+  <km-drawer-layout storage-key="drawer-agents-preview" :default-width="500" :max-width="1200" no-scroll>
+    <template #header>
+      <div class="cluster" data-justify="between">
+        <div class="km-field text-secondary-text" />
+        <div v-if="selectedMessage" class="ml-sm">
+          <km-btn icon="close" flat dense @click="selectedMessage = null" />
+        </div>
+      </div>
+      <div class="km-heading-7">{{ m.agents_agentPreview() }}</div>
+    </template>
+    <div class="cluster full-height" data-wrap="no" data-align="stretch">
+      <div v-if="selectedMessage" class="flex-1 full-height overflow-hidden">
+        <div class="stack full-height" data-gap="0">
+          <div class="flex-1 min-h-0">
+            <div class="stack full-height" data-gap="0">
+              <div class="full-height stack pl-sm agents-drawer-preview__steps-scroll" data-gap="0">
+                <km-timeline>
+                  <km-timeline-entry v-for="(step, index) in selectedMessagePrepared" :key="step.started_at" :icon="step.icon" :tone="expandedStep[index] ? &quot;success&quot; : &quot;brand&quot;">
+                    <template #subtitle>
+                      <div class="cluster agents-drawer-preview__step-row" data-justify="between">
+                        <div class="flex-1 mr-md">
+                          <km-chip label-class="km-heading-2" flat dense icon-size="16px" @click="step.type === &quot;classification&quot; || (step.type === &quot;topic_completion&quot; &amp;&amp; !step?.details?.action_call_requests) ? null : toggleExpand(index)">
+                            <div class="cluster" data-justify="center">
+                              <km-glyph v-if="!(step.type === &quot;classification&quot; || (step.type === &quot;topic_completion&quot; &amp;&amp; !step?.details?.action_call_requests))" name="chevron-right" flat class="agents-drawer-preview__chevron" :data-expanded="expandedStep[index] ? 'true' : 'false'" />
+                              <div class="ml-sm text-secondary-text cursor-pointer">{{ step?.typeLabel }}</div>
+                            </div>
+                          </km-chip>
+                        </div>
+                        <div class="flex-none mr-md km-field">{{ step?.duration_seconds }}</div>
+                      </div>
+                    </template>
+                    <div class="stack" data-gap="sm">
+                      <template v-if="step.type === &quot;classification&quot;">
+                        <div class="flex-1">
+                          <div class="cluster">
+                            <div class="agents-drawer-preview__label flex-none mr-md">
+                              <div class="km-field text-secondary-text">Intent</div>
+                            </div>
+                            <div class="flex-1 km-flex-min-w-0">
+                              <km-chip :label="step.details.intent" tone="neutral" />
+                            </div>
+                          </div>
+                        </div>
+                        <div v-if="step.details?.topic" class="flex-1">
+                          <div class="cluster">
+                            <div class="agents-drawer-preview__label flex-none mr-md">
+                              <div class="km-field text-secondary-text">Topic</div>
+                            </div>
+                            <div class="flex-1 km-flex-min-w-0">
+                              <km-chip :label="step.details?.topic" tone="neutral" />
+                            </div>
+                          </div>
+                        </div>
+                        <div class="flex-1">
+                          <div class="cluster">
+                            <div class="flex-none mr-md">
+                              <div class="km-field text-secondary-text">Reason</div>
+                            </div>
+                            <div class="flex-1 km-flex-min-w-0">{{ step.details.reason }}</div>
+                          </div>
+                        </div>
+                      </template>
+                      <template v-else-if="step.type === &quot;topic_completion&quot;">
+                        <div class="flex-1">
+                          <div class="cluster">
+                            <div class="flex-none mr-md">
+                              <div class="km-field text-secondary-text">Topic</div>
+                            </div>
+                            <div class="flex-1 km-flex-min-w-0">{{ step.details.topic.name }}</div>
+                          </div>
+                        </div>
+                        <div class="flex-1">
+                          <div class="cluster">
+                            <div class="flex-none mr-md">
+                              <div class="km-field text-secondary-text">Topic Description</div>
+                            </div>
+                            <div class="flex-1 km-flex-min-w-0">{{ step.details.topic.description }}</div>
+                          </div>
+                          <div v-if="step.details?.action_call_requests" class="mt-sm">
+                            <km-slide-transition>
+                              <div v-if="step.details?.action_call_requests &amp;&amp; expandedStep[index]" class="mt-sm">
+                                <div v-for="(rq, rqIndex) in step.details.action_call_requests" :key="rqIndex" class="text-secondary-text">
+                                  <div class="cluster mb-sm">
+                                    <km-chip :label="rq.action_type" tone="neutral" />
+                                    <div class="ml-sm">{{ rq.function_name }}</div>
+                                  </div>
+                                  <div class="km-field text-secondary-text">Request</div>
+                                  <km-codemirror :model-value="stringify(rq.arguments)" readonly class="agents-drawer-preview__codemirror--md" />
+                                </div>
+                              </div>
+                            </km-slide-transition>
+                          </div>
+                        </div>
+                      </template>
+                      <template v-else-if="step.type === &quot;topic_action_call&quot;">
+                        <div v-if="step.details" class="mt-sm">
+                          <div class="text-secondary-text">
+                            <div class="cluster mb-sm">
+                              <km-chip :label="step.details.request.action_type" tone="neutral" />
+                              <div class="ml-sm">{{ step.details.request.function_name }}</div>
+                            </div>
+                            <div v-if="step.details?.request &amp;&amp; !expandedStep[index]" class="km-field text-secondary-text">
+                              Request
+                              <km-codemirror :model-value="stringify(step.details.request.arguments)" readonly class="agents-drawer-preview__codemirror--sm" />
+                            </div>
+                          </div>
+                        </div>
+                        <div v-if="step.details">
+                          <km-slide-transition>
+                            <div v-if="step.details?.request &amp;&amp; expandedStep[index]">
+                              <div class="km-field text-secondary-text">Request</div>
+                              <km-codemirror :model-value="stringify(step?.details?.request)" readonly class="agents-drawer-preview__codemirror--md" />
+                              <div class="km-field text-secondary-text">Response</div>
+                              <km-codemirror :model-value="stringify(step?.details?.response)" readonly class="agents-drawer-preview__codemirror--md" />
+                            </div>
+                          </km-slide-transition>
+                        </div>
+                      </template>
+                      <template v-else>
+                        <km-codemirror v-model="step.detailsJSON" class="agents-drawer-preview__codemirror--lg" readonly />
+                      </template>
+                    </div>
+                  </km-timeline-entry>
+                </km-timeline>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div v-if="selectedMessage" class="flex-none">
+        <div class="flex items-center full-height">
+          <div class="bg-white agents-drawer-preview__divider" />
+        </div>
+      </div>
+      <div class="flex-1 full-height">
+        <div class="stack full-height" data-gap="0">
+          <div class="flex-1 min-h-0">
+            <div class="stack full-height" data-gap="0">
+              <div ref="messagesContainer" class="full-height py-lg stack agents-drawer-preview__messages-scroll" data-gap="0">
+                <template v-if="processing">
+                  <div class="agents-drawer-preview__processing">
+                    <km-loader size="62px" />
+                    <km-btn flat simple :label="m.panel_stop()" icon-size="16px" icon="close" @click="abortController.abort()" />
+                  </div>
+                </template>
+                <div class="stack px-lg" data-gap="sm" data-wrap="no">
+                  <template v-for="(message, index) in allMessages" :key="index">
+                    <agent-message v-if="showAllMessages || message?.role === &quot;user&quot; || message?.role === &quot;assistant&quot;" :is-selected="selectedMessage?.id === message?.id" :message="message" :preview-mode="true" :last-message="index === allMessages.length - 1" @copy="copyMessage(message)" @save="saveMessage(index)" @delete="deleteMessage(index)" @focus="message?.role === &quot;assistant&quot; ? (selectedMessage = message) : null" @confirm="confirmMessage($event)" />
+                  </template>
+                </div>
+              </div>
+              <agents-feedback-modal :feedback-modal="feedbackModal" :feedback-confirm-modal="feedbackConfirmModal" @update:feedback-modal="feedbackModal = $event" @update:feedback-confirm-modal="feedbackConfirmModal = $event" @submit="submitForm" />
+              <div class="flex-none mt-md px-lg">
+                <form @submit.prevent="sendUserMessage">
+                  <km-input ref="input" data-test="preview-input" autogrow :rows="1" :min-rows="1" :max-rows="10" :placeholder="m.agents_typeYourQuestion()" :model-value="userMessage" border-radius="8px" height="36px" type="textarea" @input="userMessage = $event" @keydown.enter="handleUserMessageEnter">
+                    <template #append>
+                      <km-btn data-test="preview-btn" type="submit" size="icon-xs" icon="send" icon-size="16px" icon-tone="inverse" :disable="cantSendUserMessage" />
+                    </template>
+                  </km-input>
+                  <template v-if="isShowHints">
+                    <div class="cluster mt-sm">
+                      <div class="flex-1 km-heading-3">{{ m.common_youCanAskLikeThis() }}</div>
+                      <div class="flex-none">
+                        <km-btn flat tone="brand" @click="showHints = false">
+                          <div class="km-button-text">{{ m.common_dontShowHints() }}</div>
+                        </km-btn>
+                      </div>
+                    </div>
+                    <template v-for="(item, index) in sampleQuestion" :key="index">
+                      <km-btn flat @click="refine(item)">
+                        <div class="wrapped-text">{{ item }}</div>
+                      </km-btn>
+                    </template>
+                  </template>
+                  <div class="cluster py-md" data-justify="end">
+                    <div class="flex-none">
+                      <km-btn flat simple icon-size="16px" icon="redo" @click="clearChat" />
+                    </div>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </km-drawer-layout>
 </template>
 <script>
-import { copyToClipboard } from 'quasar'
+import { copyToClipboard } from '@ds/utils/clipboard'
 import _ from 'lodash'
-import { uid } from 'quasar'
 import { ref, computed } from 'vue'
 import { m } from '@/paraglide/messages'
 import { fetchData } from '@shared'
@@ -277,7 +288,7 @@ export default {
           }),
           completed_at: endTime.toLocaleString(),
           duration_seconds: duration,
-          icon: step.type === 'classification' ? 'fas fa-layer-group' : step.type === 'topic_completion' ? 'fas fa-microchip' : 'fas fa-code',
+          icon: step.type === 'classification' ? 'stack' : step.type === 'topic_completion' ? 'cpu' : 'code',
           typeLabel: step.type === 'classification' ? 'Classification' : step.type === 'topic_completion' ? 'Topic Completion' : 'Topic Action Call',
         }
       })
@@ -337,7 +348,7 @@ export default {
       this.allMessages.push({
         role: 'assistant',
         content: this.welcomeMessage,
-        id: uid(),
+        id: crypto.randomUUID(),
       })
     }
   },
@@ -396,7 +407,7 @@ export default {
       if (this.cantSendUserMessage) return
       if (this.userMessage?.length > 0) {
         this.allMessages.push({
-          id: uid(),
+          id: crypto.randomUUID(),
           role: 'user',
           content: this.userMessage,
         })
@@ -450,7 +461,7 @@ export default {
     async confirmMessage(selectedActions) {
       this.processing = true
       this.allMessages.push({
-        id: uid(),
+        id: crypto.randomUUID(),
         role: 'user',
         content: null,
         action_call_confirmations: selectedActions,
@@ -523,7 +534,7 @@ export default {
 
 <style scoped>
 .text-scroll::-webkit-scrollbar {
-  width: 6px;
+  inline-size: 6px;
 }
 .text-scroll::-webkit-scrollbar-track {
   background: transparent;
@@ -543,11 +554,61 @@ export default {
 
 .expand-enter-active,
 .expand-leave-active {
-  transition: all 0.2s ease;
+  transition:
+    opacity var(--ds-duration-base) var(--ds-ease-out),
+    max-height var(--ds-duration-base) var(--ds-ease-out);
 }
 .expand-enter-from,
 .expand-leave-to {
   opacity: 0;
-  max-height: 0;
+  max-block-size: 0;
+}
+
+.agents-drawer-preview__label {
+  flex: 0 0 8.3333%;
+  max-inline-size: 8.3333%;
+}
+
+.agents-drawer-preview__steps-scroll {
+  overflow-block: auto;
+  overflow-inline: hidden;
+}
+
+.agents-drawer-preview__messages-scroll {
+  overflow-block: auto;
+  max-block-size: 100%;
+}
+
+.agents-drawer-preview__step-row {
+  text-transform: none;
+}
+
+.agents-drawer-preview__codemirror--sm {
+  min-block-size: 50px;
+}
+.agents-drawer-preview__codemirror--md {
+  min-block-size: 100px;
+}
+.agents-drawer-preview__codemirror--lg {
+  max-block-size: 300px;
+}
+
+.agents-drawer-preview__divider {
+  inline-size: 10px;
+  block-size: 12px;
+}
+
+.agents-drawer-preview__processing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.agents-drawer-preview__chevron {
+  transition: transform var(--ds-duration-base) var(--ds-ease-out);
+}
+.agents-drawer-preview__chevron[data-expanded='true'] {
+  transform: rotate(90deg);
 }
 </style>

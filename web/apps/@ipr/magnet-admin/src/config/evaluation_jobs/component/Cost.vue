@@ -1,15 +1,22 @@
-<template lang="pug">
-.km-small-chip(:color='color', :text-color='textColor')
-  .km-field {{ totalCost }}
-    |
-    q-tooltip(:offset='[0, 10]')
-      .col-auto
-        .row.q-gap-16.justify-between.q-mb-md
-          .km-input-label Input cost: {{ inputCost }}
-        .row.q-gap-16.justify-between
-          .km-input-label Output cost: {{ outputCost }}
-        .row.q-gap-16.justify-between.q-mt-md
-          .km-input-label Cached cost: {{ cachedCost }}
+<template>
+  <div class="km-small-chip">
+    <div class="km-field">
+      {{ totalCost }}
+      <km-tooltip :offset="[0, 10]">
+        <div class="flex-none">
+          <div class="cluster mb-md" data-gap="lg" data-justify="between">
+            <div class="km-input-label">Input cost: {{ inputCost }}</div>
+          </div>
+          <div class="cluster" data-gap="lg" data-justify="between">
+            <div class="km-input-label">Output cost: {{ outputCost }}</div>
+          </div>
+          <div class="cluster mt-md" data-gap="lg" data-justify="between">
+            <div class="km-input-label">Cached cost: {{ cachedCost }}</div>
+          </div>
+        </div>
+      </km-tooltip>
+    </div>
+  </div>
 </template>
 
 <script>
@@ -82,23 +89,14 @@ export default defineComponent({
       const result = this.inputCost + this.outputCost + this.cachedCost
       return parseFloat(result.toPrecision(2))
     },
-    color() {
-      return this.statusStyles?.color || ''
-    },
-    textColor() {
-      return this.statusStyles?.textColor || ''
-    },
-    statusStyles() {
-      return { color: 'in-progress', textColor: 'text-gray' }
-    },
   },
 })
 </script>
 
 <style scoped>
 .notification {
-  color: var(--q-secondary-text) !important;
-  height: auto;
-  width: 100%;
+  color: var(--ds-color-secondary-text) !important;
+  block-size: auto;
+  inline-size: 100%;
 }
 </style>

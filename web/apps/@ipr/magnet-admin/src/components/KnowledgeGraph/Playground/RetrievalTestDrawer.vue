@@ -7,8 +7,8 @@
           <div class="km-description text-secondary-text">{{ m.knowledgeGraph_askQuestionsAboutKB() }}</div>
         </div>
         <div class="header-actions">
-          <km-btn v-if="messages.length > 0" flat icon="fas fa-rotate-right" icon-size="14px" size="sm" :label="m.panel_clearChat()" @click="clearChat" />
-          <q-btn flat round dense icon="close" size="sm" @click="$emit('close')" />
+          <km-btn v-if="messages.length > 0" flat icon="redo" icon-size="14px" size="sm" :label="m.panel_clearChat()" @click="clearChat" />
+          <km-btn flat round dense icon="close" size="sm" @click="$emit('close')" />
         </div>
       </div>
     </template>
@@ -17,9 +17,9 @@
     <div ref="messagesContainer" class="messages-area">
       <!-- Empty State -->
       <div v-if="messages.length === 0 && !processing" class="empty-state">
-        <q-icon name="fas fa-comments" size="48px" color="grey-4" />
-        <div class="km-heading-6 q-mt-md text-secondary-text">{{ m.knowledgeGraph_startConversation() }}</div>
-        <div class="km-description text-grey-6 q-mt-xs">{{ m.knowledgeGraph_askQuestionsToTest() }}</div>
+        <km-glyph name="chats" size="48px" tone="muted" />
+        <div class="km-heading-6 mt-md text-secondary-text">{{ m.knowledgeGraph_startConversation() }}</div>
+        <div class="km-description text-grey-6 mt-xs">{{ m.knowledgeGraph_askQuestionsToTest() }}</div>
       </div>
 
       <!-- Messages List -->
@@ -44,12 +44,12 @@
                 <!-- Workflow Section (Tool Calling Chain) -->
                 <div v-if="msg.workflow && msg.workflow.length > 0" class="workflow-section">
                   <div class="workflow-toggle" @click="msg.workflowExpanded = !msg.workflowExpanded">
-                    <q-icon name="fas fa-diagram-project" size="14px" color="teal-7" />
+                    <km-glyph name="graph" size="14px" tone="accent" />
                     <span class="km-field text-teal-7">{{ m.knowledgeGraph_executionFlow() }}</span>
-                    <q-icon :name="msg.workflowExpanded ? 'fas fa-chevron-up' : 'fas fa-chevron-down'" size="12px" color="teal-7" />
+                    <km-glyph :name="msg.workflowExpanded ? 'chevron-up' : 'chevron-down'" size="12px" tone="accent" />
                   </div>
 
-                  <q-slide-transition>
+                  <km-slide-transition>
                     <div v-show="msg.workflowExpanded" class="workflow-timeline">
                       <div
                         v-for="(step, idx) in msg.workflow"
@@ -59,25 +59,25 @@
                       >
                         <div class="workflow-step-marker">
                           <div class="workflow-step-icon-circle" :class="getToolDotClass(step.tool)">
-                            <q-icon :name="getToolIcon(step.tool)" size="14px" color="white" />
+                            <km-glyph :name="getToolIcon(step.tool)" size="14px" tone="inverse" />
                           </div>
                           <div class="workflow-step-line" />
                         </div>
                         <div class="workflow-step-content">
                           <div class="workflow-step-header cursor-pointer" @click="step.expanded = !step.expanded">
-                            <div class="row items-center justify-between">
+                            <div class="cluster" data-justify="between">
                               <span class="workflow-step-tool">{{ formatToolName(step.tool) }}</span>
-                              <q-icon :name="step.expanded ? 'fas fa-chevron-up' : 'fas fa-chevron-down'" size="10px" color="grey-6" />
+                              <km-glyph :name="step.expanded ? 'chevron-up' : 'chevron-down'" size="10px" tone="muted" />
                             </div>
                             <div style="font-size: 12px; font-weight: 400">
                               <span class="text-grey-6">Step {{ step.iteration }}</span>
-                              <span v-if="step.call_summary?.result_count" class="text-grey-6 q-ml-xs">•</span>
+                              <span v-if="step.call_summary?.result_count" class="text-grey-6 ml-xs">•</span>
                               <span v-if="typeof step.call_summary?.result_count === 'number'" class="text-green-8">
                                 Found {{ step.call_summary?.result_count }} record{{ step.call_summary?.result_count > 1 ? 's' : '' }}
                               </span>
                             </div>
                           </div>
-                          <q-slide-transition>
+                          <km-slide-transition>
                             <div v-show="step.expanded">
                               <div v-if="Object.keys(step.arguments || {}).length > 0" class="workflow-step-args">
                                 <div class="workflow-args-label">{{ m.knowledgeGraph_argumentsLabel() }}</div>
@@ -91,11 +91,11 @@
                                 <div class="text-grey-9" style="font-size: 12px">{{ step.call_summary?.reasoning }}</div>
                               </div>
                             </div>
-                          </q-slide-transition>
+                          </km-slide-transition>
                         </div>
                       </div>
                     </div>
-                  </q-slide-transition>
+                  </km-slide-transition>
                 </div>
 
                 <!-- Response Content -->
@@ -120,12 +120,12 @@
                 <!-- Sources Section -->
                 <div v-if="msg.sources && msg.sources.length > 0" class="sources-section">
                   <div class="sources-header" @click="msg.sourcesExpanded = !msg.sourcesExpanded">
-                    <q-icon name="fas fa-paperclip" size="11px" color="grey-7" />
+                    <km-glyph name="attach" size="11px" tone="weak" />
                     <span class="sources-label">{{ msg.sources.length }} source{{ msg.sources.length > 1 ? 's' : '' }}</span>
-                    <q-icon :name="msg.sourcesExpanded ? 'fas fa-chevron-up' : 'fas fa-chevron-down'" size="10px" color="grey-5" />
+                    <km-glyph :name="msg.sourcesExpanded ? 'chevron-up' : 'chevron-down'" size="10px" tone="muted" />
                   </div>
 
-                  <q-slide-transition>
+                  <km-slide-transition>
                     <div v-show="msg.sourcesExpanded" class="sources-list">
                       <div v-for="group in groupSourcesByDocument(msg.sources)" :key="group.document_id" class="source-document-group">
                         <router-link
@@ -135,9 +135,9 @@
                           rel="noopener"
                           @click.stop
                         >
-                          <q-icon name="description" size="12px" color="grey-7" />
+                          <km-glyph name="file-text" size="12px" tone="weak" />
                           <span class="source-document-group-title">{{ truncate(group.document_name, 35) }}</span>
-                          <q-icon name="open_in_new" size="10px" color="grey-5" class="source-document-link-icon" />
+                          <km-glyph name="external-link" size="10px" tone="muted" class="source-document-link-icon" />
                         </router-link>
                         <div class="source-document-chunks">
                           <div v-for="(source, idx) in group.sources" :key="idx" class="source-chip" @click="openSourceDetail(source)">
@@ -147,7 +147,7 @@
                         </div>
                       </div>
                     </div>
-                  </q-slide-transition>
+                  </km-slide-transition>
                 </div>
               </div>
               <div class="message-meta">
@@ -161,8 +161,8 @@
         <div v-if="processing" class="message-row assistant-message">
           <div class="message-content-wrapper">
             <div class="message-bubble assistant-bubble processing-bubble">
-              <q-spinner-dots size="24px" color="primary" />
-              <span class="km-description text-secondary-text q-ml-sm">{{ m.knowledgeGraph_thinking() }}</span>
+              <km-loader size="24px" />
+              <span class="km-description text-secondary-text ml-sm">{{ m.knowledgeGraph_thinking() }}</span>
             </div>
           </div>
         </div>
@@ -182,19 +182,19 @@
           class="message-input"
           @keydown.enter="handleEnter"
         />
-        <q-btn data-test="preview-btn" type="submit" color="primary" unelevated round :disable="!canSend" :loading="processing" padding="8px" class="send-btn">
-          <q-icon name="fas fa-paper-plane" size="14px" />
-        </q-btn>
+        <km-btn data-test="preview-btn" type="submit" unelevated round :disable="!canSend" :loading="processing" padding="8px" class="send-btn">
+          <km-glyph name="send" size="14px" />
+        </km-btn>
       </form>
     </div>
 
     <!-- Source Detail Dialog -->
-    <q-dialog v-model="showSourceDialog" position="right" maximized>
-      <q-card class="source-dialog-card">
-        <q-card-section class="source-dialog-header">
-          <div class="row items-start no-wrap">
-            <div class="col">
-              <div class="row items-center no-wrap">
+    <km-dialog v-model="showSourceDialog" position="right" maximized>
+      <km-card class="source-dialog-card">
+        <div class="km-card-section source-dialog-header">
+          <div class="cluster" data-wrap="no" data-align="start">
+            <div class="flex-1">
+              <div class="cluster" data-wrap="no">
                 <router-link
                   v-if="selectedDocumentRoute"
                   :to="selectedDocumentRoute"
@@ -210,15 +210,15 @@
               </div>
               <div class="km-heading-8">{{ selectedSource?.chunk_title || 'Source Content' }}</div>
             </div>
-            <q-btn flat round dense icon="close" @click="showSourceDialog = false" />
+            <km-btn flat round dense icon="close" @click="showSourceDialog = false" />
           </div>
-        </q-card-section>
-        <q-separator />
-        <q-card-section class="source-dialog-content">
+        </div>
+        <km-separator />
+        <div class="km-card-section source-dialog-content">
           <RetrievalResponseContent :content="selectedSource?.chunk_content || ''" class="source-full-text" />
-        </q-card-section>
-      </q-card>
-    </q-dialog>
+        </div>
+      </km-card>
+    </km-dialog>
   </km-drawer-layout>
 </template>
 
@@ -324,13 +324,13 @@ const handleEnter = (e: KeyboardEvent) => {
 // Workflow display helpers
 const getToolIcon = (tool: string): string => {
   const icons: Record<string, string> = {
-    findChunksBySimilarity: 'fas fa-search',
+    findChunksBySimilarity: 'search',
     findDocumentsBySummarySimilarity: 'filter_alt',
-    findDocumentsByMetadata: 'fas fa-tags',
-    findDocumentsByEntitySimilarity: 'fas fa-project-diagram',
-    exit: 'fas fa-sign-out-alt',
+    findDocumentsByMetadata: 'tags',
+    findDocumentsByEntitySimilarity: 'graph',
+    exit: 'sign-out',
   }
-  return icons[tool] || 'fas fa-cog'
+  return icons[tool] || 'settings'
 }
 
 const getToolDotClass = (tool: string): string => {
@@ -517,12 +517,12 @@ onMounted(() => {
 /* Messages Area */
 .messages-area {
   flex: 1;
-  overflow-y: auto;
+  overflow-block: auto;
   padding: 16px;
 }
 
 .messages-area::-webkit-scrollbar {
-  width: 6px;
+  inline-size: 6px;
 }
 
 .messages-area::-webkit-scrollbar-track {
@@ -530,12 +530,12 @@ onMounted(() => {
 }
 
 .messages-area::-webkit-scrollbar-thumb {
-  background: #e0e0e0;
+  background: var(--ds-color-gray-200);
   border-radius: 3px;
 }
 
 .messages-area::-webkit-scrollbar-thumb:hover {
-  background: #bdbdbd;
+  background: var(--ds-color-gray-300);
 }
 
 /* Empty State */
@@ -544,7 +544,7 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100%;
+  block-size: 100%;
   text-align: center;
   padding: 40px 20px;
 }
@@ -573,7 +573,7 @@ onMounted(() => {
 .message-content-wrapper {
   display: flex;
   flex-direction: column;
-  max-width: 90%;
+  max-inline-size: 90%;
 }
 
 .user-message .message-content-wrapper {
@@ -588,19 +588,19 @@ onMounted(() => {
 .message-bubble {
   padding: 12px 16px;
   border-radius: 16px;
-  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .user-bubble {
-  background: var(--q-primary);
-  color: #fff;
-  border-bottom-right-radius: 4px;
+  background: var(--ds-color-primary);
+  color: var(--ds-color-static-white);
+  border-end-end-radius: 4px;
 }
 
 .assistant-bubble {
-  background: #fff;
-  border: 1px solid #e8e8e8;
-  border-bottom-left-radius: 4px;
+  background: var(--ds-color-static-white);
+  border: 1px solid var(--ds-color-gray-100);
+  border-end-start-radius: 4px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
@@ -615,20 +615,20 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 6px;
+  margin-block-start: 6px;
   padding: 0 4px;
 }
 
 .message-time {
-  font-size: var(--km-font-size-sm);
-  color: #9e9e9e;
+  font-size: var(--ds-font-size-sm);
+  color: var(--ds-color-gray-400);
 }
 
 /* Response Content */
 .response-content {
-  font-size: var(--km-font-size-body);
+  font-size: var(--ds-font-size-body);
   line-height: 1.65;
-  color: #2d3436;
+  color: var(--ds-color-gray-800);
 }
 
 /* Streaming Dots */
@@ -639,11 +639,11 @@ onMounted(() => {
 }
 
 .streaming-dots .dot {
-  width: 6px;
-  height: 6px;
-  background: var(--q-primary);
+  inline-size: 6px;
+  block-size: 6px;
+  background: var(--ds-color-primary);
   border-radius: 50%;
-  animation: bounce 1.4s ease-in-out infinite;
+  animation: ds-dot-pulse 1.4s var(--ds-ease-in-out) infinite;
 }
 
 .streaming-dots .dot:nth-child(2) {
@@ -654,24 +654,11 @@ onMounted(() => {
   animation-delay: 0.4s;
 }
 
-@keyframes bounce {
-  0%,
-  80%,
-  100% {
-    transform: scale(0.6);
-    opacity: 0.5;
-  }
-  40% {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
 /* Workflow Section */
 .workflow-section {
-  margin-bottom: 14px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid #f0f0f0;
+  margin-block-end: 14px;
+  padding-block-end: 14px;
+  border-block-end: 1px solid var(--ds-color-gray-100);
 }
 
 .workflow-toggle {
@@ -688,15 +675,15 @@ onMounted(() => {
 }
 
 .workflow-toggle-text {
-  font-size: var(--km-font-size-label);
+  font-size: var(--ds-font-size-label);
   font-weight: 500;
-  color: #616161;
+  color: var(--ds-color-gray-600);
   flex: 1;
 }
 
 .workflow-timeline {
-  margin-top: 16px;
-  padding-left: 0;
+  margin-block-start: 16px;
+  padding-inline-start: 0;
 }
 
 .workflow-step {
@@ -710,14 +697,14 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   flex-shrink: 0;
-  width: 32px;
+  inline-size: 32px;
 }
 
 .workflow-step-icon-circle {
-  width: 28px;
-  height: 28px;
+  inline-size: 28px;
+  block-size: 28px;
   border-radius: 50%;
-  background: #9e9e9e;
+  background: var(--ds-color-gray-400);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -750,22 +737,21 @@ onMounted(() => {
 }
 
 .workflow-step-line {
-  width: 1px;
+  inline-size: 1px;
   flex: 1;
-  min-height: 24px;
-  background: #e0e0e0;
+  min-block-size: 24px;
+  background: var(--ds-color-gray-200);
   margin: 6px 0;
 }
 
 .workflow-step-content {
   flex: 1;
-  padding-bottom: 20px;
-  min-width: 0;
-  padding-top: 4px;
+  padding-block: 4px 20px;
+  min-inline-size: 0;
 }
 
 .workflow-step--last .workflow-step-content {
-  padding-bottom: 0;
+  padding-block-end: 0;
 }
 
 .workflow-step-header {
@@ -775,39 +761,39 @@ onMounted(() => {
 }
 
 .workflow-step-tool {
-  font-size: var(--km-font-size-body);
+  font-size: var(--ds-font-size-body);
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--ds-color-gray-900);
   line-height: 1.3;
 }
 
 .workflow-step-args {
-  margin-top: 12px;
+  margin-block-start: 12px;
   padding: 10px 12px;
-  background: #fafafa;
+  background: var(--ds-color-gray-50);
   border-radius: 8px;
-  border: 1px solid #f0f0f0;
+  border: 1px solid var(--ds-color-gray-100);
 }
 
 .workflow-args-label {
-  font-size: var(--km-font-size-sm);
+  font-size: var(--ds-font-size-sm);
   font-weight: 600;
-  color: #757575;
+  color: var(--ds-color-gray-500);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin-bottom: 8px;
+  margin-block-end: 8px;
 }
 
 .workflow-arg {
   display: flex;
   gap: 8px;
-  font-size: var(--km-font-size-caption);
+  font-size: var(--ds-font-size-caption);
   line-height: 1.6;
-  margin-bottom: 4px;
+  margin-block-end: 4px;
 }
 
 .workflow-arg:last-child {
-  margin-bottom: 0;
+  margin-block-end: 0;
 }
 
 .workflow-arg-key {
@@ -818,9 +804,9 @@ onMounted(() => {
 
 /* Sources Section */
 .sources-section {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid #f0f0f0;
+  margin-block-start: 10px;
+  padding-block-start: 10px;
+  border-block-start: 1px solid var(--ds-color-gray-100);
 }
 
 .sources-header {
@@ -833,13 +819,13 @@ onMounted(() => {
 }
 
 .sources-header:hover .sources-label {
-  color: #424242;
+  color: var(--ds-color-gray-700);
 }
 
 .sources-label {
-  font-size: var(--km-font-size-sm);
+  font-size: var(--ds-font-size-sm);
   font-weight: 500;
-  color: #757575;
+  color: var(--ds-color-gray-500);
   transition: color 0.15s ease;
 }
 
@@ -847,7 +833,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-top: 6px;
+  margin-block-start: 6px;
 }
 
 .source-document-group {
@@ -861,11 +847,11 @@ onMounted(() => {
   align-items: center;
   gap: 5px;
   padding: 4px 8px;
-  background: linear-gradient(135deg, #f8f9fa 0%, #f0f1f3 100%);
+  background: linear-gradient(135deg, var(--ds-color-gray-50) 0%, var(--ds-color-gray-100) 100%);
   border-radius: 5px;
   cursor: pointer;
   text-decoration: none;
-  transition: all 0.15s ease;
+  transition: background var(--ds-duration-fast) var(--ds-ease-out);
 }
 
 .source-document-group-header:hover {
@@ -874,15 +860,15 @@ onMounted(() => {
 
 .source-document-group-header:hover .source-document-link-icon {
   opacity: 1;
-  color: var(--q-primary);
+  color: var(--ds-color-primary);
 }
 
 .source-document-group-title {
-  font-size: var(--km-font-size-sm);
+  font-size: var(--ds-font-size-sm);
   font-weight: 600;
-  color: #424242;
+  color: var(--ds-color-gray-700);
   flex: 1;
-  min-width: 0;
+  min-inline-size: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -890,14 +876,14 @@ onMounted(() => {
 
 .source-document-link-icon {
   opacity: 0.5;
-  transition: all 0.15s ease;
+  transition: var(--ds-transition-colors), var(--ds-transition-opacity);
 }
 
 .source-document-chunks {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin-left: 20px;
+  margin-inline-start: 20px;
 }
 
 .source-chip {
@@ -905,10 +891,10 @@ onMounted(() => {
   align-items: center;
   gap: 6px;
   padding: 4px 8px 4px 4px;
-  background: #f5f5f5;
+  background: var(--ds-color-gray-50);
   border-radius: 4px;
   cursor: pointer;
-  transition: all 0.12s ease;
+  transition: var(--ds-transition-colors);
 }
 
 .source-chip:hover {
@@ -916,29 +902,29 @@ onMounted(() => {
 }
 
 .source-chip:hover .source-chip-num {
-  background: var(--q-primary);
-  color: #fff;
+  background: var(--ds-color-primary);
+  color: var(--ds-color-static-white);
 }
 
 .source-chip-num {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 14px;
-  height: 14px;
+  min-inline-size: 14px;
+  block-size: 14px;
   font-size: 9px;
   font-weight: 600;
-  color: var(--q-primary);
-  background: #e0e0e0;
+  color: var(--ds-color-primary);
+  background: var(--ds-color-gray-200);
   border-radius: 3px;
-  transition: all 0.12s ease;
+  transition: var(--ds-transition-colors);
 }
 
 .source-chip-title {
-  font-size: var(--km-font-size-sm);
-  color: #424242;
+  font-size: var(--ds-font-size-sm);
+  color: var(--ds-color-gray-700);
   flex: 1;
-  min-width: 0;
+  min-inline-size: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -946,24 +932,24 @@ onMounted(() => {
 
 /* Source Dialog */
 .source-dialog-card {
-  width: 480px;
-  max-width: 100vw;
-  height: 100%;
+  inline-size: 480px;
+  max-inline-size: 100vi;
+  block-size: 100%;
   display: flex;
   flex-direction: column;
 }
 
 .source-dialog-header {
   flex-shrink: 0;
-  background: #fafafa;
+  background: var(--ds-color-gray-50);
 }
 
 .source-document-link {
   color: #6c5ce7;
   text-decoration: none;
-  border-bottom: 1px solid transparent;
+  border-block-end: 1px solid transparent;
   transition: border-color 0.2s ease;
-  max-width: 100%;
+  max-inline-size: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -971,28 +957,28 @@ onMounted(() => {
 }
 
 .source-document-link:hover {
-  border-bottom-color: #6c5ce7;
+  border-block-end-color: #6c5ce7;
 }
 
 .source-dialog-content {
   flex: 1;
-  overflow-y: auto;
+  overflow-block: auto;
   padding: 20px;
 }
 
 .source-full-text {
-  font-size: var(--km-font-size-body);
+  font-size: var(--ds-font-size-body);
   line-height: 1.7;
-  color: #424242;
-  word-wrap: break-word;
+  color: var(--ds-color-gray-700);
+  overflow-wrap: break-word;
 }
 
 /* Input Area */
 .input-area {
   flex-shrink: 0;
   padding: 16px;
-  background: #fff;
-  border-top: 1px solid #e8e8e8;
+  background: var(--ds-color-static-white);
+  border-block-start: 1px solid var(--ds-color-gray-100);
 }
 
 .input-form {
@@ -1015,18 +1001,18 @@ onMounted(() => {
   align-items: center;
   gap: 10px;
   padding: 12px 14px;
-  background: linear-gradient(135deg, #f8f9fa 0%, #f5f6f7 100%);
+  background: linear-gradient(135deg, var(--ds-color-gray-50) 0%, var(--ds-color-gray-50) 100%);
   border-radius: 10px;
-  border: 1px dashed #e0e0e0;
+  border: 1px dashed var(--ds-color-gray-200);
 }
 
 .empty-response-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  background: #fff;
+  inline-size: 32px;
+  block-size: 32px;
+  background: var(--ds-color-static-white);
   border-radius: 50%;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }

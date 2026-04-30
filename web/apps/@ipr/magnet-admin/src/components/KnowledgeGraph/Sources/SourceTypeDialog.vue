@@ -1,37 +1,36 @@
 <template>
-  <q-dialog v-model="dialogOpen">
-    <q-card style="min-width: 300px; max-width: unset">
-      <q-card-section class="q-pa-lg">
-        <div class="row items-center">
-          <div class="col">
+  <km-dialog v-model="dialogOpen">
+    <km-card style="min-inline-size: 300px; max-inline-size: unset">
+      <div class="km-card-section p-lg">
+        <div class="cluster">
+          <div class="flex-1">
             <div class="km-heading-7">{{ m.knowledgeGraph_addNewSource() }}</div>
             <div class="dialog-subtitle">{{ m.knowledgeGraph_chooseSourceType() }}</div>
           </div>
-          <div class="col-auto">
-            <q-btn icon="close" flat dense @click="onCancel" />
+          <div class="flex-none">
+            <km-btn icon="close" flat dense @click="onCancel" />
           </div>
         </div>
-      </q-card-section>
+      </div>
 
-      <!-- <q-separator /> -->
+      <!-- <km-separator /> -->
 
-      <q-card-section class="q-pb-xl q-px-xl">
+      <div class="km-card-section pb-xl px-xl">
         <div class="source-grid">
           <source-type-avatar
             :name="m.knowledgeGraph_fileUpload()"
-            icon="fas fa-upload"
-            icon-color="black"
-            background-color="grey-3"
+            icon="upload"
+            avatar-tone="neutral"
             @select="selectSourceType('upload')"
           />
-          <source-type-avatar name="SharePoint" :image="sharepointImage" background-color="blue-1" @select="selectSourceType('sharepoint')" />
-          <source-type-avatar name="Fluid Topics" :image="fluidTopicsImage" background-color="red-1" @select="selectSourceType('fluid_topics')" />
-          <source-type-avatar name="Salesforce" :image="salesforceImage" background-color="blue-1" @select="selectSourceType('salesforce')" />
-          <source-type-avatar name="Confluence" :image="confluenceImage" background-color="blue-1" @select="selectSourceType('confluence')" />
+          <source-type-avatar name="SharePoint" :image="sharepointImage" avatar-tone="brand-soft" @select="selectSourceType('sharepoint')" />
+          <source-type-avatar name="Fluid Topics" :image="fluidTopicsImage" avatar-tone="danger-soft" @select="selectSourceType('fluid_topics')" />
+          <source-type-avatar name="Salesforce" :image="salesforceImage" avatar-tone="brand-soft" @select="selectSourceType('salesforce')" />
+          <source-type-avatar name="Confluence" :image="confluenceImage" avatar-tone="brand-soft" @select="selectSourceType('confluence')" />
         </div>
-      </q-card-section>
-    </q-card>
-  </q-dialog>
+      </div>
+    </km-card>
+  </km-dialog>
 </template>
 
 <script setup lang="ts">
@@ -72,8 +71,8 @@ const onCancel = () => {
 
 <style scoped>
 .dialog-subtitle {
-  font-size: var(--km-font-size-body);
-  color: var(--q-secondary-text);
+  font-size: var(--ds-font-size-body);
+  color: var(--ds-color-secondary-text);
   font-weight: 400;
   line-height: 1.4;
 }

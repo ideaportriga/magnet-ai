@@ -8,10 +8,10 @@ export const DEFAULT_ENTITY_EXTRACTION_SEGMENT_SIZE = 18000
 export const DEFAULT_ENTITY_EXTRACTION_SEGMENT_OVERLAP = 0.1
 
 export const ColumnTypeOptions = [
-  { label: 'Text', value: 'string', icon: 'text_fields' },
+  { label: 'Text', value: 'string', icon: 'text' },
   { label: 'Number', value: 'number', icon: 'tag' },
-  { label: 'Boolean', value: 'boolean', icon: 'toggle_on' },
-  { label: 'Date', value: 'date', icon: 'calendar_today' },
+  { label: 'Boolean', value: 'boolean', icon: 'toggle-on' },
+  { label: 'Date', value: 'date', icon: 'calendar' },
 ]
 
 export interface EntityColumn {

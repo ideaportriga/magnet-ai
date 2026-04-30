@@ -1,7 +1,8 @@
-<template lang="pug">
-.column.items-center
-  q-chip.km-small-chip.chip(:color='color', :text-color='textColor', :label='label')
-  .km-field.text-left {{ percentOfEvaluated }} records
+<template>
+  <div class="stack items-center" data-gap="0">
+    <km-chip class="km-small-chip chip" :tone="tone" :label="label" />
+    <div class="km-field text-left">{{ percentOfEvaluated }} records</div>
+  </div>
 </template>
 
 <script>
@@ -27,21 +28,15 @@ export default defineComponent({
     averageScore() {
       return this.row?.average_score || 'Not rated'
     },
-    statusStyles() {
+    tone() {
       if (this.averageScore > 4) {
-        return { color: 'status-ready', textColor: 'status-ready-text' }
+        return 'success'
       } else if ((this.averageScore >= 3 && this.averageScore <= 4) || this.averageScore === 'Not rated') {
-        return { color: 'in-progress', textColor: 'text-gray' }
+        return 'neutral'
       } else if (this.averageScore < 3) {
-        return { color: 'error-bg', textColor: 'error-text' }
+        return 'danger'
       }
-      return null
-    },
-    color() {
-      return this.statusStyles?.color || ''
-    },
-    textColor() {
-      return this.statusStyles?.textColor || ''
+      return undefined
     },
   },
 })

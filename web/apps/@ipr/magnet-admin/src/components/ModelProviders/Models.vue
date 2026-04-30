@@ -1,146 +1,105 @@
-<template lang="pug">
-//- km-flex-min-0 on every flex item so nowrap table cells can't push
-//- the column wider than the card (see DataTable.vue width contract).
-.column.full-height.no-wrap.km-flex-min-0(style='width: 100%')
-  .row
-    .col-auto.center-flex-y
-      km-input(:placeholder='m.common_search()', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
-    q-space
-    .col-auto.center-flex-y
-      km-btn.q-mr-12(flat, :label='m.common_import()', icon='fas fa-download', @click='openImportDialog', :loading='loadingAvailableModels')
-      km-btn.q-mr-12(:label='m.common_new()', @click='showNewDialog = true')
-  .row.q-mt-md
-    .col-auto.center-flex-y
-      km-filter-bar(v-model:config='filterConfig', v-model:filterObject='filterObject', outputFormat='sql')
-    q-space
-    .col-auto.center-flex-y
-      km-btn.q-mr-12(
-        v-if='selectedRows.length > 0',
-        icon='delete',
-        :label='m.common_delete()',
-        @click='showDeleteDialog = true',
-        iconColor='icon',
-        hoverColor='primary',
-        labelClass='km-title',
-        flat,
-        iconSize='16px',
-        hoverBg='primary-bg'
-      )
-  .col.q-mt-md.km-flex-min-0
-    km-data-table(
-      fill-height,
-      :table='table',
-      row-key='id',
-      :activeRowId='modelConfig?.id',
-      @row-click='openDetails'
-    )
-model-providers-new-model(v-if='showNewDialog', :showNewDialog='showNewDialog', @cancel='showNewDialog = false')
-km-popup-confirm(
-  :visible='showDeleteDialog',
-  :confirmButtonLabel='m.common_delete()',
-  :cancelButtonLabel='m.common_cancel()',
-  notificationIcon='fas fa-triangle-exclamation',
-  @confirm='deleteSelected',
-  @cancel='showDeleteDialog = false'
-)
-  .row.item-center.justify-center.km-heading-7 Delete Models
-  .row.text-center.justify-center {{ `You are going to delete ${selectedRows?.length} selected models. Are you sure?` }}
+<template>
+  <div class="stack full-height km-flex-min-0" data-gap="0" style="inline-size: 100%">
+    <div class="cluster" data-justify="between">
+      <div class="flex-none">
+        <km-input :placeholder="m.common_search()" icon-before="search" :model-value="globalFilter" clearable @input="globalFilter = $event" />
+      </div>
+      <div class="km-space" />
+      <div class="cluster flex-none" data-gap="md">
+        <km-btn flat :label="m.common_import()" icon="download" :loading="loadingAvailableModels" @click="openImportDialog" />
+        <km-btn :label="m.common_new()" @click="showNewDialog = true" />
+      </div>
+    </div>
+    <div class="cluster mt-md" data-justify="between">
+      <div class="flex-none">
+        <km-filter-bar v-model:config="filterConfig" v-model:filter-object="filterObject" output-format="sql" />
+      </div>
+      <div class="km-space" />
+      <div class="cluster flex-none" data-gap="md">
+        <km-btn v-if="selectedRows.length &gt; 0" icon="delete" :label="m.common_delete()" interaction-tone="brand" label-class="km-title" flat icon-size="16px" @click="showDeleteDialog = true" />
+      </div>
+    </div>
+    <div class="flex-1 mt-md km-flex-min-0">
+      <km-data-table fill-height :table="table" row-key="id" :page-size-options="[20, 50, 100, 200]" :active-row-id="modelConfig?.id" @row-click="openDetails" />
+    </div>
+  </div>
+  <model-providers-new-model v-if="showNewDialog" :show-new-dialog="showNewDialog" @cancel="showNewDialog = false" />
+  <km-popup-confirm :visible="showDeleteDialog" :confirm-button-label="m.common_delete()" :cancel-button-label="m.common_cancel()" notification-icon="warning" @confirm="deleteSelected" @cancel="showDeleteDialog = false">
+    <div class="cluster km-heading-7" data-justify="center">Delete Models</div>
+    <div class="cluster text-center" data-justify="center">{{ `You are going to delete ${selectedRows?.length} selected models. Are you sure?` }}</div>
+  </km-popup-confirm>
+  <km-dialog v-model="showImportDialog" size="lg" persistent>
+    <template #title>Import Models from Provider</template>
 
-//- Import Models Dialog
-q-dialog(v-model='showImportDialog', persistent)
-  q-card(style='min-width: 700px; max-width: 900px; max-height: 85vh')
-    q-card-section.row.items-center.q-pb-none
-      .km-heading-7 Import Models from Provider
-      q-space
-      q-btn(icon='close', flat, round, dense, @click='showImportDialog = false')
+    <div class="stack p-lg" data-gap="md">
+      <div class="cluster" data-gap="sm">
+        <km-chip :label="availableModelsSource === 'api' ? 'Provider API' : 'LiteLLM Registry'" :tone="availableModelsSource === 'api' ? 'success' : 'brand'" round />
+        <km-chip v-if="availableModelsProviderType" :label="availableModelsProviderType" tone="neutral" round />
+      </div>
 
-    q-card-section
-      //- Source indicator banner
-      .row.items-center.q-gutter-sm.q-mb-md
-        km-chip(
-          :label="availableModelsSource === 'api' ? 'Provider API' : 'LiteLLM Registry'",
-          :color="availableModelsSource === 'api' ? 'positive' : 'primary-light'",
-          :text-color="availableModelsSource === 'api' ? 'white' : 'primary'",
-          round
-        )
-        km-chip(v-if='availableModelsProviderType', :label='availableModelsProviderType', color='light', text-color='grey-8', round)
+      <km-banner v-if="availableModelsSource === 'litellm'" rounded dense>
+        <template #avatar>
+          <km-glyph name="info" tone="warning" />
+        </template>
+        <div class="text-caption text-grey-8">Model list from LiteLLM registry. Capabilities are estimated and may not reflect actual provider features.</div>
+      </km-banner>
+      <km-banner v-else-if="availableModelsSource === 'api' &amp;&amp; availableModelsError" rounded dense>
+        <template #avatar>
+          <km-glyph name="warning" tone="warning" />
+        </template>
+        <div class="text-caption text-grey-8">{{ availableModelsError }}</div>
+      </km-banner>
 
-      //- Info/Warning about source
-      q-banner.q-mb-md(v-if="availableModelsSource === 'litellm'", rounded, dense, class='bg-amber-1')
-        template(#avatar)
-          q-icon(name='o_info', color='amber-8')
-        .text-caption.text-grey-8
-          | Model list from LiteLLM registry. Capabilities are estimated and may not reflect actual provider features.
+      <km-input v-model="importSearchString" :placeholder="m.modelProviders_filterModels()" icon-before="search" clearable @input="importSearchString = $event" />
 
-      q-banner.q-mb-md(v-else-if="availableModelsSource === 'api' && availableModelsError", rounded, dense, class='bg-amber-1')
-        template(#avatar)
-          q-icon(name='o_warning', color='amber-8')
-        .text-caption.text-grey-8 {{ availableModelsError }}
+      <div class="km-import-list">
+        <ul v-if="filteredAvailableModels.length &gt; 0" class="km-import-list__items">
+          <li
+            v-for="model in filteredAvailableModels"
+            :key="model.id"
+            class="km-import-list__item"
+            :class="{ 'km-import-list__item--selected': isModelSelected(model), 'km-import-list__item--disabled': isModelAlreadyAdded(model) }"
+            @click="!isModelAlreadyAdded(model) &amp;&amp; toggleModelSelection(model)"
+          >
+            <km-checkbox :model-value="isModelSelected(model)" :disable="isModelAlreadyAdded(model)" @click.stop @update:model-value="toggleModelSelection(model)" />
+            <div class="km-import-list__main">
+              <div class="cluster" data-gap="sm">
+                <span class="km-import-list__title">{{ model.id }}</span>
+                <km-chip :label="model.model_type === 'embeddings' ? 'Embeddings' : (model.model_type === 'stt' ? 'STT' : 'Chat')" :tone="model.model_type === 'embeddings' ? 'neutral' : 'brand'" round />
+              </div>
+              <div class="cluster km-import-list__meta" data-gap="xs">
+                <span v-if="model.owned_by">{{ model.owned_by }}</span>
+                <template v-if="model.max_tokens">
+                  <span class="text-grey-5">•</span>
+                  <span>{{ formatTokens(model.max_tokens) }} tokens</span>
+                </template>
+              </div>
+            </div>
+            <div class="cluster flex-none" data-gap="xs">
+              <template v-if="isModelAlreadyAdded(model)">
+                <km-chip :label="m.common_alreadyAdded()" tone="neutral" round />
+              </template>
+              <template v-else>
+                <km-chip v-if="model.supports_function_calling" tone="brand" :label="m.common_tools()" round tooltip="Function/Tool Calling" />
+                <km-chip v-if="model.supports_json_mode" tone="brand" :label="m.common_json()" round tooltip="JSON Mode" />
+                <km-chip v-if="model.supports_vision" tone="brand" :label="m.common_vision()" round tooltip="Vision/Image Support" />
+              </template>
+            </div>
+          </li>
+        </ul>
+        <div v-else-if="!loadingAvailableModels" class="km-import-list__empty">
+          No models found
+          <div v-if="availableModelsError &amp;&amp; !availableModels.length" class="mt-sm text-negative">{{ availableModelsError }}</div>
+        </div>
+      </div>
+    </div>
 
-      //- Search filter
-      km-input.q-mb-md(
-        :placeholder='m.modelProviders_filterModels()',
-        iconBefore='search',
-        v-model='importSearchString',
-        @input='importSearchString = $event',
-        clearable
-      )
-
-      //- Models list
-      .q-mt-sm(style='max-height: 400px; overflow-y: auto')
-        q-list(v-if='filteredAvailableModels.length > 0', separator)
-          q-item(
-            v-for='model in filteredAvailableModels',
-            :key='model.id',
-            clickable,
-            @click='toggleModelSelection(model)',
-            :class="{ 'bg-grey-2': isModelSelected(model) }"
-          )
-            q-item-section(side)
-              q-checkbox(
-                :model-value='isModelSelected(model)',
-                @update:model-value='toggleModelSelection(model)',
-                :disable='isModelAlreadyAdded(model)'
-              )
-            q-item-section
-              q-item-label.row.items-center.q-gap-8
-                span {{ model.id }}
-                km-chip(
-                  :label="model.model_type === 'embeddings' ? 'Embeddings' : (model.model_type === 'stt' ? 'STT' : 'Chat')",
-                  :color="model.model_type === 'embeddings' ? 'in-progress' : 'primary-light'",
-                  :text-color="model.model_type === 'embeddings' ? 'grey-7' : 'primary'",
-                  round
-                )
-              q-item-label(caption)
-                .row.items-center.q-gap-4
-                  span(v-if='model.owned_by') {{ model.owned_by }}
-                  template(v-if='model.max_tokens')
-                    span.text-grey-5 •
-                    span {{ formatTokens(model.max_tokens) }} tokens
-            q-item-section(side)
-              .row.items-center.q-gap-4
-                template(v-if='isModelAlreadyAdded(model)')
-                  km-chip(:label='m.common_alreadyAdded()', color='light', text-color='grey-7', round)
-                template(v-else)
-                  km-chip(v-if='model.supports_function_calling', :label='m.common_tools()', color='primary-light', text-color='primary', round, tooltip='Function/Tool Calling')
-                  km-chip(v-if='model.supports_json_mode', :label='m.common_json()', color='primary-light', text-color='primary', round, tooltip='JSON Mode')
-                  km-chip(v-if='model.supports_vision', :label='m.common_vision()', color='primary-light', text-color='primary', round, tooltip='Vision/Image Support')
-
-        .text-center.q-pa-lg.text-secondary-text(v-else-if='!loadingAvailableModels')
-          | No models found
-          template(v-if='availableModelsError && !availableModels.length')
-            .q-mt-sm.text-negative {{ availableModelsError }}
-
-    q-card-actions.q-pa-md(align='right')
-      .text-secondary-text.q-mr-md(v-if='selectedModelsToImport.length > 0')
-        | {{ selectedModelsToImport.length }} model(s) selected
-      km-btn(flat, :label='m.common_cancel()', color='primary', @click='showImportDialog = false')
-      km-btn(
-        :label='m.common_importSelected()',
-        @click='importSelectedModels',
-        :disable='selectedModelsToImport.length === 0',
-        :loading='importingModels'
-      )
+    <template #footer>
+      <span v-if="selectedModelsToImport.length &gt; 0" class="text-secondary-text mr-md">{{ selectedModelsToImport.length }} model(s) selected</span>
+      <km-btn flat :label="m.common_cancel()" tone="brand" @click="showImportDialog = false" />
+      <km-btn :label="m.common_importSelected()" :disable="selectedModelsToImport.length === 0" :loading="importingModels" @click="importSelectedModels" />
+    </template>
+  </km-dialog>
 </template>
 
 <script>
@@ -191,11 +150,9 @@ function fuzzyMatch(query, target) {
         consecutive = 1
         score += 1
       }
-
       if (ti === 0 || '-_. '.includes(t[ti - 1])) {
         score += 5
       }
-
       if (ti > 0 && target[ti] === target[ti].toUpperCase() && target[ti] !== target[ti].toLowerCase()) {
         score += 3
       }
@@ -207,12 +164,9 @@ function fuzzyMatch(query, target) {
   }
 
   if (qi < q.length) return 0
-
   score += Math.max(0, 10 - (t.length - q.length))
-
   return score
 }
-
 export default {
   props: {
     selectedModel: {
@@ -226,9 +180,7 @@ export default {
     const { draft: providerDraft } = useEntityDetail('provider')
     const { mutateAsync: deleteItem } = queries.model.useRemove()
     const { mutateAsync: createEntity } = queries.model.useCreate()
-
     const filterObject = ref({})
-
     const filterConfig = {
       type: {
         key: 'type',
@@ -259,6 +211,7 @@ export default {
       }),
       componentColumn('features', m.common_features(), markRaw(Features), {
         props: (row) => ({ name: 'features' }),
+        wrap: true,
       }),
       componentColumn('is_default', m.common_default(), markRaw(Check), {
         accessorKey: 'is_default',
@@ -279,10 +232,47 @@ export default {
       provider: providerDraft.value?.system_name ?? '',
     }))
 
+    /**
+     * Filter-bar values are applied on the client because the backend `/models`
+     * endpoint only accepts a single `type` value and no per-feature flags.
+     * Per-provider model lists are bounded (typically <100), so a high page
+     * size + local filtering is the pragmatic correct behaviour here.
+     *
+     * Note: <km-filter-bar> embeds <km-select> without `emit-value`, so each
+     * selection is the full `{ label, value }` option — unwrap it before
+     * comparing against the row's primitive `type` / feature flags.
+     */
+    function unwrapValues(input) {
+      const list = Array.isArray(input) ? input : (input != null ? [input] : [])
+      return list.map((entry) =>
+        entry && typeof entry === 'object' && 'value' in entry ? entry.value : entry,
+      )
+    }
+
+    function filterRows(items) {
+      const fo = filterObject.value ?? {}
+      let result = items
+
+      const types = unwrapValues(fo.type)
+      if (types.length > 0) {
+        result = result.filter((m) => types.includes(m.type))
+      }
+
+      const features = unwrapValues(fo.features)
+      if (features.length > 0) {
+        // OR semantics — model matches if it advertises any of the selected features.
+        result = result.filter((m) => features.some((feat) => m[feat] === true))
+      }
+
+      return result
+    }
+
     const { table, globalFilter, rowSelection } = useDataTable('model', columns, {
       defaultSort: [{ id: 'updated_at', desc: true }],
+      defaultPageSize: 200,
       extraParams: providerExtraParams,
       enableRowSelection: true,
+      dataFilter: filterRows,
     })
 
     const selectedRows = computed(() =>
@@ -356,7 +346,7 @@ export default {
     async deleteSelected() {
       try {
         for (const item of this.selectedRows) {
-          await this.deleteItem(item)
+          await this.deleteItem(item.id)
         }
         this.clearSelection()
         this.showDeleteDialog = false
@@ -474,3 +464,52 @@ export default {
   },
 }
 </script>
+
+<style>
+.km-import-list {
+  max-block-size: 24rem;
+  overflow-block: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-md);
+}
+.km-import-list__items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.km-import-list__item {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-md);
+  padding: var(--ds-space-sm) var(--ds-space-md);
+  border-block-end: 1px solid var(--ds-color-border-subtle);
+  cursor: pointer;
+  transition: background var(--ds-duration-fast) var(--ds-ease-out);
+}
+.km-import-list__item:last-child { border-block-end: 0; }
+.km-import-list__item:hover { background: var(--ds-color-table-hover); }
+.km-import-list__item--selected { background: var(--ds-color-primary-bg); }
+.km-import-list__item--selected:hover { background: var(--ds-color-primary-bg); }
+.km-import-list__item--disabled { cursor: not-allowed; opacity: 0.6; }
+.km-import-list__main {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-2xs);
+}
+.km-import-list__title {
+  font-weight: var(--ds-font-weight-medium);
+  color: var(--ds-color-black);
+}
+.km-import-list__meta {
+  font-size: var(--ds-font-size-caption);
+  color: var(--ds-color-text-grey);
+}
+.km-import-list__empty {
+  padding: var(--ds-space-2xl);
+  text-align: center;
+  color: var(--ds-color-text-grey);
+}
+</style>

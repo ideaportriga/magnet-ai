@@ -1,16 +1,14 @@
-<template lang="pug">
-.column.full-height(style='min-height: 0')
-  .row.q-mb-12
-    .col-auto.center-flex-y
-      km-input(:placeholder='m.common_search()', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
-  .col(style='min-height: 0')
-    km-data-table(
-      fill-height,
-      :table='table',
-      row-key='id',
-      :activeRowId='selectedRow?.id',
-      @row-click='selectRecord'
-    )
+<template>
+  <div class="stack full-height" data-gap="0" style="min-block-size: 0">
+    <div class="cluster mb-md">
+      <div class="flex-none center-flex-y">
+        <km-input :placeholder="m.common_search()" icon-before="search" :model-value="globalFilter" clearable @input="globalFilter = $event" />
+      </div>
+    </div>
+    <div class="flex-1" style="min-block-size: 0">
+      <km-data-table fill-height :table="table" row-key="id" :active-row-id="selectedRow?.id" @row-click="selectRecord" />
+    </div>
+  </div>
 </template>
 
 <script setup>

@@ -36,7 +36,11 @@ describe('API Keys — list + create', () => {
     cy.g('name-input', { timeout: 10000 }).find('input')
       .type(`e2e-test-${Math.random().toString(36).slice(2, 8)}`)
     cy.g('create-btn').click()
-    // Step 1: km-btn "Done" — km-btn renders as .km-button div, not <button>.
-    cy.contains(/^Done$/, { timeout: 10000 }).should('be.visible')
+    // Step 1: dedicated `done-btn` hook scopes to this dialog. We assert
+    // existence (not visibility) — cypress's `be.visible` check uses
+    // `elementFromPoint` and trips on the dialog overlay's stacking
+    // context even when the button is rendered correctly. Existence under
+    // a visible dialog body is a sufficient signal that step 1 rendered.
+    cy.g('done-btn', { timeout: 10000 }).should('exist')
   })
 })

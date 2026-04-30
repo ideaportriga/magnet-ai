@@ -1,69 +1,80 @@
-<template lang="pug">
-.column.fit
-  .col-auto
-    .row.items-center
-      km-btn(flat, icon='fas fa-chevron-left', @click='$emit("close")', iconSize='20px', color='secondary-text')
-      .km-heading-7.q-mb-xs.q-ml-sm {{ m.collectionItems_chunkDetails() }}
-  q-separator.q-mb-md
-
-  template(v-if='!selectedRow?.id')
-    .flex.flex-center.full-height
-      .km-description.text-grey {{ m.collectionItems_noChunkSelected() }}
-
-  template(v-else)
-    .col-auto(v-if='selectedRow?.metadata?.source')
-      .row.items-center
-        .col
-        .col-auto
-          km-btn(icon='fas fa-external-link-alt', :label='m.collectionItems_viewDocument()', iconSize='16px', flat, @click='openDocument')
-    .col
-      q-scroll-area.fit
-        .column.q-pt-8.q-pl-8.q-pr-24
-          .col-12.q-py-8
-            .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_title() }}
-            km-input(:model-value='selectedRow?.metadata?.title ?? "-"', :readonly='true', autogrow)
-          .col-12.q-py-8
-            .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_type() }}
-            km-input(:model-value='selectedRow?.metadata?.type ?? "-"', :readonly='true')
-
-          //- Indexed content
-          .col-12.q-py-8
-            .row.items-center
-              .km-field.text-secondary-text.q-pb-xs.q-pl-8.col
-                span(v-if='!hasAlternateContent') {{ m.collectionItems_indexedRetrievalContent() }}
-                span(v-else) {{ m.collectionItems_indexedContent() }}
-              .col-auto
-                q-btn(flat, round, color='secondary', :icon='indexedExpanded ? "fas fa-compress-alt" : "fas fa-expand-alt"', @click='indexedExpanded = !indexedExpanded', size='xs')
-            km-input(:model-value='indexedExpanded ? selectedRow?.content : truncate(selectedRow?.content)', :readonly='true', autogrow)
-
-          //- Retrieval content (if different from indexed)
-          .col-12.q-py-8(v-if='retrievalContent && retrievalContent !== selectedRow?.content')
-            .row.items-center
-              .km-field.text-secondary-text.q-pb-xs.q-pl-8.col {{ m.collectionItems_retrievalContent() }}
-              .col-auto
-                q-btn(flat, round, color='secondary', :icon='retrievalExpanded ? "fas fa-compress-alt" : "fas fa-expand-alt"', @click='retrievalExpanded = !retrievalExpanded', size='xs')
-            km-input(:model-value='retrievalExpanded ? retrievalContent : truncate(retrievalContent)', :readonly='true', autogrow)
-
-          //- Original unmodified content (if different)
-          .col-12.q-py-8(v-if='unmodifiedContent && unmodifiedContent !== selectedRow?.content && unmodifiedContent !== retrievalContent')
-            .row.items-center
-              .km-field.text-secondary-text.q-pb-xs.q-pl-8.col {{ m.collectionItems_originalUnmodifiedContent() }}
-              .col-auto
-                q-btn(flat, round, color='secondary', :icon='unmodifiedExpanded ? "fas fa-compress-alt" : "fas fa-expand-alt"', @click='unmodifiedExpanded = !unmodifiedExpanded', size='xs')
-            km-input(:model-value='unmodifiedExpanded ? unmodifiedContent : truncate(unmodifiedContent)', :readonly='true', autogrow)
-
-          //- Metadata JSON
-          .col-12.q-py-8
-            .km-field.text-secondary-text.q-pl-8 {{ m.common_metadata() }}
-            km-codemirror.fit(:model-value='metadataJson', :readonly='true')
-
-          //- Timestamps
-          .col-6.q-py-8
-            .km-field.text-secondary-text.q-pl-8 {{ m.common_created() }}
-            km-input(:model-value='selectedRow?.metadata?.createdTime ?? "-"', :readonly='true')
-          .col-6.q-py-8.q-pl-8
-            .km-field.text-secondary-text.q-pl-8 {{ m.common_lastModified() }}
-            km-input(:model-value='selectedRow?.metadata?.modifiedTime ?? "-"', :readonly='true')
+<template>
+  <div class="stack fit" data-gap="0">
+    <div class="flex-none">
+      <div class="cluster">
+        <km-btn flat icon="chevron-left" icon-size="20px" tone="subtle" @click="$emit(&quot;close&quot;)" />
+        <div class="km-heading-7 mb-xs ml-sm">{{ m.collectionItems_chunkDetails() }}</div>
+      </div>
+    </div>
+    <km-separator class="mb-md" />
+    <template v-if="!selectedRow?.id">
+      <div class="flex flex-center full-height">
+        <div class="km-description text-grey">{{ m.collectionItems_noChunkSelected() }}</div>
+      </div>
+    </template>
+    <template v-else>
+      <div v-if="selectedRow?.metadata?.source" class="flex-none">
+        <div class="cluster" data-justify="end">
+          <km-btn icon="external-link" :label="m.collectionItems_viewDocument()" icon-size="16px" flat @click="openDocument" />
+        </div>
+      </div>
+      <div class="flex-1">
+        <km-scroll-area class="fit">
+          <div class="stack pt-sm pl-sm pr-2xl" data-gap="0">
+            <div class="py-sm">
+              <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.common_title() }}</div>
+              <km-input :model-value="selectedRow?.metadata?.title ?? &quot;-&quot;" :readonly="true" autogrow />
+            </div>
+            <div class="py-sm">
+              <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.common_type() }}</div>
+              <km-input :model-value="selectedRow?.metadata?.type ?? &quot;-&quot;" :readonly="true" />
+            </div>
+            <div class="py-sm">
+              <div class="cluster">
+                <div class="km-field text-secondary-text pb-xs pl-sm flex-1"><span v-if="!hasAlternateContent">{{ m.collectionItems_indexedRetrievalContent() }}</span><span v-else>{{ m.collectionItems_indexedContent() }}</span></div>
+                <div class="flex-none">
+                  <km-btn flat round tone="muted" :icon="indexedExpanded ? &quot;collapse&quot; : &quot;expand&quot;" size="xs" @click="indexedExpanded = !indexedExpanded" />
+                </div>
+              </div>
+              <km-input :model-value="indexedExpanded ? selectedRow?.content : truncate(selectedRow?.content)" :readonly="true" autogrow />
+            </div>
+            <div v-if="retrievalContent &amp;&amp; retrievalContent !== selectedRow?.content" class="py-sm">
+              <div class="cluster">
+                <div class="km-field text-secondary-text pb-xs pl-sm flex-1">{{ m.collectionItems_retrievalContent() }}</div>
+                <div class="flex-none">
+                  <km-btn flat round tone="muted" :icon="retrievalExpanded ? &quot;collapse&quot; : &quot;expand&quot;" size="xs" @click="retrievalExpanded = !retrievalExpanded" />
+                </div>
+              </div>
+              <km-input :model-value="retrievalExpanded ? retrievalContent : truncate(retrievalContent)" :readonly="true" autogrow />
+            </div>
+            <div v-if="unmodifiedContent &amp;&amp; unmodifiedContent !== selectedRow?.content &amp;&amp; unmodifiedContent !== retrievalContent" class="py-sm">
+              <div class="cluster">
+                <div class="km-field text-secondary-text pb-xs pl-sm flex-1">{{ m.collectionItems_originalUnmodifiedContent() }}</div>
+                <div class="flex-none">
+                  <km-btn flat round tone="muted" :icon="unmodifiedExpanded ? &quot;collapse&quot; : &quot;expand&quot;" size="xs" @click="unmodifiedExpanded = !unmodifiedExpanded" />
+                </div>
+              </div>
+              <km-input :model-value="unmodifiedExpanded ? unmodifiedContent : truncate(unmodifiedContent)" :readonly="true" autogrow />
+            </div>
+            <div class="py-sm">
+              <div class="km-field text-secondary-text pl-sm">{{ m.common_metadata() }}</div>
+              <km-codemirror class="fit" :model-value="metadataJson" :readonly="true" />
+            </div>
+            <div class="collections-drawer-chunk__meta-grid">
+              <div class="py-sm">
+                <div class="km-field text-secondary-text pl-sm">{{ m.common_created() }}</div>
+                <km-input :model-value="selectedRow?.metadata?.createdTime ?? &quot;-&quot;" :readonly="true" />
+              </div>
+              <div class="py-sm pl-sm">
+                <div class="km-field text-secondary-text pl-sm">{{ m.common_lastModified() }}</div>
+                <km-input :model-value="selectedRow?.metadata?.modifiedTime ?? &quot;-&quot;" :readonly="true" />
+              </div>
+            </div>
+          </div>
+        </km-scroll-area>
+      </div>
+    </template>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -111,3 +122,17 @@ function openDocument() {
   if (source) window.open(String(source), '_blank')
 }
 </script>
+
+<style scoped>
+.collections-drawer-chunk__meta-grid {
+  display: grid;
+  gap: var(--ds-space-md);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 767px) {
+  .collections-drawer-chunk__meta-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

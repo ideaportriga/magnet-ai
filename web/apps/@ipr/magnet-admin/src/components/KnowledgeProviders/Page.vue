@@ -1,12 +1,18 @@
-<template lang="pug">
-.column.no-wrap.full-height
-  .collection-container.q-mx-auto.full-width.column.full-height.q-px-md.q-pt-16
-    template(v-if='loading')
-      .flex.flex-center.full-height
-        q-spinner(size='40px', color='primary')
-    template(v-else)
-      .col.ba-border.border-radius-12.bg-white.q-pa-16.column(style='min-height: 0')
-        knowledge-providers-table
+<template>
+  <div class="stack full-height" data-gap="0">
+    <div class="collection-container mx-auto full-width stack full-height px-md pt-lg" data-gap="0">
+      <template v-if="loading">
+        <div class="flex flex-center full-height">
+          <km-loader size="40px" />
+        </div>
+      </template>
+      <template v-else>
+        <div class="flex-1 ba-border border-radius-12 bg-white p-lg stack" data-gap="0" style="min-block-size: 0">
+          <knowledge-providers-table />
+        </div>
+      </template>
+    </div>
+  </div>
 </template>
 <script setup>
 import { m } from '@/paraglide/messages'

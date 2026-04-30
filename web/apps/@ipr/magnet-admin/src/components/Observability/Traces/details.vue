@@ -1,80 +1,97 @@
-<template lang="pug">
-.row.no-wrap.overflow-hidden.full-height(v-if='loading', style='min-width: 1200px')
-  km-inner-loading(:showing='loading')
-.row.no-wrap.overflow-hidden.full-height(style='min-width: 1200px')
-  .col.row.no-wrap.full-height.justify-center.fit
-    .col(style='max-width: 1200px; min-width: 600px')
-      .full-height.q-pb-md.relative-position.q-px-md
-        .row.items-center.q-gap-12.no-wrap.full-width.q-mt-lg.q-mb-sm.bg-white.border-radius-8.q-py-12.q-px-16
-          .col.full-width
-            .col-auto.q-mb-lg
-              .row.items-center.q-gap-12.q-mb-xs
-                .km-heading-4.text-black {{ name }}
-                q-space
-                q-chip.q-ma-none.km-heading.text-uppercase(v-if='channel', :label='channel', color='chip-accent-bg', textColor='primary')
-                q-chip.q-ma-none.km-heading.text-uppercase(v-if='type', :label='type', color='light')
-                q-chip.q-ma-none.km-heading.text-white(v-if='status === "error"', :label='m.common_errorLabel()', color='red')
-              .text-secondary-text {{ startTime }}
-            .row.justify-between.q-gap-12.full-width
-              .col.bg-white.ba-border.border-radius-8.q-py-xs.q-px-sm
-                .text-weight-medium(style='font-size: 12px') Latency
-                .text-primary.text-weight-medium(style='font-size: 16px') {{ formattedLatency }}
-              .col.bg-white.ba-border.border-radius-8.q-py-xs.q-px-sm
-                .text-weight-medium(style='font-size: 12px') Chat Completion Cost
-                .text-primary.text-weight-medium(style='font-size: 16px') {{ chatCompletionCost }}
-              .col.bg-white.ba-border.border-radius-8.q-py-xs.q-px-sm
-                .text-weight-medium(style='font-size: 12px') Embedding Cost
-                .text-primary.text-weight-medium(style='font-size: 16px') {{ embeddingCost }}
-              .col.bg-white.ba-border.border-radius-8.q-py-xs.q-px-sm
-                .text-weight-medium(style='font-size: 12px') Rerank Cost
-                .text-primary.text-weight-medium(style='font-size: 16px') {{ rerankCost }}
-              .col.bg-white.ba-border.border-radius-8.q-py-xs.q-px-sm
-                .text-weight-medium(style='font-size: 12px') Total Cost
-                .text-primary.text-weight-medium(style='font-size: 16px') {{ totalCost }}
-
-        .column.no-wrap.q-gap-16.full-height.full-width.overflow-auto.q-mb-md.q-mt-lg(style='max-height: calc(100vh - 260px) !important')
-          .row.q-gap-16.full-height.full-width
-            .col.full-height.full-width
-              .column.items-center.full-height.full-width.q-gap-16.overflow-auto
-                .ba-border.bg-white.border-radius-12.q-pa-lg.q-pr-xl.full-width.relative-position
-                  template(v-if='spans?.length')
-                    .row.full-width
-                      .row.border-radius-8.full-width(
-                        v-for='(span, index) in spansTree',
-                        :key='index',
-                        :class='span.ui.rowContainer.classes',
-                        :style='[span.ui.rowContainer.styles, selectedSpan?.id === span.id ? { backgroundColor: "var(--q-table-active)" } : {}]',
-                        @click='openDrawer(span)'
-                      )
-                        template(v-if='span.type === "idle"')
-                          .row.items-center.justify-center.text-secondary-text.full-width(:style='span.ui.row.styles') Idle for {{ span.latency }}
-                        template(v-else)
-                          .col
-                            .row.items-center.no-wrap.q-gap-6.q-py-xs.q-mt-xs
-                              .row.q-gap-4.items-center.span-default-background.text-uppercase.border-radius-6.q-py-xs.q-px-sm(
-                                v-if='span.type',
-                                :style='span.ui.chip.styles'
-                              )
-                                q-icon(v-if='span.status === "error"', name='fa-solid fa-circle-exclamation', color='red', size='16px')
-                                div {{ span.type }}
-                              .text-secondary-text {{ span.name }}
-
-                            .row.items-center.q-gap-12.q-ml-xs.q-mb-xs(style='font-size: 12px')
-                              div {{ span.latency }}
-                              div {{ span.computed.total_cost }}
-                          .span-collapse-count.text-secondary-text(
-                            v-if='span.repeat_count',
-                            title='Number of times this span was repeated sequentially'
-                          ) x{{ span.repeat_count }}
-                          .row.q-px-sm(style='width: 400px; border-left: 1px solid #e5e7eb')
-                            .row.items-center.span-default-background.border-radius-4.q-pa-xs.q-my-md(:style='span.ui.timeline.styles') {{ span.latency }}
-
-                  template(v-else)
-                    .center-flex-x.q-mt-sm
-                      q-spinner-dots(color='primary', size='50px')
-
-  .col-auto
-    observability-traces-drawer(v-if='drawerOpened', :open='drawerOpened', :trace='draft', :span='selectedSpan')
+<template>
+  <div v-if="loading" class="cluster overflow-hidden full-height traces-detail__viewport" data-wrap="no">
+    <km-inner-loading :showing="loading" />
+  </div>
+  <div class="cluster overflow-hidden full-height traces-detail__viewport" data-wrap="no">
+    <div class="flex flex-1 full-height fit traces-detail__shell">
+      <div class="flex-1 traces-detail__column">
+        <div class="full-height pb-md relative-position px-md">
+          <div class="cluster full-width mt-lg mb-sm bg-white border-radius-8 py-md px-lg" data-gap="md" data-wrap="no">
+            <div class="flex-1 full-width">
+              <div class="flex-none mb-lg">
+                <div class="cluster mb-xs" data-gap="md">
+                  <div class="km-heading-4 text-black">{{ name }}</div>
+                  <div class="km-space" />
+                  <km-chip v-if="channel" class="m-0 km-heading text-uppercase" :label="channel" tone="brand" />
+                  <km-chip v-if="type" class="m-0 km-heading text-uppercase" :label="type" tone="neutral" />
+                  <km-chip v-if="status === &quot;error&quot;" class="m-0 km-heading" :label="m.common_errorLabel()" tone="danger" />
+                </div>
+                <div class="text-secondary-text">{{ startTime }}</div>
+              </div>
+              <div class="cluster full-width" data-justify="between" data-gap="md">
+                <div class="flex-1 bg-white ba-border border-radius-8 py-xs px-sm">
+                  <div class="text-weight-medium traces-detail__stat-label">Latency</div>
+                  <div class="text-primary text-weight-medium traces-detail__stat-value">{{ formattedLatency }}</div>
+                </div>
+                <div class="flex-1 bg-white ba-border border-radius-8 py-xs px-sm">
+                  <div class="text-weight-medium traces-detail__stat-label">Chat Completion Cost</div>
+                  <div class="text-primary text-weight-medium traces-detail__stat-value">{{ chatCompletionCost }}</div>
+                </div>
+                <div class="flex-1 bg-white ba-border border-radius-8 py-xs px-sm">
+                  <div class="text-weight-medium traces-detail__stat-label">Embedding Cost</div>
+                  <div class="text-primary text-weight-medium traces-detail__stat-value">{{ embeddingCost }}</div>
+                </div>
+                <div class="flex-1 bg-white ba-border border-radius-8 py-xs px-sm">
+                  <div class="text-weight-medium traces-detail__stat-label">Rerank Cost</div>
+                  <div class="text-primary text-weight-medium traces-detail__stat-value">{{ rerankCost }}</div>
+                </div>
+                <div class="flex-1 bg-white ba-border border-radius-8 py-xs px-sm">
+                  <div class="text-weight-medium traces-detail__stat-label">Total Cost</div>
+                  <div class="text-primary text-weight-medium traces-detail__stat-value">{{ totalCost }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="stack full-height full-width overflow-auto mb-md mt-lg traces-detail__scroll" data-gap="lg">
+            <div class="cluster full-height full-width" data-gap="lg">
+              <div class="flex-1 full-height full-width">
+                <div class="stack items-center full-height full-width overflow-auto" data-gap="lg">
+                  <div class="ba-border bg-white border-radius-12 p-lg pr-xl full-width relative-position">
+                    <template v-if="spans?.length">
+                      <div class="full-width">
+                        <div v-for="(span, index) in spansTree" :key="index" class="cluster border-radius-8 full-width" :class="span.ui.rowContainer.classes" :style="[span.ui.rowContainer.styles, selectedSpan?.id === span.id ? { backgroundColor: &quot;var(--ds-color-table-active)&quot; } : {}]" @click="openDrawer(span)">
+                          <template v-if="span.type === &quot;idle&quot;">
+                            <div class="cluster text-secondary-text full-width" data-justify="center" :style="span.ui.row.styles">Idle for {{ span.latency }}</div>
+                          </template>
+                          <template v-else>
+                            <div class="flex-1">
+                              <div class="cluster py-xs mt-xs" data-gap="2xs" data-wrap="no">
+                                <div v-if="span.type" class="cluster span-default-background text-uppercase border-radius-6 py-xs px-sm" data-gap="xs" :style="span.ui.chip.styles">
+                                  <km-glyph v-if="span.status === &quot;error&quot;" name="fa-solid fa-circle-exclamation" tone="danger" size="16px" />
+                                  <div>{{ span.type }}</div>
+                                </div>
+                                <div class="text-secondary-text">{{ span.name }}</div>
+                              </div>
+                              <div class="cluster ml-xs mb-xs traces-detail__span-meta" data-gap="md">
+                                <div>{{ span.latency }}</div>
+                                <div>{{ span.computed.total_cost }}</div>
+                              </div>
+                            </div>
+                            <div v-if="span.repeat_count" class="span-collapse-count text-secondary-text" title="Number of times this span was repeated sequentially">x{{ span.repeat_count }}</div>
+                            <div class="flex px-sm traces-detail__timeline-col">
+                              <div class="cluster span-default-background border-radius-4 p-xs my-md" :style="span.ui.timeline.styles">{{ span.latency }}</div>
+                            </div>
+                          </template>
+                        </div>
+                      </div>
+                    </template>
+                    <template v-else>
+                      <div class="center-flex-x mt-sm">
+                        <km-loader size="50px" />
+                      </div>
+                    </template>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="flex-none">
+      <observability-traces-drawer v-if="drawerOpened" :open="drawerOpened" :trace="draft" :span="selectedSpan" />
+    </div>
+  </div>
 </template>
 
 <script>
@@ -199,7 +216,6 @@ export default {
         }
         return [rowLeftPadding, leftMargin, rightMargin, lineWidth, lines]
       }
-
       const calcSpanTimelineParams = (spanStartTime, spanLatency, idleLatency) => {
         const trace = this.draft
         const traceLatency = (trace?.latency ?? 1000) - idleTotalLatency
@@ -213,17 +229,17 @@ export default {
       const calcSpanColor = (spanType) => {
         switch (spanType) {
           case 'chat':
-            return '#DCFCE7'
+            return 'var(--ds-color-success-soft)'
           case 'embed':
-            return '#FFEDD5'
+            return 'var(--ds-color-warning-soft)'
           case 'rerank':
-            return '#FFF7D9'
+            return 'var(--ds-color-warning-100)'
           case 'search':
-            return '#DDE8F4'
+            return 'var(--ds-color-info-soft)'
           case 'tool':
-            return '#E9D5FF'
+            return 'var(--ds-color-primary-soft)'
           default:
-            return 'rgba(104,64,194, .15)'
+            return 'var(--ds-color-primary-soft)'
         }
       }
 
@@ -258,7 +274,7 @@ export default {
                 position: 'absolute',
                 fontSize: '12px',
                 padding: '10px 0',
-                backgroundImage: 'repeating-linear-gradient(45deg, #ffffff 0, #ffffff 2.5px, var(--q-light) 0, var(--q-light) 50%)',
+                backgroundImage: 'repeating-linear-gradient(45deg, var(--ds-color-static-white) 0, var(--ds-color-static-white) 2.5px, var(--ds-color-light) 0, var(--ds-color-light) 50%)',
                 backgroundSize: '8px 8px',
               },
             ],
@@ -329,23 +345,50 @@ export default {
 }
 </script>
 
-<style lang="stylus">
-.span-default-background {
-  background-color: #DBEAFE
+<style>
+.traces-detail__viewport {
+  min-inline-size: 1200px;
 }
-.span-hoverable:hover{
-    background-color: var(--q-table-hover)
+.traces-detail__shell {
+  justify-content: center;
+}
+.traces-detail__column {
+  max-inline-size: 1200px;
+  min-inline-size: 600px;
+}
+.traces-detail__scroll {
+  max-block-size: calc(100vb - 260px);
+}
+.traces-detail__stat-label {
+  font-size: var(--ds-font-size-xs);
+}
+.traces-detail__stat-value {
+  font-size: var(--ds-font-size-body-lg);
+}
+.traces-detail__span-meta {
+  font-size: var(--ds-font-size-xs);
+}
+.traces-detail__timeline-col {
+  inline-size: 400px;
+  border-inline-start: 1px solid var(--ds-color-border);
+}
+
+.span-default-background {
+  background-color: var(--ds-color-info-soft);
+}
+.span-hoverable:hover {
+  background-color: var(--ds-color-table-hover);
 }
 .span-collapse-count {
   display: flex;
   justify-content: center;
   align-items: center;
-  font-size: 9px
-  background-color: #E5E7EB
+  font-size: 9px;
+  background-color: var(--ds-color-border);
   border-radius: 50px;
-  height: 30px;
-  width: 30px;
-  margin-right: 10px
-  align-self: center
+  block-size: 30px;
+  inline-size: 30px;
+  margin-inline-end: 10px;
+  align-self: center;
 }
 </style>

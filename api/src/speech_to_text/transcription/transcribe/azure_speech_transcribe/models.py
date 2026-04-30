@@ -5,6 +5,7 @@ import os
 from io import BytesIO
 from typing import Any, Dict, List
 
+from cachetools import TTLCache
 from openai_model.utils import get_model_by_system_name
 from services.ai_services.factory import get_ai_provider
 
@@ -14,7 +15,7 @@ from ...storage.postgres_storage import PgDataStorage
 from ..base import BaseTranscriber
 
 
-_AZURE_CACHE: dict[str, Dict[str, Any]] = {}
+_AZURE_CACHE: TTLCache[str, Dict[str, Any]] = TTLCache(maxsize=256, ttl=3600)
 
 
 def _put_cached(file_id: str, payload: Dict[str, Any]) -> None:

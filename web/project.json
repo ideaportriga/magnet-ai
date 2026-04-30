@@ -1,0 +1,13 @@
+{
+  "$schema": "./node_modules/nx/schemas/project-schema.json",
+  "name": "@magnet-monorepo/source",
+  "targets": {
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "echo 'Workspace root has no source files to lint — lint individual packages via nx targets.'",
+        "cwd": "."
+      }
+    }
+  }
+}

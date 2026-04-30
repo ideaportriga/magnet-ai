@@ -18,14 +18,6 @@ class DependenciesPlugin(InitPluginProtocol):
         """Configure dependencies."""
         dependencies = dict(app_config.dependencies or {})
 
-        # Add scheduler dependency
-        try:
-            from scheduler import get_scheduler
-
-            dependencies["scheduler"] = Provide(get_scheduler, sync_to_thread=False)
-        except ImportError:
-            pass
-
         # Add user_id dependency
         dependencies["user_id"] = Provide(self._get_user_id)
 

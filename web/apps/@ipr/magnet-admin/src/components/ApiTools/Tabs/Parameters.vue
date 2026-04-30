@@ -1,10 +1,13 @@
-<template lang="pug">
-.column.full-height(style='min-height: 0')
-  div(style='width: 300px')
-    km-input(:placeholder='m.common_search()', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
-  .km-title.q-pl-16.q-pb-8.q-pt-lg.text-text-grey {{ m.common_inputs() }}
-  .col(style='min-height: 0')
-    km-data-table(fill-height, :table='table', row-key='name', :activeRowId='selectedRow?.name', @row-click='select')
+<template>
+  <div class="stack full-height" data-gap="0" style="min-block-size: 0">
+    <div style="inline-size: 300px">
+      <km-input :placeholder="m.common_search()" icon-before="search" :model-value="globalFilter" clearable @input="globalFilter = $event" />
+    </div>
+    <div class="km-title pl-lg pb-sm pt-lg text-text-grey">{{ m.common_inputs() }}</div>
+    <div class="flex-1" style="min-block-size: 0">
+      <km-data-table fill-height :table="table" row-key="name" :active-row-id="selectedRow?.name" @row-click="select" />
+    </div>
+  </div>
 </template>
 
 <script setup>

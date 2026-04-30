@@ -19,32 +19,29 @@
 
     <kg-dialog-section v-if="syncable" :title="m.knowledgeGraph_syncSchedule()" :description="m.knowledgeGraph_syncScheduleDescription()" icon="event" focus-highlight>
       <template #header-actions>
-        <q-btn-toggle
+        <km-btn-toggle
           v-model="schedule.interval"
-          toggle-color="primary-light"
           :options="intervals"
           dense
-          text-color="text-weak"
-          toggle-text-color="primary"
         />
       </template>
 
-      <div class="row items-center q-gutter-x-sm q-gutter-y-sm">
+      <div class="cluster gap-x-sm gap-y-sm">
         <template v-if="schedule.interval === 'none'">
           <div class="km-description text-secondary-text" style="padding: 9px 0">{{ m.knowledgeGraph_syncOff() }}</div>
         </template>
 
         <template v-else-if="schedule.interval === 'weekly'">
-          <div class="row items-center q-gap-6">
+          <div class="cluster gap-sm">
             <div class="km-field text-secondary-text">{{ m.knowledgeGraph_every() }}</div>
-            <km-select v-model="schedule.day" :options="days" emit-value map-options style="min-width: 190px" />
+            <km-select v-model="schedule.day" :options="days" emit-value map-options style="min-inline-size: 190px" />
           </div>
         </template>
 
         <template v-if="schedule.interval !== 'hourly' && schedule.interval !== 'none'">
-          <div class="row items-center q-gap-6">
+          <div class="cluster gap-sm">
             <div class="km-field text-secondary-text">{{ m.knowledgeGraph_at() }}</div>
-            <km-select v-model="schedule.hour" :options="times" emit-value map-options style="min-width: 160px" />
+            <km-select v-model="schedule.hour" :options="times" emit-value map-options style="min-inline-size: 160px" />
           </div>
         </template>
 

@@ -1,0 +1,45 @@
+<script setup lang="ts">
+/**
+ * BreadcrumbEllipsis — placeholder for collapsed breadcrumb segments.
+ */
+</script>
+
+<template>
+  <span
+    class="ds-breadcrumb__ellipsis"
+    role="presentation"
+    aria-hidden="true"
+    data-test="ds-breadcrumb-ellipsis"
+  >
+    <slot>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="5" cy="12" r="1.5" fill="currentColor" />
+        <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+        <circle cx="19" cy="12" r="1.5" fill="currentColor" />
+      </svg>
+    </slot>
+    <span class="ds-breadcrumb__ellipsis-sr">More</span>
+  </span>
+</template>
+
+<style>
+.ds-breadcrumb__ellipsis {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 36px;
+  block-size: 36px;
+  color: var(--ds-color-text-grey);
+}
+.ds-breadcrumb__ellipsis-sr {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+</style>

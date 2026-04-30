@@ -1,205 +1,179 @@
-<template lang="pug">
-q-dialog(:model-value='showNewDialog', @hide='onDialogHide')
-  q-card.card-style.q-px-md(style='min-width: 800px')
-    q-card-section.card-section-style.q-mb-md
-      .row
-        .col
-          .km-heading-7 {{ m.dialog_newKnowledgeSource() }}
-        .col-auto
-          q-btn(icon='close', flat, dense, @click='$emit("cancel")')
-    q-card-section.card-section-style.q-mb-md
-      .row.items-center.justify-center
-        km-stepper.full-width(
-          :steps='[ { step: 0, description: m.collections_basicConfiguration(), icon: "pen" }, { step: 1, description: m.collections_chunkingSettings(), icon: "circle" }, { step: 2, description: m.collections_indexingSettings(), icon: "circle" }, { step: 3, description: m.collections_schedule(), icon: "schedule" }, ]',
-          :stepper='stepper'
-        )
-      .column.full-width(v-if='stepper === 0')
-        //- .km-field.text-secondary-text.q-pb-xs.q-pl-8 Knowledge Source Provider (Optional)
-        //- .full-width.q-mb-md
-        //-   km-select(
-        //-     v-model='provider_system_name',
-        //-     :options='providerOptions',
-        //-     placeholder='Select provider (optional)',
-        //-     clearable,
-        //-     emit-value,
-        //-     map-options,
-        //-     option-value='system_name',
-        //-     option-label='name',
-        //-     @update:model-value='onProviderChange',
-        //-     :disable='!!providerSystemName'
-        //-   )
-        //-   .km-description.text-secondary-text.q-mt-xs.q-ml-sm(v-if='providerSystemName') Provider is pre-selected and cannot be changed when creating under a specific provider
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_name() }}
-        .full-width.q-mb-md
-          km-input(data-test='name-input', v-model='nameCalc', ref='nameRef', :rules='config.name.rules')
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_systemName() }}
-        .full-width.q-mb-md
-          km-input(data-test='system-name-input', v-model='system_name', ref='system_nameRef', :rules='config.system_name.rules')
-        //- .km-field.text-secondary-text.q-pb-xs.q-pl-8 Source type
-        //- .full-width.q-mb-md
-        //-   km-select(:options='dynamicSourceTypeOptions', v-model='source_type', ref='source_typeRef', :rules='config.source_type.rules', :disable='!!selectedProvider')
-        //-   .km-description.text-secondary-text.q-mt-xs.q-ml-sm(v-if='selectedProvider') Source type is automatically set based on the selected provider
-        template(v-for='item in dynamicSourceTypeChildren[source_type]')
-          .col
-            .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ item.label }}
-            .q-mb-md
-              component(:is='item.component', v-model='source[item.field]', ref='sourceComponents')
-      .column.full-width(v-if='stepper === 1')
-        .col.q-pt-8.q-mt-sm
-          .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.collections_chunkingStrategy() }}
-          km-select(
-            v-model='chunkingStrategy',
-            ref='chunking_strategyRef',
-            :placeholder='m.collections_chunkingStrategy()',
-            :options='config.chunking_strategy.options',
-            :rules='config.chunking_strategy.rules',
-            emit-value,
-            map-options,
-            option-value='value',
-            option-label='label'
-          )
-          .km-description.text-secondary-text.q-mt-xs.q-ml-sm {{ m.collections_chunkingStrategyHint() }}
-        .row.q-gap-16(v-if='chunkingStrategy === "recursive_character_text_splitting"')
-          .col.q-pt-8.q-mt-sm
-            .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.collections_chunkSize() }}
-            km-input(type='number', v-model='chunkSize', ref='maxChunkRef')
-            .km-description.text-secondary-text.q-mt-xs.q-ml-sm {{ m.collections_chunkSizeHint() }}
-          .col.q-pt-8.q-mt-sm
-            .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.collections_chunkOverlap() }}
-            km-input(type='number', v-model='chunkOverlap', ref='maxChunkRef')
-            .km-description.text-secondary-text.q-mt-xs.q-ml-sm {{ m.collections_chunkOverlapHint() }}
-        .col.q-pt-8.q-mt-md.q-pl-8
-          .row.items-baseline
-            .col-auto.q-mr-sm
-              .km-field.text-secondary-text.absolute.q-ml-40 {{ m.collections_enableChunkLlmTransformation() }}
-              q-toggle(v-model='chunkTransformationEnabled', dense)
-        .column.q-gap-16.q-pt-2.q-mt-sm(v-if='chunkTransformationEnabled')
-          .col(v-if='chunkTransformationEnabled')
-            km-select(
-              v-model='chunkTransformationPromptTemplate',
-              :placeholder='m.collections_selectPromptTemplate()',
-              :options='chunkTransformationPromptTemplateOptions',
-              hasDropdownSearch,
-              emit-value,
-              map-options,
-              option-value='system_name'
-            )
-            .km-description.text-secondary-text.q-mt-xs.q-ml-sm {{ m.collections_chunkTransformationPromptHint() }}
-          .col
-            .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.collections_howToApplyTransformation() }}
-            km-select(
-              v-model='chunkTransformationMethod',
-              :options='config.chunk_transformation_method.options',
-              :placeholder='m.collections_selectHowToApplyTransformation()',
-              emit-value,
-              map-options,
-              option-value='value',
-              option-label='label',
-              :disabled='isDisable'
-            )
-            .km-description.text-secondary-text.q-mt-xs.q-ml-sm {{ m.collections_howToApplyTransformationHint() }}
-          .col
-            .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.collections_howToUseChunks() }}
-            km-select(
-              v-model='chunkUsageMethod',
-              :options='config.chunk_usage_method.options',
-              :placeholder='m.collections_selectHowToUseChunks()',
-              emit-value,
-              map-options,
-              option-value='value',
-              option-label='label',
-              :disabled='isDisable'
-            )
-            .km-description.text-secondary-text.q-mt-xs.q-ml-sm {{ m.collections_howToUseChunksHint() }}
-      .column.full-width(v-if='stepper === 2')
-        .km-description.q-mt-sm.q-pl-8 {{ m.collections_hybridSearchHint() }}
-        .col.q-pt-8.q-mt-md.q-pl-8
-          .row.items-baseline
-            .col-auto.q-mr-sm
-              .km-field.text-secondary-text.absolute.q-ml-40 {{ m.collections_supportSemanticSearch() }}
-              km-toggle(v-model='supportSemanticSearch', ref='semantic_search_supportedRef', :rules='[indexingRules()]', dense, :disable='true')
-        .km-description.text-secondary-text.q-mt-xs.q-ml-sm {{ m.collections_semanticSearchHint() }}
-        .col.q-pt-8.q-mt-sm(v-if='supportSemanticSearch')
-          .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.collections_embeddingModel() }}
-          km-select(
-            height='auto',
-            minHeight='36px',
-            :placeholder='m.collections_embeddingModel()',
-            v-model='ai_model',
-            :options='modelOptions',
-            optionLabel='display_name',
-            emit-value,
-            mapOptions,
-            optionValue='system_name'
-          )
-            template(#option='{ itemProps, opt, selected, toggleOption }')
-              q-item.ba-border(v-bind='itemProps', dense, @click='toggleOption(opt)')
-                q-item-section
-                  q-item-label.km-label {{ opt.display_name }}
-                  .row.q-mt-xs(v-if='opt.provider_system_name')
-                    q-chip(color='primary-light', text-color='primary', size='sm', dense) {{ opt.provider_system_name }}
-        .col.q-pt-8.q-mt-md.q-pl-8
-          .row.items-baseline
-            .col-auto.q-mr-sm
-              .km-field.text-secondary-text.absolute.q-ml-40 {{ m.collections_supportKeywordSearch() }}
-              km-toggle(v-model='supportKeywordSearch', ref='support_keyword_searchRef', :rules='[indexingRules()]', dense)
-        .km-description.text-secondary-text.q-mt-xs.q-ml-sm {{ m.collections_keywordSearchHint() }}
-      .column.full-width(v-if='stepper === 3')
-        .km-button-xs-text.text-secondary-text {{ m.collections_scheduleSync() }}
-          q-toggle(height='30px', v-model='scheduleEnabled', ref='scheduleEnabledRef')
-          .km-description.text-secondary-text {{ m.collections_automaticallySyncKnowledgeSource() }}
-          template(v-if='scheduleEnabled')
-            .q-px-md.q-mt-md
-              .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-pt-md {{ m.collections_jobInterval() }}
-              .full-width
-                q-btn-toggle(
-                  v-model='form.interval',
-                  toggle-color='primary-light',
-                  :options='intervals',
-                  dense,
-                  text-color='text-weak',
-                  toggle-text-color='primary'
-                )
-              .row.q-mt-md.items-center.q-gap-8.q-pl-8(v-if='form.interval === "daily" || form.interval === "weekly"')
-                .row.items-center.q-gap-8(v-if='form.interval === "weekly"')
-                  .km-field.text-secondary-text {{ m.collections_every() }}
-                  km-select(v-model='form.day', :options='days')
-                .row.items-center.q-gap-8
-                  .km-field.text-secondary-text {{ m.collections_at() }}
-                  km-select(v-model='form.time', :options='times')
-              //- Custom cron input
-              .q-mt-md.q-pl-8(v-if='form.interval === "custom"')
-                .km-field.text-secondary-text.q-pb-xs {{ m.collections_cronExpression() }}
-                km-input(height='30px', v-model='form.customCron', :placeholder='m.common_cronExpression()')
-                .km-tiny.text-secondary-text.q-mt-xs {{ m.collections_cronFormatHint() }}
-              .row.q-mt-md.items-center
-                km-checkbox(size='40px', v-model='form.enabled')
-                .km-field {{ m.collections_sendErrorNotifications() }}
-              .km-tiny.text-secondary-text {{ m.collections_errorNotificationHint() }}
-              template(v-if='form.enabled')
-                .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-pt-md {{ m.collections_errorNotificationEmail() }}
-                .full-width
-                  km-input(height='30px', v-model='form.error_email', ref='errorEmailRef')
-
-      .row.q-mt-lg
-        .col-auto
-          km-btn(data-test='cancel-btn', flat, :label='m.common_cancel()', color='primary', @click='cancelCreate')
-        .col
-        .col-auto
-          .row.q-gap-16.no-wrap.items-center.q-py-4
-            template(v-if='stepper === 0')
-              km-btn(data-test='next-btn', :label='m.common_next()', @click='next(1)')
-            template(v-else-if='stepper === 1')
-              km-btn(data-test='back-btn', flat, :label='m.common_back()', @click='stepper = 0')
-              km-btn(data-test='next-btn', :label='m.common_next()', @click='next(2)')
-            template(v-else-if='stepper === 2')
-              km-btn(data-test='back-btn', flat, :label='m.common_back()', @click='stepper = 1')
-              km-btn(data-test='next-btn', :label='m.common_next()', @click='next(3)')
-            template(v-else-if='stepper === 3')
-              km-btn(data-test='back-btn', flat, :label='m.common_back()', @click='stepper = 2', :disable='loadingCreate')
-              km-btn(data-test='save-btn', :label='m.common_save()', @click='createNew(false)', :disable='loadingCreate')
-              km-btn(data-test='save-and-sync-btn', :label='m.common_saveAndSync()', @click='createNew(true)', :disable='loadingCreate')
-    q-inner-loading(:showing='loadingCreate', color='primary', size='50px')
+<template>
+  <km-dialog :model-value="showNewDialog" @hide="onDialogHide">
+    <km-card class="card-style px-md" style="min-inline-size: 800px">
+      <div class="km-card-section card-section-style mb-md">
+        <div class="cluster" data-justify="between">
+          <div class="km-heading-7">{{ m.dialog_newKnowledgeSource() }}</div>
+          <km-btn icon="close" flat dense @click="$emit(&quot;cancel&quot;)" />
+        </div>
+      </div>
+      <div class="km-card-section card-section-style mb-md">
+        <div class="cluster" data-justify="center">
+          <km-stepper class="full-width" :steps="[ { step: 0, description: m.collections_basicConfiguration(), icon: &quot;pen&quot; }, { step: 1, description: m.collections_chunkingSettings(), icon: &quot;circle&quot; }, { step: 2, description: m.collections_indexingSettings(), icon: &quot;circle&quot; }, { step: 3, description: m.collections_schedule(), icon: &quot;schedule&quot; }, ]" :stepper="stepper" />
+        </div>
+        <div v-if="stepper === 0" class="stack full-width">
+          <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.common_name() }}</div>
+          <div class="full-width mb-md">
+            <km-input ref="nameRef" v-model="nameCalc" data-test="name-input" :rules="config.name.rules" />
+          </div>
+          <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.common_systemName() }}</div>
+          <div class="full-width mb-md">
+            <km-input ref="system_nameRef" v-model="system_name" data-test="system-name-input" :rules="config.system_name.rules" />
+          </div>
+          <template v-for="item in dynamicSourceTypeChildren[source_type]" :key="item">
+            <div class="flex-1">
+              <div class="km-field text-secondary-text pb-xs pl-sm">{{ item.label }}</div>
+              <div class="mb-md">
+                <component :is="item.component" ref="sourceComponents" v-model="source[item.field]" />
+              </div>
+            </div>
+          </template>
+        </div>
+        <div v-if="stepper === 1" class="stack full-width">
+          <div class="flex-1 pt-sm mt-sm">
+            <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.collections_chunkingStrategy() }}</div>
+            <km-select ref="chunking_strategyRef" v-model="chunkingStrategy" :placeholder="m.collections_chunkingStrategy()" :options="config.chunking_strategy.options" :rules="config.chunking_strategy.rules" emit-value map-options option-value="value" option-label="label" />
+            <div class="km-description text-secondary-text mt-xs ml-sm">{{ m.collections_chunkingStrategyHint() }}</div>
+          </div>
+          <div v-if="chunkingStrategy === &quot;recursive_character_text_splitting&quot;" class="cluster" data-gap="lg">
+            <div class="flex-1 pt-sm mt-sm">
+              <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.collections_chunkSize() }}</div>
+              <km-input ref="maxChunkRef" v-model="chunkSize" type="number" />
+              <div class="km-description text-secondary-text mt-xs ml-sm">{{ m.collections_chunkSizeHint() }}</div>
+            </div>
+            <div class="flex-1 pt-sm mt-sm">
+              <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.collections_chunkOverlap() }}</div>
+              <km-input ref="maxChunkRef" v-model="chunkOverlap" type="number" />
+              <div class="km-description text-secondary-text mt-xs ml-sm">{{ m.collections_chunkOverlapHint() }}</div>
+            </div>
+          </div>
+          <div class="flex-1 pt-sm mt-md pl-sm">
+            <div class="cluster" data-align="baseline">
+              <div class="flex-none mr-sm">
+                <div class="km-field text-secondary-text absolute ml-4xl">{{ m.collections_enableChunkLlmTransformation() }}</div>
+                <km-toggle v-model="chunkTransformationEnabled" dense />
+              </div>
+            </div>
+          </div>
+          <div v-if="chunkTransformationEnabled" class="stack" data-gap="lg" style="padding-block-start: 2px; margin-block-start: var(--ds-space-sm)">
+            <div v-if="chunkTransformationEnabled" class="flex-1">
+              <km-select v-model="chunkTransformationPromptTemplate" :placeholder="m.collections_selectPromptTemplate()" :options="chunkTransformationPromptTemplateOptions" has-dropdown-search emit-value map-options option-value="system_name" />
+              <div class="km-description text-secondary-text mt-xs ml-sm">{{ m.collections_chunkTransformationPromptHint() }}</div>
+            </div>
+            <div class="flex-1">
+              <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.collections_howToApplyTransformation() }}</div>
+              <km-select v-model="chunkTransformationMethod" :options="config.chunk_transformation_method.options" :placeholder="m.collections_selectHowToApplyTransformation()" emit-value map-options option-value="value" option-label="label" :disabled="isDisable" />
+              <div class="km-description text-secondary-text mt-xs ml-sm">{{ m.collections_howToApplyTransformationHint() }}</div>
+            </div>
+            <div class="flex-1">
+              <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.collections_howToUseChunks() }}</div>
+              <km-select v-model="chunkUsageMethod" :options="config.chunk_usage_method.options" :placeholder="m.collections_selectHowToUseChunks()" emit-value map-options option-value="value" option-label="label" :disabled="isDisable" />
+              <div class="km-description text-secondary-text mt-xs ml-sm">{{ m.collections_howToUseChunksHint() }}</div>
+            </div>
+          </div>
+        </div>
+        <div v-if="stepper === 2" class="stack full-width">
+          <div class="km-description mt-sm pl-sm">{{ m.collections_hybridSearchHint() }}</div>
+          <div class="flex-1 pt-sm mt-md pl-sm">
+            <div class="cluster" data-align="baseline">
+              <div class="flex-none mr-sm">
+                <div class="km-field text-secondary-text absolute ml-4xl">{{ m.collections_supportSemanticSearch() }}</div>
+                <km-toggle ref="semantic_search_supportedRef" v-model="supportSemanticSearch" :rules="[indexingRules()]" dense :disable="true" />
+              </div>
+            </div>
+          </div>
+          <div class="km-description text-secondary-text mt-xs ml-sm">{{ m.collections_semanticSearchHint() }}</div>
+          <div v-if="supportSemanticSearch" class="flex-1 pt-sm mt-sm">
+            <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.collections_embeddingModel() }}</div>
+            <km-select v-model="ai_model" height="auto" min-height="36px" :placeholder="m.collections_embeddingModel()" :options="modelOptions" option-label="display_name" emit-value map-options option-value="system_name">
+              <template #option="{ itemProps, opt, toggleOption }">
+                <li class="km-item ba-border" v-bind="itemProps" dense @click="toggleOption(opt)">
+                  <div class="km-item-section">
+                    <span class="km-item-label km-label">{{ opt.display_name }}</span>
+                    <div v-if="opt.provider_system_name" class="mt-xs">
+                      <km-chip tone="brand" size="sm" dense>{{ opt.provider_system_name }}</km-chip>
+                    </div>
+                  </div>
+                </li>
+              </template>
+            </km-select>
+          </div>
+          <div class="flex-1 pt-sm mt-md pl-sm">
+            <div class="cluster" data-align="baseline">
+              <div class="flex-none mr-sm">
+                <div class="km-field text-secondary-text absolute ml-4xl">{{ m.collections_supportKeywordSearch() }}</div>
+                <km-toggle ref="support_keyword_searchRef" v-model="supportKeywordSearch" :rules="[indexingRules()]" dense />
+              </div>
+            </div>
+          </div>
+          <div class="km-description text-secondary-text mt-xs ml-sm">{{ m.collections_keywordSearchHint() }}</div>
+        </div>
+        <div v-if="stepper === 3" class="stack full-width">
+          <div class="km-button-xs-text text-secondary-text">
+            {{ m.collections_scheduleSync() }}
+            <km-toggle ref="scheduleEnabledRef" v-model="scheduleEnabled" height="30px" />
+            <div class="km-description text-secondary-text">{{ m.collections_automaticallySyncKnowledgeSource() }}</div>
+            <template v-if="scheduleEnabled">
+              <div class="px-md mt-md">
+                <div class="km-field text-secondary-text pb-xs pl-sm pt-md">{{ m.collections_jobInterval() }}</div>
+                <div class="full-width">
+                  <km-btn-toggle v-model="form.interval" :options="intervals" dense />
+                </div>
+                <div v-if="form.interval === &quot;daily&quot; || form.interval === &quot;weekly&quot;" class="cluster mt-md pl-sm" data-gap="sm">
+                  <div v-if="form.interval === &quot;weekly&quot;" class="cluster" data-gap="sm">
+                    <div class="km-field text-secondary-text">{{ m.collections_every() }}</div>
+                    <km-select v-model="form.day" :options="days" />
+                  </div>
+                  <div class="cluster" data-gap="sm">
+                    <div class="km-field text-secondary-text">{{ m.collections_at() }}</div>
+                    <km-select v-model="form.time" :options="times" />
+                  </div>
+                </div>
+                <div v-if="form.interval === &quot;custom&quot;" class="mt-md pl-sm">
+                  <div class="km-field text-secondary-text pb-xs">{{ m.collections_cronExpression() }}</div>
+                  <km-input v-model="form.customCron" height="30px" :placeholder="m.common_cronExpression()" />
+                  <div class="km-tiny text-secondary-text mt-xs">{{ m.collections_cronFormatHint() }}</div>
+                </div>
+                <div class="cluster mt-md" data-gap="sm">
+                  <km-checkbox v-model="form.enabled" size="40px" />
+                  <div class="km-field">{{ m.collections_sendErrorNotifications() }}</div>
+                </div>
+                <div class="km-tiny text-secondary-text">{{ m.collections_errorNotificationHint() }}</div>
+                <template v-if="form.enabled">
+                  <div class="km-field text-secondary-text pb-xs pl-sm pt-md">{{ m.collections_errorNotificationEmail() }}</div>
+                  <div class="full-width">
+                    <km-input ref="errorEmailRef" v-model="form.error_email" height="30px" />
+                  </div>
+                </template>
+              </div>
+            </template>
+          </div>
+        </div>
+        <div class="cluster mt-lg" data-justify="between">
+          <km-btn data-test="cancel-btn" flat :label="m.common_cancel()" tone="brand" @click="cancelCreate" />
+          <div class="cluster" data-gap="lg" data-wrap="no">
+            <template v-if="stepper === 0">
+              <km-btn data-test="next-btn" :label="m.common_next()" @click="next(1)" />
+            </template>
+            <template v-else-if="stepper === 1">
+              <km-btn data-test="back-btn" flat :label="m.common_back()" @click="stepper = 0" />
+              <km-btn data-test="next-btn" :label="m.common_next()" @click="next(2)" />
+            </template>
+            <template v-else-if="stepper === 2">
+              <km-btn data-test="back-btn" flat :label="m.common_back()" @click="stepper = 1" />
+              <km-btn data-test="next-btn" :label="m.common_next()" @click="next(3)" />
+            </template>
+            <template v-else-if="stepper === 3">
+              <km-btn data-test="back-btn" flat :label="m.common_back()" :disable="loadingCreate" @click="stepper = 2" />
+              <km-btn data-test="save-btn" :label="m.common_save()" :disable="loadingCreate" @click="createNew(false)" />
+              <km-btn data-test="save-and-sync-btn" :label="m.common_saveAndSync()" :disable="loadingCreate" @click="createNew(true)" />
+            </template>
+          </div>
+        </div>
+      </div>
+      <km-inner-loading :showing="loadingCreate" size="50px" />
+    </km-card>
+  </km-dialog>
 </template>
 <script>
 import { defineComponent, ref, reactive, computed } from 'vue'
@@ -208,6 +182,7 @@ import { cloneDeep } from 'lodash'
 import { required, minLength } from '@/utils/validationRules'
 import { toUpperCaseWithUnderscores, fetchData } from '@shared'
 import { useEntityConfig } from '@/composables/useEntityConfig'
+import { validateRef } from '@/utils/validateRef'
 import { useEntityQueries } from '@/queries/entities'
 import { sourceTypeOptions, sourceTypeChildren } from '@/config/collections/collections'
 import { useEntityDetail } from '@/composables/useEntityDetail'
@@ -627,7 +602,7 @@ export default defineComponent({
       })
     },
     validateFields() {
-      const validStates = this.requiredFields.map((field) => this.$refs[`${field}Ref`]?.validate())
+      const validStates = this.requiredFields.map((field) => validateRef(this.$refs[`${field}Ref`]))
       return !validStates.includes(false)
     },
     async createJob(inserted_id) {

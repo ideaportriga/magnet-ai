@@ -1,13 +1,20 @@
 import re
 from datetime import datetime
 from enum import StrEnum
-from typing import Generic, Literal, TypeVar, Union
+from typing import Any, Generic, Literal, TypeVar, Union
 from uuid import UUID, uuid4
 
 from openai.types.chat.chat_completion_message_tool_call import (
     Function,
 )
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, root_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    TypeAdapter,
+    field_validator,
+    root_validator,
+)
 
 from services.common.models import ConversationMessageFeedback, LlmResponseFeedback
 from services.entities.types import BaseEntityMultiVariant
@@ -362,6 +369,21 @@ class AgentExecute(BaseModel):
     )
 
 
+def _decode_jsonb_legacy(value: Any) -> Any:
+    """Tolerate JSONB columns that were double-encoded by the legacy
+    asyncpg codec (pre-fix). If the value comes in as a JSON-encoded string,
+    parse it once. Native dict/list/None pass through.
+    """
+    if isinstance(value, str):
+        import json
+
+        try:
+            return json.loads(value)
+        except (TypeError, ValueError):
+            return value
+    return value
+
+
 class AgentConversationData(BaseModel):
     id: UUID | None = None
     agent: str
@@ -373,9 +395,19 @@ class AgentConversationData(BaseModel):
     variables: dict[str, str] | None = None
     message_processing_status: AgentConversationMessageProcessingStatus | None = None
 
+    @field_validator("variables", mode="before")
+    @classmethod
+    def _coerce_variables(cls, value: Any) -> Any:
+        return _decode_jsonb_legacy(value)
+
 
 class AgentConversationDataWithMessages(AgentConversationData):
     messages: list[AgentConversationMessage]
+
+    @field_validator("messages", mode="before")
+    @classmethod
+    def _coerce_messages(cls, value: Any) -> Any:
+        return _decode_jsonb_legacy(value)
 
 
 AgentConversationMessageFeedbackRequest = LlmResponseFeedback

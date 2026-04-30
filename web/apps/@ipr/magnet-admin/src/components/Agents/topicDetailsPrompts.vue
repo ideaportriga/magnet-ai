@@ -1,13 +1,14 @@
-<template lang="pug">
-div
-  agents-topic-action-template-section
-  q-separator.q-my-lg
-  km-section(
-    :title='m.agents_topicAdvancedInstructions()',
-    :subTitle='m.agents_topicAdvancedInstructionsSubtitle()'
-  )
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.agents_advancedInstructionsLabel() }}
-      km-input(ref='input', rows='10', border-radius='8px', height='36px', type='textarea', v-model='instructions')
+<template>
+  <div>
+    <agents-topic-action-template-section />
+    <km-separator class="my-lg" />
+    <km-section :title="m.agents_topicAdvancedInstructions()" :sub-title="m.agents_topicAdvancedInstructionsSubtitle()">
+      <div class="km-field text-secondary-text pb-xs pl-sm">
+        {{ m.agents_advancedInstructionsLabel() }}
+        <km-input ref="input" v-model="instructions" rows="10" border-radius="8px" height="36px" type="textarea" />
+      </div>
+    </km-section>
+  </div>
 </template>
 
 <script>

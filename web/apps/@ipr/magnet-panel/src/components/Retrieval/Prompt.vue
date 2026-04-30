@@ -1,21 +1,43 @@
-<template lang="pug">
-.column.search-prompt-container.border-radius-12.q-mb-16.full-width.q-gap-8
-  .row
-    km-input.full-width(
-      ref='input',
-      autogrow,
-      :placeholder='m.placeholder_typeQuestionHere()',
-      :model-value='prompt',
-      @input='prompt = $event',
-      @keydown.enter='submit',
-      border-radius='8px',
-      height='var(--prompt-input-height)'
-    )
-      template(#append='{ height }')
-        .self-end.center-flex(:style='{ height }')
-          q-btn.border-radius-6(color='primary', @click='getAnswer', unelevated, :padding='$theme != "salesforce" ? "6px 7px" : "9px 17px 9px 17px"')
-            template(v-slot:default)
-              q-icon(name='fas fa-search', size='var(--prompt-input-icon-size)')
+<template>
+  <div
+    class="stack search-prompt-container border-radius-12 mb-lg full-width"
+    data-gap="sm"
+  >
+    <div class="cluster">
+      <km-input
+        ref="input"
+        class="full-width"
+        autogrow
+        :placeholder="m.placeholder_typeQuestionHere()"
+        :model-value="prompt"
+        border-radius="8px"
+        height="var(--prompt-input-height)"
+        @input="prompt = $event"
+        @keydown.enter="submit"
+      >
+        <template #append="{ height }">
+          <div
+            class="self-end center-flex"
+            :style="{ height }"
+          >
+            <km-btn
+              class="border-radius-6"
+              unelevated
+              :padding="$theme != &quot;salesforce&quot; ? &quot;6px 7px&quot; : &quot;9px 17px 9px 17px&quot;"
+              @click="getAnswer"
+            >
+              <template #default>
+                <km-glyph
+                  name="search"
+                  size="var(--prompt-input-icon-size)"
+                />
+              </template>
+            </km-btn>
+          </div>
+        </template>
+      </km-input>
+    </div>
+  </div>
 </template>
 
 <script>
@@ -77,24 +99,16 @@ export default {
 }
 </script>
 
-<style lang="stylus">
-.search-btn
-  min-height: 30px;
-  padding: 5px 8px;
-  // opacity: 0.5;
-
-  .q-icon
-    font-size: 16px;
-</style>
-
-<style lang="stylus" scoped>
-.search-prompt-container
-  min-width: 450px;
-  max-width: 800px;
-  width: 100%;
-
-@media (max-width: 500px)
-  .search-prompt-container
-    min-width: unset
-    max-width: unset
+<style scoped>
+.search-prompt-container {
+  min-inline-size: 450px;
+  max-inline-size: 800px;
+  inline-size: 100%;
+}
+@media (max-width: 500px) {
+  .search-prompt-container {
+    min-inline-size: unset;
+    max-inline-size: unset;
+  }
+}
 </style>

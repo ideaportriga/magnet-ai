@@ -1,121 +1,59 @@
-<template lang="pug">
-.q-gutter-md
-  //- ── Provider selection ────────────────────────────────────────────
-  .km-field
-    .text-secondary-text.q-pb-xs.km-title Azure Bot Provider
-    .row.items-center.q-gutter-sm
-      .col
-        km-select(
-          v-model='providerSystemName',
-          :options='noteTakerProviders',
-          option-label='name',
-          option-value='system_name',
-          emit-value,
-          map-options,
-          hasDropdownSearch,
-          height='30px',
-          clearable,
-          :placeholder='m.noteTaker_selectTeamsProvider()'
-        )
-      .col-auto(v-if='providerSystemName')
-        km-btn(
-          icon='open_in_new',
-          flat, dense,
-          @click='navigateToProvider'
-        )
-      .col-auto
-        km-btn(
-          icon='add',
-          :label='m.common_newProvider()',
-          flat, dense,
-          @click='showCreateProvider = true'
-        )
-    .km-description.text-secondary-text.q-pt-2 Provider of type "Teams Note Taker" that stores encrypted Azure Bot credentials (client_id, client_secret, tenant_id).
-    .km-description.text-secondary-text(v-if='!noteTakerProviders.length') No providers of type "teams_note_taker" found. Create one first.
-
-  //- ── Runtime status ────────────────────────────────────────────────
-  .km-field
-    .row.items-center.q-gap-8
-      q-chip(
-        v-if='runtimeStatus',
-        :color='runtimeStatus.runtime_loaded ? "positive" : "grey-5"',
-        text-color='white',
-        dense
-      ) {{ runtimeStatus.runtime_loaded ? 'Online' : 'Offline' }}
-      km-btn(
-        :label='m.common_checkStatus()',
-        flat, dense, icon='refresh',
-        @click='checkRuntimeStatus',
-        :loading='statusLoading'
-      )
-
-  q-separator
-
-  //- ── Superuser ─────────────────────────────────────────────────────
-  .km-field
-    .text-secondary-text.q-pb-xs.km-title Superuser (AAD Object ID)
-    km-input.full-width(
-      v-model='superuserId',
-      :placeholder='m.placeholder_uuidFormat()',
-      height='30px',
-      clearable
-    )
-    .km-description.text-secondary-text.q-pt-2 When set, this user can access ALL transcriptions created by this note-taker bot, regardless of who initiated them.
-
-//- ── Inline Create Provider dialog ──────────────────────────────────
-km-popup-confirm(
-  :visible='showCreateProvider',
-  title='New Teams Note Taker Provider',
-  confirmButtonLabel='Create',
-  :cancelButtonLabel='m.common_cancel()',
-  notification='Credentials will be encrypted at rest.',
-  @confirm='createProvider',
-  @cancel='showCreateProvider = false'
-)
-  .column.q-gap-16
-    .col
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 Provider Name
-      km-input(
-        v-if='showCreateProvider',
-        height='30px',
-        :placeholder='m.noteTaker_myTeamsBot()',
-        v-model='newProvider.name',
-        :rules='[required()]'
-      )
-    .col
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 Client ID (App ID)
-      km-input(
-        v-if='showCreateProvider',
-        height='30px',
-        :placeholder='m.placeholder_uuidFormat()',
-        v-model='newProvider.client_id'
-      )
-    .col
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 Client Secret
-      km-input(
-        v-if='showCreateProvider',
-        height='30px',
-        type='password',
-        :placeholder='m.noteTaker_azureBotClientSecret()',
-        v-model='newProvider.client_secret'
-      )
-    .col
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 Tenant ID
-      km-input(
-        v-if='showCreateProvider',
-        height='30px',
-        :placeholder='m.placeholder_uuidFormat()',
-        v-model='newProvider.tenant_id'
-      )
-    .col
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 OAuth Connection Name
-      km-input(
-        v-if='showCreateProvider',
-        height='30px',
-        :placeholder='m.noteTaker_exampleRecordings()',
-        v-model='newProvider.auth_handler_id'
-      )
-      .km-description.text-secondary-text.q-pt-2 Name of the OAuth Connection configured in Azure Bot Service settings.
+<template>
+  <div class="gap-md">
+    <div class="km-field">
+      <div class="text-secondary-text pb-xs km-title">Azure Bot Provider</div>
+      <div class="cluster" data-gap="sm">
+        <div class="flex-1">
+          <km-select v-model="providerSystemName" :options="noteTakerProviders" option-label="name" option-value="system_name" emit-value map-options has-dropdown-search height="30px" clearable :placeholder="m.noteTaker_selectTeamsProvider()" />
+        </div>
+        <div v-if="providerSystemName" class="flex-none">
+          <km-btn icon="external-link" flat dense @click="navigateToProvider" />
+        </div>
+        <div class="flex-none">
+          <km-btn icon="add" :label="m.common_newProvider()" flat dense @click="showCreateProvider = true" />
+        </div>
+      </div>
+      <div class="km-description text-secondary-text pt-2xs">Provider of type "Teams Note Taker" that stores encrypted Azure Bot credentials (client_id, client_secret, tenant_id).</div>
+      <div v-if="!noteTakerProviders.length" class="km-description text-secondary-text">No providers of type "teams_note_taker" found. Create one first.</div>
+    </div>
+    <div class="km-field">
+      <div class="cluster" data-gap="sm">
+        <km-chip v-if="runtimeStatus" :tone="runtimeStatus.runtime_loaded ? &quot;success&quot; : &quot;neutral&quot;" dense>{{ runtimeStatus.runtime_loaded ? 'Online' : 'Offline' }}</km-chip>
+        <km-btn :label="m.common_checkStatus()" flat dense icon="refresh" :loading="statusLoading" @click="checkRuntimeStatus" />
+      </div>
+    </div>
+    <km-separator />
+    <div class="km-field">
+      <div class="text-secondary-text pb-xs km-title">Superuser (AAD Object ID)</div>
+      <km-input v-model="superuserId" class="full-width" :placeholder="m.placeholder_uuidFormat()" height="30px" clearable />
+      <div class="km-description text-secondary-text pt-2xs">When set, this user can access ALL transcriptions created by this note-taker bot, regardless of who initiated them.</div>
+    </div>
+  </div>
+  <km-popup-confirm :visible="showCreateProvider" title="New Teams Note Taker Provider" confirm-button-label="Create" :cancel-button-label="m.common_cancel()" notification="Credentials will be encrypted at rest." @confirm="createProvider" @cancel="showCreateProvider = false">
+    <div class="stack" data-gap="lg">
+      <div>
+        <div class="km-field text-secondary-text pb-xs pl-sm">Provider Name</div>
+        <km-input v-if="showCreateProvider" v-model="newProvider.name" height="30px" :placeholder="m.noteTaker_myTeamsBot()" :rules="[required()]" />
+      </div>
+      <div>
+        <div class="km-field text-secondary-text pb-xs pl-sm">Client ID (App ID)</div>
+        <km-input v-if="showCreateProvider" v-model="newProvider.client_id" height="30px" :placeholder="m.placeholder_uuidFormat()" />
+      </div>
+      <div>
+        <div class="km-field text-secondary-text pb-xs pl-sm">Client Secret</div>
+        <km-input v-if="showCreateProvider" v-model="newProvider.client_secret" height="30px" type="password" :placeholder="m.noteTaker_azureBotClientSecret()" />
+      </div>
+      <div>
+        <div class="km-field text-secondary-text pb-xs pl-sm">Tenant ID</div>
+        <km-input v-if="showCreateProvider" v-model="newProvider.tenant_id" height="30px" :placeholder="m.placeholder_uuidFormat()" />
+      </div>
+      <div>
+        <div class="km-field text-secondary-text pb-xs pl-sm">OAuth Connection Name</div>
+        <km-input v-if="showCreateProvider" v-model="newProvider.auth_handler_id" height="30px" :placeholder="m.noteTaker_exampleRecordings()" />
+        <div class="km-description text-secondary-text pt-2xs">Name of the OAuth Connection configured in Azure Bot Service settings.</div>
+      </div>
+    </div>
+  </km-popup-confirm>
 </template>
 
 <script setup lang="ts">

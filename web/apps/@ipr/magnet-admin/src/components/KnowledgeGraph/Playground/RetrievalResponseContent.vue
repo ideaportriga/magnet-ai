@@ -33,11 +33,11 @@ const rendered = computed(() => {
 
 <style scoped>
 .markdown-content {
-  font-size: var(--km-font-size-label);
+  font-size: var(--ds-font-size-label);
   line-height: 1.65;
-  color: var(--q-black);
-  word-wrap: break-word;
-  font-family: var(--km-font-default), sans-serif;
+  color: var(--ds-color-black);
+  overflow-wrap: break-word;
+  font-family: var(--ds-font-default), sans-serif;
 }
 
 .markdown-content--plain {
@@ -45,16 +45,16 @@ const rendered = computed(() => {
 }
 
 .markdown-content :deep(p) {
-  margin: 0 0 12px 0;
+  margin: 0 0 12px;
 }
 
 .markdown-content :deep(p:last-child) {
-  margin-bottom: 0;
+  margin-block-end: 0;
 }
 
 .markdown-content :deep(strong) {
   font-weight: 600;
-  color: var(--q-primary-text);
+  color: var(--ds-color-primary-text);
 }
 
 .markdown-content :deep(em) {
@@ -68,15 +68,15 @@ const rendered = computed(() => {
 .markdown-content :deep(h5),
 .markdown-content :deep(h6) {
   font-weight: 600;
-  color: var(--q-primary-text);
-  margin: 20px 0 8px 0;
+  color: var(--ds-color-primary-text);
+  margin: 20px 0 8px;
   line-height: 1.4;
 }
 
 .markdown-content :deep(h1) {
   font-size: 1.25em;
-  border-bottom: 1px solid var(--q-border);
-  padding-bottom: 6px;
+  border-block-end: 1px solid var(--ds-color-border);
+  padding-block-end: 6px;
 }
 
 .markdown-content :deep(h2) {
@@ -91,20 +91,20 @@ const rendered = computed(() => {
 .markdown-content :deep(h5),
 .markdown-content :deep(h6) {
   font-size: 0.925em;
-  color: var(--q-black);
+  color: var(--ds-color-black);
 }
 
 .markdown-content :deep(h1:first-child),
 .markdown-content :deep(h2:first-child),
 .markdown-content :deep(h3:first-child),
 .markdown-content :deep(h4:first-child) {
-  margin-top: 0;
+  margin-block-start: 0;
 }
 
 .markdown-content :deep(ul),
 .markdown-content :deep(ol) {
   margin: 8px 0;
-  padding-left: 20px;
+  padding-inline-start: 20px;
 }
 
 .markdown-content :deep(li) {
@@ -130,10 +130,10 @@ const rendered = computed(() => {
 .markdown-content :deep(blockquote) {
   margin: 12px 0;
   padding: 10px 14px;
-  background: var(--q-background);
-  border-left: 3px solid var(--q-border-2);
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  color: var(--q-label);
+  background: var(--ds-color-background);
+  border-inline-start: 3px solid var(--ds-color-border-2);
+  border-radius: 0 var(--ds-radius-sm) var(--ds-radius-sm) 0;
+  color: var(--ds-color-label);
 }
 
 .markdown-content :deep(blockquote p) {
@@ -141,37 +141,37 @@ const rendered = computed(() => {
 }
 
 .markdown-content :deep(blockquote blockquote) {
-  margin: 8px 0 0 0;
-  border-left-color: var(--q-border);
+  margin: 8px 0 0;
+  border-inline-start-color: var(--ds-color-border);
 }
 
 .markdown-content :deep(code) {
-  background: var(--q-light);
+  background: var(--ds-color-light);
   padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  font-family: var(--km-font-mono);
+  border-radius: var(--ds-radius-sm);
+  font-family: var(--ds-font-mono);
   font-size: 0.85em;
-  color: var(--q-error);
+  color: var(--ds-color-error);
 }
 
 .markdown-content :deep(pre) {
   margin: 12px 0;
   padding: 12px 14px;
-  background: var(--q-black);
-  border-radius: var(--radius-md);
-  overflow-x: auto;
+  background: var(--ds-color-black);
+  border-radius: var(--ds-radius-md);
+  overflow-inline: auto;
 }
 
 .markdown-content :deep(pre code) {
   background: none;
   padding: 0;
-  color: var(--q-border);
+  color: var(--ds-color-border);
   font-size: 0.8em;
   line-height: 1.5;
 }
 
 .markdown-content :deep(a) {
-  color: var(--q-primary);
+  color: var(--ds-color-primary);
   text-decoration: none;
 }
 
@@ -181,13 +181,13 @@ const rendered = computed(() => {
 
 .markdown-content :deep(hr) {
   border: none;
-  height: 1px;
-  background: var(--q-border);
+  block-size: 1px;
+  background: var(--ds-color-border);
   margin: 16px 0;
 }
 
 .markdown-content :deep(table) {
-  width: 100%;
+  inline-size: 100%;
   border-collapse: collapse;
   margin: 12px 0;
   font-size: 0.9em;
@@ -196,23 +196,23 @@ const rendered = computed(() => {
 .markdown-content :deep(th),
 .markdown-content :deep(td) {
   padding: 8px 12px;
-  text-align: left;
-  border: 1px solid var(--q-border);
+  text-align: start;
+  border: 1px solid var(--ds-color-border);
 }
 
 .markdown-content :deep(th) {
-  background: var(--q-background);
+  background: var(--ds-color-background);
   font-weight: 600;
-  color: var(--q-black);
+  color: var(--ds-color-black);
 }
 
 .markdown-content :deep(tr:nth-child(even)) {
-  background: var(--q-background);
+  background: var(--ds-color-background);
 }
 
 .markdown-content :deep(img) {
-  max-width: 100%;
-  border-radius: var(--radius-md);
+  max-inline-size: 100%;
+  border-radius: var(--ds-radius-md);
   margin: 10px 0;
 }
 </style>

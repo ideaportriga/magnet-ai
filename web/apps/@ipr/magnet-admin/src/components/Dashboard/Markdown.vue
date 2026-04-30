@@ -2,7 +2,7 @@
 <template>
   <div v-html="renderedMarkdown" />
   <!-- <div>
-    <q-btn
+    <km-btn
       label="Copy to clipboard"
       @click="copyToClipboard2(renderedMarkdown)"
     />
@@ -21,7 +21,6 @@ import MarkdownItSup from 'markdown-it-sup'
 import MarkdownItTasklists from 'markdown-it-task-lists'
 import MarkdownItTOC from 'markdown-it-toc-done-right'
 import { computed } from 'vue'
-// import { copyToClipboard } from 'quasar'
 
 const markdown = new MarkdownIt()
   .use(MarkdownItAbbr)
@@ -78,7 +77,7 @@ const renderedMarkdown = computed(() => {
   padding: 0;
   margin: 0 0 16px 0;
   font-family: var(--font-default);
-  font-size: var(--km-font-size-body);
+  font-size: var(--ds-font-size-body);
   font-weight: 400;
   white-space: pre-wrap;
 }
@@ -94,7 +93,7 @@ const renderedMarkdown = computed(() => {
 
 :deep(h2) {
   font-family: var(--font-default);
-  font-size: var(--km-font-size-h1);
+  font-size: var(--ds-font-size-h1);
   font-weight: 600;
   padding: 0;
   margin: 0 0 16px 0;
@@ -103,7 +102,7 @@ const renderedMarkdown = computed(() => {
 
 :deep(h3) {
   font-family: var(--font-default);
-  font-size: var(--km-font-size-h2);
+  font-size: var(--ds-font-size-h2);
   font-weight: 700;
   padding: 0;
   margin: 0 0 12px 0;
@@ -112,7 +111,7 @@ const renderedMarkdown = computed(() => {
 
 :deep(h4) {
   font-family: var(--font-default);
-  font-size: var(--km-font-size-body-lg);
+  font-size: var(--ds-font-size-body-lg);
   font-weight: 700;
   padding: 0;
   margin: 0 0 12px 0;
@@ -144,7 +143,7 @@ const renderedMarkdown = computed(() => {
 } */
 :deep(*) {
   font-family: var(--font-default);
-  font-size: var(--km-font-size-body) !important;
+  font-size: var(--ds-font-size-body) !important;
   font-weight: 400 !important;
 }
 
@@ -154,18 +153,18 @@ const renderedMarkdown = computed(() => {
 }
 :deep(p) {
   white-space: pre-wrap;
-  margin: 0 0 8px 0;
+  margin: 0 0 8px;
 }
 :deep(pre) {
   white-space: pre-wrap;
-  margin: 0 0 8px 0;
+  margin: 0 0 8px;
 }
 :deep(ul) {
-  padding-left: 20px;
+  padding-inline-start: 20px;
   list-style-type: disc;
 }
 :deep(a) {
-  color: var(--q-primary);
+  color: var(--ds-color-primary);
   text-decoration: none;
 }
 
@@ -177,9 +176,7 @@ const renderedMarkdown = computed(() => {
 :deep(h3),
 :deep(h4) {
   padding: 0 !important;
-  margin: 10px 0 10px 0;
+  margin: 10px 0;
   line-height: 1 !important;
-}
-:deep(strong) {
 }
 </style>

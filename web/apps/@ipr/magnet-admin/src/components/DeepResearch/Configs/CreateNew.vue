@@ -1,38 +1,21 @@
-<template lang="pug">
-km-popup-confirm(
-  :visible='showNewDialog',
-  :title='copy ? "Clone Deep Research Config" : "New Deep Research Config"',
-  confirmButtonLabel='Save',
-  cancelButtonLabel='Cancel',
-  notification='You will be able to configure prompts, iterations, and other settings after saving.',
-  @confirm='createConfig',
-  @cancel='emit("cancel")'
-)
-  .column.q-gap-16
-    .col
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 Name
-      .full-width
-        km-input(
-          v-if='showNewDialog',
-          height='30px',
-          :placeholder='m.deepResearch_research()',
-          v-model='name',
-          ref='nameRef',
-          :rules='[required()]'
-        )
-
-    .col
-      .km-field.text-secondary-text.q-pl-8 System name
-      .full-width
-        km-input(
-          v-if='showNewDialog',
-          height='30px',
-          placeholder='',
-          v-model='system_name',
-          ref='system_nameRef',
-          :rules='[required()]'
-        )
-      .km-description.text-secondary-text.q-pb-4.q-pl-8 System name serves as a unique record ID
+<template>
+  <km-popup-confirm :visible="showNewDialog" :title="copy ? &quot;Clone Deep Research Config&quot; : &quot;New Deep Research Config&quot;" confirm-button-label="Save" cancel-button-label="Cancel" notification="You will be able to configure prompts, iterations, and other settings after saving." @confirm="createConfig" @cancel="emit(&quot;cancel&quot;)">
+    <div class="stack" data-gap="lg">
+      <div class="flex-1">
+        <div class="km-field text-secondary-text pb-xs pl-sm">Name</div>
+        <div class="full-width">
+          <km-input v-if="showNewDialog" ref="nameRef" v-model="name" height="30px" :placeholder="m.deepResearch_research()" :rules="[required()]" />
+        </div>
+      </div>
+      <div class="flex-1">
+        <div class="km-field text-secondary-text pl-sm">System name</div>
+        <div class="full-width">
+          <km-input v-if="showNewDialog" ref="system_nameRef" v-model="system_name" height="30px" placeholder="" :rules="[required()]" />
+        </div>
+        <div class="km-description text-secondary-text pb-xs pl-sm">System name serves as a unique record ID</div>
+      </div>
+    </div>
+  </km-popup-confirm>
 </template>
 
 <script setup>

@@ -1,7 +1,8 @@
-<template lang="pug">
-div
-  .km-title.text-lef.ellipsis {{ typeLabel }}
-  .km-field.text-left.ellipsis {{ description }}
+<template>
+  <div>
+    <div class="km-title text-lef ellipsis">{{ typeLabel }}</div>
+    <div class="km-field text-left ellipsis">{{ description }}</div>
+  </div>
 </template>
 
 <script>
@@ -57,7 +58,7 @@ export default defineComponent({
 <style scoped>
 .km-title,
 .km-field {
-  max-width: 300px;
+  max-inline-size: 300px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

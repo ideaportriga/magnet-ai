@@ -1,30 +1,54 @@
-<template lang="pug">
-.full-height.full-width.no-wrap.column(:key='locale')
-  template(v-if='auth.authCheckInProgress')
-    .flex.flex-center.full-height
-      q-spinner(size='30px', color='primary')
-  template(v-else-if='auth.authRequired && !isPublicRoute')
-    login-page
-  template(v-else)
-    template(v-if='appType === "agent"')
-      agent-container
-    template(v-else)
-      router-view
-  km-error-dialog(v-if='mainStore.errorMessage?.technicalError')
-  template(v-if='env === "development"')
-    .fixed-bottom-right.q-pa-sm.row(:style='{ zIndex: 100 }')
+<template>
+  <div
+    :key="locale"
+    class="full-height full-width stack"
+    data-gap="0"
+  >
+    <template v-if="auth.authCheckInProgress">
+      <div class="flex flex-center full-height">
+        <km-loader
+          size="30px"
+        />
+      </div>
+    </template>
+    <template v-else-if="auth.authRequired &amp;&amp; !isPublicRoute">
+      <login-page />
+    </template>
+    <template v-else>
+      <template v-if="appType === &quot;agent&quot;">
+        <agent-container />
+      </template>
+      <template v-else>
+        <router-view />
+      </template>
+    </template>
+    <km-error-dialog v-if="mainStore.errorMessage?.technicalError" />
+    <template v-if="env === &quot;development&quot;">
+      <div
+        class="fixed-bottom-right p-sm cluster"
+        :style="{ zIndex: 100 }"
+      />
+    </template>
+    <ds-toast-host />
+    <ds-dialog-host />
+    <ds-loading-host />
+  </div>
 </template>
 
 <script>
 import { computed, getCurrentInstance } from 'vue'
+import { useLoading } from '@ds/composables/useLoading'
 import { storeToRefs } from 'pinia'
 import { useRoute } from 'vue-router'
 import { useMainStore, useRagTools, useCollections, useRetrieval, useAiApps, usePromptTemplates, useAgents, useAuth, useModel } from '@/pinia'
 import { useLocale } from '@shared/i18n'
 import LoginPage from '@/pages/LoginPage.vue'
+import DsToastHost from '@ds/hosts/DsToastHost.vue'
+import DsDialogHost from '@ds/hosts/DsDialogHost.vue'
+import DsLoadingHost from '@ds/hosts/DsLoadingHost.vue'
 
 export default {
-  components: { LoginPage },
+  components: { LoginPage, DsToastHost, DsDialogHost, DsLoadingHost },
   setup() {
     const mainStore = useMainStore()
     const ragTools = useRagTools()
@@ -76,10 +100,16 @@ export default {
     loading: {
       immediate: true,
       handler(val) {
-        if (val) {
-          this.$q.loading.show()
-        } else {
-          this.$q.loading.hide()
+        const ds = useLoading()
+        // Guard against double-show: if a previous show() is still pending
+        // and `val` flips back to true (e.g., HMR re-attach, async race),
+        // we'd otherwise leak a counter increment that the overlay store
+        // never decrements. Only show when no active hide handle exists.
+        if (val && !this._dsLoadingHide) {
+          this._dsLoadingHide = ds.show()
+        } else if (!val && this._dsLoadingHide) {
+          this._dsLoadingHide()
+          this._dsLoadingHide = null
         }
       },
     },
@@ -91,7 +121,20 @@ export default {
       },
     },
   },
+  beforeUnmount() {
+    // Release any pending overlay request when the root unmounts (HMR,
+    // tab close). Without this the counter would stay positive forever.
+    if (this._dsLoadingHide) {
+      this._dsLoadingHide()
+      this._dsLoadingHide = null
+    }
+  },
   async created() {
+    // Force-clear any residual overlay state from a prior HMR cycle / failed
+    // boot. Without this, a stuck pending counter from a previous mount can
+    // keep the global spinner visible even after a clean reload.
+    useLoading().clear()
+
     await this.mainStore.loadConfig()
 
     if (!this.authRequired) {

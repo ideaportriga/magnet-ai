@@ -1,23 +1,18 @@
-<template lang="pug">
-km-popup-confirm(
-  :visible='show',
-  :title='m.dialog_cloneApiTool()',
-  :confirmButtonLabel='m.common_clone()',
-  :cancelButtonLabel='m.common_cancel()',
-  @confirm='cloneTool',
-  @cancel='$emit("cancel")',
-  :loading='loading',
-  v-if='newTool'
-)
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_name() }}
-  .full-width.q-mb-md
-    km-input(v-model='newTool.name')
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_description() }}
-  .full-width.q-mb-md
-    km-input(v-model='newTool.description', type='textarea', rows='5')
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_systemName() }}
-  .full-width.q-mb-md
-    km-input(v-model='newTool.system_name', :rules='[uniqueSystemName]', ref='systemNameInput')
+<template>
+  <km-popup-confirm v-if="newTool" :visible="show" :title="m.dialog_cloneApiTool()" :confirm-button-label="m.common_clone()" :cancel-button-label="m.common_cancel()" :loading="loading" @confirm="cloneTool" @cancel="$emit(&quot;cancel&quot;)">
+    <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.common_name() }}</div>
+    <div class="full-width mb-md">
+      <km-input v-model="newTool.name" />
+    </div>
+    <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.common_description() }}</div>
+    <div class="full-width mb-md">
+      <km-input v-model="newTool.description" type="textarea" rows="5" />
+    </div>
+    <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.common_systemName() }}</div>
+    <div class="full-width mb-md">
+      <km-input ref="systemNameInput" v-model="newTool.system_name" :rules="[uniqueSystemName]" />
+    </div>
+  </km-popup-confirm>
 </template>
 <script>
 import { ref } from 'vue'

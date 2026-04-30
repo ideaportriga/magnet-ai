@@ -1,77 +1,49 @@
-<template lang="pug">
-.workspace-tab-bar(v-if='tabs.length > 0', ref='tabBarRef')
-  .workspace-scroll-btn.workspace-scroll-btn--left(v-if='showScrollLeft', @click='scrollLeftBy')
-    q-icon(name='chevron_left', size='16px')
-  .workspace-tabs(ref='tabsContainerRef')
-    .workspace-tab(
-      v-for='(tab, index) in tabs',
-      :key='tab.id',
-      :class='tabClass(tab)',
-      :draggable='!tab.pinned',
-      @click='activateTab(tab)',
-      @mousedown.middle.prevent='requestClose(tab)',
-      @contextmenu.prevent='onContextMenu($event, tab)',
-      @dragstart='onDragStart($event, index)',
-      @dragover.prevent='onDragOver($event, index)',
-      @dragend='onDragEnd',
-      :data-index='index',
-      :data-tab-id='tab.id'
-    )
-      q-icon.workspace-tab-icon(:name='entityIcon(tab)', size='14px')
-      .workspace-tab-label {{ tab.label }}
-      q-tooltip(v-if='isLabelTruncated(tab)', anchor='top middle', self='bottom middle', :delay='600') {{ getTooltip(tab) }}
-      q-icon.workspace-tab-pin-badge(v-if='tab.pinned', name='fas fa-thumbtack', size='8px')
-      .workspace-tab-dirty(v-if='tab.dirty && !tab.pinned')
-        .dirty-dot
-      q-icon.workspace-tab-close(
-        v-if='!tab.pinned',
-        name='close',
-        size='12px',
-        @click.stop='requestClose(tab)'
-      )
-  .workspace-scroll-btn.workspace-scroll-btn--right(v-if='showScrollRight', @click='scrollRightBy')
-    q-icon(name='chevron_right', size='16px')
-
-  //- Context menu. Mount only while open (`v-if`) so Quasar's
-  //- `pickAnchorEl` never sees a null `:target` on the initial mount —
-  //- it used to throw "Anchor: target 'null' not found" at app startup,
-  //- which cascaded into Quasar's event-listener state and silently
-  //- suppressed subsequent clicks on the tab bar.
-  q-menu(v-if='contextMenuVisible', v-model='contextMenuVisible', :target='contextMenuTarget', context-menu, no-parent-event)
-    q-list(dense, style='min-width: 180px')
-      q-item(clickable, v-close-popup, @click='requestClose(contextMenuTab)')
-        q-item-section
-          .row.items-center.q-gap-sm
-            q-icon(name='close', size='14px')
-            span {{ m.workspace_close() }}
-      q-separator
-      q-item(clickable, v-close-popup, @click='togglePin(contextMenuTab)')
-        q-item-section
-          .row.items-center.q-gap-sm
-            q-icon(:name='contextMenuTab?.pinned ? "fas fa-thumbtack" : "fas fa-thumbtack"', size='14px')
-            span {{ contextMenuTab?.pinned ? m.workspace_unpin() : m.workspace_pinTab() }}
-      q-separator
-      q-item(clickable, v-close-popup, @click='closeOtherTabs')
-        q-item-section {{ m.workspace_closeOthers() }}
-      q-item(clickable, v-close-popup, @click='closeTabsToRight')
-        q-item-section {{ m.workspace_closeToRight() }}
-      q-item(clickable, v-close-popup, @click='closeTabsToLeft')
-        q-item-section {{ m.workspace_closeToLeft() }}
-      q-separator
-      q-item(clickable, v-close-popup, @click='closeAllTabs')
-        q-item-section {{ m.workspace_closeAll() }}
-
-//- Dirty confirmation dialog
-km-popup-confirm(
-  :visible='showDirtyConfirm',
-  :confirmButtonLabel='m.common_closeWithoutSaving()',
-  :cancelButtonLabel='m.common_cancel()',
-  notificationIcon='fas fa-triangle-exclamation',
-  @confirm='confirmCloseTab',
-  @cancel='showDirtyConfirm = false'
-)
-  .row.item-center.justify-center.km-heading-7.q-mb-md {{ m.workspace_unsavedChanges() }}
-  .row.text-center.justify-center {{ m.workspace_unsavedTabMessage() }}
+<template>
+  <div v-if="tabs.length &gt; 0" ref="tabBarRef" class="workspace-tab-bar" data-test="workspace-tab-bar">
+    <div v-if="showScrollLeft" class="workspace-scroll-btn workspace-scroll-btn--left" @click="scrollLeftBy">
+      <km-glyph name="chevron_left" size="16px" />
+    </div>
+    <div ref="tabsContainerRef" class="workspace-tabs">
+      <ds-context-menu v-for="(tab, index) in tabs" :key="tab.id">
+        <ds-context-menu-trigger as-child>
+          <div class="workspace-tab" :class="tabClass(tab)" :draggable="!tab.pinned" :data-index="index" :data-tab-id="tab.id" @click="activateTab(tab)" @mousedown.middle.prevent="requestClose(tab)" @dragstart="onDragStart($event, index)" @dragover.prevent="onDragOver($event, index)" @dragend="onDragEnd">
+            <km-glyph class="workspace-tab-icon" :name="entityIcon(tab)" size="14px" />
+            <div class="workspace-tab-label">{{ tab.label }}</div>
+            <km-tooltip v-if="isLabelTruncated(tab)" anchor="top middle" self="bottom middle" :delay="600">{{ getTooltip(tab) }}</km-tooltip>
+            <km-glyph v-if="tab.pinned" class="workspace-tab-pin-badge" name="pin" size="8px" />
+            <div v-if="tab.dirty &amp;&amp; !tab.pinned" class="workspace-tab-dirty">
+              <div class="dirty-dot" />
+            </div>
+            <div v-if="!tab.pinned" class="workspace-tab-close" @click.stop="requestClose(tab)">
+              <km-glyph name="close" size="12px" />
+            </div>
+          </div>
+        </ds-context-menu-trigger>
+        <ds-context-menu-content data-test="tab-context-menu">
+          <ds-context-menu-item @select="requestClose(tab)">
+            <km-glyph name="close" size="14px" /><span>{{ m.workspace_close() }}</span>
+          </ds-context-menu-item>
+          <ds-context-menu-separator />
+          <ds-context-menu-item @select="togglePin(tab)">
+            <km-glyph name="pin" size="14px" /><span>{{ tab.pinned ? m.workspace_unpin() : m.workspace_pinTab() }}</span>
+          </ds-context-menu-item>
+          <ds-context-menu-separator />
+          <ds-context-menu-item @select="closeOtherTabs(tab)">{{ m.workspace_closeOthers() }}</ds-context-menu-item>
+          <ds-context-menu-item @select="closeTabsToRight(tab)">{{ m.workspace_closeToRight() }}</ds-context-menu-item>
+          <ds-context-menu-item @select="closeTabsToLeft(tab)">{{ m.workspace_closeToLeft() }}</ds-context-menu-item>
+          <ds-context-menu-separator />
+          <ds-context-menu-item @select="closeAllTabs">{{ m.workspace_closeAll() }}</ds-context-menu-item>
+        </ds-context-menu-content>
+      </ds-context-menu>
+    </div>
+    <div v-if="showScrollRight" class="workspace-scroll-btn workspace-scroll-btn--right" @click="scrollRightBy">
+      <km-glyph name="chevron_right" size="16px" />
+    </div>
+  </div>
+  <km-popup-confirm :visible="showDirtyConfirm" :confirm-button-label="m.common_closeWithoutSaving()" :cancel-button-label="m.common_cancel()" notification-icon="warning" @confirm="confirmCloseTab" @cancel="showDirtyConfirm = false">
+    <div class="cluster km-heading-7 mb-md" data-justify="center">{{ m.workspace_unsavedChanges() }}</div>
+    <div class="cluster" data-justify="center">{{ m.workspace_unsavedTabMessage() }}</div>
+  </km-popup-confirm>
 </template>
 
 <script setup lang="ts">
@@ -103,27 +75,27 @@ watch(
 
 // Entity type → sidebar icon mapping
 const entityIconMap: Record<string, string> = {
-  agents: 'fa fa-robot',
-  promptTemplates: 'fa fa-comment-dots',
-  rag_tools: 'fas fa-file-circle-question',
-  retrieval: 'fas fa-file-circle-question',
-  ai_apps: 'fas fa-wand-magic-sparkles',
-  api_servers: 'fas fa-arrow-right-arrow-left',
-  mcp_servers: 'fas fa-server',
-  collections: 'fas fa-book',
-  provider: 'fas fa-circle-nodes',
-  model: 'fas fa-circle-nodes',
-  evaluation_sets: 'fas fa-table-list',
-  evaluation_jobs: 'fas fa-clipboard-check',
-  assistant_tools: 'fas fa-wrench',
+  agents: 'robot',
+  promptTemplates: 'chat',
+  rag_tools: 'file-question',
+  retrieval: 'file-question',
+  ai_apps: 'magic',
+  api_servers: 'swap',
+  mcp_servers: 'server',
+  collections: 'book',
+  provider: 'graph',
+  model: 'graph',
+  evaluation_sets: 'table-list',
+  evaluation_jobs: 'clipboard-check',
+  assistant_tools: 'wrench',
   knowledge_graph: 'o_hub',
-  observability_traces: 'fas fa-shoe-prints',
-  api_keys: 'fas fa-lock',
-  note_taker: 'fas fa-microphone',
+  observability_traces: 'steps',
+  api_keys: 'lock',
+  note_taker: 'microphone',
 }
 
 function entityIcon(tab: WorkspaceTab): string {
-  return entityIconMap[tab.entityType] || tab.icon || 'fas fa-file'
+  return entityIconMap[tab.entityType] || tab.icon || 'file'
 }
 
 const entityLabelMap: Record<string, string> = {
@@ -162,9 +134,6 @@ function isLabelTruncated(tab: WorkspaceTab): boolean {
 
 const showDirtyConfirm = ref(false)
 const pendingCloseTab = ref<WorkspaceTab | null>(null)
-const contextMenuVisible = ref(false)
-const contextMenuTarget = ref<EventTarget | null>(null)
-const contextMenuTab = ref<WorkspaceTab | null>(null)
 const tabBarRef = ref<HTMLElement | null>(null)
 const tabsContainerRef = ref<HTMLElement | null>(null)
 const showScrollRight = ref(false)
@@ -301,20 +270,6 @@ const doCloseTab = (tab: WorkspaceTab) => {
   nextTick(checkScroll)
 }
 
-// Context menu. Every right-click sets a fresh target before opening, so
-// we never show the menu against a stale ref — no null-target needed on
-// close. (We tried nulling `contextMenuTarget` on close before; that made
-// q-menu throw "Anchor: target 'null' not found" on every menu dismiss,
-// which left Quasar's event listeners in a partial state that silently
-// swallowed subsequent clicks on the tab bar — the "tabs stop working"
-// bug reported by users. Leaving the previous target in place is safe
-// because the next open always overwrites it.)
-const onContextMenu = (event: MouseEvent, tab: WorkspaceTab) => {
-  contextMenuTab.value = tab
-  contextMenuTarget.value = event.target as EventTarget
-  contextMenuVisible.value = true
-}
-
 const togglePin = (tab: WorkspaceTab | null) => {
   if (!tab) return
   if (tab.pinned) {
@@ -324,18 +279,14 @@ const togglePin = (tab: WorkspaceTab | null) => {
   }
 }
 
-const closeOtherTabs = () => {
-  const current = contextMenuTab.value
-  if (!current) return
+const closeOtherTabs = (current: WorkspaceTab) => {
   const others = tabs.value.filter((t) => t.id !== current.id && !t.pinned)
   for (const tab of others) {
     if (!tab.dirty) doCloseTab(tab)
   }
 }
 
-const closeTabsToRight = () => {
-  const current = contextMenuTab.value
-  if (!current) return
+const closeTabsToRight = (current: WorkspaceTab) => {
   const idx = tabs.value.findIndex((t) => t.id === current.id)
   const toClose = tabs.value.slice(idx + 1).filter((t) => !t.pinned)
   for (const tab of toClose) {
@@ -343,9 +294,7 @@ const closeTabsToRight = () => {
   }
 }
 
-const closeTabsToLeft = () => {
-  const current = contextMenuTab.value
-  if (!current) return
+const closeTabsToLeft = (current: WorkspaceTab) => {
   const idx = tabs.value.findIndex((t) => t.id === current.id)
   const toClose = tabs.value.slice(0, idx).filter((t) => !t.pinned)
   for (const tab of toClose) {
@@ -417,114 +366,135 @@ function getRouteForTab(tab: WorkspaceTab): string | null {
 }
 </script>
 
-<style lang="stylus" scoped>
-.workspace-tab-bar
-  display flex
-  align-items center
-  height 38px
-  min-height 38px
-  background var(--q-background)
-  border-bottom 1px solid rgba(0, 0, 0, 0.08)
-  padding 0 16px
-  overflow-x auto
-  overflow-y hidden
-  scrollbar-width none
-  &::-webkit-scrollbar
-    height 0
-
-.workspace-tabs
-  display flex
-  align-items center
-  gap 1px
-  height 100%
-
-.workspace-tab
-  display flex
-  align-items center
-  gap 6px
-  height 100%
-  padding 0 10px 0 12px
-  background transparent
-  cursor pointer
-  white-space nowrap
-  max-width 200px
-  min-width 0
-  font-size var(--km-font-size-caption)
-  color var(--q-secondary-text)
-  transition color 0.15s ease, opacity 0.15s ease
-  position relative
-  user-select none
-  &:hover
-    color var(--q-primary)
-    .workspace-tab-icon
-      color var(--q-primary)
-      opacity 1
-    .workspace-tab-close
-      opacity 0.5
-  &.active
-    color var(--q-primary)
-    border-bottom 2px solid var(--q-primary)
-    font-weight 500
-    .workspace-tab-icon
-      color var(--q-primary)
-      opacity 1
-    .workspace-tab-close
-      opacity 0.3
-  &.dirty .workspace-tab-label
-    font-style italic
-  &.pinned
-    max-width 160px
-    padding 0 8px 0 10px
-    .workspace-tab-label
-      font-size 11px
-  &.dragging
-    opacity 0.4
-
-.workspace-tab-pin-badge
-  flex-shrink 0
-  color var(--q-primary)
-  opacity 0.5
-  transform rotate(-45deg)
-
-.workspace-tab-icon
-  flex-shrink 0
-  opacity 0.6
-
-.workspace-tab-label
-  overflow hidden
-  text-overflow ellipsis
-  white-space nowrap
-  flex 1
-  min-width 0
-
-.workspace-tab-dirty
-  flex-shrink 0
-  .dirty-dot
-    width 6px
-    height 6px
-    border-radius 50%
-    background var(--q-warning)
-
-.workspace-tab-close
-  flex-shrink 0
-  opacity 0
-  transition opacity 0.15s ease
-  border-radius 4px
-  padding 2px
-  &:hover
-    opacity 1 !important
-    background rgba(0, 0, 0, 0.08)
-
-.workspace-scroll-btn
-  flex-shrink 0
-  display flex
-  align-items center
-  justify-content center
-  width 24px
-  height 30px
-  cursor pointer
-  opacity 0.5
-  transition opacity 0.15s ease
-  &:hover
-    opacity 1
+<style scoped>
+.workspace-tab-bar {
+  display: flex;
+  align-items: center;
+  block-size: 38px;
+  min-block-size: 38px;
+  background: var(--ds-color-background);
+  border-block-end: 1px solid rgba(0,0,0,0.08);
+  padding: 0 16px;
+  overflow-inline: auto;
+  overflow-block: hidden;
+  scrollbar-width: none;
+}
+.workspace-tab-bar::-webkit-scrollbar {
+  block-size: 0;
+}
+.workspace-tabs {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  block-size: 100%;
+}
+.workspace-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  block-size: 100%;
+  padding: 0 10px 0 12px;
+  background: transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  max-inline-size: 200px;
+  min-inline-size: 0;
+  font-size: var(--ds-font-size-caption);
+  color: var(--ds-color-secondary-text);
+  transition: color 0.15s ease, opacity 0.15s ease;
+  position: relative;
+  user-select: none;
+}
+.workspace-tab:hover {
+  color: var(--ds-color-primary);
+}
+.workspace-tab:hover .workspace-tab-icon {
+  color: var(--ds-color-primary);
+  opacity: 1;
+}
+.workspace-tab:hover .workspace-tab-close {
+  opacity: 0.5;
+}
+.workspace-tab.active {
+  color: var(--ds-color-primary);
+  border-block-end: 2px solid var(--ds-color-primary);
+  font-weight: 500;
+}
+.workspace-tab.active .workspace-tab-icon {
+  color: var(--ds-color-primary);
+  opacity: 1;
+}
+.workspace-tab.active .workspace-tab-close {
+  opacity: 0.3;
+}
+.workspace-tab.dirty .workspace-tab-label {
+  font-style: italic;
+}
+.workspace-tab.pinned {
+  max-inline-size: 160px;
+  padding: 0 8px 0 10px;
+}
+.workspace-tab.pinned .workspace-tab-label {
+  font-size: 11px;
+}
+.workspace-tab.dragging {
+  opacity: 0.4;
+}
+.workspace-tab-pin-badge {
+  flex-shrink: 0;
+  color: var(--ds-color-primary);
+  opacity: 0.5;
+  transform: rotate(-45deg);
+}
+.workspace-tab-icon {
+  flex-shrink: 0;
+  opacity: 0.6;
+  --km-glyph-color: currentColor;
+}
+.workspace-tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-inline-size: 0;
+}
+.workspace-tab-dirty {
+  flex-shrink: 0;
+}
+.workspace-tab-dirty .dirty-dot {
+  inline-size: 6px;
+  block-size: 6px;
+  border-radius: 50%;
+  background: var(--ds-color-warning);
+}
+.workspace-tab-close {
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  border-radius: 4px;
+  inline-size: 18px;
+  block-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.workspace-tab-close:hover {
+  opacity: 1 !important;
+  background: rgba(0,0,0,0.08);
+}
+.workspace-scroll-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 24px;
+  block-size: 30px;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 0.15s ease;
+}
+.workspace-scroll-btn:hover {
+  opacity: 1;
+}
 </style>

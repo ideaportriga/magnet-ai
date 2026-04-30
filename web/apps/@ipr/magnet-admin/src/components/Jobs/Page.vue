@@ -1,34 +1,23 @@
-<template lang="pug">
-layouts-details-layout(noHeader, :contentContainerStyle='{ maxWidth: "1200px", margin: "0 auto" }')
-  template(#content)
-    .column.full-width.overflow-auto
-      .row.items-center
-        km-filter-bar(v-model:config='filterConfig', v-model:filterObject='filterObject')
-        q-space
-        km-btn.q-mr-12(
-          icon='refresh',
-          :label='m.common_refreshList()',
-          @click='refetch',
-          iconColor='icon',
-          hoverColor='primary',
-          labelClass='km-title',
-          flat,
-          iconSize='16px',
-          hoverBg='primary-bg'
-        )
-        km-btn(data-test='new-btn', :label='m.common_new()', @click='showNewDialog = true')
-      .col.q-pt-16(style='min-height: 0')
-        km-data-table(
-          :table='table',
-          :loading='isLoading', :fetching='isFetching',
-          fill-height,
-          dense,
-          row-key='id',
-          @row-click='openDetails'
-        )
-  template(#drawer)
-    jobs-drawer(:show-drawer='showDrawer', :job='selectedJob', @cancel='showDrawer = false')
-jobs-create-new(:show-new-dialog='showNewDialog', @cancel='showNewDialog = false')
+<template>
+  <layouts-details-layout no-header :content-container-style="{ maxWidth: &quot;1200px&quot;, margin: &quot;0 auto&quot; }">
+    <template #content>
+      <div class="stack full-width overflow-auto" data-gap="0">
+        <div class="cluster">
+          <km-filter-bar v-model:config="filterConfig" v-model:filter-object="filterObject" />
+          <div class="km-space" />
+          <km-btn class="mr-md" icon="refresh" :label="m.common_refreshList()" interaction-tone="brand" label-class="km-title" flat icon-size="16px" @click="refetch" />
+          <km-btn data-test="new-btn" :label="m.common_new()" @click="showNewDialog = true" />
+        </div>
+        <div class="flex-1 pt-lg" style="min-block-size: 0">
+          <km-data-table :table="table" :loading="isLoading" :fetching="isFetching" fill-height dense row-key="id" @row-click="openDetails" />
+        </div>
+      </div>
+    </template>
+    <template #drawer>
+      <jobs-drawer :show-drawer="showDrawer" :job="selectedJob" @cancel="showDrawer = false" />
+    </template>
+  </layouts-details-layout>
+  <jobs-create-new :show-new-dialog="showNewDialog" @cancel="showNewDialog = false" />
 </template>
 
 <script setup lang="ts">
@@ -139,8 +128,3 @@ const openDetails = (row: Job) => {
 }
 </script>
 
-<style lang="stylus">
-.km-input:not(.q-field--readonly) .q-field__control::before {
-  background: #fff !important;
-}
-</style>

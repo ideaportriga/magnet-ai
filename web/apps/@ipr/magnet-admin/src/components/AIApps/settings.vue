@@ -1,26 +1,35 @@
-<template lang="pug">
-div
-  km-section(:title='m.section_changeTheme()', :subTitle='m.subtitle_changeAppearance()')
-    div(style='width: 220px')
-      km-select(v-model='theme', :options='themeOptions', color='primary', size='sm', :disable='false')
-  q-separator.q-my-lg
-  km-section(:title='m.section_showCloseButton()', :subTitle='m.subtitle_controlCloseButton()')
-    q-toggle(v-model='show_close_button', color='primary', size='sm', :disable='false')
-  q-separator.q-my-lg
-  km-section(:title='m.section_showLogo()', :subTitle='m.subtitle_showLogo()')
-    q-toggle(v-model='isIconHide', color='primary', size='sm', :disable='false')
-  q-separator.q-my-lg
-  km-section(:title='m.section_aiAppUrl()', :subTitle='m.subtitle_aiAppUrl()')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.section_aiAppUrl() }}
-    .row
-      .col.q-mr-sm
-        km-input(ref='input', border-radius='8px', height='36px', :readonly='true', :model-value='appUrl')
-      .col-auto
-        km-btn(icon='fas fa-copy', iconSize='16px', size='sm', flat, @click='copy', :tooltip='m.common_copy()')
+<template>
+  <div>
+    <km-section :title="m.section_changeTheme()" :sub-title="m.subtitle_changeAppearance()">
+      <div style="inline-size: 220px">
+        <km-select v-model="theme" :options="themeOptions" size="sm" :disable="false" />
+      </div>
+    </km-section>
+    <km-separator class="my-lg" />
+    <km-section :title="m.section_showCloseButton()" :sub-title="m.subtitle_controlCloseButton()">
+      <km-toggle v-model="show_close_button" size="sm" :disable="false" />
+    </km-section>
+    <km-separator class="my-lg" />
+    <km-section :title="m.section_showLogo()" :sub-title="m.subtitle_showLogo()">
+      <km-toggle v-model="isIconHide" size="sm" :disable="false" />
+    </km-section>
+    <km-separator class="my-lg" />
+    <km-section :title="m.section_aiAppUrl()" :sub-title="m.subtitle_aiAppUrl()">
+      <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.section_aiAppUrl() }}</div>
+      <div class="cluster">
+        <div class="flex-1 mr-sm">
+          <km-input ref="input" border-radius="8px" height="36px" :readonly="true" :model-value="appUrl" />
+        </div>
+        <div class="flex-none">
+          <km-btn icon="copy" icon-size="16px" size="sm" flat :tooltip="m.common_copy()" @click="copy" />
+        </div>
+      </div>
+    </km-section>
+  </div>
 </template>
 
 <script>
-import { copyToClipboard } from 'quasar'
+import { copyToClipboard } from '@ds/utils/clipboard'
 import { ref } from 'vue'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import { m } from '@/paraglide/messages'
@@ -36,6 +45,7 @@ export default {
       themeOptions: ref([
         { label: 'Oracle Redwood', value: 'siebel' },
         { label: 'Salesforce', value: 'salesforce' },
+        { label: 'Magnet Dark', value: 'dark' },
       ]),
     }
   },
@@ -88,21 +98,13 @@ export default {
 }
 </script>
 
-<style lang="stylus">
-
-@keyframes wobble {
-    0% { transform: rotate(-5deg); }
-    50% { transform: rotate(5deg); }
-    100% { transform: rotate(-5deg); }
-}
-
+<style>
 .wobble {
-    animation: wobble 2s infinite;
+  animation: ds-attention-wobble var(--ds-duration-attention) infinite;
 }
-
-.card-hover:hover  {
-  background: var(--q-background)
-  cursor pointer
-  border-color: var(--q-primary)
+.card-hover:hover {
+  background: var(--ds-color-background);
+  cursor: pointer;
+  border-color: var(--ds-color-primary);
 }
 </style>

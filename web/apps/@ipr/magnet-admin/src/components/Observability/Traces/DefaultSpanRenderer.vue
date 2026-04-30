@@ -1,25 +1,35 @@
-<template lang="pug">
-template(v-if='!value || computedType == "none"')
-  .column
-    .km-button-text.bb-border.q-pb-4.q-pl-sm {{ label }}
-    span.text-text-grey.q-pt-sm.q-ml-sm.km-body-sm(style='font-style: italic') N/A
-template(v-else-if='computedType == "text"')
-  .col-auto.ba-border.border-radius-8
-    .row.bb-border.q-pa-sm.bg-light.km-body-sm {{ label ?? 'Content' }}
-    .row.q-pa-sm.km-body-sm(style='min-height: 30px; white-space: pre-wrap') {{ value }}
-template(v-else-if='computedType == "object"')
-  .column
-    .km-button-text.bb-border.q-pb-4.q-pl-sm {{ label }}
-    .column.q-gap-12.q-pt-sm.q-ml-sm(v-if='valueAsKVArray.length > 0')
-      .column.q-gap-6(v-for='[key, value] in valueAsKVArray')
-        .km-input-label.text-text-grey {{ key }}
-        .km-heading-2 {{ value }}
-template(v-else-if='computedType == "embedding-vector"')
-  .col-auto.ba-border.border-radius-8
-    .row.bb-border.q-pa-sm.bg-light.km-body-sm Vector
-    .row.q-pa-sm.km-tiny(style='min-height: 50px') {{ value }}
-template(v-else)
-  km-input(autogrow, :model-value='formattedValue', border-radius='8px', height='36px', type='textarea', readonly)
+<template>
+  <template v-if="!value || computedType == &quot;none&quot;">
+    <div class="stack">
+      <div class="km-button-text bb-border pb-xs pl-sm">{{ label }}</div><span class="text-text-grey pt-sm ml-sm km-body-sm" style="font-style: italic">N/A</span>
+    </div>
+  </template>
+  <template v-else-if="computedType == &quot;text&quot;">
+    <div class="flex-none ba-border border-radius-8">
+      <div class="cluster bb-border p-sm bg-light km-body-sm">{{ label ?? 'Content' }}</div>
+      <div class="cluster p-sm km-body-sm" style="min-block-size: 30px; white-space: pre-wrap">{{ value }}</div>
+    </div>
+  </template>
+  <template v-else-if="computedType == &quot;object&quot;">
+    <div class="stack">
+      <div class="km-button-text bb-border pb-xs pl-sm">{{ label }}</div>
+      <div v-if="valueAsKVArray.length &gt; 0" class="stack pt-sm ml-sm" data-gap="md">
+        <div v-for="[key, value] in valueAsKVArray" :key="key" class="stack" data-gap="xs">
+          <div class="km-input-label text-text-grey">{{ key }}</div>
+          <div class="km-heading-2">{{ value }}</div>
+        </div>
+      </div>
+    </div>
+  </template>
+  <template v-else-if="computedType == &quot;embedding-vector&quot;">
+    <div class="flex-none ba-border border-radius-8">
+      <div class="cluster bb-border p-sm bg-light km-body-sm">Vector</div>
+      <div class="cluster p-sm km-tiny" style="min-block-size: 50px">{{ value }}</div>
+    </div>
+  </template>
+  <template v-else>
+    <km-input autogrow :model-value="formattedValue" border-radius="8px" height="36px" type="textarea" readonly />
+  </template>
 </template>
 
 <script>

@@ -234,52 +234,58 @@ class DatabaseSettings:
 
 
 @dataclass
-class SchedulerSettings:
-    """Scheduler pool settings.
+class TaskiqSettings:
+    """TaskIQ broker / worker / scheduler settings."""
 
-    Defaults sized for APScheduler 3.x: 1-2 concurrent connections is enough
-    for the jobstore + any active executor. Previous 10+20 was ~30 sockets
-    idle most of the time. See BACKEND_FIXES_ROADMAP.md §B.4.
-    """
+    TASKIQ_WORKER_CONCURRENCY: int = field(
+        default_factory=get_env("TASKIQ_WORKER_CONCURRENCY", 8)
+    )
+    """Max concurrent async tasks per worker process (--max-async-tasks)."""
+    TASKIQ_WORKER_PROCESSES: int = field(
+        default_factory=get_env("TASKIQ_WORKER_PROCESSES", 1)
+    )
+    """Number of child worker processes (--workers)."""
 
-    SCHEDULER_POOL_SIZE: int = field(default_factory=get_env("SCHEDULER_POOL_SIZE", 2))
-    """Scheduler connection pool size."""
-    SCHEDULER_MAX_POOL_OVERFLOW: int = field(
-        default_factory=get_env("SCHEDULER_MAX_POOL_OVERFLOW", 3)
+    TASKIQ_SCHEDULER_UPDATE_INTERVAL: int = field(
+        default_factory=get_env("TASKIQ_SCHEDULER_UPDATE_INTERVAL", 10)
     )
-    """Scheduler connection pool max overflow."""
-    SCHEDULER_POOL_TIMEOUT: int = field(
-        default_factory=get_env("SCHEDULER_POOL_TIMEOUT", 10)
+    """Seconds between scheduler polls of schedule sources."""
+    TASKIQ_SCHEDULER_SKIP_FIRST_RUN: bool = field(
+        default_factory=get_env("TASKIQ_SCHEDULER_SKIP_FIRST_RUN", True)
     )
-    """Scheduler connection pool timeout (seconds)."""
-    SCHEDULER_POOL_RECYCLE: int = field(
-        default_factory=get_env("SCHEDULER_POOL_RECYCLE", 3600)
-    )
-    """Scheduler connection pool recycle time."""
-    SCHEDULER_POOL_PRE_PING: bool = field(
-        default_factory=get_env("SCHEDULER_POOL_PRE_PING", False)
-    )
-    """Scheduler connection pool pre-ping. Disabled by default to avoid blocking
-    the asyncio event loop — APScheduler 3.x calls jobstore methods synchronously,
-    and pool_pre_ping adds a blocking SELECT 1 on every connection checkout.
-    Stale connections are handled by pool_recycle instead."""
 
-    def get_scheduler_database_url(self, db_settings: DatabaseSettings) -> str:
-        """Get synchronous database URL for APScheduler jobstore."""
-        return db_settings.sync_url
+    TASKIQ_DEFAULT_TIMEOUT_SECONDS: int = field(
+        default_factory=get_env("TASKIQ_DEFAULT_TIMEOUT_SECONDS", 1800)
+    )
+    """Hard timeout per task (default 30 min = max single task duration)."""
 
-    def get_engine_options(self) -> dict:
-        """Get SQLAlchemy engine options for APScheduler jobstore."""
-        return {
-            "pool_size": self.SCHEDULER_POOL_SIZE,
-            "max_overflow": self.SCHEDULER_MAX_POOL_OVERFLOW,
-            "pool_timeout": self.SCHEDULER_POOL_TIMEOUT,
-            "pool_recycle": self.SCHEDULER_POOL_RECYCLE,
-            "pool_pre_ping": self.SCHEDULER_POOL_PRE_PING,
-            "echo": get_env("DATABASE_ECHO", False)(),
-            "echo_pool": get_env("DATABASE_ECHO_POOL", False)(),
-            "pool_reset_on_return": "commit",
-        }
+    TASKIQ_WAIT_TASKS_TIMEOUT: int = field(
+        default_factory=get_env("TASKIQ_WAIT_TASKS_TIMEOUT", 1860)
+    )
+    """Graceful shutdown wait (--wait-tasks-timeout). MUST be >= TASKIQ_DEFAULT_TIMEOUT_SECONDS."""
+
+    TASKIQ_STUCK_PROCESSING_GRACE_SECONDS: int = field(
+        default_factory=get_env("TASKIQ_STUCK_PROCESSING_GRACE_SECONDS", 120)
+    )
+    """Grace time beyond max task timeout before a PROCESSING job is flagged stuck."""
+
+    TASKIQ_INPROCESS_WORKER_ENABLED: bool = field(
+        default_factory=get_env("TASKIQ_INPROCESS_WORKER_ENABLED", True)
+    )
+    """Spawn the worker as an asyncio task inside the Litestar process.
+
+    Default True — the single-container Azure deploy assumes one Python
+    process runs API + worker + scheduler. Set to False locally if you
+    prefer the multi-process `npm run dev` layout, which still launches a
+    standalone `taskiq worker` CLI."""
+
+    TASKIQ_INPROCESS_SCHEDULER_ENABLED: bool = field(
+        default_factory=get_env("TASKIQ_INPROCESS_SCHEDULER_ENABLED", True)
+    )
+    """Spawn the scheduler as an asyncio task inside the Litestar process.
+
+    Same defaults / opt-out semantics as `TASKIQ_INPROCESS_WORKER_ENABLED`.
+    The scheduler is a singleton — never enable on more than one replica."""
 
 
 ### LOGGING SETTINGS ###
@@ -415,6 +421,36 @@ class AuthSettings:
         default_factory=get_env("REFRESH_TOKEN_EXPIRATION_DAYS", 7)
     )
     """Refresh token expiration in days."""
+
+    REFRESH_TOKEN_REUSE_GRACE_SECONDS: int = field(
+        default_factory=get_env("REFRESH_TOKEN_REUSE_GRACE_SECONDS", 5)
+    )
+    """Short grace window for benign duplicate refresh requests after rotation."""
+
+    AUTH_COOKIE_SECURE: bool = field(
+        default_factory=get_env("AUTH_COOKIE_SECURE", True)
+    )
+    """Set Secure on browser auth cookies. Keep enabled outside local HTTP development."""
+
+    AUTH_COOKIE_SAMESITE: str = field(
+        default_factory=get_env("AUTH_COOKIE_SAMESITE", "lax")
+    )
+    """SameSite policy for browser auth cookies: lax, strict, or none."""
+
+    AUTH_COOKIE_DOMAIN: str = field(default_factory=get_env("AUTH_COOKIE_DOMAIN", ""))
+    """Optional Domain attribute for browser auth cookies."""
+
+    JWT_ISSUER: str = field(default_factory=get_env("JWT_ISSUER", "magnet-ai"))
+    """Issuer claim for internal JWTs. Validated at decode time."""
+
+    JWT_AUDIENCE: str = field(default_factory=get_env("JWT_AUDIENCE", "magnet-ai-api"))
+    """Audience claim for internal JWTs. Validated at decode time."""
+
+    REQUIRE_EMAIL_VERIFICATION: bool = field(
+        default_factory=get_env("REQUIRE_EMAIL_VERIFICATION", False)
+    )
+    """If True, refuse local logins until the user has verified their email.
+    SSO logins are not affected — they inherit verification from the IdP."""
 
     MICROSOFT_ENTRA_ID_TENANT_ID: str = field(
         default_factory=get_env("MICROSOFT_ENTRA_ID_TENANT_ID", "")
@@ -635,7 +671,7 @@ class Settings:
     db_connections: VectorDatabaseSettings = field(
         default_factory=VectorDatabaseSettings
     )
-    scheduler: SchedulerSettings = field(default_factory=SchedulerSettings)
+    taskiq: TaskiqSettings = field(default_factory=TaskiqSettings)
     log: LogSettings = field(default_factory=LogSettings)
     observability: ObservabilitySettings = field(default_factory=ObservabilitySettings)
     azure: AzureSettings = field(default_factory=AzureSettings)
@@ -702,8 +738,8 @@ def get_vector_database_settings() -> VectorDatabaseSettings:
 
 
 @lru_cache(maxsize=1, typed=True)
-def get_scheduler_settings() -> SchedulerSettings:
-    return get_settings().scheduler
+def get_taskiq_settings() -> TaskiqSettings:
+    return get_settings().taskiq
 
 
 @lru_cache(maxsize=1, typed=True)

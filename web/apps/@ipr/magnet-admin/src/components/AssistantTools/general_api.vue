@@ -1,56 +1,40 @@
-<template lang="pug">
-div
-  km-section(:title='m.common_settings()', :subTitle='m.subtitle_assistantToolParams()')
-    .km-field.text-secondary-text.q-pb-md.q-pl-8 Operation type
-      km-select(
-        height='30px',
-        :placeholder='m.common_type()',
-        :options='typeOptions',
-        v-model='type',
-        hasDropdownSearch,
-        option-value='value',
-        option-label='label',
-        map-options,
-        disabled
-      )
-
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 API Provider
-      km-select(
-        height='30px',
-        :placeholder='m.label_apiProvider()',
-        :options='[{ value: "siebel_test", label: "API Provider Siebel Test" }]',
-        hasDropdownSearch,
-        option-value='value',
-        option-label='label',
-        map-options,
-        disabled,
-        v-model='provider'
-      )
-
-  q-separator.q-my-lg
-  km-section(:title='m.section_descriptionsForLlm()', :subTitle='m.subtitle_llmDescriptions()')
-    .km-field.text-secondary-text.q-pb-md.q-pl-8 Name
-      km-input(v-model='nameForLLM', :placeholder='m.assistantTools_toolNameForLlm()')
-      .km-description.text-secondary-text Tool name for the LLM
-
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 Description
-      km-input(
-        ref='input',
-        rows='10',
-        :placeholder='m.placeholder_typeYourTextHere()',
-        border-radius='8px',
-        height='36px',
-        type='textarea',
-        v-model='descriptionForLLM'
-      )
-      .km-description.text-secondary-textTool Description for the LLM
-  q-separator.q-my-lg
-  km-section(:title='m.section_requireConfirmation()', :subTitle='m.subtitle_requireConfirmation()')
-    .column
-      .col.q-mb-md
-        q-chip.km-small-chip(color='primary-light', text-color='primary', :label='m.common_upcomingFeature()')
-      .col
-        q-toggle(:model-value='true', disable, dense)
+<template>
+  <div>
+    <km-section :title="m.common_settings()" :sub-title="m.subtitle_assistantToolParams()">
+      <div class="km-field text-secondary-text pb-md pl-sm">
+        Operation type
+        <km-select v-model="type" height="30px" :placeholder="m.common_type()" :options="typeOptions" has-dropdown-search option-value="value" option-label="label" map-options disabled />
+      </div>
+      <div class="km-field text-secondary-text pb-xs pl-sm">
+        API Provider
+        <km-select v-model="provider" height="30px" :placeholder="m.label_apiProvider()" :options="[{ value: &quot;siebel_test&quot;, label: &quot;API Provider Siebel Test&quot; }]" has-dropdown-search option-value="value" option-label="label" map-options disabled />
+      </div>
+    </km-section>
+    <km-separator class="my-lg" />
+    <km-section :title="m.section_descriptionsForLlm()" :sub-title="m.subtitle_llmDescriptions()">
+      <div class="km-field text-secondary-text pb-md pl-sm">
+        Name
+        <km-input v-model="nameForLLM" :placeholder="m.assistantTools_toolNameForLlm()" />
+        <div class="km-description text-secondary-text">Tool name for the LLM</div>
+      </div>
+      <div class="km-field text-secondary-text pb-xs pl-sm">
+        Description
+        <km-input ref="input" v-model="descriptionForLLM" rows="10" :placeholder="m.placeholder_typeYourTextHere()" border-radius="8px" height="36px" type="textarea" />
+        <div class="km-description text-secondary-textTool">Description for the LLM</div>
+      </div>
+    </km-section>
+    <km-separator class="my-lg" />
+    <km-section :title="m.section_requireConfirmation()" :sub-title="m.subtitle_requireConfirmation()">
+      <div class="stack" data-gap="0">
+        <div class="flex-1 mb-md">
+          <km-chip tone="brand" class="km-small-chip" :label="m.common_upcomingFeature()" />
+        </div>
+        <div class="flex-1">
+          <km-toggle :model-value="true" disable dense />
+        </div>
+      </div>
+    </km-section>
+  </div>
 </template>
 
 <script>

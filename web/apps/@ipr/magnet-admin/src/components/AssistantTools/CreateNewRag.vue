@@ -1,26 +1,10 @@
-<template lang="pug">
-km-popup-confirm(
-  :visible='showNewDialog',
-  :title='m.assistantTools_newAssistantToolRag()',
-  :confirmButtonLabel='m.common_save()',
-  :cancelButtonLabel='m.common_cancel()',
-  @confirm='createTools',
-  @cancel='$emit("cancel")',
-  :loading='loading'
-)
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8 RAG tool
-    km-select(
-      height='auto',
-      minHeight='30px',
-      :placeholder='m.assistantTools_selectRag()',
-      :options='ragItems',
-      v-model='rag',
-      hasDropdownSearch,
-      option-value='system_name',
-      option-label='name',
-      emit-value,
-      map-options
-    )
+<template>
+  <km-popup-confirm :visible="showNewDialog" :title="m.assistantTools_newAssistantToolRag()" :confirm-button-label="m.common_save()" :cancel-button-label="m.common_cancel()" :loading="loading" @confirm="createTools" @cancel="$emit(&quot;cancel&quot;)">
+    <div class="km-field text-secondary-text pb-xs pl-sm">
+      RAG tool
+      <km-select v-model="rag" height="auto" min-height="30px" :placeholder="m.assistantTools_selectRag()" :options="ragItems" has-dropdown-search option-value="system_name" option-label="name" emit-value map-options />
+    </div>
+  </km-popup-confirm>
 </template>
 <script>
 import { ref, reactive, computed } from 'vue'
@@ -31,6 +15,7 @@ import { fetchData } from '@shared'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useAppStore } from '@/stores/appStore'
 import { useEntityConfig } from '@/composables/useEntityConfig'
+import { validateRef } from '@/utils/validateRef'
 import { useCatalogOptions } from '@/queries/useCatalogOptions'
 import { notify } from '@shared/utils/notify'
 
@@ -118,7 +103,7 @@ export default {
       return []
     },
     validateFields() {
-      const validStates = this.requiredFields.map((field) => this.$refs[`${field}Ref`]?.validate())
+      const validStates = this.requiredFields.map((field) => validateRef(this.$refs[`${field}Ref`]))
       return !validStates.includes(false)
     },
     async createTools() {
@@ -144,7 +129,3 @@ export default {
 }
 </script>
 
-<style lang="stylus">
-.km-input:not(.q-field--readonly) .q-field__control::before
-  background: var(--q-white) !important;
-</style>

@@ -1,76 +1,44 @@
-<template lang="pug">
-div
-  km-section(:title='m.section_llmModel()', :subTitle='m.subtitle_chooseModel()')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_llmModel() }}
-    km-select(
-      height='auto',
-      minHeight='36px',
-      :placeholder='m.common_llmModel()',
-      v-model='model',
-      :options='modelOptions',
-      optionLabel='display_name',
-      emit-value,
-      hasDropdownSearch
-    )
-      template(#option='{ itemProps, opt, selected, toggleOption }')
-        q-item.ba-border(v-bind='itemProps', dense, @click='toggleOption(opt)')
-          q-item-section
-            q-item-label.km-label {{ opt.display_name }}
-            .row.q-mt-xs(v-if='opt.provider_system_name')
-              q-chip(color='primary-light', text-color='primary', size='sm', dense) {{ opt.provider_system_name }}
-  q-separator.q-my-lg
-  km-section(
-    :title='m.prompts_outputDiversity()',
-    :subTitle='m.subtitle_temperature()'
-  )
-    km-slider-card.q-mb-lg(
-      v-model='temperature',
-      name='Temperature',
-      :min='0',
-      :max='2',
-      :defaultValue='1',
-      :minLabel='m.prompts_lessRandom()',
-      :maxLabel='m.prompts_moreRandom()',
-      :description='m.prompts_recommendAltering()',
-      :infoTooltip='m.prompts_temperatureTooltip()'
-    )
-
-  km-section
-    km-slider-card(
-      v-model='topP',
-      name='Top P',
-      :min='0',
-      :max='1',
-      :defaultValue='1',
-      :minLabel='m.prompts_lessDiverse()',
-      :maxLabel='m.prompts_moreDiverse()',
-      :description='m.prompts_recommendAltering()',
-      :infoTooltip='m.prompts_topPTooltip()'
-    )
-  q-separator.q-my-lg
-  km-section(:title='m.section_outputLimit()', :subTitle='m.subtitle_outputLimit()')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.prompts_maxTokens() }}
-      div(style='max-width: 200px')
-        km-input(type='number', height='30px', :placeholder='m.prompts_maxTokens()', v-model='maxTokens')
-      .km-description.text-secondary-text.q-pb-4 {{ m.prompts_tokenApprox() }}
-  q-separator.q-my-lg
-  km-section(
-    :title='m.nav_observability()',
-    :subTitle='m.prompts_controlLogging()'
-  )
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.prompts_loggingLevel() }}
-    km-select(
-      height='auto',
-      minHeight='36px',
-      :placeholder='m.prompts_selectLoggingLevel()',
-      v-model='observabilityLevel',
-      :options='observabilityLevelOptions',
-      optionLabel='label',
-      optionValue='value',
-      emit-value,
-      map-options
-    )
-    .km-description.text-secondary-text.q-pt-xs.q-pl-8 {{ observabilityLevelDescription }}
+<template>
+  <div>
+    <km-section :title="m.section_llmModel()" :sub-title="m.subtitle_chooseModel()">
+      <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.common_llmModel() }}</div>
+      <km-select v-model="model" height="auto" min-height="36px" :placeholder="m.common_llmModel()" :options="modelOptions" option-label="display_name" option-value="system_name" emit-value has-dropdown-search>
+        <template #option="{ itemProps, opt, toggleOption }">
+          <li class="km-item ba-border" v-bind="itemProps" dense @click="toggleOption(opt)">
+            <div class="km-item-section">
+              <span class="km-item-label km-label">{{ opt.display_name }}</span>
+              <div v-if="opt.provider_system_name" class="cluster mt-xs">
+                <km-chip tone="brand" size="sm" dense>{{ opt.provider_system_name }}</km-chip>
+              </div>
+            </div>
+          </li>
+        </template>
+      </km-select>
+    </km-section>
+    <km-separator class="my-lg" />
+    <km-section :title="m.prompts_outputDiversity()" :sub-title="m.subtitle_temperature()">
+      <km-slider-card v-model="temperature" class="mb-lg" name="Temperature" :min="0" :max="2" :default-value="1" :min-label="m.prompts_lessRandom()" :max-label="m.prompts_moreRandom()" :description="m.prompts_recommendAltering()" :info-tooltip="m.prompts_temperatureTooltip()" />
+    </km-section>
+    <km-section>
+      <km-slider-card v-model="topP" name="Top P" :min="0" :max="1" :default-value="1" :min-label="m.prompts_lessDiverse()" :max-label="m.prompts_moreDiverse()" :description="m.prompts_recommendAltering()" :info-tooltip="m.prompts_topPTooltip()" />
+    </km-section>
+    <km-separator class="my-lg" />
+    <km-section :title="m.section_outputLimit()" :sub-title="m.subtitle_outputLimit()">
+      <div class="km-field text-secondary-text pb-xs pl-sm">
+        {{ m.prompts_maxTokens() }}
+        <div style="max-inline-size: 200px">
+          <km-input v-model="maxTokens" type="number" height="30px" :placeholder="m.prompts_maxTokens()" />
+        </div>
+        <div class="km-description text-secondary-text pb-xs">{{ m.prompts_tokenApprox() }}</div>
+      </div>
+    </km-section>
+    <km-separator class="my-lg" />
+    <km-section :title="m.nav_observability()" :sub-title="m.prompts_controlLogging()">
+      <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.prompts_loggingLevel() }}</div>
+      <km-select v-model="observabilityLevel" height="auto" min-height="36px" :placeholder="m.prompts_selectLoggingLevel()" :options="observabilityLevelOptions" option-label="label" option-value="value" emit-value map-options />
+      <div class="km-description text-secondary-text pt-xs pl-sm">{{ observabilityLevelDescription }}</div>
+    </km-section>
+  </div>
 </template>
 
 <script>
@@ -164,21 +132,26 @@ export default {
     },
     model: {
       get() {
-        return this.model_name || ''
+        if (this.activeVariant?.system_name_for_model) return this.activeVariant.system_name_for_model
+        return (this.modelOptions ?? []).find((el) => el.model === this.activeVariant?.model)?.system_name || ''
       },
       set(value) {
-        this.updateVariantField('system_name_for_model', value.system_name)
+        if (!value) {
+          this.updateVariantField('system_name_for_model', null)
+          this.updateVariantField('model', null)
+          return
+        }
+
+        const selectedModel = typeof value === 'string'
+          ? (this.modelOptions ?? []).find((el) => el?.system_name === value)
+          : value
+
+        if (!selectedModel?.system_name) return
+
+        this.updateVariantField('system_name_for_model', selectedModel.system_name)
         // Backward compat: keep old `model` field in sync until backend fully migrates to system_name_for_model
-        this.updateVariantField('model', value.model)
-      },
-    },
-    model_name() {
-      if (this.activeVariant?.system_name_for_model) {
-        return (this.modelOptions ?? []).find((el) => el?.system_name === this.activeVariant?.system_name_for_model)
-          ?.display_name
+        if (selectedModel.model) this.updateVariantField('model', selectedModel.model)
       }
-      // Backward compat: fall back to old `model` field until backend fully migrates to system_name_for_model
-      return (this.modelOptions ?? []).find((el) => el.model === this.activeVariant?.model)?.display_name
     },
     modelOptions() {
       return (this.modelItems || [])

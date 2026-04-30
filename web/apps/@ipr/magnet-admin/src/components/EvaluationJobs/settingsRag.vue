@@ -1,86 +1,63 @@
-<template lang="pug">
-div(style='min-width: 300px')
-  km-section(:title='m.section_variantBasicInfo()')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.evaluation_ragName() }}
-      km-input(height='30px', :placeholder='m.evaluation_ragName()', readonly, :model-value='name')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.evaluation_variantName() }}
-      .row
-        .col
-          km-input(height='30px', :placeholder='m.evaluation_variantName()', readonly, :model-value='variantLabel')
-        .col-auto.q-ml-sm
-          km-btn(
-            flat,
-            simple,
-            :label='m.common_openVariant()',
-            iconSize='16px',
-            icon='fas fa-book',
-            @click='navigate("/rag-tools/" + this.evaluation?.tool?.id)'
-          )
-
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.common_description() }}
-      km-input(height='30px', :placeholder='m.common_description()', readonly, :model-value='evaluationVariant?.description')
-  km-section(:title='m.evaluation_retrievalParameters()')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.evaluation_knowledgeSource() }}
-      km-select(
-        height='auto',
-        minHeight='36px',
-        :placeholder='m.common_selectKnowledgeSources()',
-        multiple,
-        :options='collections',
-        v-model='collectionSystemNames',
-        use-chips,
-        ref='sourecesRef',
-        readonly
-      )
-    .row.q-mb-md
-      .col.km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.evaluation_similarityScore() }}
-        km-input(
-          type='number',
-          height='30px',
-          :placeholder='m.evaluation_similarityScore()',
-          readonly,
-          :model-value='evaluationVariant?.retrieve?.similarity_score_threshold'
-        )
-      .col.km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.evaluation_chunksToSelect() }}
-        km-input(
-          type='number',
-          height='30px',
-          :placeholder='m.evaluation_chunksToSelect()',
-          readonly,
-          :model-value='evaluationVariant?.retrieve?.max_chunks_retrieved'
-        )
-    .row.q-mb-md
-      .col.km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.evaluation_contextWindowExpansionSize() }}
-        km-input(
-          type='number',
-          height='30px',
-          :placeholder='m.evaluation_contextWindowExpansionSize()',
-          readonly,
-          :model-value='evaluationVariant?.retrieve?.chunk_context_window_expansion_size'
-        )
-      .col
-
-  km-section(:title='m.evaluation_generationParameters()')
-    .row.q-mb-md
-      .col.km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.evaluation_systemPromptTemplate() }}
-        |
-        km-select(
-          height='auto',
-          minHeight='36px',
-          :placeholder='m.evaluation_selectPromptTemplate()',
-          :options='promptTemplates',
-          v-model='generateTemplate',
-          hasDropdownSearch,
-          option-value='system_name',
-          option-label='name',
-          emit-value,
-          map-options,
-          readonly,
-          disabled
-        )
-  km-section(:title='m.evaluation_languageParameters()')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.ragTools_enableMultiLingualRag() }}
-      q-toggle(height='30px', :label='m.ragTools_enableMultiLingualRag()', :model-value='evaluationVariant?.multilanguage?.enabled == true', readonly)
+<template>
+  <div style="min-inline-size: 300px">
+    <km-section :title="m.section_variantBasicInfo()">
+      <div class="km-field text-secondary-text pb-xs pl-sm mb-md">
+        {{ m.evaluation_ragName() }}
+        <km-input height="30px" :placeholder="m.evaluation_ragName()" readonly :model-value="name" />
+      </div>
+      <div class="km-field text-secondary-text pb-xs pl-sm mb-md">
+        {{ m.evaluation_variantName() }}
+        <div class="cluster">
+          <div class="flex-1">
+            <km-input height="30px" :placeholder="m.evaluation_variantName()" readonly :model-value="variantLabel" />
+          </div>
+          <div class="flex-none ml-sm">
+            <km-btn flat simple :label="m.common_openVariant()" icon-size="16px" icon="book" @click="navigate(&quot;/rag-tools/&quot; + evaluation?.tool?.id)" />
+          </div>
+        </div>
+      </div>
+      <div class="km-field text-secondary-text pb-xs pl-sm mb-md">
+        {{ m.common_description() }}
+        <km-input height="30px" :placeholder="m.common_description()" readonly :model-value="evaluationVariant?.description" />
+      </div>
+    </km-section>
+    <km-section :title="m.evaluation_retrievalParameters()">
+      <div class="km-field text-secondary-text pb-xs pl-sm mb-md">
+        {{ m.evaluation_knowledgeSource() }}
+        <km-select ref="sourecesRef" v-model="collectionSystemNames" height="auto" min-height="36px" :placeholder="m.common_selectKnowledgeSources()" multiple :options="collections" use-chips readonly />
+      </div>
+      <div class="evaluation-settings-rag__field-grid mb-md">
+        <div class="km-field text-secondary-text pb-xs pl-sm">
+          {{ m.evaluation_similarityScore() }}
+          <km-input type="number" height="30px" :placeholder="m.evaluation_similarityScore()" readonly :model-value="evaluationVariant?.retrieve?.similarity_score_threshold" />
+        </div>
+        <div class="km-field text-secondary-text pb-xs pl-sm">
+          {{ m.evaluation_chunksToSelect() }}
+          <km-input type="number" height="30px" :placeholder="m.evaluation_chunksToSelect()" readonly :model-value="evaluationVariant?.retrieve?.max_chunks_retrieved" />
+        </div>
+      </div>
+      <div class="evaluation-settings-rag__field-grid mb-md">
+        <div class="km-field text-secondary-text pb-xs pl-sm">
+          {{ m.evaluation_contextWindowExpansionSize() }}
+          <km-input type="number" height="30px" :placeholder="m.evaluation_contextWindowExpansionSize()" readonly :model-value="evaluationVariant?.retrieve?.chunk_context_window_expansion_size" />
+        </div>
+      </div>
+    </km-section>
+    <km-section :title="m.evaluation_generationParameters()">
+      <div class="mb-md">
+        <div class="km-field text-secondary-text pb-xs pl-sm">
+          {{ m.evaluation_systemPromptTemplate() }}
+          <km-select v-model="generateTemplate" height="auto" min-height="36px" :placeholder="m.evaluation_selectPromptTemplate()" :options="promptTemplates" has-dropdown-search option-value="system_name" option-label="name" emit-value map-options readonly disabled />
+        </div>
+      </div>
+    </km-section>
+    <km-section :title="m.evaluation_languageParameters()">
+      <div class="km-field text-secondary-text pb-xs pl-sm">
+        {{ m.ragTools_enableMultiLingualRag() }}
+        <km-toggle height="30px" :label="m.ragTools_enableMultiLingualRag()" :model-value="evaluationVariant?.multilanguage?.enabled == true" readonly />
+      </div>
+    </km-section>
+  </div>
 </template>
 
 <script>
@@ -155,3 +132,17 @@ export default {
   },
 }
 </script>
+
+<style scoped>
+.evaluation-settings-rag__field-grid {
+  display: grid;
+  gap: var(--ds-space-md);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 767px) {
+  .evaluation-settings-rag__field-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

@@ -1,28 +1,24 @@
-<template lang="pug">
-  .full-width
-  km-section(:title='m.section_apiDefinition()', :subTitle='m.subtitle_apiSpecification()')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.apiTools_path() }}
-    .row.items-center.q-gap-16.no-wrap
-      km-chip.text-secondary-text(:label='apiTool.method', color='light', round)
-      km-input.full-width(:model-value='apiTool.path', readonly)
-
-    .row.q-mt-lg.justify-between.items-end.q-mb-4
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.apiTools_operationDefinition() }}
-      km-select-flat(:options='parametersOptions', v-model='selectedParameters')
-    km-input.full-width(
-      rows='14',
-      border-radius='8px',
-      height='36px',
-      type='textarea',
-      :model-value='JSON.stringify(showOriginalParameters ? apiTool.original_operation_definition : apiTool.parameters, null, 2)',
-      readonly
-    )
-  q-separator.q-my-lg
-  km-section(:title='m.section_mock()', :subTitle='m.subtitle_mockResponse()')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.apiTools_mockEnabled() }}
-    km-toggle(v-model='mockResponseEnabled')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-lg {{ m.apiTools_mockResponse() }}
-    km-input.full-width(rows='14', border-radius='8px', height='36px', type='textarea', v-model='mockContent')
+<template>
+  <div class="full-width" />
+  <km-section :title="m.section_apiDefinition()" :sub-title="m.subtitle_apiSpecification()">
+    <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.apiTools_path() }}</div>
+    <div class="cluster" data-gap="lg" data-wrap="no">
+      <km-chip class="text-secondary-text" :label="apiTool.method" tone="neutral" round />
+      <km-input class="full-width" :model-value="apiTool.path" readonly />
+    </div>
+    <div class="cluster mt-lg mb-xs" data-justify="between" data-align="end">
+      <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.apiTools_operationDefinition() }}</div>
+      <km-select-flat v-model="selectedParameters" :options="parametersOptions" />
+    </div>
+    <km-input class="full-width" rows="14" border-radius="8px" height="36px" type="textarea" :model-value="JSON.stringify(showOriginalParameters ? apiTool.original_operation_definition : apiTool.parameters, null, 2)" readonly />
+  </km-section>
+  <km-separator class="my-lg" />
+  <km-section :title="m.section_mock()" :sub-title="m.subtitle_mockResponse()">
+    <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.apiTools_mockEnabled() }}</div>
+    <km-toggle v-model="mockResponseEnabled" />
+    <div class="km-field text-secondary-text pb-xs pl-sm mt-lg">{{ m.apiTools_mockResponse() }}</div>
+    <km-input v-model="mockContent" class="full-width" rows="14" border-radius="8px" height="36px" type="textarea" />
+  </km-section>
 </template>
 
 <script>

@@ -1,69 +1,38 @@
-<template lang="pug">
-km-inner-loading(:showing='loading')
-layouts-details-layout(v-if='!loading')
-  template(#header)
-    km-input-flat.km-heading-4.full-width.text-black(data-test='name-input', :placeholder='m.common_name()', :modelValue='name', @change='name = $event')
-    km-input-flat.km-description.full-width.text-black(data-test='description-input', :placeholder='m.common_description()', :modelValue='description', @change='description = $event')
-    .row.items-center.q-pl-6
-      q-icon.col-auto(name='o_info', color='text-secondary')
-        q-tooltip.bg-white.block-shadow.text-secondary-text.km-description(self='top middle', :offset='[-50, -50]') {{ m.tooltip_systemNameUniqueId() }}
-      km-input-flat.col.km-description.text-black.full-width(
-        data-test='system-name-input',
-        :placeholder='m.placeholder_enterSystemNameReadable()',
-        :modelValue='system_name',
-        @change='system_name = $event',
-        @focus='showInfo = true',
-        @blur='showInfo = false',
-        :rules='[validSystemName()]'
-      )
-    .km-description.text-secondary.q-pl-6(v-if='showInfo') {{ m.hint_systemNameRecommendation() }}
-  template(#header-actions)
-    km-btn(:label='m.common_recordInfo()', flat, icon='info', iconSize='16px')
-      q-tooltip.bg-white.block-shadow
-        .q-pa-sm
-          .q-mb-sm
-            .text-secondary-text.km-button-xs-text {{ m.common_createdLabel() }}
-            .text-secondary-text.km-description {{ created_at }}
-          .q-mb-sm
-            .text-secondary-text.km-button-xs-text {{ m.common_modified() }}
-            .text-secondary-text.km-description {{ modified_at }}
-          .q-mb-sm
-            .text-secondary-text.km-button-xs-text {{ m.common_createdBy() }}
-            .text-secondary-text.km-description {{ created_by }}
-          div
-            .text-secondary-text.km-button-xs-text {{ m.common_modifiedBy() }}
-            .text-secondary-text.km-description {{ updated_by }}
-    km-btn(data-test='revert-btn', :label='m.common_revert()', icon='fas fa-undo', iconSize='16px', flat, @click='revert()', v-if='isDirty')
-    km-btn(data-test='save-btn', :label='m.common_save()', flat, icon='far fa-save', iconSize='16px', @click='saveEntity', :loading='saving', :disable='saving || !isDirty')
-    q-btn.q-px-xs(data-test='show-more-btn', flat, :icon='"fas fa-ellipsis-v"', size='13px')
-      q-menu(anchor='bottom right', self='top right')
-        q-item(data-test='clone-btn', clickable, @click='showNewDialog = true', dense)
-          q-item-section
-            .km-heading-3 {{ m.common_clone() }}
-        q-item(data-test='delete-btn', clickable, @click='showDeleteDialog = true', dense)
-          q-item-section
-            .km-heading-3 {{ m.common_delete() }}
-    km-popup-confirm(
-      :visible='showDeleteDialog',
-      :confirmButtonLabel='m.deleteConfirm_deleteEntity({ entity: m.entity_model() })',
-      notificationIcon='fas fa-circle-info',
-      :cancelButtonLabel='m.common_cancel()',
-      @cancel='showDeleteDialog = false',
-      @confirm='deleteRecord'
-    )
-      .row.item-center.justify-center.km-heading-7 {{ m.deleteConfirm_aboutToDelete({ entity: m.entity_model() }) }}
-      .row.text-center.justify-center {{ m.deleteConfirm_modelBody() }}
-  template(#content)
-    .column.full-height(style='min-height: 0')
-      km-tabs(v-model='tab')
-        template(v-for='t in tabs')
-          q-tab(:name='t.name', :label='t.label')
-      .col.overflow-auto.q-mt-lg.q-pr-16(style='min-height: 0')
-        template(v-if='tab == "model"')
-          model-config-model
-        template(v-if='tab == "pricing"')
-          model-config-pricing
-model-config-create-new(v-if='showNewDialog', :showNewDialog='showNewDialog', @cancel='showNewDialog = false', copy, :copyData='draft', :type='type')
+<template>
+  <km-inner-loading :showing="loading" />
+  <layouts-details-layout v-if="!loading" :name="name" :description="description" :system-name="system_name" :system-name-rules="[validSystemName()]" :created-at="activeRetrievalDB?.created_at" :updated-at="activeRetrievalDB?.updated_at" :created-by="activeRetrievalDB?.created_by" :updated-by="activeRetrievalDB?.updated_by" show-record-info @update:name="name = $event" @update:description="description = $event" @update:system-name="system_name = $event">
+    <template #header-actions>
+      <km-btn v-if="isDirty" data-test="revert-btn" :label="m.common_revert()" icon="undo" icon-size="16px" flat @click="revert()" />
+      <km-btn data-test="save-btn" :label="m.common_save()" flat icon="save" icon-size="16px" :loading="saving" :disable="saving || !isDirty" @click="saveEntity" />
+      <ds-dropdown-menu-root>
+        <ds-dropdown-menu-trigger as-child>
+          <km-btn class="px-xs" data-test="show-more-btn" flat icon="more-vertical" size="13px" />
+        </ds-dropdown-menu-trigger>
+        <ds-dropdown-menu-content side="bottom" align="end" :side-offset="4">
+          <ds-dropdown-menu-item data-test="clone-btn" @select="showNewDialog = true">{{ m.common_clone() }}</ds-dropdown-menu-item>
+          <ds-dropdown-menu-item data-test="delete-btn" variant="destructive" @select="showDeleteDialog = true">{{ m.common_delete() }}</ds-dropdown-menu-item>
+        </ds-dropdown-menu-content>
+      </ds-dropdown-menu-root>
+      <km-popup-confirm :visible="showDeleteDialog" :confirm-button-label="m.deleteConfirm_deleteEntity({ entity: m.entity_model() })" notification-icon="info" :cancel-button-label="m.common_cancel()" @cancel="showDeleteDialog = false" @confirm="deleteRecord">
+        <div class="cluster km-heading-7" data-justify="center">{{ m.deleteConfirm_aboutToDelete({ entity: m.entity_model() }) }}</div>
+        <div class="cluster text-center" data-justify="center">{{ m.deleteConfirm_modelBody() }}</div>
+      </km-popup-confirm>
+    </template>
+    <template #content>
+      <div class="stack full-height" data-gap="0" style="min-block-size: 0">
+        <km-tabs v-model="tab" :items="tabs" />
+        <div class="flex-1 overflow-auto mt-lg pr-lg" style="min-block-size: 0">
+          <template v-if="tab == &quot;model&quot;">
+            <model-config-model />
+          </template>
+          <template v-if="tab == &quot;pricing&quot;">
+            <model-config-pricing />
+          </template>
+        </div>
+      </div>
+    </template>
+  </layouts-details-layout>
+  <model-config-create-new v-if="showNewDialog" :show-new-dialog="showNewDialog" copy :copy-data="draft" :type="type" @cancel="showNewDialog = false" />
 </template>
 
 <script>
@@ -96,8 +65,8 @@ export default {
       m,
       tab: ref('model'),
       tabs: ref([
-        { name: 'model', label: m.common_settings() },
-        { name: 'pricing', label: m.common_pricing() },
+        { value: 'model', label: m.common_settings() },
+        { value: 'pricing', label: m.common_pricing() },
       ]),
       showNewDialog: ref(false),
       showDeleteDialog: ref(false),
@@ -105,7 +74,6 @@ export default {
       activeEntity: ref({}),
       prompt: ref(null),
       openTest: ref(true),
-      showInfo: ref(false),
       items,
       removeEntity,
       validSystemName,
@@ -151,22 +119,6 @@ export default {
     loading() {
       return this.isLoading || !this.draft?.id
     },
-    created_at() {
-      if (!this.activeRetrievalDB?.created_at) return ''
-      return `${this.formatDate(this.activeRetrievalDB.created_at)}`
-    },
-    modified_at() {
-      if (!this.activeRetrievalDB?.updated_at) return ''
-      return `${this.formatDate(this.activeRetrievalDB.updated_at)}`
-    },
-    created_by() {
-      if (!this.activeRetrievalDB?.created_by) return 'Unknown'
-      return `${this.activeRetrievalDB?.created_by}`
-    },
-    updated_by() {
-      if (!this.activeRetrievalDB?.updated_by) return 'Unknown'
-      return `${this.activeRetrievalDB?.updated_by}`
-    },
   },
   methods: {
     navigate(path = '') {
@@ -201,25 +153,12 @@ export default {
         this.saving = false
       }
     },
-    formatDate(date) {
-      const dateObject = new Date(date)
-      const localeDateString = dateObject.toLocaleDateString()
-      const localeTimeString = dateObject.toLocaleTimeString()
-      return `${localeDateString} ${localeTimeString}`
-    },
   },
 }
 </script>
 
-<style lang="stylus">
-
-@keyframes wobble {
-    0% { transform: rotate(-5deg); }
-    50% { transform: rotate(5deg); }
-    100% { transform: rotate(-5deg); }
-}
-
+<style>
 .wobble {
-    animation: wobble 2s infinite;
+  animation: ds-attention-wobble var(--ds-duration-attention) infinite;
 }
 </style>

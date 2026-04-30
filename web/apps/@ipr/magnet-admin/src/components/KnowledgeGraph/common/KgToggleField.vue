@@ -7,17 +7,16 @@
     }"
     @click="toggle"
   >
-    <div class="full-width row items-center no-wrap">
-      <div class="col">
+    <div class="full-width cluster" data-wrap="no">
+      <div class="flex-1">
         <div v-if="title" class="kg-toggle-field__title">{{ title }}</div>
         <div v-if="description" class="kg-toggle-field__description">{{ description }}</div>
       </div>
-      <q-toggle
+      <km-toggle
         :model-value="modelValue"
         :disable="disabled"
         dense
-        :color="activeColor"
-        class="q-ml-6"
+        class="ml-sm"
         @update:model-value="$emit('update:modelValue', $event)"
         @click.stop
       />
@@ -32,12 +31,10 @@ interface Props {
   title?: string
   description?: string
   disabled?: boolean
-  activeColor?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
   disabled: false,
-  activeColor: 'primary',
 })
 
 const emit = defineEmits<{
@@ -56,9 +53,9 @@ const toggle = () => {
   display: flex;
   align-items: center;
   padding: 12px 16px;
-  background: var(--q-white);
-  border: 1px solid var(--q-control-border);
-  border-radius: var(--radius-sm);
+  background: var(--ds-color-white);
+  border: 1px solid var(--ds-color-control-border);
+  border-radius: var(--ds-radius-sm);
   cursor: pointer;
   transition:
     background 0.3s ease,
@@ -66,8 +63,8 @@ const toggle = () => {
 }
 
 .kg-toggle-field:hover:not(.kg-toggle-field--disabled) {
-  border-color: var(--q-control-hover-border);
-  background: var(--q-background);
+  border-color: var(--ds-color-control-hover-border);
+  background: var(--ds-color-background);
 }
 
 .kg-toggle-field--disabled {
@@ -76,16 +73,16 @@ const toggle = () => {
 }
 
 .kg-toggle-field__title {
-  font-size: var(--km-font-size-label);
+  font-size: var(--ds-font-size-label);
   font-weight: 500;
-  color: var(--q-secondary);
+  color: var(--ds-color-secondary);
   line-height: 1.3;
 }
 
 .kg-toggle-field__description {
-  font-size: var(--km-font-size-caption);
-  color: var(--q-label);
+  font-size: var(--ds-font-size-caption);
+  color: var(--ds-color-label);
   line-height: 1.4;
-  margin-top: 2px;
+  margin-block-start: 2px;
 }
 </style>

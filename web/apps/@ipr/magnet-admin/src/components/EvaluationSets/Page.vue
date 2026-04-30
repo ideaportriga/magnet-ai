@@ -1,22 +1,19 @@
-<template lang="pug">
-.column.no-wrap.full-height
-  .collection-container.q-mx-auto.full-width.column.full-height.q-px-md.q-pt-16
-    .col.ba-border.border-radius-12.bg-white.q-pa-16.column(style='min-height: 0')
-      .row.q-mb-12
-        .col-auto.center-flex-y
-          km-input(data-test='search-input', :placeholder='m.common_search()', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
-        q-space
-        .col-auto.center-flex-y
-          km-btn.q-mr-12(data-test='new-btn', :label='m.common_new()', @click='showNewDialog = true')
-      .col(style='min-height: 0')
-        km-data-table(
-          :table='table',
-          :loading='isLoading', :fetching='isFetching',
-          fill-height,
-          row-key='id',
-          @row-click='openDetails'
-        )
-    evaluation-sets-create-new(:showNewDialog='showNewDialog', @cancel='showNewDialog = false')
+<template>
+  <km-list-page>
+    <template #toolbar>
+      <div class="flex-none center-flex-y">
+        <km-input data-test="search-input" :placeholder="m.common_search()" icon-before="search" :model-value="globalFilter" clearable @input="globalFilter = $event" />
+      </div>
+      <div class="km-space" />
+      <div class="flex-none center-flex-y">
+        <km-btn class="mr-md" data-test="new-btn" :label="m.common_new()" @click="showNewDialog = true" />
+      </div>
+    </template>
+    <km-data-table :table="table" :loading="isLoading" :fetching="isFetching" fill-height row-key="id" @row-click="openDetails" />
+    <template #overlays>
+      <evaluation-sets-create-new :show-new-dialog="showNewDialog" @cancel="showNewDialog = false" />
+    </template>
+  </km-list-page>
 </template>
 
 <script setup lang="ts">
@@ -46,7 +43,3 @@ const openDetails = async (row: EvaluationSet) => {
 }
 </script>
 
-<style lang="stylus">
-.km-input:not(.q-field--readonly) .q-field__control::before
-  background: var(--q-white) !important;
-</style>

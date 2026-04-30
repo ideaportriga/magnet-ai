@@ -1,35 +1,41 @@
-<template lang="pug">
-.column.fit
-  .col.fit(v-if='selectedRow')
-    .row.km-table-chip.km-small-chip.text-black {{ selectedRow.in }}
-    .row.justify-between.q-pt-8
-      .col-12.q-py-8
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_name() }}
-        km-input(:model-value='selectedRow.name', readonly)
-      .col-12.q-py-8
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_description() }}
-        .km-textarea-relaxed
-          km-input(v-model='description', type='textarea', rows='3', autogrow)
-      .row.q-gap-16.no-wrap.full-width
-        .col
-          .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_type() }}
-
-          km-select.full-width(v-model='type', :options='["string", "number", "integer", "boolean", "array", "object"]')
-        .col
-          .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_responseFormat() }}
-          km-select.full-width(
-            v-model='format',
-            :options='formatOptions',
-            :disable='formatOptions.length === 0',
-            :disabled='formatOptions.length === 0'
-          )
-      .column.q-mt-16.full-width
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.apiTools_enumValues() }}
-        template(v-for='(item, index) in enum', :key='index')
-          .row.q-gap-8.no-wrap
-            km-input.q-mb-sm.full-width(:model-value='item', @update:model-value='(e) => setEnum(e, index)')
-            km-btn(@click='removeEnum(index)', flat, icon='fas fa-trash', icon-size='14px')
-      km-btn(:label='m.common_add()', @click='newEnum("")', flat, icon='fas fa-plus', icon-size='14px')
+<template>
+  <div class="stack fit" data-gap="0">
+    <div v-if="selectedRow" class="flex-1 fit">
+      <div class="cluster km-table-chip km-small-chip text-black">{{ selectedRow.in }}</div>
+      <div class="cluster pt-sm" data-justify="between">
+        <div class="basis-12 py-sm">
+          <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.common_name() }}</div>
+          <km-input :model-value="selectedRow.name" readonly />
+        </div>
+        <div class="basis-12 py-sm">
+          <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.common_description() }}</div>
+          <div class="km-textarea-relaxed">
+            <km-input v-model="description" type="textarea" rows="3" autogrow />
+          </div>
+        </div>
+        <div class="cluster full-width" data-gap="lg" data-wrap="no">
+          <div class="flex-1">
+            <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.common_type() }}</div>
+            <km-select v-model="type" class="full-width" :options="[&quot;string&quot;, &quot;number&quot;, &quot;integer&quot;, &quot;boolean&quot;, &quot;array&quot;, &quot;object&quot;]" />
+          </div>
+          <div class="flex-1">
+            <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.common_responseFormat() }}</div>
+            <km-select v-model="format" class="full-width" :options="formatOptions" :disable="formatOptions.length === 0" :disabled="formatOptions.length === 0" />
+          </div>
+        </div>
+        <div class="stack mt-lg full-width" data-gap="0">
+          <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.apiTools_enumValues() }}</div>
+          <template v-for="(item, index) in enumValues" :key="index">
+            <div class="cluster" data-gap="sm" data-wrap="no">
+              <km-input class="mb-sm full-width" :model-value="item" @update:model-value="(e) =&gt; setEnum(e, index)" />
+              <km-btn flat icon="delete" icon-size="14px" @click="removeEnum(index)" />
+            </div>
+          </template>
+        </div>
+        <km-btn :label="m.common_add()" flat icon="add" icon-size="14px" @click="newEnum(&quot;&quot;)" />
+      </div>
+    </div>
+  </div>
 </template>
 <script>
 import { ref } from 'vue'
@@ -106,7 +112,7 @@ export default {
         this.setInputProp(value, 'format')
       },
     },
-    enum: {
+    enumValues: {
       get() {
         return this.input?.enum
       },
@@ -127,17 +133,17 @@ export default {
       this.updateField(target, value)
     },
     newEnum(value) {
-      const array = this.enum || []
+      const array = this.enumValues || []
       array.push(value)
       this.setInputProp(array, 'enum')
     },
     setEnum(value, index) {
-      const array = this.enum || []
+      const array = this.enumValues || []
       array[index] = value
       this.setInputProp(array, 'enum')
     },
     removeEnum(index) {
-      const array = this.enum
+      const array = this.enumValues
       array?.splice(index, 1)
       this.setInputProp(array, 'enum')
     },

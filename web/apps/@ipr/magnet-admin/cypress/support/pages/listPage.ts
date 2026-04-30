@@ -30,7 +30,7 @@ export const listPage = {
     if (hasSearch) {
       cy.g('search-input', { timeout: 15000 }).should('be.visible')
     } else {
-      cy.get('.q-page, .q-layout', { timeout: 15000 }).should('exist')
+      cy.get('.km-layout, [data-test="header"], .km-page-container, #app', { timeout: 15000 }).should('exist')
     }
   },
 
@@ -74,13 +74,22 @@ export const listPage = {
     })
   },
 
-  /** Click the first row → navigates to detail page. */
+  /** Click the first row → navigates to detail page.
+   *
+   * Clicks at the row's left edge, not the geometric center: middle cells
+   * commonly host a `<km-chip-copy>` for system_name which uses
+   * `@click.stop` and would absorb the click before the row's
+   * `@row-click` listener can fire. The leftmost cell is reliably the
+   * name column (or selection checkbox when enabled — selection columns
+   * don't navigate either way, so clicking the name area is safer).
+   */
   openFirstRow() {
-    cy.g('table-row', { timeout: 10000 }).first().click()
+    cy.g('table-row', { timeout: 10000 }).first().click('left')
   },
 
-  /** Click a row whose cell text matches `name`. */
+  /** Click a row whose cell text matches `name`. See `openFirstRow` for
+   *  the click-position rationale. */
   openRowByName(name: string) {
-    cy.g('table-row').contains(name).click()
+    cy.g('table-row').contains(name).click('left')
   },
 }

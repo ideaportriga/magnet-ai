@@ -1,30 +1,36 @@
-<template lang="pug">
-div
-  km-section(:title='m.section_headerConfiguration()', :subTitle='m.subtitle_configureRetrievalHeading()')
-    .q-mb-lg
-      .km-input-label {{ m.ragTools_headingText() }}
-      km-input(@input='headingText = $event', :model-value='headingText', :placeholder='m.retrieval_headingPlaceholder()')
-      .km-tiny {{ m.ragTools_notDisplayedIfBlank() }}
-    div
-      .km-input-label {{ m.ragTools_subheadingText() }}
-      km-input(@input='subHeadingText = $event', :model-value='subHeadingText', :placeholder='m.retrieval_subheadingPlaceholder()')
-      .km-tiny {{ m.ragTools_notDisplayedIfBlank() }}
-  //- q-separator.q-my-lg
-  //- km-section(title='User feedback', subTitle='Allow users to send their feedback in form of like or dislike')
-  //-   q-toggle.q-mb-lg(v-model='isUserFeedbackOn', dense)
-  q-separator.q-my-lg
-  km-section(:title='m.section_sampleQuestions()', :subTitle='m.subtitle_sampleQuestions()')
-    q-toggle.q-mb-lg(v-model='isSampleQestion', dense)
-    template(v-if='isSampleQestion')
-      .q-mb-lg
-        .km-input-label {{ m.common_question1() }}
-        km-input(v-model='question1', :placeholder='m.retrieval_sampleQuestion1Placeholder()')
-      .q-mb-lg
-        .km-input-label {{ m.common_question2() }}
-        km-input(v-model='question2', :placeholder='m.retrieval_sampleQuestion2Placeholder()')
-      div
-        .km-input-label {{ m.common_question3() }}
-        km-input(v-model='question3', :placeholder='m.retrieval_sampleQuestion3Placeholder()')
+<template>
+  <div>
+    <km-section :title="m.section_headerConfiguration()" :sub-title="m.subtitle_configureRetrievalHeading()">
+      <div class="mb-lg">
+        <div class="km-input-label">{{ m.ragTools_headingText() }}</div>
+        <km-input :model-value="headingText" :placeholder="m.retrieval_headingPlaceholder()" @input="headingText = $event" />
+        <div class="km-tiny">{{ m.ragTools_notDisplayedIfBlank() }}</div>
+      </div>
+      <div>
+        <div class="km-input-label">{{ m.ragTools_subheadingText() }}</div>
+        <km-input :model-value="subHeadingText" :placeholder="m.retrieval_subheadingPlaceholder()" @input="subHeadingText = $event" />
+        <div class="km-tiny">{{ m.ragTools_notDisplayedIfBlank() }}</div>
+      </div>
+    </km-section>
+    <km-separator class="my-lg" />
+    <km-section :title="m.section_sampleQuestions()" :sub-title="m.subtitle_sampleQuestions()">
+      <km-toggle v-model="isSampleQestion" class="mb-lg" dense />
+      <template v-if="isSampleQestion">
+        <div class="mb-lg">
+          <div class="km-input-label">{{ m.common_question1() }}</div>
+          <km-input v-model="question1" :placeholder="m.retrieval_sampleQuestion1Placeholder()" />
+        </div>
+        <div class="mb-lg">
+          <div class="km-input-label">{{ m.common_question2() }}</div>
+          <km-input v-model="question2" :placeholder="m.retrieval_sampleQuestion2Placeholder()" />
+        </div>
+        <div>
+          <div class="km-input-label">{{ m.common_question3() }}</div>
+          <km-input v-model="question3" :placeholder="m.retrieval_sampleQuestion3Placeholder()" />
+        </div>
+      </template>
+    </km-section>
+  </div>
 </template>
 
 <script>

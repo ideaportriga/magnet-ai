@@ -35,6 +35,10 @@ class JobFieldsMixin(BaseModel):
 
     last_run: Optional[datetime] = Field(None, description="Last execution time")
 
+    taskiq_schedule_id: Optional[str] = Field(
+        None, description="TaskIQ schedule ID for recurring / scheduled jobs"
+    )
+
 
 # Mixin for update operations with all fields optional
 class JobUpdateFieldsMixin(BaseModel):
@@ -56,6 +60,10 @@ class JobUpdateFieldsMixin(BaseModel):
     next_run: Optional[datetime] = Field(None, description="Next scheduled run time")
 
     last_run: Optional[datetime] = Field(None, description="Last execution time")
+
+    taskiq_schedule_id: Optional[str] = Field(
+        None, description="TaskIQ schedule ID for recurring / scheduled jobs"
+    )
 
 
 # Pydantic schemas for Jobs

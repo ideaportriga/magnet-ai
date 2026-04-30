@@ -12,11 +12,11 @@
       @row-click="handleDocumentClick"
     >
       <template #cell-name="{ row }">
-        <div class="row items-center no-wrap q-gutter-x-sm">
+        <div class="cluster" data-wrap="no" data-gap="xs">
           <kg-file-type-badge :type="row.type" />
-          <div class="text-body2 text-weight-medium ellipsis" style="max-width: 300px">
+          <div class="text-body2 text-weight-medium ellipsis" style="max-inline-size: 300px">
             {{ row.title }}
-            <q-tooltip>{{ row.title }}</q-tooltip>
+            <km-tooltip>{{ row.title }}</km-tooltip>
           </div>
         </div>
       </template>
@@ -42,28 +42,26 @@
       </template>
 
       <template #cell-menu="{ row }">
-        <div class="flex items-center justify-end no-wrap q-gutter-x-xs">
+        <div class="flex items-center justify-end no-wrap gap-x-xs">
           <km-btn
             flat
-            color="secondary-text"
+            tone="subtle"
             label-class="km-button-text"
             icon-size="16px"
-            icon="fa fa-external-link"
+            icon="external-link"
             :disable="!row.external_link"
             @click.stop="emit('open-external-link', row.external_link)"
           />
-          <q-btn dense flat color="dark" icon="more_vert" :disable="deletingIds.has(row.id)" @click.stop>
-            <q-menu anchor="bottom right" self="top right" auto-close>
-              <q-list dense>
-                <q-item clickable @click="emit('delete-document', row)">
-                  <q-item-section thumbnail>
-                    <q-icon name="delete" color="negative" size="20px" class="q-ml-sm" />
-                  </q-item-section>
-                  <q-item-section>{{ m.common_delete() }}</q-item-section>
-                </q-item>
-              </q-list>
-            </q-menu>
-          </q-btn>
+          <ds-dropdown-menu-root>
+            <ds-dropdown-menu-trigger as-child>
+              <km-btn dense flat tone="neutral" icon="more-vertical" :disable="deletingIds.has(row.id)" @click.stop />
+            </ds-dropdown-menu-trigger>
+            <ds-dropdown-menu-content side="bottom" align="end" :side-offset="4">
+              <ds-dropdown-menu-item variant="destructive" @select="emit('delete-document', row)">
+                <km-glyph name="delete" size="18px" /><span>{{ m.common_delete() }}</span>
+              </ds-dropdown-menu-item>
+            </ds-dropdown-menu-content>
+          </ds-dropdown-menu-root>
         </div>
       </template>
     </km-data-table>
@@ -172,16 +170,16 @@ function handleDocumentClick(row: Document) {
 <style scoped>
 :deep(.sticky-col) {
   position: sticky;
-  right: 0;
+  inset-inline-end: 0;
   z-index: 1;
-  background: var(--q-white);
+  background: var(--ds-color-white);
 }
 :deep(tr:hover .sticky-col) {
-  background: var(--q-white);
+  background: var(--ds-color-white);
 }
 :deep(thead th:last-child) {
   position: sticky;
-  right: 0;
+  inset-inline-end: 0;
   z-index: 2;
   background: inherit;
 }

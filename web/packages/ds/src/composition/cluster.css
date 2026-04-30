@@ -1,0 +1,41 @@
+/* =============================================================================
+ * .cluster — horizontally arranged group that wraps as needed
+ * =============================================================================
+ * The closest replacement for Quasar's `row` + `q-gutter-*`. Children flow
+ * horizontally with consistent gap and wrap automatically when space runs
+ * out. Vertical alignment is controlled by `data-align`.
+ * ============================================================================= */
+
+.cluster {
+  --cluster-gap: var(--ds-space-md);
+
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cluster-gap);
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.cluster[data-gap='2xs'] { --cluster-gap: var(--ds-space-2xs); }
+.cluster[data-gap='xs']  { --cluster-gap: var(--ds-space-xs); }
+.cluster[data-gap='sm']  { --cluster-gap: var(--ds-space-sm); }
+.cluster[data-gap='md']  { --cluster-gap: var(--ds-space-md); }
+.cluster[data-gap='lg']  { --cluster-gap: var(--ds-space-lg); }
+.cluster[data-gap='xl']  { --cluster-gap: var(--ds-space-xl); }
+.cluster[data-gap='2xl'] { --cluster-gap: var(--ds-space-2xl); }
+
+.cluster[data-align='start']    { align-items: flex-start; }
+.cluster[data-align='center']   { align-items: center; }
+.cluster[data-align='end']      { align-items: flex-end; }
+.cluster[data-align='baseline'] { align-items: baseline; }
+.cluster[data-align='stretch']  { align-items: stretch; }
+
+.cluster[data-justify='start']   { justify-content: flex-start; }
+.cluster[data-justify='center']  { justify-content: center; }
+.cluster[data-justify='end']     { justify-content: flex-end; }
+.cluster[data-justify='between'] { justify-content: space-between; }
+.cluster[data-justify='around']  { justify-content: space-around; }
+.cluster[data-justify='evenly']  { justify-content: space-evenly; }
+
+/* nowrap variant — keep on a single row, used for toolbars/segmented controls */
+.cluster[data-wrap='no'] { flex-wrap: nowrap; }

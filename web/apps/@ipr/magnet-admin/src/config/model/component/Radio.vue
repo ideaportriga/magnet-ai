@@ -1,17 +1,10 @@
-<template lang="pug">
-q-radio(:model-value='row?.is_default', :val='true', @click.stop='showDialog = true')
-
-km-popup-confirm(
-  :visible='showDialog',
-  confirmButtonLabel='OK, change default',
-  notificationIcon='fas fa-circle-info',
-  cancelButtonLabel='Cancel',
-  @cancel='showDialog = false',
-  @confirm='onRadioClick'
-)
-  .row.item-center.justify-center.km-heading-7 You are about to change default model
-  .row.text-center.justify-center This will affect newly created Prompt Templates and any existing
-  .row.text-center.justify-center Prompt Templates that have no model selected.
+<template>
+  <km-radio :model-value="row?.is_default" :val="true" @click.stop="showDialog = true" />
+  <km-popup-confirm :visible="showDialog" confirm-button-label="OK, change default" notification-icon="info" cancel-button-label="Cancel" @cancel="showDialog = false" @confirm="onRadioClick">
+    <div class="cluster" data-justify="center">You are about to change default model</div>
+    <div class="cluster text-center" data-justify="center">This will affect newly created Prompt Templates and any existing</div>
+    <div class="cluster text-center" data-justify="center">Prompt Templates that have no model selected.</div>
+  </km-popup-confirm>
 </template>
 <script>
 import { defineComponent, ref } from 'vue'

@@ -1,42 +1,43 @@
-<template lang="pug">
-km-drawer-layout(storageKey="drawer-model-providers", noScroll)
-  template(#tabs)
-    .row.no-wrap.full-width.q-px-16
-      q-tabs.bb-border.full-width(
-        v-model='tab',
-        narrow-indicator,
-        dense,
-        align='left',
-        active-color='primary',
-        indicator-color='primary',
-        active-bg-color='white',
-        no-caps,
-        content-class='km-tabs'
-      )
-        template(v-for='t in tabs')
-          q-tab(:name='t.name', :label='t.label')
-        .fit
-  .column.no-wrap.fit.q-gap-16(v-if='tab == "parameters"')
-    .km-title General settings
-    div
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 Provider Name
-      km-input(:label='m.common_providerName()', :model-value='provider?.name', @update:model-value='updateProviderProperty("name", $event)')
-    div
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 Display Name
-      km-input(:label='m.common_displayName()', :model-value='provider?.name', @update:model-value='updateProviderProperty("name", $event)')
-    div
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 Description
-      km-input(:label='m.common_description()', :model-value='provider?.description', @update:model-value='updateProviderProperty("description", $event)')
-    div
-      km-checkbox(:label='m.common_default()', :model-value='false', disabled)
-    q-separator
-    .km-title Capabilities
-    km-checkbox(:label='m.common_jsonMode()', :model-value='false', disabled)
-    km-checkbox(:label='m.common_jsonSchema()', :model-value='false', disabled)
-    km-checkbox(:label='m.common_toolCalling()', :model-value='false', disabled)
-    km-checkbox(:label='m.common_reasoning()', :model-value='false', disabled)
-  .column.no-wrap.fit.q-gap-16(v-if='tab == "pricing"')
-    .km-title Pricing
+<template>
+  <km-drawer-layout storage-key="drawer-model-providers" no-scroll>
+    <template #tabs>
+      <div class="cluster full-width px-lg" data-wrap="no">
+        <km-tabs v-model="tab" class="full-width" narrow-indicator dense align="left" no-caps content-class="km-tabs">
+          <template v-for="t in tabs" :key="t">
+            <km-tab :name="t.name" :label="t.label" />
+          </template>
+          <div class="fit" />
+        </km-tabs>
+      </div>
+    </template>
+    <div v-if="tab == 'parameters'" class="stack fit" data-gap="lg">
+      <div class="km-title">General settings</div>
+      <div>
+        <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.common_providerName() }}</div>
+        <km-input :model-value="provider?.name" @update:model-value="updateProviderProperty(&quot;name&quot;, $event)" />
+      </div>
+      <div>
+        <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.common_displayName() }}</div>
+        <km-input :model-value="provider?.name" @update:model-value="updateProviderProperty(&quot;name&quot;, $event)" />
+      </div>
+      <div>
+        <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.common_description() }}</div>
+        <km-input :model-value="provider?.description" @update:model-value="updateProviderProperty(&quot;description&quot;, $event)" />
+      </div>
+      <div>
+        <km-checkbox :label="m.common_default()" :model-value="false" disabled />
+      </div>
+      <km-separator />
+      <div class="km-title">Capabilities</div>
+      <km-checkbox :label="m.common_jsonMode()" :model-value="false" disabled />
+      <km-checkbox :label="m.common_jsonSchema()" :model-value="false" disabled />
+      <km-checkbox :label="m.common_toolCalling()" :model-value="false" disabled />
+      <km-checkbox :label="m.common_reasoning()" :model-value="false" disabled />
+    </div>
+    <div v-if="tab == 'pricing'" class="stack fit" data-gap="lg">
+      <div class="km-title">Pricing</div>
+    </div>
+  </km-drawer-layout>
 </template>
 <script>
 import { ref } from 'vue'

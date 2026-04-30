@@ -5,15 +5,20 @@
    behind the min-width:0 / clamp / z-scale utilities below.
 */
 
-/* Page container — centers content with responsive width constraints.
-   min-width:0 is deliberate: these containers are usually flex children,
-   and without it a long-row child (e.g. a wide table) prevents the
-   column from shrinking and horizontal scroll never engages. */
+/* Page container — fills the viewport area not occupied by the sidebar.
+   No max-width here: list-page wrappers (`.collection-container`) clamp
+   themselves to 1200px and self-center, while detail-page layouts that
+   include a right-edge drawer need the page container to span the entire
+   width so the drawer hits the viewport edge. min-width:0 is deliberate:
+   these containers are flex children, and without it a long-row child
+   (e.g. a wide table) prevents the column from shrinking and horizontal
+   scroll never engages.
+
+   No `padding-inline` here — inner page wrappers (`.collection-container`
+   or per-page `px-md` / `px-lg`) own the side gutters. */
 .km-page-container {
-  min-width: 0;
-  max-width: min(100%, 1200px);
-  width: 100%;
-  padding-inline: clamp(8px, 2vw, 24px);
+  min-inline-size: 0;
+  inline-size: 100%;
 }
 
 /* ============================================
@@ -23,11 +28,11 @@
    every intermediate child for an inner overflow:auto to activate.
    Quasar's `column`/`row` don't set this by default. */
 .km-flex-min-0 {
-  min-width: 0;
-  min-height: 0;
+  min-inline-size: 0;
+  min-block-size: 0;
 }
-.km-flex-min-w-0 { min-width: 0; }
-.km-flex-min-h-0 { min-height: 0; }
+.km-flex-min-w-0 { min-inline-size: 0; }
+.km-flex-min-h-0 { min-block-size: 0; }
 
 /* ============================================
    Table horizontal scroll wrapper (§A.1)
@@ -35,109 +40,79 @@
    Use around any Quasar q-table that isn't yet migrated to
    <km-data-table>. km-data-table handles this natively. */
 .km-table-scroll {
-  min-width: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
+  min-inline-size: 0;
+  overflow-inline: auto;
+  overflow-block: hidden;
 }
 
 /* Word-break for dense data tables (§A.5). */
 .km-cell-wrap {
-  word-break: break-word;
+  overflow-wrap: break-word;
   overflow-wrap: anywhere;
 }
 .km-cell-ellipsis {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 100%;
-}
-
-/* ============================================
-   z-index scale (§A.6)
-   ============================================
-   Centralised so dropdowns stop fighting modals.
-   Prefer var(--km-z-*) over inline z-index: N. */
-:root {
-  --km-z-base: 1;
-  --km-z-sticky: 500;
-  --km-z-drawer: 1000;
-  --km-z-overlay: 2000;
-  --km-z-modal: 4000;
-  --km-z-tooltip: 6000;
+  max-inline-size: 100%;
 }
 
 /* White card wrapper with standard border and padding */
 .km-page-card {
-  background: white;
-  border: 1px solid var(--q-border);
+  background: var(--ds-color-static-white);
+  border: 1px solid var(--ds-color-border);
   border-radius: 12px;
   padding: 16px;
 }
 
+/* ============================================
+   Border utility shortcuts
+   ============================================
+   Used widely across the codebase (`<div class="col ba-border …">` for
+   page-card chrome, `bb-border` for table footers / list separators,
+   etc.). Without these definitions every "ba-border" reference is a
+   no-op class — list pages render with no visible card chrome and the
+   header bar loses its bottom rule. */
+.ba-border { border: 1px solid var(--ds-color-border); }
+.bt-border { border-block-start: 1px solid var(--ds-color-border); }
+.bb-border { border-block-end:   1px solid var(--ds-color-border); }
+.bl-border { border-inline-start: 1px solid var(--ds-color-border); }
+.br-border { border-inline-end:   1px solid var(--ds-color-border); }
+
 /* Detail page content area — standard max-height for scrollable content */
 .km-detail-content {
-  max-height: calc(100vh - 360px);
+  max-block-size: calc(100vb - 360px);
   overflow: auto;
 }
 
 /* ============================================
    Sticky header/footer for fill-height tables
-   ============================================ */
-
-/* The table wrapper must be a flex column to let middle section grow */
-.sticky-virtscroll-table {
-  height: 100%;
-  display: flex !important;
-  flex-direction: column;
-}
-
-/* Make the inner scroll container fill the remaining space */
-.sticky-virtscroll-table .q-table__middle {
-  flex: 1;
-  overflow: auto;
-}
-
-/* Sticky table header — opaque background so rows don't bleed through.
-   var(--q-secondary-bg) may be semi-transparent (e.g. rgba(149,158,164,0.2)),
-   so we use background-color on a pseudo-element behind the actual bg. */
-.sticky-virtscroll-table thead tr th {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  background-color: var(--q-primary-light);
-}
-
-/* Footer shows record count, stays at bottom */
-.sticky-virtscroll-table .q-table__bottom {
-  flex-shrink: 0;
-  background: white;
-  border-top: 1px solid rgba(0, 0, 0, 0.12);
-}
-
-/* Hide the pagination arrows and rows-per-page selector, keep the record count */
-.sticky-virtscroll-table .q-table__bottom .q-table__separator {
-  display: none;
-}
-.sticky-virtscroll-table .q-table__bottom .q-table__control + .q-table__separator,
-.sticky-virtscroll-table .q-table__bottom .q-table__control + .q-table__separator + .q-table__control {
-  display: none;
-}
+   ============================================
+   km-data-table handles fill-height and sticky header natively via
+   the `fill-height` prop. Apply `fill-height` to <km-data-table> instead
+   of the old .sticky-virtscroll-table wrapper class. */
 
 /* Textarea with proper padding and min-height (overrides dense theme resets) */
-.km-textarea-relaxed .q-textarea .q-field__control-container {
+.km-textarea-relaxed .km-input__control {
   padding: 8px 0;
 }
-.km-textarea-relaxed .q-textarea .q-field__native {
-  min-height: 70px !important;
-  padding: 8px 12px !important;
+.km-textarea-relaxed .km-input__field {
+  min-block-size: 70px;
+  padding: 8px 12px;
 }
 
-/* Backward compat alias — mirrors km-page-container */
+/* The list/detail wrapper. Caps at 1200px and centers via auto margins.
+ * Templates always pair this class with `mx-auto` (margin-inline: auto)
+ * which absorbs the leftover space inside the flex-column parent and
+ * centers the wrapper. We declare `width` as well as `inline-size` so the
+ * cap takes effect even in stylesheets / browsers that don't normalise
+ * the two properties at the same precedence. */
 .collection-container {
-  min-width: 0;
-  max-width: min(100%, 1200px);
-  width: 100%;
-  padding-inline: clamp(8px, 2vw, 24px);
+  inline-size: 100%;
+  max-inline-size: min(100%, 1200px);
+  min-inline-size: 0;
+  margin-inline: auto;
+  padding-inline: clamp(8px, 2vi, 24px);
 }
 
 /* ============================================
@@ -153,7 +128,7 @@
 
    The 22 list pages all share the same two-`column` structure:
      .collection-container.column                         ← outer
-       .col.ba-border.border-radius-12.bg-white.q-pa-16.column  ← card
+       .col.ba-border.border-radius-12.bg-white.p-lg.column  ← card
          km-data-table
    Forcing `flex-wrap: nowrap` on `.collection-container` and any
    `.column` nested inside stops the min-content propagation; the
@@ -162,4 +137,87 @@
 .collection-container,
 .collection-container .column {
   flex-wrap: nowrap;
+}
+
+/* ============================================
+   Card-grid pages (Agents / AIApps)
+   ============================================
+   Multi-column responsive card layout. CSS Grid `auto-fill` adapts the
+   column count to the container width — no breakpoint-tied col-* classes.
+   Each card has its own border/hover/focus chrome so the page reads as
+   a deck of clickable tiles instead of a flat list. */
+.agents-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: var(--ds-space-md);
+  align-items: start;
+  padding: var(--ds-space-2xs);
+}
+
+.agent-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--ds-space-sm);
+  padding: var(--ds-space-lg);
+  background: var(--ds-color-white);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-lg);
+  cursor: pointer;
+  text-align: start;
+  font: inherit;
+  color: inherit;
+  transition:
+    border-color var(--ds-duration-fast) var(--ds-ease-out),
+    box-shadow var(--ds-duration-fast) var(--ds-ease-out),
+    transform var(--ds-duration-fast) var(--ds-ease-out);
+}
+.agent-card:hover {
+  border-color: var(--ds-color-primary);
+  box-shadow: 0 4px 16px rgba(80, 47, 153, 0.08);
+  transform: translateY(-1px);
+}
+.agent-card:focus-visible {
+  outline: 2px solid var(--ds-color-primary);
+  outline-offset: 2px;
+}
+
+.agent-card__header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ds-space-md);
+}
+.agent-card__title-block { flex: 1 1 auto; min-inline-size: 0; }
+.agent-card__title {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agent-card__desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-block-start: var(--ds-space-2xs);
+}
+.agent-card__topics { flex: none; }
+.agent-card__sysname { display: flex; align-items: center; min-block-size: 28px; }
+.agent-card__footer { align-items: center; }
+
+.agent-card__meta {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.agent-card__meta-label {
+  font-size: var(--ds-font-size-xs);
+  color: var(--ds-color-text-grey);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.agent-card__meta-value {
+  font-size: var(--ds-font-size-caption);
+  color: var(--ds-color-secondary-text);
+  font-weight: var(--ds-font-weight-medium);
 }

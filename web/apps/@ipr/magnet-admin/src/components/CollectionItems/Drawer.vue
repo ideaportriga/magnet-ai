@@ -1,96 +1,78 @@
-<template lang="pug">
-km-drawer-layout(v-if='!!selectedRow', storageKey="drawer-collection-items")
-  template(#header)
-    .row.items-center
-      km-btn(flat, simple, :label='`Back to Preview`', iconSize='16px', icon='fas fa-arrow-left', @click='closeDrawer', color='secondary-text')
-    .km-heading-4 {{ m.collectionItems_chunkDetails() }}
-  //- .col-auto
-  //-   .row.items-center
-  //-     .km-heading-7.q-mb-xs Chunk details
-  //- q-separator.q-mb-md
-  .col-auto(v-if='selectedRow?.source')
-    .col.center-flex-y
-      .km-heading-4
-    .col-auto.center-flex-y
-      km-btn(icon='fas fa-external-link-alt', :label='m.collectionItems_viewDocument()', iconSize='16px', flat, @click='openDocument')
-  .row.justify-between.q-pt-8.q-pl-8.q-pr-24
-    .col-12.q-py-8
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 Title
-      km-input(:model-value='selectedRow?.metadata.title ?? "-"', :readonly='true', autogrow)
-    .col-12.q-py-8
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 Type
-      km-input(:model-value='selectedRow?.metadata.type ?? "-"', :readonly='true')
-    .col-12.q-py-8
-      .row.items-center
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8.col
-          span(
-            v-if='(selectedRow?.content == selectedRow?.metadata?.content_override || !selectedRow?.metadata?.content_override) && (selectedRow?.content == selectedRow?.metadata?.content?.retrieval || !selectedRow?.metadata?.content?.retrieval)'
-          ) Indexed & retrieval content
-          span(v-else) Indexed content
-        .col-auto
-          q-btn(
-            flat,
-            :ripple='false',
-            round,
-            color='secondary',
-            :icon='indexedContentExpanded ? "fas fa-compress-alt" : "fas fa-expand-alt"',
-            @click='indexedContentExpanded = !indexedContentExpanded',
-            size='xs'
-          )
-      km-input(:model-value='indexedContent', :readonly='true', autogrow)
-    .col-12.q-py-8(v-if='selectedRow?.metadata?.content_override && selectedRow?.content != selectedRow?.metadata?.content_override')
-      .row.items-center
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8.col Retrieval content
-        .col-auto
-          q-btn(
-            flat,
-            :ripple='false',
-            round,
-            color='secondary',
-            :icon='retrievalContentExpanded ? "fas fa-compress-alt" : "fas fa-expand-alt"',
-            @click='retrievalContentExpanded = !retrievalContentExpanded',
-            size='xs'
-          )
-      km-input(:model-value='retrievalContent', :readonly='true', autogrow)
-    .col-12.q-py-8(v-else-if='selectedRow?.metadata?.content?.retrieval && selectedRow?.content != selectedRow?.metadata?.content?.retrieval')
-      .row.items-center
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8.col Retrieval content
-        .col-auto
-          q-btn(
-            flat,
-            :ripple='false',
-            round,
-            color='secondary',
-            :icon='retrievalContentExpanded ? "fas fa-compress-alt" : "fas fa-expand-alt"',
-            @click='retrievalContentExpanded = !retrievalContentExpanded',
-            size='xs'
-          )
-      km-input(:model-value='retrievalContent', :readonly='true', autogrow)
-    .col-12.q-py-8(
-      v-if='selectedRow?.metadata?.content?.unmodified && selectedRow?.content != selectedRow?.metadata?.content?.unmodified && selectedRow?.metadata?.content?.unmodified != selectedRow?.metadata?.content?.retrieval'
-    )
-      .row.items-center
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8.col Original unmodified content
-        .col-auto
-          q-btn(
-            flat,
-            :ripple='false',
-            round,
-            color='secondary',
-            :icon='unmodifiedContentExpanded ? "fas fa-compress-alt" : "fas fa-expand-alt"',
-            @click='unmodifiedContentExpanded = !unmodifiedContentExpanded',
-            size='xs'
-          )
-      km-input(:model-value='unmodifiedContent', :readonly='true', autogrow)
-    .col-12.q-py-8
-      .km-field.text-secondary-text.q-pl-8 Metadata
-      km-codemirror.fit(v-model='metadata', :readonly='true')
-    .col-6.q-py-8
-      .km-field.text-secondary-text.q-pl-8 Created
-      km-input(:model-value='createdTime', :readonly='true')
-    .col-6.q-py-8.q-pl-8
-      .km-field.text-secondary-text.q-pl-8 Modified
-      km-input(:model-value='modifiedTime', :readonly='true')
+<template>
+  <km-drawer-layout v-if="!!selectedRow" storage-key="drawer-collection-items">
+    <template #header>
+      <div class="cluster">
+        <km-btn flat simple :label="`Back to Preview`" icon-size="16px" icon="arrow-left" tone="subtle" @click="closeDrawer" />
+      </div>
+      <div class="km-heading-4">{{ m.collectionItems_chunkDetails() }}</div>
+    </template>
+    <div v-if="selectedRow?.source" class="flex-none">
+      <div class="flex-1 center-flex-y">
+        <div class="km-heading-4" />
+      </div>
+      <div class="flex-none center-flex-y">
+        <km-btn icon="external-link" :label="m.collectionItems_viewDocument()" icon-size="16px" flat @click="openDocument" />
+      </div>
+    </div>
+    <div class="stack pt-sm pl-sm pr-2xl">
+      <div class="basis-12 py-sm">
+        <div class="km-field text-secondary-text pb-xs pl-sm">Title</div>
+        <km-input :model-value="selectedRow?.metadata.title ?? &quot;-&quot;" :readonly="true" autogrow />
+      </div>
+      <div class="basis-12 py-sm">
+        <div class="km-field text-secondary-text pb-xs pl-sm">Type</div>
+        <km-input :model-value="selectedRow?.metadata.type ?? &quot;-&quot;" :readonly="true" />
+      </div>
+      <div class="basis-12 py-sm">
+        <div class="cluster">
+          <div class="km-field text-secondary-text pb-xs pl-sm flex-1"><span v-if="(selectedRow?.content == selectedRow?.metadata?.content_override || !selectedRow?.metadata?.content_override) &amp;&amp; (selectedRow?.content == selectedRow?.metadata?.content?.retrieval || !selectedRow?.metadata?.content?.retrieval)">Indexed & retrieval content</span><span v-else>Indexed content</span></div>
+          <div class="flex-none">
+            <km-btn flat :ripple="false" round tone="muted" :icon="indexedContentExpanded ? &quot;collapse&quot; : &quot;expand&quot;" size="xs" @click="indexedContentExpanded = !indexedContentExpanded" />
+          </div>
+        </div>
+        <km-input :model-value="indexedContent" :readonly="true" autogrow />
+      </div>
+      <div v-if="selectedRow?.metadata?.content_override &amp;&amp; selectedRow?.content != selectedRow?.metadata?.content_override" class="basis-12 py-sm">
+        <div class="cluster">
+          <div class="km-field text-secondary-text pb-xs pl-sm flex-1">Retrieval content</div>
+          <div class="flex-none">
+            <km-btn flat :ripple="false" round tone="muted" :icon="retrievalContentExpanded ? &quot;collapse&quot; : &quot;expand&quot;" size="xs" @click="retrievalContentExpanded = !retrievalContentExpanded" />
+          </div>
+        </div>
+        <km-input :model-value="retrievalContent" :readonly="true" autogrow />
+      </div>
+      <div v-else-if="selectedRow?.metadata?.content?.retrieval &amp;&amp; selectedRow?.content != selectedRow?.metadata?.content?.retrieval" class="basis-12 py-sm">
+        <div class="cluster">
+          <div class="km-field text-secondary-text pb-xs pl-sm flex-1">Retrieval content</div>
+          <div class="flex-none">
+            <km-btn flat :ripple="false" round tone="muted" :icon="retrievalContentExpanded ? &quot;collapse&quot; : &quot;expand&quot;" size="xs" @click="retrievalContentExpanded = !retrievalContentExpanded" />
+          </div>
+        </div>
+        <km-input :model-value="retrievalContent" :readonly="true" autogrow />
+      </div>
+      <div v-if="selectedRow?.metadata?.content?.unmodified &amp;&amp; selectedRow?.content != selectedRow?.metadata?.content?.unmodified &amp;&amp; selectedRow?.metadata?.content?.unmodified != selectedRow?.metadata?.content?.retrieval" class="basis-12 py-sm">
+        <div class="cluster">
+          <div class="km-field text-secondary-text pb-xs pl-sm flex-1">Original unmodified content</div>
+          <div class="flex-none">
+            <km-btn flat :ripple="false" round tone="muted" :icon="unmodifiedContentExpanded ? &quot;collapse&quot; : &quot;expand&quot;" size="xs" @click="unmodifiedContentExpanded = !unmodifiedContentExpanded" />
+          </div>
+        </div>
+        <km-input :model-value="unmodifiedContent" :readonly="true" autogrow />
+      </div>
+      <div class="basis-12 py-sm">
+        <div class="km-field text-secondary-text pl-sm">Metadata</div>
+        <km-codemirror v-model="metadata" class="fit" :readonly="true" />
+      </div>
+      <div class="basis-6 py-sm">
+        <div class="km-field text-secondary-text pl-sm">Created</div>
+        <km-input :model-value="createdTime" :readonly="true" />
+      </div>
+      <div class="basis-6 py-sm pl-sm">
+        <div class="km-field text-secondary-text pl-sm">Modified</div>
+        <km-input :model-value="modifiedTime" :readonly="true" />
+      </div>
+    </div>
+  </km-drawer-layout>
 </template>
 <script>
 import { defineComponent, ref } from 'vue'

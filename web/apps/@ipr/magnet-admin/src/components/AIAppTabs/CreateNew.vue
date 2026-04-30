@@ -1,73 +1,52 @@
-<template lang="pug">
-km-popup-confirm(
-  :visible='showNewDialog',
-  :title='m.dialog_newAiAppTab()',
-  :confirmButtonLabel='m.common_save()',
-  :cancelButtonLabel='m.common_cancel()',
-  :notification='m.hint_editAfterSaving()',
-  @confirm='create',
-  @cancel='$emit("cancel")'
-)
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.common_name() }}
-    .full-width
-      km-input(data-test='name-input', height='30px', :placeholder='m.placeholder_exampleHelpCenter()', v-model='name', ref='nameRef', :rules='config.name.rules')
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.common_systemName() }}
-    .full-width
-      km-input(
-        data-test='name-system_name',
-        height='30px',
-        :placeholder='m.placeholder_exampleSystemNameHelpCenter()',
-        v-model='system_name',
-        ref='system_nameRef',
-        :rules='config.system_name.rules'
-      )
-    .km-description.text-secondary-text.q-pb-4 {{ m.hint_systemNameUniqueId() }}
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.label_tabType() }}
-    |
-    .full-width.column
-      template(v-for='tab in tabTypes')
-        q-radio.q-mb-xs(name='tab_type', dense, :label='tab.label', :val='tab.val', v-model='newRow.tab_type')
-
-  template(v-if='newRow.tab_type === "RAG"')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.label_ragTool() }}
-      km-select(
-        height='30px',
-        :placeholder='m.entity_ragTool()',
-        :options='ragToolsOptions',
-        v-model='ragToolCode',
-        hasDropdownSearch,
-        option-value='value',
-        ref='ragToolRef',
-        :rules='ragToolRules'
-      )
-  template(v-if='newRow.tab_type === "Retrieval"')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.label_retrievalTool() }}
-      km-select(
-        height='30px',
-        :placeholder='m.entity_retrievalTool()',
-        :options='retrievalToolsOptions',
-        v-model='retrievalToolCode',
-        hasDropdownSearch,
-        option-value='value',
-        ref='retrievalToolRef',
-        :rules='retrievalToolRules'
-      )
-  template(v-if='newRow.tab_type === "Custom"')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.label_customCode() }}
-      km-codemirror(v-model='newRow.config.jsonString', :rules='customCodeRules', ref='customCodeRef')
-      .km-description.text-secondary-text.q-pb-4 {{ m.hint_enterCustomCodeJson() }}
-  template(v-if='newRow.tab_type === "Agent"')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.label_agent() }}
-      km-select(
-        height='30px',
-        :placeholder='m.entity_agent()',
-        :options='agentsOptions',
-        v-model='agentsCode',
-        hasDropdownSearch,
-        option-value='value',
-        ref='agentsRef',
-        :rules='agentsRules'
-      )
+<template>
+  <km-popup-confirm :visible="showNewDialog" :title="m.dialog_newAiAppTab()" :confirm-button-label="m.common_save()" :cancel-button-label="m.common_cancel()" :notification="m.hint_editAfterSaving()" @confirm="create" @cancel="$emit(&quot;cancel&quot;)">
+    <div class="km-field text-secondary-text pb-xs pl-sm mb-md">
+      {{ m.common_name() }}
+      <div class="full-width">
+        <km-input ref="nameRef" v-model="name" data-test="name-input" height="30px" :placeholder="m.placeholder_exampleHelpCenter()" :rules="config.name.rules" />
+      </div>
+    </div>
+    <div class="km-field text-secondary-text pb-xs pl-sm mb-md">
+      {{ m.common_systemName() }}
+      <div class="full-width">
+        <km-input ref="system_nameRef" v-model="system_name" data-test="name-system_name" height="30px" :placeholder="m.placeholder_exampleSystemNameHelpCenter()" :rules="config.system_name.rules" />
+      </div>
+      <div class="km-description text-secondary-text pb-xs">{{ m.hint_systemNameUniqueId() }}</div>
+    </div>
+    <div class="km-field text-secondary-text pb-xs pl-sm mb-md">
+      {{ m.label_tabType() }}
+      <div class="full-width stack" data-gap="0">
+        <template v-for="tab in tabTypes" :key="tab.val">
+          <km-radio v-model="newRow.tab_type" class="mb-xs" name="tab_type" dense :label="tab.label" :val="tab.val" />
+        </template>
+      </div>
+    </div>
+    <template v-if="newRow.tab_type === &quot;RAG&quot;">
+      <div class="km-field text-secondary-text pb-xs pl-sm">
+        {{ m.label_ragTool() }}
+        <km-select ref="ragToolRef" v-model="ragToolCode" height="30px" :placeholder="m.entity_ragTool()" :options="ragToolsOptions" has-dropdown-search option-value="value" :rules="ragToolRules" />
+      </div>
+    </template>
+    <template v-if="newRow.tab_type === &quot;Retrieval&quot;">
+      <div class="km-field text-secondary-text pb-xs pl-sm">
+        {{ m.label_retrievalTool() }}
+        <km-select ref="retrievalToolRef" v-model="retrievalToolCode" height="30px" :placeholder="m.entity_retrievalTool()" :options="retrievalToolsOptions" has-dropdown-search option-value="value" :rules="retrievalToolRules" />
+      </div>
+    </template>
+    <template v-if="newRow.tab_type === &quot;Custom&quot;">
+      <div class="km-field text-secondary-text pb-xs pl-sm">
+        {{ m.label_customCode() }}
+        <km-codemirror ref="customCodeRef" v-model="newRow.config.jsonString" :rules="customCodeRules" />
+        <div class="km-description text-secondary-text pb-xs">{{ m.hint_enterCustomCodeJson() }}</div>
+      </div>
+    </template>
+    <template v-if="newRow.tab_type === &quot;Agent&quot;">
+      <div class="km-field text-secondary-text pb-xs pl-sm">
+        {{ m.label_agent() }}
+        <km-select ref="agentsRef" v-model="agentsCode" height="30px" :placeholder="m.entity_agent()" :options="agentsOptions" has-dropdown-search option-value="value" :rules="agentsRules" />
+      </div>
+    </template>
+  </km-popup-confirm>
 </template>
 <script>
 import { ref, reactive, computed } from 'vue'
@@ -78,6 +57,7 @@ import { toUpperCaseWithUnderscores } from '@shared'
 import tabTypes from '@/config/ai_apps/tab_types'
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 import { useEntityConfig } from '@/composables/useEntityConfig'
+import { validateRef } from '@/utils/validateRef'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 
 export default {
@@ -248,7 +228,7 @@ export default {
     jsonTest() {
     },
     validateFields() {
-      const validStates = this.requiredFields.map((field) => this.$refs[`${field}Ref`]?.validate())
+      const validStates = this.requiredFields.map((field) => validateRef(this.$refs[`${field}Ref`]))
 
       // Validate tool/agent fields based on tab type
       if (this.newRow.tab_type === 'RAG') {
@@ -288,7 +268,3 @@ export default {
 }
 </script>
 
-<style lang="stylus">
-.km-input:not(.q-field--readonly) .q-field__control::before
-  background: var(--q-white) !important;
-</style>

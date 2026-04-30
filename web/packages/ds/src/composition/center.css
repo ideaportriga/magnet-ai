@@ -1,0 +1,22 @@
+/* =============================================================================
+ * .center — horizontally centred content with maximum width
+ * =============================================================================
+ * Centres its content. `data-intrinsic="true"` recenters intrinsic widths
+ * (forms, narrow paragraphs).
+ * ============================================================================= */
+
+.center {
+  --center-max: 60rem;
+  --center-padding: var(--ds-space-lg);
+
+  box-sizing: content-box;
+  margin-inline: auto;
+  max-inline-size: var(--center-max);
+  padding-inline: var(--center-padding);
+}
+
+.center[data-intrinsic='true'] {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}

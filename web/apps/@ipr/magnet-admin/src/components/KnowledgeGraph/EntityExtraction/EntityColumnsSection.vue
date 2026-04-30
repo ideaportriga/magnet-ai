@@ -2,31 +2,31 @@
   <kg-dialog-section
     :title="m.knowledgeGraph_columnsSection()"
     :description="m.knowledgeGraph_columnsDesc()"
-    icon="o_view_column"
-    icon-color="teal"
+    icon="columns"
+    tone="accent"
   >
     <div class="entity-columns-list">
       <div v-if="columns.length === 0" class="entity-columns-empty">
-        <q-icon name="o_view_column" size="28px" color="grey-4" />
-        <div class="text-grey-6 text-caption q-mt-xs">{{ m.knowledgeGraph_noColumnsDefined() }}</div>
-        <q-btn no-caps unelevated color="teal-8" icon="add" :label="m.knowledgeGraph_addColumn()" class="entity-add-col-btn q-mt-sm" @click="addColumn" />
+        <km-glyph name="columns" size="28px" tone="muted" />
+        <div class="text-grey-6 text-caption mt-xs">{{ m.knowledgeGraph_noColumnsDefined() }}</div>
+        <km-btn no-caps unelevated tone="accent" icon="add" :label="m.knowledgeGraph_addColumn()" class="entity-add-col-btn mt-sm" @click="addColumn" />
       </div>
 
       <div v-for="(col, idx) in columns" :key="col.id" class="entity-column-card" :class="{ 'entity-column-card--identifier': col.is_identifier }">
         <div class="entity-column-header" @click="toggleColumnExpand(col.id)">
           <div class="entity-column-header__left">
-            <q-icon
-              :name="expandedColumns.has(col.id) ? 'expand_less' : 'expand_more'"
+            <km-glyph
+              :name="expandedColumns.has(col.id) ? 'chevron-up' : 'chevron-down'"
               size="20px"
-              color="grey-6"
+              tone="muted"
               class="entity-column-toggle-icon"
             />
             <span class="entity-column-name" :class="{ 'text-grey-5': !col.name }">{{ col.name || m.knowledgeGraph_unnamed() }}</span>
-            <q-badge v-if="col.is_identifier" color="amber-8" text-color="white" class="entity-column-id-badge">ID</q-badge>
-            <q-badge v-if="col.is_required" color="blue-7" text-color="white" class="entity-column-id-badge">REQ</q-badge>
+            <km-badge v-if="col.is_identifier" tone="warning" class="entity-column-id-badge">ID</km-badge>
+            <km-badge v-if="col.is_required" tone="info" class="entity-column-id-badge">REQ</km-badge>
           </div>
           <div class="entity-column-header__right">
-            <q-btn flat dense round icon="delete_outline" size="sm" color="red-5" class="entity-col-action-btn" @click.stop="removeColumn(idx)" />
+            <km-btn flat dense round icon="delete" size="sm" tone="danger" class="entity-col-action-btn" @click.stop="removeColumn(idx)" />
           </div>
         </div>
 
@@ -70,11 +70,11 @@
                 <span class="entity-col-identifier-toggle__label">
                   {{ col.is_identifier ? m.knowledgeGraph_primaryIdentifier() : m.knowledgeGraph_markAsIdentifier() }}
                 </span>
-                <q-toggle
+                <km-toggle
                   :model-value="col.is_identifier"
                   dense
                   size="sm"
-                  color="amber-8"
+                  tone="warning"
                   keep-color
                   @update:model-value="setIdentifier(idx, $event)"
                   @click.stop
@@ -96,7 +96,7 @@
                 <span class="entity-col-identifier-toggle__label">
                   {{ col.is_required ? m.knowledgeGraph_requiredField() : m.knowledgeGraph_markAsRequired() }}
                 </span>
-                <q-toggle
+                <km-toggle
                   :model-value="col.is_required"
                   :disable="col.is_identifier"
                   dense
@@ -124,7 +124,7 @@
       </div>
 
       <button v-if="columns.length > 0" class="entity-add-col-btn-dashed" @click="addColumn">
-        <q-icon name="add" size="16px" />
+        <km-glyph name="add" size="16px" />
         <span>{{ m.knowledgeGraph_addColumn() }}</span>
       </button>
     </div>
@@ -243,9 +243,9 @@ function setIdentifier(idx: number, value: boolean) {
 
 <style scoped>
 .entity-add-col-btn {
-  font-size: var(--km-font-size-caption);
+  font-size: var(--ds-font-size-caption);
   font-weight: 600;
-  border-radius: var(--radius-md);
+  border-radius: var(--ds-radius-md);
 }
 
 .entity-add-col-btn-dashed {
@@ -253,14 +253,14 @@ function setIdentifier(idx: number, value: boolean) {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  width: 100%;
+  inline-size: 100%;
   padding: 9px 0;
-  font-size: var(--km-font-size-caption);
+  font-size: var(--ds-font-size-caption);
   font-weight: 600;
-  color: var(--q-primary);
+  color: var(--ds-color-primary);
   background: transparent;
-  border: 1.5px dashed var(--q-border);
-  border-radius: var(--radius-lg);
+  border: 1.5px dashed var(--ds-color-border);
+  border-radius: var(--ds-radius-lg);
   cursor: pointer;
   transition:
     border-color 0.15s ease,
@@ -269,9 +269,9 @@ function setIdentifier(idx: number, value: boolean) {
 }
 
 .entity-add-col-btn-dashed:hover {
-  border-color: var(--q-primary);
-  background: var(--q-primary-bg);
-  color: var(--q-primary-text);
+  border-color: var(--ds-color-primary);
+  background: var(--ds-color-primary-bg);
+  color: var(--ds-color-primary-text);
 }
 
 .entity-columns-list {
@@ -289,9 +289,9 @@ function setIdentifier(idx: number, value: boolean) {
 }
 
 .entity-column-card {
-  background: var(--q-white);
-  border: 1px solid var(--q-border);
-  border-radius: var(--radius-lg);
+  background: var(--ds-color-white);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-lg);
   overflow: hidden;
   transition:
     border-color 0.2s ease,
@@ -299,7 +299,7 @@ function setIdentifier(idx: number, value: boolean) {
 }
 
 .entity-column-card:hover {
-  border-color: var(--q-border-2);
+  border-color: var(--ds-color-border-2);
 }
 
 .entity-column-card--identifier {
@@ -314,24 +314,24 @@ function setIdentifier(idx: number, value: boolean) {
   padding: 10px 12px;
   cursor: pointer;
   user-select: none;
-  background: var(--q-background);
-  border-bottom: 1px solid transparent;
+  background: var(--ds-color-background);
+  border-block-end: 1px solid transparent;
   transition: background 0.15s ease;
 }
 
 .entity-column-header:hover {
-  background: var(--q-light);
+  background: var(--ds-color-light);
 }
 
 .entity-column-card:has(.entity-column-body) .entity-column-header {
-  border-bottom-color: var(--q-border);
+  border-block-end-color: var(--ds-color-border);
 }
 
 .entity-column-header__left {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-width: 0;
+  min-inline-size: 0;
   overflow: hidden;
 }
 
@@ -348,9 +348,9 @@ function setIdentifier(idx: number, value: boolean) {
 }
 
 .entity-column-name {
-  font-size: var(--km-font-size-label);
+  font-size: var(--ds-font-size-label);
   font-weight: 600;
-  color: var(--q-black);
+  color: var(--ds-color-black);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -360,7 +360,7 @@ function setIdentifier(idx: number, value: boolean) {
   font-size: 9px;
   font-weight: 700;
   padding: 2px 5px;
-  border-radius: var(--radius-xs);
+  border-radius: var(--ds-radius-xs);
   letter-spacing: 0.5px;
 }
 
@@ -376,12 +376,12 @@ function setIdentifier(idx: number, value: boolean) {
 }
 
 .entity-col-action-btn:hover {
-  color: var(--q-error) !important;
+  color: var(--ds-color-error) !important;
 }
 
 .entity-column-body {
   padding: 14px 14px 12px;
-  background: var(--q-white);
+  background: var(--ds-color-white);
 }
 
 .entity-column-grid {
@@ -395,30 +395,18 @@ function setIdentifier(idx: number, value: boolean) {
   grid-column: 1 / -1;
 }
 
-.entity-col-control :deep(.q-field__control) {
-  height: 40px !important;
-  min-height: 40px !important;
-  max-height: 40px !important;
-}
-
-.entity-col-control :deep(.q-field__native),
-.entity-col-control :deep(.q-field__input),
-.entity-col-control :deep(.q-field__marginal) {
-  min-height: 40px !important;
-}
-
 .entity-col-identifier-toggle {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  min-height: 40px;
-  height: 40px;
+  min-block-size: 40px;
+  block-size: 40px;
   padding: 0 12px;
   cursor: pointer;
-  border: 1px solid var(--q-border);
-  border-radius: var(--radius-sm);
-  background: var(--q-white);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-color-white);
   transition:
     border-color 0.15s ease,
     background 0.15s ease,
@@ -447,10 +435,10 @@ function setIdentifier(idx: number, value: boolean) {
 }
 
 .entity-col-identifier-toggle__label {
-  min-width: 0;
-  font-size: var(--km-font-size-label);
+  min-inline-size: 0;
+  font-size: var(--ds-font-size-label);
   font-weight: 600;
-  color: var(--q-black);
+  color: var(--ds-color-black);
 }
 
 @media (max-width: 1100px) {

@@ -1,7 +1,8 @@
-<template lang="pug">
-.col
-  .km-button-text {{ row?.name }}
-  km-chip.text-text-grey.text-capitalize.q-my-4(:label='variant', color='in-progress', size='sm')
+<template>
+  <div class="flex-1">
+    <div class="km-button-text">{{ row?.name }}</div>
+    <km-chip class="text-text-grey text-capitalize my-xs" :label="variant" tone="neutral" size="sm" />
+  </div>
 </template>
 <script>
 export default {

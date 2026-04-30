@@ -1,0 +1,76 @@
+version: "3.8"
+
+# Overlay: adds TaskIQ worker + scheduler processes.
+# Usage: `docker compose -f docker-compose.yml -f docker-compose.taskiq.yml up`
+#
+# The API container (`app`) enqueues tasks via `.kiq()`; workers and the
+# scheduler live here and share the same image + env as the API.
+
+services:
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BUILD_DOCS: "false"
+    container_name: magnet-taskiq-worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    command:
+      - "taskiq"
+      - "worker"
+      - "tasks.broker:broker"
+      - "--fs-discover"
+      - "--tasks-pattern"
+      - "tasks/definitions/*.py"
+      - "--tasks-pattern"
+      - "tasks/schedules/*.py"
+      - "--max-async-tasks"
+      - "${TASKIQ_WORKER_CONCURRENCY:-8}"
+      - "--ack-type"
+      - "when_executed"
+      - "--wait-tasks-timeout"
+      - "${TASKIQ_WAIT_TASKS_TIMEOUT:-1860}"
+      - "--log-level"
+      - "INFO"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - magnet-network
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BUILD_DOCS: "false"
+    container_name: magnet-taskiq-scheduler
+    # CRITICAL: only one instance. In K8s use strategy.type=Recreate.
+    restart: unless-stopped
+    env_file:
+      - .env
+    command:
+      - "taskiq"
+      - "scheduler"
+      - "tasks.scheduler:scheduler"
+      - "--fs-discover"
+      - "--tasks-pattern"
+      - "tasks/definitions/*.py"
+      - "--tasks-pattern"
+      - "tasks/schedules/*.py"
+      - "--skip-first-run"
+      - "--log-level"
+      - "INFO"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - magnet-network
+    deploy:
+      replicas: 1
+
+networks:
+  magnet-network:
+    external: true

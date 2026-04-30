@@ -1,5 +1,5 @@
-<template lang="pug">
-km-chip.q-my-4(v-if='label', :label='label', :color='color', round, :class='textColor')
+<template>
+  <km-chip v-if="label" class="my-xs" :label="label" :tone="tone" round :class="textClass" />
 </template>
 <script>
 export default {
@@ -22,6 +22,20 @@ export default {
     },
   },
   computed: {
+    tone() {
+      const tones = {
+        'like-bg': 'success',
+        'dislike-bg': 'danger',
+        'in-progress': 'neutral',
+      }
+      return tones[this.color] || 'neutral'
+    },
+    textClass() {
+      return this.textColor
+        .split(' ')
+        .filter((className) => !['text-text-grey', 'text-like-text', 'text-error-text'].includes(className))
+        .join(' ')
+    },
     label() {
       if (!this.name) return ''
       const keys = this.name.split('.')

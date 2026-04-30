@@ -17,6 +17,10 @@ param postgresAdminPassword string = 'ChangeMe123!'
 @description('Fernet encryption key for SECRET_ENCRYPTION_KEY')
 param secretEncryptionKey string = 'ZmVybmV0LWRlZmF1bHQta2V5LWNoYW5nZW1l'
 
+@secure()
+@description('SECRET_KEY for JWT auth. Leave empty to disable auth in non-prod; required when AUTH_ENABLED=true.')
+param secretKey string = ''
+
 // ---------------------------------------------------------------------------
 // Resource Group
 // ---------------------------------------------------------------------------
@@ -82,6 +86,7 @@ module containerApp 'modules/container-app.bicep' = {
     containerImage: 'ghcr.io/ideaportriga/magnet-ai:${containerImageTag}'
     databaseConnectionString: postgresql.outputs.connectionString
     secretEncryptionKey: secretEncryptionKey
+    secretKey: secretKey
   }
 }
 

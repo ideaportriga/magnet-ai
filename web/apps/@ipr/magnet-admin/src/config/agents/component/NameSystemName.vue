@@ -1,7 +1,8 @@
-<template lang="pug">
-div
-  .km-title.text-left.ellipsis {{ row?.name }}
-  q-chip.km-small-chip(color='in-progress', text-color='text-gray', :label='row?.system_name')
+<template>
+  <div>
+    <div class="km-title text-left ellipsis">{{ row?.name }}</div>
+    <km-chip class="km-small-chip" tone="neutral" :label="row?.system_name" />
+  </div>
 </template>
 
 <script>

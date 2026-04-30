@@ -1,26 +1,17 @@
-<template lang="pug">
-.col-auto.q-py-auto.row.items-center.no-wrap.q-gap-8
-  template(v-if='activeActionId')
-    .km-body.text-primary.km-breadcrumb-link(@click='navigate(`/agents/${activeRowId}`)') {{ activeRowName }}
-    q-icon.text-secondary-text.km-breadcrumb-sep(name='chevron_right', size='18px')
-    .km-body.text-primary.km-breadcrumb-link(@click='navigate(`/agents/${activeRowId}/topics/${activeTopicId}`)') {{ activeTopic?.name || m.entity_topic() }}
-    q-icon.text-secondary-text.km-breadcrumb-sep(name='chevron_right', size='18px')
-    .km-body {{ activeAction?.name || m.entity_action() }}
-  template(v-else-if='activeTopicId')
-    .km-body.text-primary.km-breadcrumb-link(@click='navigate(`/agents/${activeRowId}`)') {{ activeRowName }}
-    q-icon.text-secondary-text.km-breadcrumb-sep(name='chevron_right', size='18px')
-    .km-body {{ activeTopic?.name || m.entity_topic() }}
-  template(v-else)
-    .km-body {{ activeRowName }}
+<template>
+  <div class="flex-1 min-w-0 py-auto">
+    <KmBreadcrumbNav :items="crumbs" />
+  </div>
 </template>
 
 <script>
-import { computed } from 'vue'
 import { useCatalogOptions } from '@/queries/useCatalogOptions'
 import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 import { m } from '@/paraglide/messages'
+import KmBreadcrumbNav from '@ds/components/domain/KmBreadcrumbNav.vue'
 
 export default {
+  components: { KmBreadcrumbNav },
   props: ['activeRow'],
   setup() {
     useAgentEntityDetail()
@@ -65,12 +56,18 @@ export default {
         this.openDetails(val.value)
       },
     },
-  },
-  methods: {
-    navigate(path = '') {
-      if (this.$route.path !== `/${path}`) {
-        this.$router.push(`${path}`)
+    crumbs() {
+      const trail = [{ label: this.activeRowName ?? '', to: this.activeRowId ? `/agents/${this.activeRowId}` : undefined }]
+      if (this.activeTopicId) {
+        trail.push({
+          label: this.activeTopic?.name || m.entity_topic(),
+          to: `/agents/${this.activeRowId}/topics/${this.activeTopicId}`,
+        })
       }
+      if (this.activeActionId) {
+        trail.push({ label: this.activeAction?.name || m.entity_action() })
+      }
+      return trail
     },
   },
 }

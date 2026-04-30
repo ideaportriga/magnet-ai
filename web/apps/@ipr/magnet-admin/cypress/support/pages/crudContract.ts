@@ -63,11 +63,11 @@ export function runCrudContract(opts: CrudContractOptions) {
     // ─── C1 ──────────────────────────────────────────────────────────────────
     it('C1. list page renders with table/cards', () => {
       listPage.visit(listRoute)
-      // Accept: any of search-input, new-btn, .km-data-table or a .q-card.
+      // Accept: any of search-input, new-btn, .km-data-table or card rows.
       // 30s timeout — first test of a spec often pays dev-server compile
       // cost on top of the app-shell mount.
       cy.get(
-        '[data-test="search-input"], [data-test="new-btn"], .km-data-table, .q-card',
+        '[data-test="search-input"], [data-test="new-btn"], .km-data-table, [data-test="table-row"], .card-hover',
         { timeout: 30000 },
       ).should('exist')
     })
@@ -98,8 +98,12 @@ export function runCrudContract(opts: CrudContractOptions) {
         // Try to save without filling anything — advance through steps first
         if (advanceCreateSteps) advanceCreateSteps()
         createDialog.save()
-        // Dialog should still be open; validation should appear
-        cy.get('[data-test="popup-confirm"], [data-test="save-btn"]').should('exist')
+        // Dialog should still be open; validation should appear. Match any
+        // dialog/action hook used by the various create flows — the legacy
+        // `popup-confirm` plus the DS-backed equivalents.
+        cy.get(
+          '[data-test="km-popup-confirm"], [data-test="ds-alert-dialog"], [data-test="ds-dialog"], [data-test="popup-confirm"], [data-test="save-btn"], [data-test="next-btn"]',
+        ).filter(':visible').should('have.length.gte', 1)
       })
     }
 

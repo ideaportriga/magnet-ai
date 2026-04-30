@@ -1,128 +1,99 @@
-<template lang="pug">
-q-layout.bg-light.full-height.overflow-hidden(view='hHh lpR fFf')
-  q-header
-    .row.bg-white.text-black.items-center.no-wrap.bb-border(style='height: 50px', data-test='header')
-      .col-auto.full-height.br-border.row.nowrap.items-center.justify-center.km-sidebar-header(
-        :style='{ width: sidebarWidth + "px", transition: "width 0.2s ease" }'
-      )
-        .row.no-wrap.q-gap-8.cursor-pointer.items-center.full-height(v-if='!isCollapsed', @click='navigate("/")')
-          km-icon(:name='"magnet"', width='20', height='23')
-          .relative-position
-            .km-heading-6.logo-text Magnet AI
-            .absolute(style='bottom: 0px; right: 6px')
-              .logo-text {{ environment }}
-        .row.cursor-pointer.items-center.justify-center.full-height(v-else, @click='navigate("/")')
-          km-icon(:name='"magnet"', width='20', height='23')
-      //- Sidebar toggle
-      q-icon.col-auto.cursor-pointer.q-ml-md.km-sidebar-toggle(
-        name='fas fa-table-columns',
-        size='16px',
-        color='secondary-text',
-        @click.stop='toggleSidebar'
-      )
-      .col-auto.q-mx-md.row.items-center.no-wrap.q-gap-8(v-if='showPageLabel || showBackButton')
-        span.km-body.km-breadcrumb-item(
-          :class='showBackButton ? "text-primary km-breadcrumb-link" : "text-secondary-text"',
-          @click='showBackButton && navigate(parentRoute)'
-        ) {{ typeof route.meta?.pageLabel === 'function' ? route.meta.pageLabel() : route.meta?.pageLabel }}
-        q-icon.text-secondary-text.km-breadcrumb-sep(v-if='showBackButton', name='chevron_right', size='18px')
-      component(v-if='route.meta?.headerComponent', :is='route.meta.headerComponent')
-      .col
-      //- Global search trigger
-      .col-auto.q-mr-md
-        .global-search-trigger.row.items-center.q-gap-8.cursor-pointer.q-px-sm.q-py-xs(@click='showSearch = true')
-          q-icon(name='search', size='16px', color='secondary-text')
-          span.text-secondary-text.km-description {{ m.common_search() }}
-          .global-search-shortcut
-            span {{ isMac ? '⌘K' : 'Ctrl+K' }}
-      global-search(v-model='showSearch')
-      //- Right-side header actions: Fullscreen + Help + Profile
-      .col-auto.row.items-center.no-wrap.q-gap-4.q-mr-md
-        km-btn(
-          flat,
-          :icon='isFullscreen ? "fas fa-compress" : "fas fa-expand"',
-          iconSize='16px',
-          iconColor='icon',
-          hoverColor='primary',
-          hoverBg='primary-bg',
-          size='sm',
-          :tooltip='isFullscreen ? "Exit fullscreen" : "Fullscreen"',
-          @click='toggleFullscreen'
-        )
-        km-btn(
-          flat,
-          icon='fa-regular fa-circle-question',
-          iconSize='16px',
-          iconColor='icon',
-          hoverColor='primary',
-          hoverBg='primary-bg',
-          size='sm',
-          @click='openHelp'
-        )
-        .relative-position
-          km-btn(
-            flat,
-            icon='fas fa-user-circle',
-            iconSize='16px',
-            iconColor='icon',
-            :label='userDisplayName',
-            hoverColor='primary',
-            hoverBg='primary-bg',
-            size='sm',
-            labelClass='km-title'
-          )
-          q-menu(anchor='bottom right', self='top right', :offset='[0, 4]')
-            q-list(dense, style='min-width: 180px')
-              q-item.km-nav-popup-item(clickable, v-close-popup, @click='navigate("/profile")')
-                q-item-section(avatar, style='min-width: 28px; padding-right: 4px')
-                  q-icon(name='fas fa-user', size='14px', color='icon')
-                q-item-section {{ m.user_profile() }}
-              q-separator
-              q-item.km-nav-popup-item(clickable)
-                q-item-section(avatar, style='min-width: 28px; padding-right: 4px')
-                  q-icon(name='fas fa-globe', size='14px', color='icon')
-                q-item-section {{ currentLocaleLabel }}
-                q-item-section(side)
-                  q-icon(name='chevron_right', size='14px', color='icon')
-                q-menu(anchor='top end', self='top start', :offset='[4, 0]')
-                  q-list(dense, padding, style='min-width: 130px')
-                    q-item(
-                      v-for='opt in localeOptions',
-                      :key='opt.value',
-                      clickable,
-                      v-close-popup,
-                      dense,
-                      @click='setLocale(opt.value)',
-                      :active='opt.value === locale',
-                      active-class='locale-active'
-                    )
-                      q-item-section {{ opt.label }}
-              q-separator
-              q-item.km-nav-popup-item(clickable, v-close-popup, @click='logout')
-                q-item-section(avatar, style='min-width: 28px; padding-right: 4px')
-                  q-icon(name='fas fa-sign-out-alt', size='14px', color='icon')
-                q-item-section {{ m.auth_logout() }}
-  q-drawer.text-white(v-model='drawerVisible', :width='sidebarWidth', :breakpoint='0', bordered, :behavior='"desktop"')
-    toolbar
-  q-page-container
-    workspace-tab-bar
-    .km-view-height(:class='{ "has-tabs": hasOpenTabs }')
-      router-view(v-slot='{ Component, route }')
-        keep-alive(:max='20')
-          component(v-if='!loading', :is='Component', :key='route.fullPath')
-km-popup-confirm(
-  :visible='showLeaveConfirm',
-  :confirmButtonLabel='m.common_saveChanges()',
-  :confirmButtonLabel2='m.common_dontSaveChanges()',
-  confirmButtonType2='secondary',
-  :cancelButtonLabel='m.common_cancel()',
-  notificationIcon='fas fa-triangle-exclamation',
-  @confirm='saveChanges',
-  @cancel='cancelLeave',
-  @confirm2='confirmLeave'
-)
-  .row.item-center.justify-center.km-heading-7.q-mb-md {{ m.workspace_unsavedChanges() }}
-  .row.text-center.justify-center {{ m.workspace_unsavedPageMessage() }}
+<template>
+  <div class="km-layout bg-light full-height overflow-hidden">
+    <header class="km-header">
+      <div class="cluster bg-white text-black bb-border km-header__bar" data-wrap="no" data-test="header">
+        <div class="cluster flex-none full-height br-border km-sidebar-header" data-wrap="no" data-justify="center" :style="{ width: sidebarWidth + &quot;px&quot; }">
+          <div v-if="!isCollapsed" class="cluster cursor-pointer full-height" data-wrap="no" data-gap="sm" @click="navigate(&quot;/&quot;)">
+            <km-icon :name="&quot;magnet&quot;" width="20" height="23" />
+            <div class="relative-position">
+              <div class="km-heading-6 logo-text">Magnet AI</div>
+              <div class="absolute km-header__env-tag">
+                <div class="logo-text">{{ environment }}</div>
+              </div>
+            </div>
+          </div>
+          <div v-else class="cluster cursor-pointer full-height" data-wrap="no" data-justify="center" @click="navigate(&quot;/&quot;)">
+            <km-icon :name="&quot;magnet&quot;" width="20" height="23" />
+          </div>
+        </div>
+        <km-glyph class="flex-none cursor-pointer ml-md km-sidebar-toggle" name="columns" size="16px" tone="subtle" @click.stop="toggleSidebar" />
+        <div v-if="showPageLabel || showBackButton" class="cluster flex-none mx-md" data-wrap="no" data-gap="sm">
+          <span class="km-body km-breadcrumb-item" :class="showBackButton ? &quot;text-primary km-breadcrumb-link&quot; : &quot;text-secondary-text&quot;" @click="showBackButton &amp;&amp; navigate(parentRoute)">{{ typeof route.meta?.pageLabel === 'function' ? route.meta.pageLabel() : route.meta?.pageLabel }}</span>
+          <km-glyph v-if="showBackButton" class="text-secondary-text km-breadcrumb-sep" name="chevron_right" size="18px" />
+        </div>
+        <div class="flex-1 min-w-0 overflow-hidden km-header-slot">
+          <component :is="route.meta.headerComponent" v-if="route.meta?.headerComponent" />
+        </div>
+        <div class="flex-none mr-md">
+          <div class="cluster global-search-trigger cursor-pointer px-sm py-xs" data-gap="sm" data-test="global-search-trigger" @click="showSearch = true">
+            <km-glyph name="search" size="16px" tone="subtle" /><span class="text-secondary-text km-description">{{ m.common_search() }}</span>
+            <div class="global-search-shortcut"><span>{{ isMac ? '⌘K' : 'Ctrl+K' }}</span></div>
+          </div>
+        </div>
+        <global-search v-model="showSearch" />
+        <div class="cluster flex-none mr-md" data-wrap="no" data-gap="xs">
+          <button
+            type="button"
+            class="theme-mode-button"
+            :data-state="themeMode"
+            :aria-pressed="isDarkMode ? 'true' : 'false'"
+            :aria-label="themeToggleLabel"
+            :title="themeToggleLabel"
+            data-test="theme-mode-toggle"
+            @click="toggleThemeMode"
+          >
+            <km-glyph :name="isDarkMode ? 'dark_mode' : 'light_mode'" size="16px" />
+          </button>
+          <km-btn flat :icon="isFullscreen ? &quot;collapse&quot; : &quot;expand&quot;" icon-size="16px" interaction-tone="brand" size="sm" :tooltip="isFullscreen ? &quot;Exit fullscreen&quot; : &quot;Fullscreen&quot;" @click="toggleFullscreen" />
+          <km-btn flat icon="fa-regular fa-circle-question" icon-size="16px" interaction-tone="brand" size="sm" @click="openHelp" />
+          <ds-dropdown-menu-root>
+            <ds-dropdown-menu-trigger as-child>
+              <div data-test="user-menu">
+                <km-btn flat icon="user" icon-size="16px" :label="userDisplayName" interaction-tone="brand" size="sm" label-class="km-title" />
+              </div>
+            </ds-dropdown-menu-trigger>
+            <ds-dropdown-menu-content side="bottom" align="end" :side-offset="4" data-test="user-menu-dropdown">
+              <ds-dropdown-menu-item @select="navigate(&quot;/profile&quot;)">
+                <km-glyph name="user" size="14px" /><span>{{ m.user_profile() }}</span>
+              </ds-dropdown-menu-item>
+              <ds-dropdown-menu-separator />
+              <ds-dropdown-menu-sub>
+                <ds-dropdown-menu-sub-trigger>
+                  <km-glyph name="globe" size="14px" /><span>{{ currentLocaleLabel }}</span>
+                </ds-dropdown-menu-sub-trigger>
+                <ds-dropdown-menu-sub-content :side-offset="4" data-test="locale-menu">
+                  <ds-dropdown-menu-item v-for="opt in localeOptions" :key="opt.value" :class="{ 'locale-active': opt.value === locale }" @select="setLocale(opt.value)">
+                    {{ opt.label }}
+                  </ds-dropdown-menu-item>
+                </ds-dropdown-menu-sub-content>
+              </ds-dropdown-menu-sub>
+              <ds-dropdown-menu-separator />
+              <ds-dropdown-menu-item @select="logout">
+                <km-glyph name="sign-out" size="14px" /><span>{{ m.auth_logout() }}</span>
+              </ds-dropdown-menu-item>
+            </ds-dropdown-menu-content>
+          </ds-dropdown-menu-root>
+        </div>
+      </div>
+    </header>
+    <km-drawer v-model="drawerVisible" class="text-white" :width="sidebarWidth" :breakpoint="0" bordered :behavior="&quot;desktop&quot;">
+      <toolbar />
+    </km-drawer>
+    <div class="km-page-container">
+      <workspace-tab-bar />
+      <div class="km-view-height" :class="{ &quot;has-tabs&quot;: hasOpenTabs }">
+        <router-view v-slot="{ Component, route }">
+          <keep-alive :max="20">
+            <component :is="Component" v-if="!loading" :key="route.fullPath" />
+          </keep-alive>
+        </router-view>
+      </div>
+    </div>
+  </div>
+  <km-popup-confirm :visible="showLeaveConfirm" :confirm-button-label="m.common_saveChanges()" :confirm-button-label2="m.common_dontSaveChanges()" confirm-button-type2="secondary" :cancel-button-label="m.common_cancel()" notification-icon="warning" @confirm="saveChanges" @cancel="cancelLeave" @confirm2="confirmLeave">
+    <div class="cluster km-heading-7 mb-md" data-justify="center">{{ m.workspace_unsavedChanges() }}</div>
+    <div class="cluster" data-justify="center">{{ m.workspace_unsavedPageMessage() }}</div>
+  </km-popup-confirm>
 </template>
 
 <script>
@@ -130,7 +101,8 @@ import { useState, useAuth } from '@shared'
 import { useLocale } from '@shared/i18n'
 import { m } from '@/paraglide/messages'
 import { useSharedAuthStore } from '@shared/stores/authStore'
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, getCurrentInstance, onMounted, onBeforeUnmount } from 'vue'
+import { useLoading } from '@ds/composables/useLoading'
 import { useQueryClient } from '@tanstack/vue-query'
 import { useSidebarState } from '@/composables/useSidebarState'
 import { useAppStore } from '@/stores/appStore'
@@ -143,9 +115,20 @@ import { ROUTE_ENTITY_TO_BUFFER_TYPE } from '@/constants/entityMapping'
 import WorkspaceTabBar from './Layouts/WorkspaceTabBar.vue'
 import GlobalSearch from './Layouts/GlobalSearch.vue'
 
+const THEME_MODE_STORAGE_KEY = 'ds:theme'
+
+function getCurrentThemeMode() {
+  const current = document.documentElement.dataset.theme
+  if (current === 'dark' || current === 'light') return current
+
+  const stored = localStorage.getItem(THEME_MODE_STORAGE_KEY)
+  return stored === 'dark' ? 'dark' : 'light'
+}
+
 export default {
   components: { WorkspaceTabBar, GlobalSearch },
   setup() {
+    const instance = getCurrentInstance()
     const loading = useState('globalLoading')
     const appStore = useAppStore()
     const { logout } = useAuth()
@@ -165,6 +148,33 @@ export default {
     const hasOpenTabs = computed(() => workspace.tabs.length > 0)
     const showSearch = ref(false)
     const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+    const themeMode = ref(getCurrentThemeMode())
+    const isDarkMode = computed(() => themeMode.value === 'dark')
+    const themeToggleLabel = computed(() => (isDarkMode.value ? 'Switch to light theme' : 'Switch to dark theme'))
+
+    const syncThemeMode = () => {
+      themeMode.value = getCurrentThemeMode()
+    }
+
+    const applyThemeModeFallback = (mode) => {
+      localStorage.setItem(THEME_MODE_STORAGE_KEY, mode)
+      document.documentElement.dataset.theme = mode
+      document.documentElement.style.colorScheme = mode
+      document.body.dataset.colorMode = mode
+      document.getElementById('km-app')?.setAttribute('data-color-mode', mode)
+    }
+
+    const toggleThemeMode = () => {
+      const nextMode = isDarkMode.value ? 'light' : 'dark'
+      themeMode.value = nextMode
+      const setTheme = instance?.proxy?.$setTheme
+
+      if (typeof setTheme === 'function') {
+        setTheme(nextMode)
+      } else {
+        applyThemeModeFallback(nextMode)
+      }
+    }
 
     const { locale, setLocale, locales } = useLocale()
     const localeFullLabels = {
@@ -210,12 +220,15 @@ export default {
       }
     }
     onMounted(() => {
+      syncThemeMode()
       document.addEventListener('keydown', onGlobalKeydown)
       document.addEventListener('fullscreenchange', onFullscreenChange)
+      window.addEventListener('storage', syncThemeMode)
     })
     onBeforeUnmount(() => {
       document.removeEventListener('keydown', onGlobalKeydown)
       document.removeEventListener('fullscreenchange', onFullscreenChange)
+      window.removeEventListener('storage', syncThemeMode)
     })
 
     const queryClient = useQueryClient()
@@ -238,6 +251,10 @@ export default {
       userDisplayName,
       showSearch,
       isMac,
+      themeMode,
+      isDarkMode,
+      themeToggleLabel,
+      toggleThemeMode,
       isFullscreen,
       toggleFullscreen,
       locale,
@@ -314,10 +331,12 @@ export default {
     loading: {
       immediate: true,
       handler(val) {
+        const ds = useLoading()
         if (val) {
-          this.$q.loading.show()
-        } else {
-          this.$q.loading.hide()
+          this._dsLoadingHide = ds.show()
+        } else if (this._dsLoadingHide) {
+          this._dsLoadingHide()
+          this._dsLoadingHide = null
         }
       },
     },
@@ -341,7 +360,9 @@ export default {
         this.saveService.revert(this.routeChromaEntity)
       }
 
-      this.$router.push(this.nextRoute)
+      const target = this.nextRoute
+      this.popupStore.hidePopup()
+      this.$router.push(target)
     },
     async saveChanges() {
       try {
@@ -357,7 +378,9 @@ export default {
       }
 
       if (this.nextRoute) {
-        this.$router.push(this.nextRoute)
+        const target = this.nextRoute
+        this.popupStore.hidePopup()
+        this.$router.push(target)
       }
     },
     cancelLeave() {
@@ -367,88 +390,135 @@ export default {
 }
 </script>
 
-<style lang="stylus">
+<style>
 .km-underline:hover {
   text-decoration: underline;
   cursor: pointer;
 }
-
 .km-breadcrumb-link {
   cursor: pointer;
-  transition: opacity 0.15s ease;
-  &:hover {
-    opacity: 0.8;
-  }
+  transition: var(--ds-transition-opacity);
 }
-
+.km-breadcrumb-link:hover {
+  opacity: 0.8;
+}
 .km-breadcrumb-sep {
   opacity: 0.35;
 }
-
 .global-search-trigger {
-  border: 1px solid rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(0,0,0,0.12);
   border-radius: 6px;
   padding: 4px 12px;
-  transition: border-color 0.15s ease;
-  &:hover {
-    border-color: rgba(0, 0, 0, 0.25);
-  }
+  transition: border-color var(--ds-duration-fast) var(--ds-ease-out);
 }
-
+.global-search-trigger:hover {
+  border-color: rgba(0,0,0,0.25);
+}
 .global-search-shortcut {
   display: inline-flex;
   align-items: center;
   padding: 1px 6px;
   border-radius: 4px;
-  border: 1px solid rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(0,0,0,0.12);
   font-size: 11px;
-  color: var(--q-secondary-text);
-  margin-left: 8px;
+  color: var(--ds-color-secondary-text);
+  margin-inline-start: 8px;
 }
-
-/* Layout contract for the admin shell:
-   html > body > #km-app each have `height: 100%` (index.html) so the
-   chain from viewport to page content is never broken.
-   q-layout > q-page-container > .km-view-height > router-view is a
-   flex column with `overflow: hidden` at every level and
-   `flex: 1 1 0; min-height: 0` on the content track. Any page rendered
-   into `.km-view-height` inherits a bounded height and is the sole
-   owner of its scroll (inner `overflow: auto`).
-   Quasar's default `q-page-container { min-height: 100% }` is not a
-   flex container and does not bound its children's height — we
-   override below so .km-view-height flex math is meaningful. */
-.q-page-container {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    min-height: 0;
-    overflow: hidden;
+.theme-mode-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 32px;
+  block-size: 32px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: var(--ds-radius-md);
+  color: var(--ds-color-secondary-text);
+  cursor: pointer;
+  transition: var(--ds-transition-colors);
 }
+.theme-mode-button:hover {
+  background: var(--ds-color-primary-bg);
+  color: var(--ds-color-primary);
+}
+.theme-mode-button:focus-visible {
+  outline: 2px solid var(--ds-color-primary);
+  outline-offset: 2px;
+}
+/* Layout contract for the admin shell.
 
+   Visual structure (after the Quasar→Reka migration):
+
+       .km-layout (CSS grid: header / drawer + page)
+         header.km-header        — full-width top bar
+         km-drawer (collapsing)  — left sidebar
+         .km-page-container      — main content area, scroll-owner
+
+   `html > body > #km-app` each have `height: 100%` (index.html) so the
+   chain from viewport to page content is never broken. Every level of
+   the page-container chain bounds its children's height with `min-height:
+   0; overflow: hidden` so a single inner `overflow: auto` (the table or
+   page content) is the sole scroll owner. */
+.km-layout {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto 1fr;
+  block-size: 100%;
+  inline-size: 100%;
+  min-block-size: 0;
+}
+.km-layout > .km-header {
+  grid-column: 1/-1;
+  grid-row: 1;
+}
+.km-layout > .km-drawer {
+  grid-column: 1;
+  grid-row: 2;
+  block-size: 100%;
+}
+.km-layout > .km-page-container {
+  grid-column: 2;
+  grid-row: 2;
+  min-inline-size: 0;
+}
+.km-page-container {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  min-block-size: 0;
+  overflow: hidden;
+}
 .km-view-height {
-    display: flex;
-    flex-direction: column;
-    flex: 1 1 0;
-    min-height: 0;
-    height: 100%;
-    overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-block-size: 0;
+  block-size: 100%;
+  overflow: hidden;
 }
-
 .km-sidebar-header {
   overflow: hidden;
-  transition: width 0.2s ease;
+  transition: width var(--ds-duration-base) var(--ds-ease-out);
 }
-
 .locale-active {
-  color: var(--q-primary) !important;
+  color: var(--ds-color-primary) !important;
   font-weight: 500;
 }
-
 .km-sidebar-toggle {
   opacity: 0.6;
-  transition: opacity 0.15s ease;
-  &:hover {
-    opacity: 1;
-  }
+  transition: var(--ds-transition-opacity);
+}
+.km-sidebar-toggle:hover {
+  opacity: 1;
+}
+
+.km-header__bar {
+  block-size: 50px;
+}
+
+.km-header__env-tag {
+  inset-block-end: 0;
+  inset-inline-end: 6px;
 }
 </style>

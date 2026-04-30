@@ -1,27 +1,23 @@
-<template lang="pug">
-km-drawer-layout(storageKey='drawer-ai-apps-preview', :defaultWidth='520', :maxWidth='1200', noScroll)
-  template(#header)
-    .row
-      .col {{ m.common_preview() }}
-      .col-auto
-  .col.relative-position.full-height
-    iframe.absolute-full(
-      v-if='iframeSrc',
-      :src='iframeSrc',
-      width='100%',
-      height='100%',
-      frameborder='0',
-      allowfullscreen,
-      ref='iframe',
-      :style='{ zIndex: 10 }',
-      allow='clipboard-write'
-    )
-    .flex.absolute-center(:style='{ zIndex: 5 }')
-      q-spinner-dots(size='62px', color='primary')
+<template>
+  <km-drawer-layout storage-key="drawer-ai-apps-preview" :default-width="520" :max-width="1200" no-scroll>
+    <template #header>
+      <div class="cluster">
+        <div class="flex-1">{{ m.common_preview() }}</div>
+        <div class="flex-none" />
+      </div>
+    </template>
+    <div class="flex-1 relative-position full-height">
+      <iframe v-if="iframeSrc" ref="iframe" class="absolute-full" :src="iframeSrc" width="100%" height="100%" frameborder="0" allowfullscreen :style="{ zIndex: 10 }" allow="clipboard-write" />
+      <div class="flex absolute-center" :style="{ zIndex: 5 }">
+        <km-loader size="62px" />
+      </div>
+    </div>
+  </km-drawer-layout>
 </template>
 
 <script>
 import { ref } from 'vue'
+import { useLoading } from '@ds/composables/useLoading'
 import { m } from '@/paraglide/messages'
 import { useState } from '@shared'
 import { useEntityDetail } from '@/composables/useEntityDetail'
@@ -78,10 +74,12 @@ export default {
     loading: {
       immediate: true,
       handler(val) {
+        const ds = useLoading()
         if (val) {
-          this.$q.loading.show()
-        } else {
-          this.$q.loading.hide()
+          this._dsLoadingHide = ds.show()
+        } else if (this._dsLoadingHide) {
+          this._dsLoadingHide()
+          this._dsLoadingHide = null
         }
       },
     },

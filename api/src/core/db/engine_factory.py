@@ -7,6 +7,7 @@ backends without touching existing code paths.
 
 from __future__ import annotations
 
+import json
 import logging
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
@@ -16,10 +17,51 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlalchemy.pool import NullPool
 
 if TYPE_CHECKING:
+    from asyncpg import Connection as AsyncpgConnection
     from core.config.base import DatabaseSettings
 
 logger = logging.getLogger(__name__)
 pool_logger = logging.getLogger("magnet.db.pool")
+
+
+def _jsonb_encoder(value: Any) -> str:
+    """Idempotent JSONB encoder.
+
+    SQLAlchemy's engine-level ``json_serializer`` already converts dict/list
+    to a JSON string before the value reaches asyncpg. If we then re-encode
+    it via ``json.dumps``, the column ends up holding a JSON-stringified-JSON
+    (e.g. ``'"[{...}]"'`` instead of the array), which Pydantic later rejects
+    as ``input_value='[...]', input_type=str`` for ``list[...]`` fields.
+
+    Direct asyncpg paths (e.g. ``PgVectorClient``) still pass raw dict/list,
+    so we keep ``json.dumps`` for non-string values.
+    """
+    if isinstance(value, str):
+        return value
+    return json.dumps(value)
+
+
+async def _register_jsonb_codecs(conn: "AsyncpgConnection") -> None:
+    """Register asyncpg type codecs for JSONB/JSON.
+
+    Without this, JSONB columns sometimes round-trip as raw JSON strings
+    instead of `dict` (depending on which code path first touched the
+    connection). `PgVectorClient` registers the same codecs via its own
+    per-connection cache, but that cache is keyed by `id(conn)` which
+    Python can reuse after GC, so it cannot guarantee coverage.
+    """
+    await conn.set_type_codec(
+        "jsonb",
+        encoder=_jsonb_encoder,
+        decoder=json.loads,
+        schema="pg_catalog",
+    )
+    await conn.set_type_codec(
+        "json",
+        encoder=_jsonb_encoder,
+        decoder=json.loads,
+        schema="pg_catalog",
+    )
 
 
 def _attach_pool_logging(engine: AsyncEngine) -> None:
@@ -76,6 +118,19 @@ class PostgresEngineFactory(AsyncEngineFactory):
     IDLE_IN_TRANSACTION_TIMEOUT_MS = 120_000  # 2 minutes
 
     def create(self, url: str, settings: DatabaseSettings) -> AsyncEngine:
+        timeout_ms = self.IDLE_IN_TRANSACTION_TIMEOUT_MS
+        # asyncpg's server_settings are applied at connect time via the
+        # PostgreSQL startup packet — they reliably enforce session-level
+        # idle_in_transaction_session_timeout. The previous `@listens_for`
+        # approach didn't fire for SQLAlchemy's async-wrapped asyncpg
+        # connections, so leaked transactions accumulated across TaskIQ
+        # worker task runs until the pool stalled.
+        connect_args = {
+            "server_settings": {
+                "idle_in_transaction_session_timeout": str(timeout_ms),
+                "application_name": "magnet-ai",
+            },
+        }
         engine = create_async_engine(
             url=url,
             future=True,
@@ -90,17 +145,17 @@ class PostgresEngineFactory(AsyncEngineFactory):
             pool_pre_ping=settings.POOL_PRE_PING,
             pool_use_lifo=True,
             poolclass=NullPool if settings.POOL_DISABLED else None,
+            connect_args=connect_args,
         )
 
-        # Set session-level idle_in_transaction_session_timeout so PostgreSQL
-        # auto-kills connections that forget to commit/rollback.
-        timeout_ms = self.IDLE_IN_TRANSACTION_TIMEOUT_MS
-
+        # Register JSONB/JSON codecs once per real asyncpg connection, before
+        # any pool checkout runs query code. Done via SQLAlchemy's connect
+        # event + AdaptedConnection.run_async because asyncpg.connect() (which
+        # SQLAlchemy calls under the hood) does NOT accept asyncpg's pool-level
+        # `init=` kwarg — passing it raises TypeError on every checkout.
         @event.listens_for(engine.sync_engine, "connect")
-        def _set_idle_timeout(dbapi_connection: Any, _: Any) -> None:
-            cursor = dbapi_connection.cursor()
-            cursor.execute(f"SET idle_in_transaction_session_timeout = '{timeout_ms}'")
-            cursor.close()
+        def _on_connect(dbapi_connection: Any, _: Any) -> None:
+            dbapi_connection.run_async(_register_jsonb_codecs)
 
         _attach_pool_logging(engine)
         return engine

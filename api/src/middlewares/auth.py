@@ -11,6 +11,7 @@ must go through unified v2 auth endpoints that issue internal JWTs.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from logging import getLogger
 from typing import TYPE_CHECKING, Final, Literal
 
@@ -76,6 +77,8 @@ async def ensure_request_auth_data_local_jwt(token_str: str) -> Auth | None:
             encoded_token=token_str,
             secret=settings.SECRET_KEY,
             algorithm=settings.JWT_ENCRYPTION_ALGORITHM,
+            audience=settings.JWT_AUDIENCE or None,
+            issuer=settings.JWT_ISSUER or None,
         )
     except Exception:
         return None
@@ -114,6 +117,7 @@ async def ensure_request_auth_data_local_jwt(token_str: str) -> Auth | None:
 
 def ensure_request_auth_data_api_key(api_key: str, api_user_id: str | None) -> Auth:
     api_client_code = None
+    api_key_config = None
 
     try:
         api_key_config = get_api_key_config(api_key)
@@ -127,16 +131,21 @@ def ensure_request_auth_data_api_key(api_key: str, api_user_id: str | None) -> A
 
         api_client_code = API_KEY_CLIENT_MAPPING_DEPRECATED[api_key]
 
+    if api_key_config is not None:
+        if not getattr(api_key_config, "is_active", True):
+            logger.warning("API key %s is inactive — denying", api_client_code)
+            raise NotAuthorizedException("API key is inactive")
+
+        expires_at = getattr(api_key_config, "expires_at", None)
+        if expires_at is not None and expires_at < datetime.now(UTC):
+            logger.warning("API key %s is expired — denying", api_client_code)
+            raise NotAuthorizedException("API key has expired")
+
     user_id = f"api_key:{api_client_code}"
     if api_user_id:
         user_id += f":{api_user_id}"
 
-    scopes = None
-    try:
-        api_key_config = get_api_key_config(api_key)
-        scopes = getattr(api_key_config, "scopes", None)
-    except (KeyError, AttributeError):
-        pass
+    scopes = getattr(api_key_config, "scopes", None) if api_key_config else None
 
     return Auth(
         type="api_key",

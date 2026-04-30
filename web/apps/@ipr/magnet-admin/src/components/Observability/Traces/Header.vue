@@ -1,8 +1,7 @@
-<template lang="pug">
+<template>
+  <div />
 </template>
 
 <script>
-import { m } from '@/paraglide/messages'
-export default {
-}
+export default {}
 </script>

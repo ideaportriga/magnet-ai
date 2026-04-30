@@ -1,19 +1,28 @@
-<template lang="pug">
-.column.full-height(v-if='data?.length', style='min-height: 0')
-  .row.q-mb-12
-    .col-auto.center-flex-y
-      km-input(:placeholder='m.common_search()', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
-  .col(style='min-height: 0')
-    km-data-table(:table='table', fill-height, row-key='name', @row-click='handleRowClick')
-template(v-else)
-  .column.justify-center.items-center.full-width.full-height
-    .col.q-pa-xl.bg-light.border-radius-12
-      .row.items-center.justify-center.q-mb-md
-        q-icon(name='fa fa-arrow-right-arrow-left', size='48px', color='primary')
-      .km-heading-7.text-black You have no MCP tools yet
-      .km-description.text-black Sync with the MCP Server to load tools
-      .row.items-center.justify-center.q-mt-lg
-        km-btn(:label='m.common_syncTools()', @click='syncTools')
+<template>
+  <div v-if="data?.length" class="stack full-height" data-gap="0" style="min-block-size: 0">
+    <div class="cluster mb-md">
+      <div class="flex-none center-flex-y">
+        <km-input :placeholder="m.common_search()" icon-before="search" :model-value="globalFilter" clearable @input="globalFilter = $event" />
+      </div>
+    </div>
+    <div class="flex-1" style="min-block-size: 0">
+      <km-data-table :table="table" fill-height row-key="name" @row-click="handleRowClick" />
+    </div>
+  </div>
+  <template v-else>
+    <div class="flex full-width full-height" style="flex-direction: column; justify-content: center; align-items: center">
+      <div class="flex-1 p-xl bg-light border-radius-12">
+        <div class="cluster mb-md" data-justify="center">
+          <km-glyph name="swap" size="48px" tone="brand" />
+        </div>
+        <div class="km-heading-7 text-black">You have no MCP tools yet</div>
+        <div class="km-description text-black">Sync with the MCP Server to load tools</div>
+        <div class="cluster mt-lg" data-justify="center">
+          <km-btn :label="m.common_syncTools()" @click="syncTools" />
+        </div>
+      </div>
+    </div>
+  </template>
 </template>
 
 <script setup>

@@ -32,14 +32,32 @@ class StartupPlugin(InitPluginProtocol):
         """Application startup handler."""
         logger.info("Starting application...")
 
-        # Event loop lag monitor — early signal for scheduler hangs
+        # Validate the full auth configuration before serving any requests
+        # so that misconfigurations (empty SECRET_KEY, SameSite=None without
+        # Secure, signing key reused for encryption, ...) fail loudly rather
+        # than silently producing broken auth.
+        if self.auth_enabled:
+            from utils.cookies import validate_auth_settings
+
+            validate_auth_settings()
+
+        # Optional dev convenience: create/promote a superuser on startup so
+        # a fresh `npm run dev` lands you in a usable app without a separate
+        # `bootstrap_superuser.py` step. Gated by AUTO_CREATE_SUPERUSER and
+        # blocked entirely in production.
+        if self.auth_enabled:
+            await self._maybe_bootstrap_superuser()
+
+        # Event loop lag monitor — early signal for slow async callbacks
         self._start_event_loop_monitor(app)
 
         # Register LiteLLM callback logger for observability
         self._register_litellm_callbacks()
 
-        # Initialize scheduler
-        await self._initialize_scheduler(app)
+        # Start the TaskIQ broker on the API process so `.kiq()` works from
+        # route handlers. Worker-side startup is handled by
+        # `tasks.worker_lifecycle` via WORKER_STARTUP; this call is API-only.
+        await self._startup_taskiq_broker(app)
 
         # Refresh API keys cache if auth is enabled
         if self.auth_enabled:
@@ -86,120 +104,46 @@ class StartupPlugin(InitPluginProtocol):
         except Exception as e:
             logger.warning("Failed to register LiteLLM callbacks: %s", e)
 
-    async def _initialize_scheduler(self, app: Litestar) -> None:
-        """Initialize the scheduler."""
-        try:
-            from scheduler import create_scheduler
-
-            scheduler = await create_scheduler()
-            app.state.scheduler = scheduler
-            logger.info("Scheduler started successfully")
-
-            # Register periodic cleanup of temporary uploaded files
-            self._register_upload_cleanup_job(scheduler)
-        except Exception as e:
-            logger.error(f"Failed to start scheduler: {e}")
-            # Set scheduler to None so we can handle it in shutdown
-            app.state.scheduler = None
-            # Don't raise the exception to allow the app to start without scheduler
-
     @staticmethod
-    def _register_upload_cleanup_job(scheduler) -> None:
-        """Register a periodic job that removes expired knowledge-source uploads."""
+    async def _startup_taskiq_broker(app: Litestar) -> None:
+        """Start the TaskIQ broker on the API process.
+
+        In the in-process / single-container layout this is the only place
+        the broker is started — `TaskiqRuntimePlugin` later flips
+        `broker.is_worker_process=True` and spawns the receiver task with
+        `run_startup=False`, so the asyncpg pools created here are reused.
+
+        For standalone `taskiq worker` CLI processes (multi-container layout
+        — currently used by `npm run dev:worker`) `app.py` is not imported,
+        so this code path doesn't run there at all.
+        """
         try:
-            from apscheduler.triggers.interval import IntervalTrigger
+            from tasks import broker, schedule_source
 
-            from services.file_cleanup import (
-                KS_UPLOAD_CLEANUP_INTERVAL_MINUTES,
-                cleanup_old_uploads,
-            )
+            if getattr(broker, "_is_started", False):
+                return
+            await broker.startup()
+            app.state.taskiq_broker = broker
+            logger.info("TaskIQ broker started (API process)")
 
-            job_id = "ks_upload_cleanup"
+            # schedule_source owns its own asyncpg pool (used by `add_schedule`
+            # for RECURRING / ONE_TIME_SCHEDULED jobs created through
+            # /scheduler/create-job). The scheduler CLI process calls full
+            # `startup()` on boot, which truncates `taskiq_schedules` and
+            # repopulates it from broker labels — that must NOT run from the
+            # API process (would race with the scheduler and clobber dynamic
+            # user-added schedules). Initialize only the pool here.
+            if getattr(schedule_source, "_database_pool", None) is None:
+                import asyncpg
 
-            # Remove stale job definition if it already exists (e.g. after restart)
-            if scheduler.get_job(job_id):
-                scheduler.remove_job(job_id)
-
-            scheduler.add_job(
-                cleanup_old_uploads,
-                trigger=IntervalTrigger(minutes=KS_UPLOAD_CLEANUP_INTERVAL_MINUTES),
-                id=job_id,
-                name="Cleanup expired knowledge-source uploads",
-                replace_existing=True,
-            )
-            logger.info(
-                "Registered ks_upload_cleanup job (every %d min)",
-                KS_UPLOAD_CLEANUP_INTERVAL_MINUTES,
-            )
-        except Exception as e:
-            logger.warning("Failed to register upload cleanup job: %s", e)
-
-        # Register TTL cleanup for expired note-taker pending confirmations
-        try:
-            from apscheduler.triggers.interval import IntervalTrigger
-            from services.agents.teams.note_taker_pending_store import cleanup_expired
-
-            pending_job_id = "note_taker_pending_cleanup"
-            if scheduler.get_job(pending_job_id):
-                scheduler.remove_job(pending_job_id)
-
-            scheduler.add_job(
-                cleanup_expired,
-                trigger=IntervalTrigger(hours=1),
-                id=pending_job_id,
-                name="Cleanup expired note-taker speaker-mapping confirmations",
-                replace_existing=True,
-            )
-            logger.info("Registered note_taker_pending_cleanup job (every 1h)")
-        except Exception as e:
-            logger.warning("Failed to register note_taker_pending_cleanup job: %s", e)
-
-        # Recovery job for stuck syncing knowledge-graph sources
-        try:
-            from apscheduler.triggers.interval import IntervalTrigger
-            from services.knowledge_graph.sources.sync_recovery import (
-                recover_stuck_syncing_sources,
-            )
-
-            recovery_job_id = "kg_sync_recovery"
-            if scheduler.get_job(recovery_job_id):
-                scheduler.remove_job(recovery_job_id)
-
-            scheduler.add_job(
-                recover_stuck_syncing_sources,
-                trigger=IntervalTrigger(minutes=15),
-                id=recovery_job_id,
-                name="Recover stuck syncing KG sources",
-                replace_existing=True,
-            )
-            logger.info("Registered kg_sync_recovery job (every 15 min)")
-        except Exception as e:
-            logger.warning("Failed to register kg_sync_recovery job: %s", e)
-
-        # Periodic cleanup of expired/revoked refresh tokens
-        try:
-            from apscheduler.triggers.interval import IntervalTrigger
-            from services.users.refresh_token_service import cleanup_expired_tokens
-
-            token_cleanup_job_id = "refresh_token_cleanup"
-            if scheduler.get_job(token_cleanup_job_id):
-                scheduler.remove_job(token_cleanup_job_id)
-
-            scheduler.add_job(
-                cleanup_expired_tokens,
-                trigger=IntervalTrigger(hours=6),
-                id=token_cleanup_job_id,
-                name="Cleanup expired/revoked refresh tokens",
-                replace_existing=True,
-            )
-            logger.info("Registered refresh_token_cleanup job (every 6h)")
-        except Exception as e:
-            logger.warning("Failed to register refresh_token_cleanup job: %s", e)
-
-        # NOTE: Storage GC job (Phase 9) requires db_session injection.
-        # APScheduler 3.x does not support async functions with DI.
-        # GC will be triggered via a dedicated admin endpoint or manual CLI call.
-        # See storage/gc.py for the implementation.
+                schedule_source._database_pool = await asyncpg.create_pool(
+                    dsn=schedule_source.dsn,
+                    **schedule_source._connect_kwargs,
+                )
+                app.state.taskiq_schedule_source = schedule_source
+                logger.info("TaskIQ schedule source pool started (API process)")
+        except Exception as exc:  # noqa: BLE001
+            logger.error("Failed to start TaskIQ broker: %s", exc)
 
     async def _refresh_api_keys(self) -> None:
         """Refresh API keys cache."""
@@ -309,3 +253,72 @@ class StartupPlugin(InitPluginProtocol):
             )
         except Exception as exc:
             logger.exception("Failed to initialize NoteTakerRegistry: %s", exc)
+
+    async def _maybe_bootstrap_superuser(self) -> None:
+        """Create/promote a dev superuser if AUTO_CREATE_SUPERUSER is on.
+
+        Refuses to run in production. Silently no-ops if credentials are
+        missing rather than crashing startup, so an empty .env doesn't keep
+        the API process from booting.
+        """
+        if (self.env.get("AUTO_CREATE_SUPERUSER") or "").lower() not in (
+            "1",
+            "true",
+            "t",
+            "yes",
+            "y",
+            "on",
+        ):
+            return
+
+        env_name = (self.env.get("ENV") or "").strip().lower()
+        if env_name == "production":
+            logger.warning(
+                "AUTO_CREATE_SUPERUSER is enabled but ENV=production — "
+                "refusing. Use scripts/bootstrap_superuser.py with "
+                "BOOTSTRAP_ALLOW_PRODUCTION=true if this was intentional."
+            )
+            return
+
+        email = (self.env.get("BOOTSTRAP_SUPERUSER_EMAIL") or "").strip()
+        password = self.env.get("BOOTSTRAP_SUPERUSER_PASSWORD") or ""
+        if not email or not password:
+            logger.warning(
+                "AUTO_CREATE_SUPERUSER=true but BOOTSTRAP_SUPERUSER_EMAIL/"
+                "PASSWORD are not set — skipping bootstrap."
+            )
+            return
+        if len(password) < 12:
+            logger.warning(
+                "AUTO_CREATE_SUPERUSER skipped: BOOTSTRAP_SUPERUSER_PASSWORD "
+                "is shorter than 12 characters."
+            )
+            return
+
+        name = (self.env.get("BOOTSTRAP_SUPERUSER_NAME") or "").strip() or None
+
+        try:
+            from core.config.app import alchemy
+            from services.users.bootstrap import bootstrap_superuser
+
+            async with alchemy.get_session() as session:
+                result = await bootstrap_superuser(
+                    session,
+                    email=email,
+                    password=password,
+                    name=name,
+                    # Don't silently overwrite passwords on every restart.
+                    # Operators who need to rotate must run the CLI explicitly.
+                    reset_password=False,
+                )
+                await session.commit()
+
+            if result.created:
+                logger.info("Bootstrap superuser created: %s", result.email)
+            elif result.updated:
+                logger.info("Bootstrap superuser promoted: %s", result.email)
+            else:
+                logger.info("Bootstrap superuser already present: %s", result.email)
+        except Exception as exc:
+            # Never block startup on a bootstrap failure — log and move on.
+            logger.exception("Bootstrap superuser failed: %s", exc)

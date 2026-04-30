@@ -1,48 +1,36 @@
-<template lang="pug">
-transition(appear, enter-active-class='animated fadeIn', leave-active-class='animated fadeOut')
-  km-drawer-layout(v-if='open', storageKey="drawer-prompt-queue", noScroll)
-    template(#header)
-      .row.items-center.justify-between
-        .col-auto.km-heading-7 Execute
-        q-btn(icon='close', flat, dense, @click='$emit("update:open", false)')
-    .km-description.text-secondary-text.q-mb-sm Run the queue with the input values below
-    .q-gutter-sm.q-mb-sm(v-if='testInputs.length')
-      .km-field.text-secondary-text.q-pb-xs Test input set
-      km-select(
-        :model-value='selectedTestInputId',
-        @update:model-value='onSelectTestInput',
-        :options='testInputOptions',
-        option-label='label',
-        option-value='value',
-        emit-value,
-        map-options,
-        clearable,
-        :placeholder='m.promptQueue_selectSavedTestInput()',
-        style='max-width: 100%'
-      )
-    .q-gutter-sm.q-mb-sm
-      .row.q-gutter-sm(v-for='param in expectedInputParams', :key='param')
-        .col-auto.km-field(style='min-width: 120px') {{ param }}
-        .col
-          km-input(
-            :model-value='executeInput[param]',
-            @update:model-value='executeInput[param] = $event',
-            :placeholder='m.promptQueue_enterValue()',
-            style='max-width: 400px'
-          )
-    .row.q-gutter-sm.items-center.q-mb-sm
-      km-btn(:label='m.common_execute()', icon='play_arrow', @click='execute')
-      q-spinner(v-if='executing', size='24px', color='primary')
-      .km-description.text-secondary-text(v-if='!expectedInputParams.length') No input params. Add in Expected input tab or use empty input.
-    .ba-border.border-radius-8.q-pa-8.q-mt-sm(v-if='executeResult !== null')
-      .km-field.text-secondary-text.q-mb-sm Result
-      km-codemirror(
-        :model-value='executeResultJson',
-        readonly,
-        language='json',
-        :options='{ mode: "application/json" }',
-        style='min-height: 200px; max-height: 400px; font-size: 13px'
-      )
+<template>
+  <transition appear enter-active-class="animated fadeIn" leave-active-class="animated fadeOut">
+    <km-drawer-layout v-if="open" storage-key="drawer-prompt-queue" no-scroll>
+      <template #header>
+        <div class="cluster" data-justify="between">
+          <div class="flex-none km-heading-7">Execute</div>
+          <km-btn icon="close" flat dense @click="$emit(&quot;update:open&quot;, false)" />
+        </div>
+      </template>
+      <div class="km-description text-secondary-text mb-sm">Run the queue with the input values below</div>
+      <div v-if="testInputs.length" class="gap-sm mb-sm">
+        <div class="km-field text-secondary-text pb-xs">Test input set</div>
+        <km-select :model-value="selectedTestInputId" :options="testInputOptions" option-label="label" option-value="value" emit-value map-options clearable :placeholder="m.promptQueue_selectSavedTestInput()" style="max-inline-size: 100%" @update:model-value="onSelectTestInput" />
+      </div>
+      <div class="gap-sm mb-sm">
+        <div v-for="param in expectedInputParams" :key="param" class="cluster" data-gap="sm">
+          <div class="flex-none km-field" style="min-inline-size: 120px">{{ param }}</div>
+          <div class="flex-1">
+            <km-input :model-value="executeInput[param]" :placeholder="m.promptQueue_enterValue()" style="max-inline-size: 400px" @update:model-value="executeInput[param] = $event" />
+          </div>
+        </div>
+      </div>
+      <div class="cluster mb-sm" data-gap="sm">
+        <km-btn :label="m.common_execute()" icon="play" @click="execute" />
+        <km-loader v-if="executing" size="24px" />
+        <div v-if="!expectedInputParams.length" class="km-description text-secondary-text">No input params. Add in Expected input tab or use empty input.</div>
+      </div>
+      <div v-if="executeResult !== null" class="ba-border border-radius-8 p-sm mt-sm">
+        <div class="km-field text-secondary-text mb-sm">Result</div>
+        <km-codemirror :model-value="executeResultJson" readonly language="json" :options="{ mode: &quot;application/json&quot; }" style="min-block-size: 200px; max-block-size: 400px; font-size: 13px" />
+      </div>
+    </km-drawer-layout>
+  </transition>
 </template>
 
 <script setup>

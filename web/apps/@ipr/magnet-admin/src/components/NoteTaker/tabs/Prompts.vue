@@ -1,76 +1,74 @@
-<template lang="pug">
-.q-gutter-md
-  .km-field
-    .row.items-center.justify-between
-      .text-secondary-text.q-pb-xs.km-title Post-transcription processing
-      q-toggle(v-model='postTranscriptionEnabled', color='primary')
-    .q-gutter-sm(v-if='postTranscriptionEnabled')
-      .row.items-center.q-gutter-sm
-        .col
-          km-select(
-            v-model='postTranscriptionPromptTemplate',
-            :options='promptTemplates',
-            option-label='name',
-            option-value='system_name',
-            emit-value, map-options, hasDropdownSearch, height='30px'
-          )
-        .col-auto(v-if='postTranscriptionPromptTemplate')
-          km-btn(icon='open_in_new', flat, dense, @click='navigateToPrompt(postTranscriptionPromptTemplate)')
-    .km-description.text-secondary-text.q-pt-2(v-if='postTranscriptionEnabled') Prompt template to post-process the transcript (map speakers to names).
-
-  .km-field
-    .row.items-center.justify-between
-      .text-secondary-text.q-pb-xs.km-title Create Chapters
-      q-toggle(v-model='createChaptersEnabled', color='primary')
-    .q-gutter-sm(v-if='createChaptersEnabled')
-      .row.items-center.q-gutter-sm
-        .col
-          km-select(
-            v-model='createChaptersPromptTemplate',
-            :options='promptTemplates',
-            option-label='name',
-            option-value='system_name',
-            emit-value, map-options, hasDropdownSearch, height='30px'
-          )
-        .col-auto(v-if='createChaptersPromptTemplate')
-          km-btn(icon='open_in_new', flat, dense, @click='navigateToPrompt(createChaptersPromptTemplate)')
-    .km-description.text-secondary-text.q-pt-2(v-if='createChaptersEnabled') Prompt template for chapters.
-
-  .km-field
-    .row.items-center.justify-between
-      .text-secondary-text.q-pb-xs.km-title Create Summary
-      q-toggle(v-model='createSummaryEnabled', color='primary')
-    .q-gutter-sm(v-if='createSummaryEnabled')
-      .row.items-center.q-gutter-sm
-        .col
-          km-select(
-            v-model='createSummaryPromptTemplate',
-            :options='promptTemplates',
-            option-label='name',
-            option-value='system_name',
-            emit-value, map-options, hasDropdownSearch, height='30px'
-          )
-        .col-auto(v-if='createSummaryPromptTemplate')
-          km-btn(icon='open_in_new', flat, dense, @click='navigateToPrompt(createSummaryPromptTemplate)')
-    .km-description.text-secondary-text.q-pt-2(v-if='createSummaryEnabled') Prompt template for summary.
-
-  .km-field
-    .row.items-center.justify-between
-      .text-secondary-text.q-pb-xs.km-title Create Insights
-      q-toggle(v-model='createInsightsEnabled', color='primary')
-    .q-gutter-sm(v-if='createInsightsEnabled')
-      .row.items-center.q-gutter-sm
-        .col
-          km-select(
-            v-model='createInsightsPromptTemplate',
-            :options='promptTemplates',
-            option-label='name',
-            option-value='system_name',
-            emit-value, map-options, hasDropdownSearch, height='30px'
-          )
-        .col-auto(v-if='createInsightsPromptTemplate')
-          km-btn(icon='open_in_new', flat, dense, @click='navigateToPrompt(createInsightsPromptTemplate)')
-    .km-description.text-secondary-text.q-pt-2(v-if='createInsightsEnabled') Prompt template for insights.
+<template>
+  <div class="gap-md">
+    <div class="km-field">
+      <div class="cluster" data-justify="between">
+        <div class="text-secondary-text pb-xs km-title">Post-transcription processing</div>
+        <km-toggle v-model="postTranscriptionEnabled" />
+      </div>
+      <div v-if="postTranscriptionEnabled" class="gap-sm">
+        <div class="cluster" data-gap="sm">
+          <div class="flex-1">
+            <km-select v-model="postTranscriptionPromptTemplate" :options="promptTemplates" option-label="name" option-value="system_name" emit-value map-options has-dropdown-search height="30px" />
+          </div>
+          <div v-if="postTranscriptionPromptTemplate" class="flex-none">
+            <km-btn icon="external-link" flat dense @click="navigateToPrompt(postTranscriptionPromptTemplate)" />
+          </div>
+        </div>
+      </div>
+      <div v-if="postTranscriptionEnabled" class="km-description text-secondary-text pt-2xs">Prompt template to post-process the transcript (map speakers to names).</div>
+    </div>
+    <div class="km-field">
+      <div class="cluster" data-justify="between">
+        <div class="text-secondary-text pb-xs km-title">Create Chapters</div>
+        <km-toggle v-model="createChaptersEnabled" />
+      </div>
+      <div v-if="createChaptersEnabled" class="gap-sm">
+        <div class="cluster" data-gap="sm">
+          <div class="flex-1">
+            <km-select v-model="createChaptersPromptTemplate" :options="promptTemplates" option-label="name" option-value="system_name" emit-value map-options has-dropdown-search height="30px" />
+          </div>
+          <div v-if="createChaptersPromptTemplate" class="flex-none">
+            <km-btn icon="external-link" flat dense @click="navigateToPrompt(createChaptersPromptTemplate)" />
+          </div>
+        </div>
+      </div>
+      <div v-if="createChaptersEnabled" class="km-description text-secondary-text pt-2xs">Prompt template for chapters.</div>
+    </div>
+    <div class="km-field">
+      <div class="cluster" data-justify="between">
+        <div class="text-secondary-text pb-xs km-title">Create Summary</div>
+        <km-toggle v-model="createSummaryEnabled" />
+      </div>
+      <div v-if="createSummaryEnabled" class="gap-sm">
+        <div class="cluster" data-gap="sm">
+          <div class="flex-1">
+            <km-select v-model="createSummaryPromptTemplate" :options="promptTemplates" option-label="name" option-value="system_name" emit-value map-options has-dropdown-search height="30px" />
+          </div>
+          <div v-if="createSummaryPromptTemplate" class="flex-none">
+            <km-btn icon="external-link" flat dense @click="navigateToPrompt(createSummaryPromptTemplate)" />
+          </div>
+        </div>
+      </div>
+      <div v-if="createSummaryEnabled" class="km-description text-secondary-text pt-2xs">Prompt template for summary.</div>
+    </div>
+    <div class="km-field">
+      <div class="cluster" data-justify="between">
+        <div class="text-secondary-text pb-xs km-title">Create Insights</div>
+        <km-toggle v-model="createInsightsEnabled" />
+      </div>
+      <div v-if="createInsightsEnabled" class="gap-sm">
+        <div class="cluster" data-gap="sm">
+          <div class="flex-1">
+            <km-select v-model="createInsightsPromptTemplate" :options="promptTemplates" option-label="name" option-value="system_name" emit-value map-options has-dropdown-search height="30px" />
+          </div>
+          <div v-if="createInsightsPromptTemplate" class="flex-none">
+            <km-btn icon="external-link" flat dense @click="navigateToPrompt(createInsightsPromptTemplate)" />
+          </div>
+        </div>
+      </div>
+      <div v-if="createInsightsEnabled" class="km-description text-secondary-text pt-2xs">Prompt template for insights.</div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">

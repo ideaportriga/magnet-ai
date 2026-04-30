@@ -1,12 +1,12 @@
 <template>
-  <div class="row items-center q-mb-12 q-gutter-xs">
+  <div class="cluster mb-md" data-gap="xs">
     <slot name="leading" />
 
-    <div v-if="$slots.status" class="row items-center no-wrap q-ml-md q-gutter-x-sm">
+    <div v-if="$slots.status" class="cluster ml-md gap-x-sm" data-wrap="no">
       <slot name="status" />
     </div>
 
-    <q-space />
+    <div class="km-space" />
 
     <slot name="trailing" />
   </div>

@@ -1,88 +1,190 @@
-<template lang="pug">
-.column.fit.no-wrap.bg-white
-  .fit.q-py-16.column.reverse.no-wrap.text-scroll(ref='messagesContainer', style='overflow-y: auto; max-height: 100%')
-    template(v-if='processing')
-      .column.justify-center.items-center
-        q-spinner-dots(size='62px', color='primary')
-        km-btn(flat, simple, :label='m.panel_stop()', iconSize='16px', icon='fas fa-times', @click='abortController.abort()')
-    .column.no-wrap.q-px-16.q-gap-16
-      template(v-if='welcomeMessage && allMessages?.length === 0 && !processing')
-        agent-message(:message='{ role: "welcome", content: welcomeMessage }')
-      template(v-for='(message, index) in allMessages')
-        agent-message(
-          v-if='showAllMessages || message?.role === "user" || message?.role === "assistant"',
-          :message='message',
-          :key='index',
-          :reaction='reactions[message.id]',
-          :lastMessage='index === allMessages.length - 1',
-          @copy='copyMessage',
-          @like='like',
-          @dislike='dislike',
-          @confirm='confirmActions',
-          :liveMode='true'
-        )
-      agent-feedback-modal(
-        :feedback-modal='feedbackModal',
-        :feedback-confirm-modal='feedbackConfirmModal',
-        @update:feedback-modal='feedbackModal = $event',
-        @update:feedback-confirm-modal='feedbackConfirmModal = $event',
-        @submit='react'
-      )
-
-  .col-auto.q-mt-md.q-px-16
-    form(@submit.prevent='sendUserMessage')
-      km-input(
-        ref='input',
-        rows='3',
-        :placeholder='m.placeholder_enterUserMessage()',
-        :model-value='userMessage',
-        @input='userMessage = $event',
-        border-radius='8px',
-        height='36px',
-        type='textarea',
-        @keydown.enter='handleUserMessageEnter'
-      )
-      template(v-if='isShowHints')
-        .row.items-center.q-mt-16.q-mb-8
-          .col.km-heading-3 {{ m.common_youCanAskLikeThis() }}
-          .col-auto
-            km-btn(flat, color='primary', @click='showHints = false')
-              .km-button-text {{ m.common_dontShowHints() }}
-
-        template(v-if='$theme === "default"')
-          template(v-for='(item, index) in sampleQuestion', :key='index')
-            km-btn(flat, @click='refine(item)')
-              .wrapped-text {{ item }}
-        template(v-else)
-          template(v-for='(item, index) in sampleQuestion', :key='index')
-            .flex
-              km-btn.hint(bg='transparent', color='primary', @click='refine(item)')
-                .wrapped-text {{ item }}
-      .row.justify-end.q-py-md.items-center.justify-between
-        .col-auto.q-mr-md(v-if='isUserMode')
-          km-btn(flat, simple, icon='fas fa-redo', iconSize='16px', @click='clearChat')
-          q-tooltip(anchor='top middle', self='bottom middle') 
-            .km-label {{ m.panel_startNewConversation() }}
-        .col-auto.q-mr-md(v-if='!isUserMode')
-          km-btn(
-            flat,
-            simple,
-            :label='showAllMessages ? m.panel_hideDebugMessages() : m.panel_showAllMessages()',
-            iconSize='16px',
-            :icon='showAllMessages ? "fas fa-eye-slash" : "fas fa-eye"',
-            @click='showAllMessages = !showAllMessages'
-          )
-        .col-auto
-          q-btn(type='submit', color='primary', :disable='cantSendUserMessage', unelevated, padding='6px 7px', style='maxheight: 28px')
-            template(v-slot:default)
-              q-icon(name='fas fa-paper-plane', size='16px')
+<template>
+  <div
+    class="stack fit bg-white"
+    data-gap="0"
+  >
+    <div
+      ref="messagesContainer"
+      class="fit py-lg flex text-scroll"
+      style="overflow-block: auto; max-block-size: 100%; flex-flow: column-reverse nowrap"
+    >
+      <template v-if="processing">
+        <div
+          class="flex"
+          style="flex-direction: column; justify-content: center; align-items: center"
+        >
+          <km-loader
+            size="62px"
+          />
+          <km-btn
+            flat
+            simple
+            :label="m.panel_stop()"
+            icon-size="16px"
+            icon="close"
+            @click="abortController.abort()"
+          />
+        </div>
+      </template>
+      <div
+        class="stack px-lg"
+        data-gap="lg"
+      >
+        <template v-if="welcomeMessage &amp;&amp; allMessages?.length === 0 &amp;&amp; !processing">
+          <agent-message :message="{ role: &quot;welcome&quot;, content: welcomeMessage }" />
+        </template>
+        <template
+          v-for="(message, index) in allMessages"
+          :key="index"
+        >
+          <agent-message
+            v-if="showAllMessages || message?.role === &quot;user&quot; || message?.role === &quot;assistant&quot;"
+            :key="index"
+            :message="message"
+            :reaction="reactions[message.id]"
+            :last-message="index === allMessages.length - 1"
+            :live-mode="true"
+            @copy="copyMessage"
+            @like="like"
+            @dislike="dislike"
+            @confirm="confirmActions"
+          />
+        </template>
+        <agent-feedback-modal
+          :feedback-modal="feedbackModal"
+          :feedback-confirm-modal="feedbackConfirmModal"
+          @update:feedback-modal="feedbackModal = $event"
+          @update:feedback-confirm-modal="feedbackConfirmModal = $event"
+          @submit="react"
+        />
+      </div>
+    </div>
+    <div class="flex-none mt-md px-lg">
+      <form @submit.prevent="sendUserMessage">
+        <km-input
+          ref="input"
+          data-test="preview-input"
+          autogrow
+          :rows="1"
+          :min-rows="1"
+          :max-rows="10"
+          :placeholder="m.placeholder_enterUserMessage()"
+          :model-value="userMessage"
+          border-radius="8px"
+          height="36px"
+          type="textarea"
+          @input="userMessage = $event"
+          @keydown.enter="handleUserMessageEnter"
+        >
+          <template #append>
+            <km-btn
+              data-test="preview-btn"
+              type="submit"
+              size="icon-xs"
+              icon="send"
+              icon-size="16px"
+              icon-tone="inverse"
+              :disable="cantSendUserMessage"
+            />
+          </template>
+        </km-input>
+        <template v-if="isShowHints">
+          <div class="cluster mt-lg mb-sm">
+            <div class="flex-1 km-heading-3">
+              {{ m.common_youCanAskLikeThis() }}
+            </div>
+            <div class="flex-none">
+              <km-btn
+                flat
+                tone="brand"
+                @click="showHints = false"
+              >
+                <div class="km-button-text">
+                  {{ m.common_dontShowHints() }}
+                </div>
+              </km-btn>
+            </div>
+          </div>
+          <template v-if="$theme === &quot;default&quot;">
+            <template
+              v-for="(item, index) in sampleQuestion"
+              :key="index"
+            >
+              <km-btn
+                flat
+                @click="refine(item)"
+              >
+                <div class="wrapped-text">
+                  {{ item }}
+                </div>
+              </km-btn>
+            </template>
+          </template>
+          <template v-else>
+            <template
+              v-for="(item, index) in sampleQuestion"
+              :key="index"
+            >
+              <div class="flex">
+                <km-btn
+                  class="hint"
+                  flat
+                  tone="brand"
+                  @click="refine(item)"
+                >
+                  <div class="wrapped-text">
+                    {{ item }}
+                  </div>
+                </km-btn>
+              </div>
+            </template>
+          </template>
+        </template>
+        <div class="cluster py-md">
+          <div
+            v-if="isUserMode"
+            class="flex-none"
+          >
+            <km-btn
+              flat
+              simple
+              icon="redo"
+              icon-size="16px"
+              @click="clearChat"
+            />
+            <km-tooltip
+              anchor="top middle"
+              self="bottom middle"
+            >
+              <div class="km-label">
+                {{ m.panel_startNewConversation() }}
+              </div>
+            </km-tooltip>
+          </div>
+          <div
+            v-if="!isUserMode"
+            class="flex-none"
+          >
+            <km-btn
+              flat
+              simple
+              :label="showAllMessages ? m.panel_hideDebugMessages() : m.panel_showAllMessages()"
+              icon-size="16px"
+              :icon="showAllMessages ? &quot;eye-off&quot; : &quot;eye&quot;"
+              @click="showAllMessages = !showAllMessages"
+            />
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
 </template>
 <script>
 import { useAgents, useAgentTab, useAuth, useAiApps } from '@/pinia'
 import { m } from '@/paraglide/messages'
 import { ref, computed } from 'vue'
 import { storeToRefs } from 'pinia'
-import { copyToClipboard } from 'quasar'
+import { copyToClipboard } from '@ds/utils/clipboard'
 import { notify } from '@shared/utils/notify'
 
 export default {

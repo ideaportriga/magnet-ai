@@ -1,0 +1,13 @@
+/* =============================================================================
+ * BORDER RADIUS TOKENS
+ * ============================================================================= */
+
+:root {
+  --ds-radius-xs: 2px;
+  --ds-radius-sm: 4px;
+  --ds-radius-md: 6px;
+  --ds-radius-lg: 8px;
+  --ds-radius-xl: 12px;
+  --ds-radius-2xl: 16px;
+  --ds-radius-full: 9999px;
+}

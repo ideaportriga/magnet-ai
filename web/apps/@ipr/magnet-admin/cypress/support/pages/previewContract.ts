@@ -4,7 +4,7 @@ import { listPage } from './listPage'
 
 /**
  * Canonical 4-test Preview contract for entities with a preview/playground
- * pane (Prompts, Configuration/RAG, Agents, KnowledgeGraph).
+ * pane (Prompts, RAG, Agents, KnowledgeGraph).
  *
  *   P1. preview panel renders on detail page
  *   P2. run preview → API called → response displayed
@@ -68,7 +68,10 @@ export function runPreviewContract(opts: PreviewContractOptions) {
 
     if (!skip.P3) {
       it('P3. preview with empty input → either disabled or error', () => {
-        cy.get(inputSelector).clear()
+        // KmInput renders as <span class="km-input">…<input|textarea>; the
+        // outer span carries the `data-test`, so reach for the actual form
+        // control before calling .clear().
+        cy.get(inputSelector).find('input, textarea').clear()
         // Either the button is disabled (happy case) or clicking it produces
         // a UI validation error / toast. We accept either signal.
         cy.get(runButtonSelector).then(($btn) => {
@@ -76,7 +79,7 @@ export function runPreviewContract(opts: PreviewContractOptions) {
             expect($btn.is(':disabled')).to.be.true
           } else {
             cy.wrap($btn).click()
-            cy.get('.q-notification, .q-field--error, [role="alert"]', { timeout: 3000 }).should('exist')
+            cy.get('[data-test="ds-toast"], [role="alert"], [aria-invalid="true"]', { timeout: 3000 }).should('exist')
           }
         })
       })

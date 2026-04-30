@@ -1,103 +1,84 @@
-<template lang="pug">
-div
-  km-section(title='Salesforce', subTitle='Send Note Taker transcripts to a Salesforce org')
-    .row.items-center.justify-between
-      .km-field.text-secondary-text.q-pl-8 Send Transcript to Salesforce
-      q-toggle(v-model='sendTranscriptToSalesforce', color='primary')
-    .km-description.text-secondary-text.q-pt-xs.q-pl-8 Push completed transcripts to Salesforce
-
-    .q-gutter-md.q-mt-md(v-if='sendTranscriptToSalesforce')
-      div
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 API Server
-        .row.items-center.q-gutter-sm
-          .col
-            km-select(
-              v-model='salesforceApiServer',
-              :options='apiServers',
-              option-label='name',
-              option-value='system_name',
-              emit-value, map-options, height='auto', minHeight='36px', clearable
-            )
-          .col-auto(v-if='salesforceApiServer')
-            km-btn(icon='open_in_new', flat, dense, @click='navigateToApiServer(salesforceApiServer)')
-        .km-description.text-secondary-text.q-pt-xs.q-pl-8 API server for Salesforce tool calls.
-
-      div
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 STT Recording Tool
-        .row.items-center.q-gutter-sm
-          .col
-            km-select(
-              v-model='salesforceSttRecordingTool',
-              :options='salesforceAvailableTools',
-              option-label='label',
-              option-value='value',
-              emit-value, map-options, height='auto', minHeight='36px', clearable
-            )
-          .col-auto(v-if='salesforceSttRecordingTool')
-            km-btn(icon='open_in_new', flat, dense, @click='navigateToTool(salesforceApiServer, salesforceSttRecordingTool)')
-        .km-description.text-secondary-text.q-pt-xs.q-pl-8 Tool for creating STT recordings in Salesforce.
-
-  q-separator.q-my-lg
-
-  km-section(title='Confluence', subTitle='Publish Note Taker output to a Confluence space')
-    .row.items-center.justify-between
-      .km-field.text-secondary-text.q-pl-8 Publish Transcript Summary to Confluence
-      q-toggle(v-model='confluenceEnabled', color='primary')
-    .km-description.text-secondary-text.q-pt-xs.q-pl-8 Push completed summaries to Confluence
-
-    .q-gutter-md.q-mt-md(v-if='confluenceEnabled')
-      div
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 API Server
-        .row.items-center.q-gutter-sm
-          .col
-            km-select(
-              v-model='confluenceApiServer',
-              :options='apiServers',
-              option-label='name',
-              option-value='system_name',
-              emit-value, map-options, height='auto', minHeight='36px', clearable
-            )
-          .col-auto(v-if='confluenceApiServer')
-            km-btn(icon='open_in_new', flat, dense, @click='navigateToApiServer(confluenceApiServer)')
-
-      div
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Create Page Tool
-        .row.items-center.q-gutter-sm
-          .col
-            km-select(
-              v-model='confluenceCreatePageTool',
-              :options='confluenceAvailableTools',
-              option-label='label',
-              option-value='value',
-              emit-value, map-options, height='auto', minHeight='36px', clearable
-            )
-          .col-auto(v-if='confluenceCreatePageTool')
-            km-btn(icon='open_in_new', flat, dense, @click='navigateToTool(confluenceApiServer, confluenceCreatePageTool)')
-
-      div
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Space ID
-        km-input.full-width(
-          v-model='confluenceSpaceKey',
-          :placeholder='m.noteTaker_exampleLinearTeamId()',
-          height='30px'
-        )
-
-      div
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Parent Page ID (optional)
-        km-input.full-width(
-          v-model='confluenceParentId',
-          :placeholder='m.noteTaker_exampleLinearProjectId()',
-          height='30px'
-        )
-
-      div
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Title Template
-        km-input.full-width(
-          v-model='confluenceTitleTemplate',
-          :placeholder='m.noteTaker_meetingNotesTemplate()',
-          height='30px'
-        )
-        .km-description.text-secondary-text.q-pt-xs.q-pl-8 Available placeholders: {meeting_title}, {date}, {job_id}, {meeting_id}.
+<template>
+  <div>
+    <km-section title="Salesforce" sub-title="Send Note Taker transcripts to a Salesforce org">
+      <div class="cluster" data-justify="between">
+        <div class="km-field text-secondary-text pl-sm">Send Transcript to Salesforce</div>
+        <km-toggle v-model="sendTranscriptToSalesforce" />
+      </div>
+      <div class="km-description text-secondary-text pt-xs pl-sm">Push completed transcripts to Salesforce</div>
+      <div v-if="sendTranscriptToSalesforce" class="gap-md mt-md">
+        <div>
+          <div class="km-field text-secondary-text pb-xs pl-sm">API Server</div>
+          <div class="cluster" data-gap="sm">
+            <div class="flex-1">
+              <km-select v-model="salesforceApiServer" :options="apiServers" option-label="name" option-value="system_name" emit-value map-options height="auto" min-height="36px" clearable />
+            </div>
+            <div v-if="salesforceApiServer" class="flex-none">
+              <km-btn icon="external-link" flat dense @click="navigateToApiServer(salesforceApiServer)" />
+            </div>
+          </div>
+          <div class="km-description text-secondary-text pt-xs pl-sm">API server for Salesforce tool calls.</div>
+        </div>
+        <div>
+          <div class="km-field text-secondary-text pb-xs pl-sm">STT Recording Tool</div>
+          <div class="cluster" data-gap="sm">
+            <div class="flex-1">
+              <km-select v-model="salesforceSttRecordingTool" :options="salesforceAvailableTools" option-label="label" option-value="value" emit-value map-options height="auto" min-height="36px" clearable />
+            </div>
+            <div v-if="salesforceSttRecordingTool" class="flex-none">
+              <km-btn icon="external-link" flat dense @click="navigateToTool(salesforceApiServer, salesforceSttRecordingTool)" />
+            </div>
+          </div>
+          <div class="km-description text-secondary-text pt-xs pl-sm">Tool for creating STT recordings in Salesforce.</div>
+        </div>
+      </div>
+    </km-section>
+    <km-separator class="my-lg" />
+    <km-section title="Confluence" sub-title="Publish Note Taker output to a Confluence space">
+      <div class="cluster" data-justify="between">
+        <div class="km-field text-secondary-text pl-sm">Publish Transcript Summary to Confluence</div>
+        <km-toggle v-model="confluenceEnabled" />
+      </div>
+      <div class="km-description text-secondary-text pt-xs pl-sm">Push completed summaries to Confluence</div>
+      <div v-if="confluenceEnabled" class="gap-md mt-md">
+        <div>
+          <div class="km-field text-secondary-text pb-xs pl-sm">API Server</div>
+          <div class="cluster" data-gap="sm">
+            <div class="flex-1">
+              <km-select v-model="confluenceApiServer" :options="apiServers" option-label="name" option-value="system_name" emit-value map-options height="auto" min-height="36px" clearable />
+            </div>
+            <div v-if="confluenceApiServer" class="flex-none">
+              <km-btn icon="external-link" flat dense @click="navigateToApiServer(confluenceApiServer)" />
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="km-field text-secondary-text pb-xs pl-sm">Create Page Tool</div>
+          <div class="cluster" data-gap="sm">
+            <div class="flex-1">
+              <km-select v-model="confluenceCreatePageTool" :options="confluenceAvailableTools" option-label="label" option-value="value" emit-value map-options height="auto" min-height="36px" clearable />
+            </div>
+            <div v-if="confluenceCreatePageTool" class="flex-none">
+              <km-btn icon="external-link" flat dense @click="navigateToTool(confluenceApiServer, confluenceCreatePageTool)" />
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="km-field text-secondary-text pb-xs pl-sm">Space ID</div>
+          <km-input v-model="confluenceSpaceKey" class="full-width" :placeholder="m.noteTaker_exampleLinearTeamId()" height="30px" />
+        </div>
+        <div>
+          <div class="km-field text-secondary-text pb-xs pl-sm">Parent Page ID (optional)</div>
+          <km-input v-model="confluenceParentId" class="full-width" :placeholder="m.noteTaker_exampleLinearProjectId()" height="30px" />
+        </div>
+        <div>
+          <div class="km-field text-secondary-text pb-xs pl-sm">Title Template</div>
+          <km-input v-model="confluenceTitleTemplate" class="full-width" :placeholder="m.noteTaker_meetingNotesTemplate()" height="30px" />
+          <div class="km-description text-secondary-text pt-xs pl-sm">Available placeholders: {meeting_title}, {date}, {job_id}, {meeting_id}.</div>
+        </div>
+      </div>
+    </km-section>
+  </div>
 </template>
 
 <script setup lang="ts">

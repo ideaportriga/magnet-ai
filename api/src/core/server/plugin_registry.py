@@ -13,6 +13,7 @@ from .plugins import (
     OracleMonitoringPlugin,
     ShutdownPlugin,
     StartupPlugin,
+    TaskiqRuntimePlugin,
 )
 
 # Core plugins
@@ -29,3 +30,4 @@ openapi_plugin = OpenAPIPlugin()
 oracle_monitoring_plugin = OracleMonitoringPlugin()
 shutdown_plugin = ShutdownPlugin()
 startup_plugin = StartupPlugin()
+taskiq_runtime_plugin = TaskiqRuntimePlugin()

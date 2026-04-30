@@ -23,7 +23,7 @@ from core.db.models.transcription.transcription import Transcription
 from core.db.models.teams.note_taker_settings import (
     NoteTakerSettings as NoteTakerSettingsModel,
 )
-from ..note_taker_salesforce import (
+from services.integrations.salesforce.note_taker import (
     config_requires_salesforce as sf_config_requires_salesforce,
     account_lookup,
     get_salesforce_api_server,
@@ -600,11 +600,15 @@ class NoteTakerHandlerState:
         await self._maybe_send_typing(context, show_typing)
 
         try:
+            from core.domain.note_taker_settings.service import (
+                NoteTakerSettingsService,
+            )
+
             async with async_session_maker() as session:
-                stmt = select(NoteTakerSettingsModel).where(
-                    NoteTakerSettingsModel.system_name == config_system_name
+                service = NoteTakerSettingsService(session=session)
+                config_row = await service.get_one_or_none(
+                    system_name=config_system_name
                 )
-                config_row = (await session.execute(stmt)).scalars().first()
         except Exception as err:
             self._logger.exception(
                 "Failed to resolve note taker config %s", config_system_name
@@ -686,11 +690,15 @@ class NoteTakerHandlerState:
         await self._maybe_send_typing(context, show_typing)
 
         try:
+            from core.domain.note_taker_settings.service import (
+                NoteTakerSettingsService,
+            )
+
             async with async_session_maker() as session:
-                stmt = select(NoteTakerSettingsModel).where(
-                    NoteTakerSettingsModel.system_name == config_system_name
+                service = NoteTakerSettingsService(session=session)
+                config_row = await service.get_one_or_none(
+                    system_name=config_system_name
                 )
-                config_row = (await session.execute(stmt)).scalars().first()
                 if config_row is None:
                     await context.send_activity("Note taker config not found.")
                     return

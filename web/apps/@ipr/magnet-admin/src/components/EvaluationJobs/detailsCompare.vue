@@ -1,29 +1,46 @@
-<template lang="pug">
-.row.no-wrap.overflow-hidden.full-height(v-if='loading', style='min-width: 1200px')
-  km-inner-loading(:showing='loading')
-layouts-details-layout.q-mx-auto(v-else, noHeader)
-  template(#breadcrumbs)
-    .column.q-px-16.q-mb-16
-      .col.items-center
-        .row.q-gap-12.no-wrap.items-baseline
-          .col-auto
-            .km-field.text-secondary-text {{ m.evaluation_evaluatedTool() }}
-          .col-auto
-            .km-heading-3.q-mr-sm {{ evaluation_list?.[0]?.tool?.name }}
-      .col
-        .row.q-gap-12.no-wrap.items-baseline
-          .col-auto
-            .km-field.text-secondary-text {{ m.evaluation_testSet() }}
-          .col-auto
-            .km-heading-3.q-mr-sm {{ evaluation_list?.[0]?.test_sets?.[0] }}
-  template(#content)
-    .column.items-center.full-height.full-width.q-gap-16.overflow-auto.q-pt-16
-      .col-auto.full-width
-        template(v-if='tab == "records"')
-          evaluation-jobs-records-compare(@record:update='evaluationSetRecord', :input='evalInuptList[evalInputIndex]')
-  template(#drawer)
-    evaluation-jobs-drawer(v-if='openDrawer', :open='openDrawer')
-configuration-create-new(v-if='showNewDialog', :showNewDialog='showNewDialog', @cancel='showNewDialog = false', copy)
+<template>
+  <div v-if="loading" class="cluster overflow-hidden full-height" data-wrap="no" style="min-inline-size: 1200px">
+    <km-inner-loading :showing="loading" />
+  </div>
+  <layouts-details-layout v-else class="mx-auto" no-header>
+    <template #breadcrumbs>
+      <div class="stack px-lg mb-lg" data-gap="0">
+        <div class="items-center">
+          <div class="cluster" data-gap="md" data-wrap="no" data-align="baseline">
+            <div class="flex-none">
+              <div class="km-field text-secondary-text">{{ m.evaluation_evaluatedTool() }}</div>
+            </div>
+            <div class="flex-none">
+              <div class="km-heading-3 mr-sm">{{ evaluation_list?.[0]?.tool?.name }}</div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="cluster" data-gap="md" data-wrap="no" data-align="baseline">
+            <div class="flex-none">
+              <div class="km-field text-secondary-text">{{ m.evaluation_testSet() }}</div>
+            </div>
+            <div class="flex-none">
+              <div class="km-heading-3 mr-sm">{{ evaluation_list?.[0]?.test_sets?.[0] }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+    <template #content>
+      <div class="stack items-center full-height full-width overflow-auto pt-lg" data-gap="lg">
+        <div class="full-width">
+          <template v-if="tab == &quot;records&quot;">
+            <evaluation-jobs-records-compare :input="evalInuptList[evalInputIndex]" />
+          </template>
+        </div>
+      </div>
+    </template>
+    <template #drawer>
+      <evaluation-jobs-drawer v-if="openDrawer" :open="openDrawer" />
+    </template>
+  </layouts-details-layout>
+  <rag-create-new v-if="showNewDialog" :show-new-dialog="showNewDialog" copy @cancel="showNewDialog = false" />
 </template>
 
 <script>
@@ -255,20 +272,9 @@ export default {
 </script>
 
 <style lang="scss">
-@keyframes wobble {
-  0% {
-    transform: rotate(-5deg);
-  }
-  50% {
-    transform: rotate(5deg);
-  }
-  100% {
-    transform: rotate(-5deg);
-  }
-}
 
 .wobble {
-  animation: wobble 2s infinite;
+  animation: ds-attention-wobble var(--ds-duration-attention) infinite;
 }
 
 .grid-container {

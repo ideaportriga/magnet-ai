@@ -15,7 +15,7 @@
       :title="m.retrieval_exampleLabelSection()"
       :description="m.retrieval_exampleLabelDesc()"
       icon="label"
-      icon-color="blue-7"
+      tone="info"
       focus-highlight
     >
       <km-input
@@ -29,7 +29,7 @@
       :title="m.retrieval_userMessageSection()"
       :description="m.retrieval_userMessageDesc()"
       icon="chat_bubble_outline"
-      icon-color="teal-7"
+      tone="accent"
       focus-highlight
     >
       <km-input
@@ -45,8 +45,8 @@
     <kg-dialog-section
       :title="m.retrieval_agentResponse()"
       :description="m.retrieval_agentResponseDesc()"
-      icon="smart_toy"
-      icon-color="deep-purple-6"
+      icon="robot"
+      tone="assistant"
       focus-highlight
     >
       <km-input

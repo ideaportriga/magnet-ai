@@ -1,22 +1,17 @@
-<template lang="pug">
-.col-auto.q-py-auto.row.items-center.no-wrap.q-gap-8
-  template(v-if='activeTabName')
-    .km-body.text-primary.km-breadcrumb-link(@click='navigateToApp') {{ activeRagName }}
-    q-icon.text-secondary-text.km-breadcrumb-sep(name='chevron_right', size='18px')
-    .km-body {{ activeTabName }}
-  template(v-else)
-    .km-body {{ activeRagName }}
+<template>
+  <div class="flex-1 min-w-0 py-auto">
+    <KmBreadcrumbNav :items="crumbs" />
+  </div>
 </template>
 
 <script setup>
 import { computed } from 'vue'
-import { m } from '@/paraglide/messages'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { useCatalogOptions } from '@/queries/useCatalogOptions'
 import { useEntityDetail } from '@/composables/useEntityDetail'
+import KmBreadcrumbNav from '@ds/components/domain/KmBreadcrumbNav.vue'
 
 const route = useRoute()
-const router = useRouter()
 const { draft } = useEntityDetail('ai_apps')
 const { options: items } = useCatalogOptions('ai_apps')
 
@@ -29,7 +24,9 @@ const activeTabName = computed(() => {
   return tab?.name || route.params.tab
 })
 
-const navigateToApp = () => {
-  if (activeRagId.value) router.push(`/ai-apps/${activeRagId.value}`)
-}
+const crumbs = computed(() => {
+  const trail = [{ label: activeRagName.value ?? '', to: activeRagId.value ? `/ai-apps/${activeRagId.value}` : undefined }]
+  if (activeTabName.value) trail.push({ label: activeTabName.value })
+  return trail
+})
 </script>

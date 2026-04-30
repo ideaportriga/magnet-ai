@@ -1,89 +1,56 @@
-<template lang="pug">
-.column.no-wrap.full-height
-  .collection-container.q-mx-auto.full-width.column.full-height.q-px-md.q-pt-16
-    .col.ba-border.border-radius-12.bg-white.q-pa-16.column(style='min-height: 0')
-      .row.q-mb-12
-        q-space
-        .col-auto.center-flex-y
-          km-btn.q-mr-12(
-            icon='refresh',
-            :label='m.common_refreshList()',
-            @click='refreshTable',
-            iconColor='icon',
-            hoverColor='primary',
-            labelClass='km-title',
-            flat,
-            iconSize='16px',
-            hoverBg='primary-bg'
-          )
-          km-btn(
-            :label='m.common_new()',
-            @click='showNewDialog = true'
-          )
-      .col(style='min-height: 0')
-        km-data-table(
-          fill-height,
-          :table='table',
-          :loading='loading',
-          row-key='id',
-          dense,
-          @row-click='openDetails'
-        )
-        km-inner-loading(:showing='loading')
-
-  //- New Run Dialog
-  q-dialog(:model-value='showNewDialog', @update:model-value='showNewDialog = $event')
-    q-card(style='min-width: 600px')
-      q-card-section
-        .text-h6 Create New Run
-
-      q-card-section.q-pt-none
-        q-form(@submit.prevent='createRun')
-          .km-field.q-mb-md
-    .text-secondary-text.q-pb-xs Config
-    km-select(
-      v-model='selectedConfigId',
-      :options='configOptions',
-      option-value='id',
-      option-label='name',
-      emit-value,
-      map-options,
-      height='30px',
-      :placeholder='m.deepResearch_selectConfig()'
-      :rules='[val => !!val || "Config is required"]'
-    )
-    .km-description.text-secondary-text.q-pt-2 Select the research configuration to use
-
-          .km-field.q-mb-md
-    .text-secondary-text.q-pb-xs Input (JSON)
-    q-input(
-      v-model='runInput',
-      type='textarea',
-      outlined,
-      rows='8',
-      :rules='[validateJSON]'
-      :placeholder='m.deepResearch_exampleQuery()'
-    )
-    .km-description.text-secondary-text.q-pt-2 Provide the input data for the research run
-
-          .km-field.q-mb-md
-    .text-secondary-text.q-pb-xs Client ID (optional)
-    km-input(
-      v-model='runClientId',
-      height='30px',
-      :placeholder='m.deepResearch_optionalClientIdentifier()'
-    )
-
-          q-card-actions(align='right')
-    km-btn(flat, :label='m.common_cancel()', color='primary', @click='closeDialog')
-    km-btn(:label='m.common_createRun()', :loading='creating', @click='createRun')
+<template>
+  <km-list-page>
+    <template #toolbar>
+      <div class="km-space" />
+      <div class="flex-none center-flex-y">
+        <km-btn class="mr-md" icon="refresh" :label="m.common_refreshList()" interaction-tone="brand" label-class="km-title" flat icon-size="16px" @click="refreshTable" />
+        <km-btn :label="m.common_new()" @click="showNewDialog = true" />
+      </div>
+    </template>
+    <div class="flex-1" style="min-block-size: 0">
+      <km-data-table fill-height :table="table" :loading="loading" row-key="id" dense @row-click="openDetails" />
+      <km-inner-loading :showing="loading" />
+    </div>
+    <template #overlays>
+      <km-dialog :model-value="showNewDialog" @update:model-value="showNewDialog = $event">
+        <km-card style="min-inline-size: 600px">
+          <div class="km-card-section">
+            <div class="text-h6">Create New Run</div>
+          </div>
+          <div class="km-card-section pt-0">
+            <form class="km-form" @submit.prevent="createRun">
+              <div class="km-field mb-md" />
+            </form>
+          </div>
+        </km-card>
+        <div class="text-secondary-text pb-xs">Config</div>
+        <km-select v-model="selectedConfigId" :options="configOptions" option-value="id" option-label="name" emit-value map-options height="30px" :placeholder="m.deepResearch_selectConfig()" :rules="[val => !!val || 'Config is required']" />
+        <div class="km-description text-secondary-text pt-2xs">
+          Select the research configuration to use
+          <div class="km-field mb-md" />
+        </div>
+        <div class="text-secondary-text pb-xs">Input (JSON)</div>
+        <km-input v-model="runInput" type="textarea" outlined rows="8" :rules="[validateJSON]" :placeholder="m.deepResearch_exampleQuery()" />
+        <div class="km-description text-secondary-text pt-2xs">
+          Provide the input data for the research run
+          <div class="km-field mb-md" />
+        </div>
+        <div class="text-secondary-text pb-xs">Client ID (optional)</div>
+        <km-input v-model="runClientId" height="30px" :placeholder="m.deepResearch_optionalClientIdentifier()">
+          <div class="km-card-actions" align="right" />
+        </km-input>
+        <km-btn flat :label="m.common_cancel()" tone="brand" @click="closeDialog" />
+        <km-btn :label="m.common_createRun()" :loading="creating" @click="createRun" />
+      </km-dialog>
+    </template>
+  </km-list-page>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, markRaw, watch } from 'vue'
 import { m } from '@/paraglide/messages'
 import { useRouter } from 'vue-router'
-import { date } from 'quasar'
+import { DateTime } from 'luxon'
 import StatusChip from './StatusChip.vue'
 import { useDeepResearchStore } from '@/stores/deepResearchStore'
 import { useLocalDataTable } from '@/composables/useLocalDataTable'
@@ -173,11 +140,11 @@ const columns = [
   }),
   textColumn('created_at', m.common_created(), {
     sortable: true,
-    format: (val: unknown) => val ? date.formatDate(new Date(val as string), 'YYYY-MM-DD HH:mm:ss') : '-',
+    format: (val: unknown) => val ? DateTime.fromJSDate(new Date(val as string)).toFormat('yyyy-MM-dd HH:mm:ss') : '-',
   }),
   textColumn('updated_at', m.common_lastUpdated(), {
     sortable: true,
-    format: (val: unknown) => val ? date.formatDate(new Date(val as string), 'YYYY-MM-DD HH:mm:ss') : '-',
+    format: (val: unknown) => val ? DateTime.fromJSDate(new Date(val as string)).toFormat('yyyy-MM-dd HH:mm:ss') : '-',
   }),
 ]
 
@@ -306,8 +273,3 @@ const openDetails = (row: any) => {
 }
 </script>
 
-<style lang="stylus">
-.km-input:not(.q-field--readonly) .q-field__control::before {
-  background: #fff !important;
-}
-</style>

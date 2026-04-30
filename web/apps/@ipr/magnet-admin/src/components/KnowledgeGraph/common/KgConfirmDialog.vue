@@ -1,52 +1,50 @@
 <template>
-  <q-dialog :model-value="modelValue" @update:model-value="$emit('update:modelValue', $event)">
-    <q-card class="kg-confirm-dialog" :style="dialogStyle">
+  <km-dialog :model-value="modelValue" @update:model-value="$emit('update:modelValue', $event)">
+    <km-card class="kg-confirm-dialog" :style="dialogStyle">
       <!-- Header -->
-      <q-card-section class="kg-confirm-dialog__header">
-        <div class="row items-center no-wrap q-gutter-x-sm">
+      <div class="km-card-section kg-confirm-dialog__header">
+        <div class="cluster" data-wrap="no" data-gap="xs">
           <div v-if="icon" class="kg-confirm-dialog__icon" :class="`kg-confirm-dialog__icon--${iconVariant}`">
-            <q-icon :name="icon" size="20px" />
+            <km-glyph :name="icon" size="20px" />
           </div>
-          <div class="col kg-confirm-dialog__title">{{ title }}</div>
-          <q-btn icon="close" flat dense round size="sm" color="grey-6" @click="$emit('update:modelValue', false)" />
+          <div class="flex-1 kg-confirm-dialog__title">{{ title }}</div>
+          <km-btn icon="close" flat dense round size="sm" tone="weak" @click="$emit('update:modelValue', false)" />
         </div>
-      </q-card-section>
+      </div>
 
       <!-- Description -->
-      <q-card-section v-if="description || $slots.description" class="kg-confirm-dialog__description">
+      <div v-if="description || $slots.description" class="km-card-section kg-confirm-dialog__description">
         <span v-if="!$slots.description">{{ description }}</span>
-        <slot name="description" />
-      </q-card-section>
+        <slot name="file-text" />
+      </div>
 
       <!-- Content (options, warnings, etc.) -->
-      <q-card-section v-if="$slots.default" class="kg-confirm-dialog__content">
+      <div v-if="$slots.default" class="km-card-section kg-confirm-dialog__content">
         <slot />
-      </q-card-section>
+      </div>
 
       <!-- Warning -->
-      <q-card-section v-if="warning || $slots.warning" class="kg-confirm-dialog__warning">
+      <div v-if="warning || $slots.warning" class="km-card-section kg-confirm-dialog__warning">
         <kg-warning-banner :variant="warningVariant">
           <slot name="warning">{{ warning }}</slot>
         </kg-warning-banner>
-      </q-card-section>
+      </div>
 
       <!-- Actions -->
-      <q-card-actions class="kg-confirm-dialog__actions">
-        <km-btn flat :label="cancelLabel" color="grey-7" @click="$emit('update:modelValue', false)" />
-        <q-space />
+      <div class="km-card-actions kg-confirm-dialog__actions">
+        <km-btn flat :label="cancelLabel" tone="weak" @click="$emit('update:modelValue', false)" />
+        <div class="km-space" />
         <km-btn
           :label="confirmLabel"
-          :bg="destructive ? 'error-bg' : undefined"
-          :hover-bg="destructive ? 'error-text' : undefined"
-          :color="destructive ? 'error-text' : ''"
+          :variant="destructive ? 'danger' : 'primary'"
           :disable="disableConfirm"
           @click="$emit('confirm')"
         />
-      </q-card-actions>
+      </div>
 
-      <q-inner-loading :showing="loading" />
-    </q-card>
-  </q-dialog>
+      <km-inner-loading :showing="loading" />
+    </km-card>
+  </km-dialog>
 </template>
 
 <script setup lang="ts">
@@ -99,32 +97,32 @@ const dialogStyle = computed(() => ({
   display: flex;
   flex-direction: column;
   padding: 24px;
-  border-radius: var(--radius-xl);
+  border-radius: var(--ds-radius-xl);
 }
 
 .kg-confirm-dialog__icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  min-width: 36px;
-  border-radius: var(--radius-full);
+  inline-size: 36px;
+  block-size: 36px;
+  min-inline-size: 36px;
+  border-radius: var(--ds-radius-full);
 }
 
 .kg-confirm-dialog__icon--error {
-  background: var(--q-error-bg);
-  color: var(--q-error);
+  background: var(--ds-color-error-bg);
+  color: var(--ds-color-error);
 }
 
 .kg-confirm-dialog__icon--warning {
-  background: var(--q-warning-bg);
-  color: var(--q-warning);
+  background: var(--ds-color-warning-bg);
+  color: var(--ds-color-warning);
 }
 
 .kg-confirm-dialog__icon--info {
-  background: var(--q-primary-bg);
-  color: var(--q-primary);
+  background: var(--ds-color-primary-bg);
+  color: var(--ds-color-primary);
 }
 
 .kg-confirm-dialog__header,
@@ -135,30 +133,30 @@ const dialogStyle = computed(() => ({
 }
 
 .kg-confirm-dialog__title {
-  font-size: var(--km-font-size-body-lg);
+  font-size: var(--ds-font-size-body-lg);
   font-weight: 600;
   line-height: 1.3;
-  color: var(--q-black);
+  color: var(--ds-color-black);
 }
 
 .kg-confirm-dialog__description {
-  margin-top: 14px;
-  padding-left: 2px !important;
-  font-size: var(--km-font-size-body);
+  margin-block-start: 14px;
+  padding-inline-start: 2px !important;
+  font-size: var(--ds-font-size-body);
   line-height: 1.5;
-  color: var(--q-secondary-text);
+  color: var(--ds-color-secondary-text);
 }
 
 .kg-confirm-dialog__content {
-  margin-top: 16px;
+  margin-block-start: 16px;
 }
 
 .kg-confirm-dialog__warning {
-  margin-top: 16px;
+  margin-block-start: 16px;
 }
 
 .kg-confirm-dialog__actions {
-  margin-top: 20px;
+  margin-block-start: 20px;
   padding: 0 !important;
   gap: 8px;
 }

@@ -15,10 +15,10 @@
     <kg-dialog-section
       :title="m.knowledgeGraph_entityInformation()"
       :description="m.knowledgeGraph_entityInfoDesc()"
-      icon="o_category"
-      icon-color="primary"
+      icon="category"
+      tone="brand"
     >
-      <div class="column q-gap-16">
+      <div class="stack" data-gap="lg">
         <kg-field-row :cols="1" :label="m.knowledgeGraph_entityNameLabel()">
           <km-input v-model="form.name" outlined dense :placeholder="m.knowledgeGraph_entityNamePlaceholder()" />
         </kg-field-row>
@@ -41,7 +41,7 @@
     <!-- Validation Messages (fixed footer, shown only after save attempt) -->
     <template #footer>
       <div v-if="saveAttempted && validationErrors.length > 0" class="entity-validation-errors">
-        <q-icon name="o_warning" size="16px" color="negative" />
+        <km-glyph name="warning" size="16px" tone="danger" />
         <div class="entity-validation-errors-list">
           <span v-for="(error, idx) in validationErrors" :key="idx">{{ error }}</span>
         </div>
@@ -166,16 +166,16 @@ function onSave() {
   align-items: flex-start;
   gap: 8px;
   padding: 10px 14px;
-  background: var(--q-error-bg);
-  border: 1px solid var(--q-error-bg);
-  border-radius: var(--radius-md);
+  background: var(--ds-color-error-bg);
+  border: 1px solid var(--ds-color-error-bg);
+  border-radius: var(--ds-radius-md);
 }
 
 .entity-validation-errors-list {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  font-size: var(--km-font-size-caption);
-  color: var(--q-error-text);
+  font-size: var(--ds-font-size-caption);
+  color: var(--ds-color-error-text);
 }
 </style>

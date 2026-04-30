@@ -126,8 +126,14 @@ def run_migrations_offline() -> None:
             # Ignore dynamically created document tables (vector store)
             if name.startswith("documents_"):
                 return False
-            # Ignore APScheduler tables
+            # Ignore legacy APScheduler table (dropped by 2026-04-21 migration, but
+            # might still exist when autogen runs on older DB snapshots).
             if name == "apscheduler_jobs":
+                return False
+            # Ignore TaskIQ-managed tables — created by AsyncpgBroker /
+            # AsyncpgResultBackend / AsyncpgScheduleSource at runtime, not
+            # declared via SQLAlchemy metadata.
+            if name in {"taskiq_messages", "taskiq_results", "taskiq_schedules"}:
                 return False
             # Ignore knowledge graph tables
             if re.match(
@@ -182,8 +188,14 @@ def do_run_migrations(connection: Connection) -> None:
             # Ignore dynamically created document tables (vector store)
             if name.startswith("documents_"):
                 return False
-            # Ignore APScheduler tables
+            # Ignore legacy APScheduler table (dropped by 2026-04-21 migration, but
+            # might still exist when autogen runs on older DB snapshots).
             if name == "apscheduler_jobs":
+                return False
+            # Ignore TaskIQ-managed tables — created by AsyncpgBroker /
+            # AsyncpgResultBackend / AsyncpgScheduleSource at runtime, not
+            # declared via SQLAlchemy metadata.
+            if name in {"taskiq_messages", "taskiq_results", "taskiq_schedules"}:
                 return False
             # Ignore knowledge graph tables
             if re.match(

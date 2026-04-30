@@ -32,6 +32,7 @@ from pydantic import BaseModel, Field
 
 from core.config.app import alchemy
 from core.config.base import get_auth_settings
+from core.exceptions import AuthError, ConflictError
 from middlewares.auth import Auth, ensure_request_auth_data
 from services.auth.identity_resolution import resolve_identity
 from services.auth.provider_registry import (
@@ -61,14 +62,21 @@ class SignupRequest(BaseModel):
 
 
 class SignupResponse(BaseModel):
-    user_id: str
+    user_id: Optional[str] = None
     email: str
-    message: str = "Account created. Please verify your email."
+    message: str = (
+        "If this email is not already registered, a verification link has been sent."
+    )
 
 
 class RefreshResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+
+
+class RefreshConflictResponse(BaseModel):
+    error: str
+    retryable: bool = True
 
 
 class SessionResponse(BaseModel):
@@ -220,6 +228,10 @@ class AuthV2Controller(Controller):
                 name=data.name,
             )
             await session.commit()
+            # Always return a uniform response — never reveal whether the
+            # email was already registered (account enumeration defence).
+            if user is None:
+                return SignupResponse(email=data.email)
             return SignupResponse(user_id=str(user.id), email=user.email)
 
     # ── SSO (OIDC / OAuth2) ────────────────────────────────────────────
@@ -396,28 +408,46 @@ class AuthV2Controller(Controller):
     # ── Token Refresh ──────────────────────────────────────────────────
 
     @post("/refresh", exclude_from_auth=True, summary="Refresh access token")
-    async def refresh(self, request: Request) -> Response[RefreshResponse]:
+    async def refresh(
+        self, request: Request
+    ) -> Response[RefreshResponse | RefreshConflictResponse]:
         old_refresh_token = request.cookies.get("refresh_token")
         if not old_refresh_token:
+            logger.warning("auth_refresh outcome=denied reason=missing_refresh_cookie")
             raise NotAuthorizedException("No refresh token provided")
 
         device_info = request.headers.get("user-agent")
 
         async with alchemy.get_session() as session:
-            (
-                new_refresh_plaintext,
-                _,
-                user_id,
-            ) = await refresh_token_service.validate_and_rotate(
-                session=session,
-                plaintext_token=old_refresh_token,
-                device_info=device_info,
-            )
+            try:
+                (
+                    new_refresh_plaintext,
+                    _,
+                    user_id,
+                ) = await refresh_token_service.validate_and_rotate(
+                    session=session,
+                    plaintext_token=old_refresh_token,
+                    device_info=device_info,
+                )
+            except ConflictError as exc:
+                logger.warning("auth_refresh outcome=retryable reason=%s", exc)
+                return Response(
+                    RefreshConflictResponse(error=str(exc)),
+                    status_code=409,
+                    headers={"Retry-After": "1"},
+                )
+            except AuthError as exc:
+                logger.warning("auth_refresh outcome=denied reason=%s", exc)
+                raise
 
             from services.users.service import get_user_by_id
 
             user = await get_user_by_id(user_id)
             if not user:
+                logger.warning(
+                    "auth_refresh outcome=denied reason=user_missing user_id=%s",
+                    user_id,
+                )
                 raise NotAuthorizedException("User not found")
 
             access_token = create_access_token(user, auth_method="refresh")
@@ -425,6 +455,7 @@ class AuthV2Controller(Controller):
 
             response = Response(RefreshResponse(access_token=access_token))
             set_auth_cookies(response, access_token, new_refresh_plaintext)
+            logger.info("auth_refresh outcome=success user_id=%s", user_id)
             return response
 
     # ── Current User ───────────────────────────────────────────────────

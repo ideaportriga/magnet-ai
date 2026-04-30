@@ -1,77 +1,75 @@
-<template lang="pug">
-.ba-border.bg-white.border-radius-12.q-pa-lg(style='min-width: 300px')
-  km-section(:title='m.retrieval_answeredCheck()', :subTitle='m.subtitle_turnOnMonitoring()')
-    q-toggle.q-mb-lg(v-model='checkIsAnswered', dense)
-    template(v-if='checkIsAnswered')
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_promptTemplate() }}
-      km-select(height='30px', :placeholder='m.common_promptTemplate()', :options='prompts', v-model='answeredPromptCode', hasDropdownSearch)
-      .row.q-mt-sm
-        .col-auto
-          km-btn(
-            flat,
-            simple,
-            :label='answeredPromptCode ? m.common_openPromptTemplate() : m.common_openPromptTemplatesLibrary()',
-            iconSize='16px',
-            icon='fas fa-comment-dots',
-            @click='answeredPromptCode ? navigate(`prompt-templates/${answeredPromptId}`) : navigate("prompt-templates")'
-          )
-
-  q-separator.q-my-lg
-  km-section(
-    :title='m.retrieval_checkForHallucinations()',
-    :subTitle='m.subtitle_hallucinationCheck()'
-  )
-    q-toggle.q-mb-lg(v-model='checkIsHallucinate', dense)
-    template(v-if='checkIsHallucinate')
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_promptTemplate() }}
-      km-select(height='30px', :placeholder='m.common_promptTemplate()', :options='prompts', v-model='hallucinatePromptCode', hasDropdownSearch)
-      .row.q-mt-sm
-        .col-auto
-          km-btn(
-            flat,
-            simple,
-            :label='hallucinatePromptCode ? m.common_openPromptTemplate() : m.common_openPromptTemplatesLibrary()',
-            iconSize='16px',
-            icon='fas fa-comment-dots',
-            @click='hallucinatePromptCode ? navigate(`prompt-templates/${hallucinatePromptId}`) : navigate("prompt-templates")'
-          )
-
-      .row.q-mt-lg
-        .col-auto
-          q-radio(v-model='checkForHallucinateMode', val='logs', dense)
-        .col
-          .column.q-pl-md
-            div {{ m.retrieval_onlyLogResults() }}
-            .col
-              .km-field.text-secondary-text {{ m.retrieval_onlyLogResultsDesc() }}
-      .row.q-mt-lg
-        .col.q-mb-md
-          q-chip.km-small-chip(color='primary-light', text-color='primary', :label='m.common_upcomingFeature()')
-      .row
-        .col-auto
-          q-radio(v-model='checkForHallucinateMode', val='logsRegenerate', dense, disable)
-        .col
-          .column.q-pl-md
-            div {{ m.retrieval_logAndRegenerate() }}
-            .col
-              .km-field.text-secondary-text {{ m.retrieval_logAndRegenerateDesc() }}
-
-  q-separator.q-my-lg
-  km-section(:title='m.retrieval_detectQuestionLanguage()', :subTitle='m.subtitle_turnOnMonitoring()')
-    q-toggle.q-mb-lg(v-model='detectLanguage', dense)
-    template(v-if='detectLanguage')
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_promptTemplate() }}
-      km-select(height='30px', :placeholder='m.common_promptTemplate()', :options='prompts', v-model='languageDetectPromptCode', hasDropdownSearch)
-      .row.q-mt-sm
-        .col-auto
-          km-btn(
-            flat,
-            simple,
-            :label='languageDetectPromptCode ? m.common_openPromptTemplate() : m.common_openPromptTemplatesLibrary()',
-            iconSize='16px',
-            icon='fas fa-comment-dots',
-            @click='languageDetectPromptCode ? navigate(`prompt-templates/${languageDetectPromptId}`) : navigate("prompt-templates")'
-          )
+<template>
+  <div class="ba-border bg-white border-radius-12 p-lg" style="min-inline-size: 300px">
+    <km-section :title="m.retrieval_answeredCheck()" :sub-title="m.subtitle_turnOnMonitoring()">
+      <km-toggle v-model="checkIsAnswered" class="mb-lg" dense />
+      <template v-if="checkIsAnswered">
+        <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.common_promptTemplate() }}</div>
+        <km-select v-model="answeredPromptCode" height="30px" :placeholder="m.common_promptTemplate()" :options="prompts" has-dropdown-search />
+        <div class="cluster mt-sm">
+          <div class="flex-none">
+            <km-btn flat simple :label="answeredPromptCode ? m.common_openPromptTemplate() : m.common_openPromptTemplatesLibrary()" icon-size="16px" icon="chat" @click="answeredPromptCode ? navigate(`prompt-templates/${answeredPromptId}`) : navigate(&quot;prompt-templates&quot;)" />
+          </div>
+        </div>
+      </template>
+    </km-section>
+    <km-separator class="my-lg" />
+    <km-section :title="m.retrieval_checkForHallucinations()" :sub-title="m.subtitle_hallucinationCheck()">
+      <km-toggle v-model="checkIsHallucinate" class="mb-lg" dense />
+      <template v-if="checkIsHallucinate">
+        <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.common_promptTemplate() }}</div>
+        <km-select v-model="hallucinatePromptCode" height="30px" :placeholder="m.common_promptTemplate()" :options="prompts" has-dropdown-search />
+        <div class="cluster mt-sm">
+          <div class="flex-none">
+            <km-btn flat simple :label="hallucinatePromptCode ? m.common_openPromptTemplate() : m.common_openPromptTemplatesLibrary()" icon-size="16px" icon="chat" @click="hallucinatePromptCode ? navigate(`prompt-templates/${hallucinatePromptId}`) : navigate(&quot;prompt-templates&quot;)" />
+          </div>
+        </div>
+        <div class="cluster mt-lg">
+          <div class="flex-none">
+            <km-radio v-model="checkForHallucinateMode" val="logs" dense />
+          </div>
+          <div class="flex-1">
+            <div class="stack pl-md">
+              <div>{{ m.retrieval_onlyLogResults() }}</div>
+              <div class="full-width">
+                <div class="km-field text-secondary-text">{{ m.retrieval_onlyLogResultsDesc() }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="cluster mt-lg">
+          <div class="full-width mb-md">
+            <km-chip tone="brand" class="km-small-chip" :label="m.common_upcomingFeature()" />
+          </div>
+        </div>
+        <div class="cluster">
+          <div class="flex-none">
+            <km-radio v-model="checkForHallucinateMode" val="logsRegenerate" dense disable />
+          </div>
+          <div class="flex-1">
+            <div class="stack pl-md">
+              <div>{{ m.retrieval_logAndRegenerate() }}</div>
+              <div class="full-width">
+                <div class="km-field text-secondary-text">{{ m.retrieval_logAndRegenerateDesc() }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
+    </km-section>
+    <km-separator class="my-lg" />
+    <km-section :title="m.retrieval_detectQuestionLanguage()" :sub-title="m.subtitle_turnOnMonitoring()">
+      <km-toggle v-model="detectLanguage" class="mb-lg" dense />
+      <template v-if="detectLanguage">
+        <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.common_promptTemplate() }}</div>
+        <km-select v-model="languageDetectPromptCode" height="30px" :placeholder="m.common_promptTemplate()" :options="prompts" has-dropdown-search />
+        <div class="cluster mt-sm">
+          <div class="flex-none">
+            <km-btn flat simple :label="languageDetectPromptCode ? m.common_openPromptTemplate() : m.common_openPromptTemplatesLibrary()" icon-size="16px" icon="chat" @click="languageDetectPromptCode ? navigate(`prompt-templates/${languageDetectPromptId}`) : navigate(&quot;prompt-templates&quot;)" />
+          </div>
+        </div>
+      </template>
+    </km-section>
+  </div>
 </template>
 
 <script>

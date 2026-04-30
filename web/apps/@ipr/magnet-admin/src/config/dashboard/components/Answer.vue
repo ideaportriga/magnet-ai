@@ -1,8 +1,12 @@
-<template lang="pug">
-.row.no-wrap.items-center.q-gap-4
-  .km-field.text-left.answer(ref='textEl') {{ text }}
-    q-tooltip.bg-white.block-shadow.km-description(self='top middle', :offset='[-50, -50]', v-if='showTooltip')
-      .text-secondary-text(style='max-width: 400px') {{ text }}
+<template>
+  <div class="cluster" data-gap="xs" data-wrap="no">
+    <div ref="textEl" class="km-field text-left answer">
+      {{ text }}
+      <km-tooltip v-if="showTooltip" class="bg-white block-shadow km-description" self="top middle" :offset="[-50, -50]">
+        <div class="text-secondary-text" style="max-inline-size: 400px">{{ text }}</div>
+      </km-tooltip>
+    </div>
+  </div>
 </template>
 <script>
 import { defineComponent, ref } from 'vue'
@@ -44,12 +48,13 @@ export default defineComponent({
   },
 })
 </script>
-<style lang="stylus">
-.answer
-    white-space: break-spaces
-    overflow: hidden
-    text-overflow: ellipsis
-    display: -webkit-box
-    -webkit-line-clamp: 1
-    -webkit-box-orient: vertical
+<style>
+.answer {
+  white-space: break-spaces;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+}
 </style>

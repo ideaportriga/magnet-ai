@@ -1,81 +1,23 @@
-import { Notify } from 'quasar'
+/**
+ * Notification helpers — Phase 4b: this file is now a thin bridge over the
+ * `@ds` Toast system (`useNotify`). Public API is identical, so the 38+
+ * callers across `magnet-admin` and `magnet-panel` continue to work
+ * unchanged.
+ *
+ * Why we kept the file (rather than removing it and updating imports
+ * everywhere): the codebase reaches for `notify` from many places —
+ * components, stores, plugins, even non-Vue helpers. Keeping the symbol at
+ * its current location avoids one large mechanical change-set; the symbol
+ * just delegates to the new implementation.
+ *
+ * To send a toast the host component `<DsToastHost>` must be mounted at
+ * the application root (see `magnet-admin/src/App.vue` and
+ * `magnet-panel/src/App.vue`). When it is not mounted the toast is queued
+ * in memory and rendered as soon as the host appears.
+ */
 
-export interface NotifyConfirmOptions {
-  message: string
-  onConfirm: () => void
-  confirmLabel?: string
-  cancelLabel?: string
-  onCancel?: () => void
-}
+import { notify as dsNotify, type NotifyConfirmOptions as DsNotifyConfirmOptions } from '@ds/composables/useNotify'
 
-export const notify = {
-  success: (message: string) =>
-    Notify.create({
-      message,
-      icon: 'check_circle',
-      color: 'green-9',
-      textColor: 'white',
-      timeout: 2500,
-      group: 'success',
-    }),
+export type NotifyConfirmOptions = DsNotifyConfirmOptions
 
-  error: (message: string) =>
-    Notify.create({
-      message,
-      icon: 'error',
-      color: 'red-9',
-      textColor: 'white',
-      timeout: 5000,
-      group: 'error',
-    }),
-
-  warning: (message: string) =>
-    Notify.create({
-      message,
-      icon: 'warning',
-      color: 'orange-9',
-      textColor: 'white',
-      timeout: 3000,
-      group: 'warning',
-    }),
-
-  info: (message: string) =>
-    Notify.create({
-      message,
-      icon: 'info',
-      color: 'blue-grey-8',
-      textColor: 'white',
-      timeout: 2000,
-      group: 'info',
-    }),
-
-  /** Pass translated string: notify.copied(m.common_copiedToClipboard()) */
-  copied: (message = 'Copied to clipboard') =>
-    Notify.create({
-      message,
-      icon: 'content_copy',
-      color: 'grey-9',
-      textColor: 'white',
-      timeout: 1000,
-      group: 'copied',
-    }),
-
-  /**
-   * Sticky red toast with Confirm/Cancel buttons — used for destructive
-   * actions (delete variant, delete entity). Prefer a proper modal when
-   * possible; this exists for parity with the legacy $q.notify-confirm pattern.
-   */
-  confirm: ({ message, onConfirm, onCancel, confirmLabel = 'Confirm', cancelLabel = 'Cancel' }: NotifyConfirmOptions) =>
-    Notify.create({
-      message,
-      color: 'red-9',
-      textColor: 'white',
-      icon: 'error',
-      group: 'error',
-      timeout: 0,
-      actions: [
-        { label: cancelLabel, color: 'yellow', handler: () => onCancel?.() },
-        { label: confirmLabel, color: 'white', handler: () => onConfirm() },
-      ],
-    }),
-}
+export const notify = dsNotify

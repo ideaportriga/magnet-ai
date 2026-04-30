@@ -1,52 +1,32 @@
-<template lang="pug">
-div
-  km-section(:title='m.common_type()', :subTitle='m.subtitle_operationType()')
-    .km-field.text-secondary-text.q-pb-md.q-pl-8 Operation type
-      km-select(
-        height='30px',
-        :placeholder='m.common_type()',
-        :options='typeOptions',
-        v-model='type',
-        hasDropdownSearch,
-        option-value='value',
-        option-label='label',
-        map-options,
-        disabled
-      )
-  q-separator.q-my-lg
-  km-section(:title='m.entity_ragtools()')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 RAG Tools
-      km-select(
-        height='auto',
-        minHeight='36px',
-        :placeholder='m.assistantTools_selectRag()',
-        :options='ragItems',
-        v-model='rag',
-        hasDropdownSearch,
-        option-value='system_name',
-        option-label='name',
-        emit-value,
-        map-options,
-        disabled
-      )
-
-  q-separator.q-my-lg
-  km-section(:title='m.section_descriptionsForLlm()', :subTitle='m.subtitle_llmDescriptions()')
-    .km-field.text-secondary-text.q-pb-md.q-pl-8 Name
-      km-input(v-model='nameForLLM', :placeholder='m.assistantTools_maxChunkSize()')
-      .km-description.text-secondary-text Tool name for the LLM
-
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 Description
-      km-input(
-        ref='input',
-        rows='10',
-        :placeholder='m.placeholder_typeYourTextHere()',
-        border-radius='8px',
-        height='36px',
-        type='textarea',
-        v-model='descriptionForLLM'
-      )
-      .km-description.text-secondary-textTool Description for the LLM
+<template>
+  <div>
+    <km-section :title="m.common_type()" :sub-title="m.subtitle_operationType()">
+      <div class="km-field text-secondary-text pb-md pl-sm">
+        Operation type
+        <km-select v-model="type" height="30px" :placeholder="m.common_type()" :options="typeOptions" has-dropdown-search option-value="value" option-label="label" map-options disabled />
+      </div>
+    </km-section>
+    <km-separator class="my-lg" />
+    <km-section :title="m.entity_ragtools()">
+      <div class="km-field text-secondary-text pb-xs pl-sm">
+        RAG Tools
+        <km-select v-model="rag" height="auto" min-height="36px" :placeholder="m.assistantTools_selectRag()" :options="ragItems" has-dropdown-search option-value="system_name" option-label="name" emit-value map-options disabled />
+      </div>
+    </km-section>
+    <km-separator class="my-lg" />
+    <km-section :title="m.section_descriptionsForLlm()" :sub-title="m.subtitle_llmDescriptions()">
+      <div class="km-field text-secondary-text pb-md pl-sm">
+        Name
+        <km-input v-model="nameForLLM" :placeholder="m.assistantTools_maxChunkSize()" />
+        <div class="km-description text-secondary-text">Tool name for the LLM</div>
+      </div>
+      <div class="km-field text-secondary-text pb-xs pl-sm">
+        Description
+        <km-input ref="input" v-model="descriptionForLLM" rows="10" :placeholder="m.placeholder_typeYourTextHere()" border-radius="8px" height="36px" type="textarea" />
+        <div class="km-description text-secondary-textTool">Description for the LLM</div>
+      </div>
+    </km-section>
+  </div>
 </template>
 
 <script>

@@ -1,5 +1,5 @@
-<template lang="pug">
-q-chip.text-uppercase.q-ma-none(v-if='channel', :label='channel', size='sm')
+<template>
+  <km-chip v-if="channel" class="text-uppercase m-0" :label="channel" size="sm" />
 </template>
 
 <script>

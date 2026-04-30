@@ -1,98 +1,45 @@
-<template lang="pug">
-div
-  //- Dropzone
-  .dropzone(
-    :class='{ "dropzone--active": dragOver, "dropzone--disabled": disable || uploading || readonly }',
-    @dragover.prevent='onDragOver',
-    @dragleave.prevent='onDragLeave',
-    @drop.prevent='onDrop',
-    @click='openFilePicker'
-  )
-    input.hidden-input(
-      ref='fileInput',
-      type='file',
-      multiple,
-      :accept='acceptedExtensions',
-      @change='onFileInputChange'
-    )
-    .dropzone-content
-      q-icon.q-mb-sm(:name='dragOver ? "fas fa-cloud-arrow-down" : "fas fa-cloud-upload-alt"', size='32px', :color='dragOver ? "primary" : "grey-6"')
-      .text-body2(:class='dragOver ? "text-primary" : "text-grey-7"')
-        template(v-if='dragOver') {{ m.collections_dropFilesHere() }}
-        template(v-else) {{ m.collections_dragAndDrop() }} #[span.text-primary.cursor-pointer {{ m.collections_clickToBrowse() }}]
-      .text-caption.text-grey.q-mt-xs {{ m.collections_fileFormats() }}
-
-  //- URL input
-  .row.q-mt-sm.items-center.q-gap-sm
-    km-input.col.url-input(
-      :model-value='urlInput',
-      @input='urlInput = $event',
-      :placeholder='m.collections_addUrlPlaceholder()',
-      icon-before='fas fa-link',
-      :error-message='urlError',
-      :error='!!urlError',
-      :readonly='readonly',
-      :disable='disable',
-      @keydown.enter.prevent='addUrl'
-    )
-    q-btn.url-add-btn(
-      flat,
-      round,
-      icon='fas fa-plus',
-      color='secondary',
-      size='sm',
-      :disable='!urlInput || !!urlError || disable || readonly',
-      @click='addUrl'
-    )
-
-  //- Unified list
-  template(v-if='allItems.length')
-    .q-mt-md
-      .row.items-center.q-py-xs.q-px-sm.rounded-borders.list-item(
-        v-for='(item, index) in allItems',
-        :key='item.key'
-      )
-        //- Icon
-        q-icon.q-mr-sm(
-          :name='item.type === "file" ? (item.uploaded ? "fas fa-file-circle-check" : "fas fa-file-lines") : "fas fa-link"',
-          size='14px',
-          :color='item.type === "file" ? (item.uploaded ? "positive" : "grey-7") : "primary"'
-        )
-        //- Name
-        .col.text-body2.text-ellipsis {{ item.label }}
-        //- Size (pending files only)
-        span.text-caption.text-grey.q-ml-sm.q-mr-sm(v-if='item.size') ({{ formatSize(item.size) }})
-        //- Upload badge for pending
-        q-badge.q-mr-sm(v-if='item.type === "file" && !item.uploaded', color='orange-2', text-color='orange-9', :label='m.common_pending()')
-        //- Remove button
-        q-btn(
-          flat, round, dense, size='sm',
-          icon='fas fa-xmark',
-          :color='item.type === "file" && item.uploaded ? "negative" : "grey-6"',
-          :disable='disable || readonly || uploading',
-          @click.stop='removeItem(item, index)'
-        )
-
-  //- Upload button for pending files
-  .row.q-mt-sm(v-if='pendingFiles.length && collectionId')
-    km-btn(
-      :label='uploading ? m.common_uploading() : m.collections_uploadFiles({ count: pendingFiles.length })',
-      icon='fas fa-cloud-upload-alt',
-      color='primary',
-      :disable='uploading',
-      :loading='uploading',
-      @click='uploadPending'
-    )
-  .row.q-mt-sm(v-else-if='pendingFiles.length && !collectionId')
-    .text-caption.text-grey
-      q-icon.q-mr-xs(name='fas fa-circle-info', size='12px')
-      | {{ m.collections_filesWillBeUploaded() }}
+<template>
+  <div>
+    <div class="dropzone" :class="{ &quot;dropzone--active&quot;: dragOver, &quot;dropzone--disabled&quot;: disable || uploading || readonly }" @dragover.prevent="onDragOver" @dragleave.prevent="onDragLeave" @drop.prevent="onDrop" @click="openFilePicker">
+      <input ref="fileInput" class="hidden-input" type="file" multiple :accept="acceptedExtensions" @change="onFileInputChange">
+      <div class="dropzone-content">
+        <km-glyph class="mb-sm" :name="dragOver ? &quot;cloud-download&quot; : &quot;cloud-upload&quot;" size="32px" :tone="dragOver ? &quot;brand&quot; : &quot;muted&quot;" />
+        <div class="text-body2" :class="dragOver ? &quot;text-primary&quot; : &quot;text-grey-7&quot;">
+          <template v-if="dragOver">{{ m.collections_dropFilesHere() }}</template>
+          <template v-else>{{ m.collections_dragAndDrop() }} <span class="text-primary cursor-pointer">{{ m.collections_clickToBrowse() }}</span></template>
+        </div>
+        <div class="text-caption text-grey mt-xs">{{ m.collections_fileFormats() }}</div>
+      </div>
+    </div>
+    <div class="cluster mt-sm" data-gap="sm">
+      <km-input class="flex-1 file-url-upload__url-input" :model-value="urlInput" :placeholder="m.collections_addUrlPlaceholder()" icon-before="link" :error-message="urlError" :error="!!urlError" :readonly="readonly" :disable="disable" @input="urlInput = $event" @keydown.enter.prevent="addUrl" />
+      <km-btn class="url-add-btn" flat round icon="add" tone="muted" size="sm" :disable="!urlInput || !!urlError || disable || readonly" @click="addUrl" />
+    </div>
+    <template v-if="allItems.length">
+      <div class="mt-md">
+        <div v-for="(item, index) in allItems" :key="item.key" class="cluster py-xs px-sm rounded-borders list-item">
+          <km-glyph class="mr-sm" :name="item.type === &quot;file&quot; ? (item.uploaded ? &quot;file-check&quot; : &quot;file-text&quot;) : &quot;link&quot;" size="14px" :tone="item.type === &quot;file&quot; ? (item.uploaded ? &quot;success&quot; : &quot;weak&quot;) : &quot;brand&quot;" />
+          <div class="flex-1 text-body2 text-ellipsis">{{ item.label }}</div><span v-if="item.size" class="text-caption text-grey ml-sm mr-sm">({{ formatSize(item.size) }})</span>
+          <km-badge v-if="item.type === &quot;file&quot; &amp;&amp; !item.uploaded" class="mr-sm" tone="warning" :label="m.common_pending()" />
+          <km-btn flat round dense size="sm" icon="close" :tone="item.type === &quot;file&quot; &amp;&amp; item.uploaded ? &quot;danger&quot; : &quot;weak&quot;" :disable="disable || readonly || uploading" @click.stop="removeItem(item, index)" />
+        </div>
+      </div>
+    </template>
+    <div v-if="pendingFiles.length &amp;&amp; collectionId" class="cluster mt-sm">
+      <km-btn :label="uploading ? m.common_uploading() : m.collections_uploadFiles({ count: pendingFiles.length })" icon="cloud-upload" :disable="uploading" :loading="uploading" @click="uploadPending" />
+    </div>
+    <div v-else-if="pendingFiles.length &amp;&amp; !collectionId" class="cluster mt-sm">
+      <div class="text-caption text-grey">
+        <km-glyph class="mr-xs" name="info" size="12px" />{{ m.collections_filesWillBeUploaded() }}
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
 import { ref, computed, watch, useTemplateRef } from 'vue'
 import { m } from '@/paraglide/messages'
-import { useQuasar } from 'quasar'
+import { notify } from '@ds/composables/useNotify'
 import { fetchData } from '@shared'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useCollectionDetailStore } from '@/stores/entityDetailStores'
@@ -114,7 +61,6 @@ const props = defineProps({
 })
 const emit = defineEmits(['update:modelValue'])
 
-const q = useQuasar()
 const { draft, updateField } = useEntityDetail('collections')
 // Fallback to Pinia store for CreateNew context (no route ID, so draft is undefined)
 const collectionStore = useCollectionDetailStore()
@@ -248,11 +194,11 @@ function addFiles(files) {
     }
   }
   if (rejected.length) {
-    q.notify({ color: 'orange-9', textColor: 'white', icon: 'warning', group: 'warning', message: m.notify_unsupportedFormatNamed({ name: rejected.join(', ') }) })
+    notify.warning(m.notify_unsupportedFormatNamed({ name: rejected.join(', ') }))
   }
   const total = [...pendingFiles.value, ...accepted]
   if (total.length > 10) {
-    q.notify({ color: 'orange-9', textColor: 'white', icon: 'warning', group: 'warning', message: m.collections_maxFiles() })
+    notify.warning(m.collections_maxFiles())
     pendingFiles.value = total.slice(0, 10)
   } else {
     pendingFiles.value = total
@@ -281,10 +227,10 @@ async function uploadToTemp(files) {
         setUploadedFiles(newFiles)
         pendingFiles.value = pendingFiles.value.filter((f) => f.name !== file.name)
       } else {
-        q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: m.notify_failedToUploadNamed({ name: file.name }) })
+        notify.error(m.notify_failedToUploadNamed({ name: file.name }))
       }
     } catch (e) {
-      q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: `${m.notify_uploadFailed()}: ${e.message || e}` })
+      notify.error(`${m.notify_uploadFailed()}: ${e.message || e}`)
     }
   }
 }
@@ -324,13 +270,13 @@ async function uploadPending() {
         }]
         setUploadedFiles(newFiles)
       } else {
-        q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: m.notify_failedToUploadNamed({ name: file.name }) })
+        notify.error(m.notify_failedToUploadNamed({ name: file.name }))
       }
     }
     pendingFiles.value = []
-    q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: m.collections_filesUploadedSuccessfully() })
+    notify.success(m.collections_filesUploadedSuccessfully())
   } catch (e) {
-    q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: `${m.notify_uploadFailed()}: ${e.message || e}` })
+    notify.error(`${m.notify_uploadFailed()}: ${e.message || e}`)
   } finally {
     uploading.value = false
   }
@@ -349,30 +295,30 @@ async function removeUploadedFile(file, index) {
       const newFiles = uploadedFiles.value.filter((_, i) => i !== index)
       updateField('source.uploaded_files', newFiles)
     } else {
-      q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: m.notify_failedToDeleteNamed({ name: file.filename }) })
+      notify.error(m.notify_failedToDeleteNamed({ name: file.filename }))
     }
   } catch (e) {
-    q.notify({ color: 'red-9', textColor: 'white', message: `${m.notify_failedToDelete()}: ${e.message || e}` })
+    notify.error(`${m.notify_failedToDelete()}: ${e.message || e}`)
   }
 }
 </script>
 
-<style scoped>
+<style>
 .dropzone {
-  border: 2px dashed var(--q-border-2);
-  border-radius: var(--radius-lg);
+  border: 2px dashed var(--ds-color-border-2);
+  border-radius: var(--ds-radius-lg);
   padding: 24px 16px;
   text-align: center;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: var(--ds-transition-colors);
 }
 .dropzone:hover {
-  border-color: var(--q-primary);
-  background: var(--q-primary-transparent);
+  border-color: var(--ds-color-primary);
+  background: var(--ds-color-primary-transparent);
 }
 .dropzone--active {
-  border-color: var(--q-primary);
-  background: var(--q-primary-bg);
+  border-color: var(--ds-color-primary);
+  background: var(--ds-color-primary-bg);
 }
 .dropzone--disabled {
   opacity: 0.5;
@@ -387,7 +333,7 @@ async function removeUploadedFile(file, index) {
 .hidden-input {
   display: none;
 }
-.url-input :deep(.q-field__prepend .q-icon) {
+.file-url-upload__url-input .km-input__prefix {
   font-size: 14px;
 }
 .url-add-btn {
@@ -397,12 +343,12 @@ async function removeUploadedFile(file, index) {
   gap: 0;
 }
 .list-item:hover {
-  background: var(--q-background);
+  background: var(--ds-color-background);
 }
 .text-ellipsis {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  min-width: 0;
+  min-inline-size: 0;
 }
 </style>

@@ -1,127 +1,98 @@
-<template lang="pug">
-.q-mr-8
-  km-section(:title='m.section_web()', :subTitle='m.subtitle_web()')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16
-      q-toggle(v-model='enable_iframe', color='primary', size='sm', :disable='false')
-    template(v-if='enable_iframe')
-      q-separator
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Theme
-      .row.items-center.q-gap-16.no-wrap(style='width: 220px')
-        km-select(v-model='theme', :options='themeOptions', color='primary', size='sm', :disable='false', style='width: 220px')
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Show Close button
-        q-toggle(v-model='show_close_button', color='primary', size='sm', :disable='false')
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Show Logo
-        q-toggle(v-model='isIconHide', color='primary', size='sm', :disable='false')
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 URL
-      .row
-        .col.q-mr-sm
-          km-input(ref='input', border-radius='8px', height='36px', :readonly='true', :model-value='appUrl')
-        .col-auto
-          km-btn(icon='fas fa-copy', iconSize='16px', size='sm', flat, @click='copy', tooltip='Copy')
-        .col-auto
-          km-btn(icon='fas fa-external-link-alt', iconSize='16px', size='sm', flat, @click='openInNewTab', tooltip='Open in new tab')
-  q-separator.q-my-lg
-  km-section(:title='m.section_microsoftTeams()', :subTitle='m.subtitle_teamsCredentials()')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16
-      q-toggle(v-model='enable_ms_teams', color='primary', size='sm', :disable='false')
-    template(v-if='enable_ms_teams')
-      q-separator.q-mb-lg
-      km-notification-text(:notification='m.hint_teamsCredentialsAgent()')
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Client ID
-      km-input(v-model='ms_teams_client_id', :placeholder='m.agents_enterMsTeamsClientId()')
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Tenant ID
-      km-input(v-model='ms_teams_tenant_id', :placeholder='m.agents_enterMsTeamsTenantId()')
-      //- .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Secret value
-      km-encrypted-input.q-mt-md(
-        :value='ms_teams_secret_value',
-        @update:value='ms_teams_secret_value = $event',
-        :encrypted-value='has_ms_teams_secret_value',
-        :label='m.agents_secretValue()',
-        :placeholder='m.agents_enterMsTeamsSecretValue()',
-        fake-encrypted-value='******'
-      )
-      km-notification-text.q-mt-lg
-        div Check&nbsp;
-          a.text-primary.cursor-pointer(@click='openHelp') Admin Manual
-          | &nbsp;for further steps on MS Teams Agent installation
-  q-separator.q-my-lg
-  km-section(:title='m.section_slack()', :subTitle='m.subtitle_slackCredentials()')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16
-      q-toggle(v-model='enable_slack', color='primary', size='sm', :disable='false')
-    template(v-if='enable_slack')
-      q-separator.q-mb-lg
-      km-notification-text(:notification='m.hint_slackCredentialsAgent()')
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Client ID
-      km-input(v-model='slack_client_id', :placeholder='m.agents_enterSlackClientId()')
-      km-encrypted-input.q-mt-md(
-        :value='slack_token',
-        @update:value='slack_token = $event',
-        :encrypted-value='has_slack_encryptes.token',
-        :label='m.agents_token()',
-        :placeholder='m.agents_enterSlackToken()',
-        fake-encrypted-value='******'
-      )
-      km-encrypted-input.q-mt-md(
-        :value='slack_client_secret',
-        @update:value='slack_client_secret = $event',
-        :encrypted-value='has_slack_encryptes.client_secret',
-        :label='m.agents_clientSecret()',
-        :placeholder='m.agents_enterSlackClientSecret()',
-        fake-encrypted-value='******'
-      )
-      km-encrypted-input.q-mt-md(
-        :value='slack_signing_secret',
-        @update:value='slack_signing_secret = $event',
-        :encrypted-value='has_slack_encryptes.signing_secret',
-        :label='m.agents_signingSecret()',
-        :placeholder='m.agents_enterSlackSigningSecret()',
-        fake-encrypted-value='******'
-      )
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Agent Scopes
-      km-input(v-model='slack_scopes', :placeholder='m.agents_enterSlackScopes()')
-      km-btn.q-mt-md(
-        :label='m.agents_connectToSlack()',
-        color='white',
-        @click='openSlackInstall',
-        :disable='isSlackInstallDisabled',
-        :contentStyle='"width: auto;"'
-      )
-  q-separator.q-my-lg
-  km-section(:title='m.section_whatsApp()', :subTitle='m.subtitle_whatsApp()')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16
-      q-toggle(v-model='enable_whatsapp', color='primary', size='sm', :disable='false')
-    template(v-if='enable_whatsapp')
-      q-separator.q-mb-lg
-      km-notification-text(:notification='m.hint_whatsAppCredentialsAgent()')
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Phone Number ID
-      km-input(v-model='whatsapp_phone_number_id', :placeholder='m.agents_enterWhatsappPhoneNumberId()')
-      km-encrypted-input.q-mt-md(
-        :value='whatsapp_token',
-        @update:value='whatsapp_token = $event',
-        :encrypted-value='has_whatsapp_encrypted.token',
-        :label='m.agents_token()',
-        :placeholder='m.agents_enterWhatsappToken()',
-        fake-encrypted-value='******'
-      )
-      km-encrypted-input.q-mt-md(
-        :value='whatsapp_app_secret',
-        @update:value='whatsapp_app_secret = $event',
-        :encrypted-value='has_whatsapp_encrypted.app_secret',
-        :label='m.agents_appSecret()',
-        :placeholder='m.agents_enterWhatsappAppSecret()',
-        fake-encrypted-value='******'
-      )
-      km-notification-text.q-mt-lg
-        div Check&nbsp;
-          a.text-primary.cursor-pointer(@click='openHelp') Admin Manual
-          | &nbsp;for further steps on WhatsApp Agent installation
+<template>
+  <div class="mr-sm">
+    <km-section :title="m.section_web()" :sub-title="m.subtitle_web()">
+      <div class="km-field text-secondary-text pb-xs pl-sm mt-lg">
+        <km-toggle v-model="enable_iframe" size="sm" :disable="false" />
+      </div>
+      <template v-if="enable_iframe">
+        <km-separator />
+        <div class="km-field text-secondary-text pb-xs pl-sm mt-lg">Theme</div>
+        <div class="cluster" data-gap="lg" data-wrap="no" style="inline-size: 220px">
+          <km-select v-model="theme" :options="themeOptions" size="sm" :disable="false" style="inline-size: 220px" />
+        </div>
+        <div class="km-field text-secondary-text pb-xs pl-sm mt-lg">
+          Show Close button
+          <km-toggle v-model="show_close_button" size="sm" :disable="false" />
+        </div>
+        <div class="km-field text-secondary-text pb-xs pl-sm mt-lg">
+          Show Logo
+          <km-toggle v-model="isIconHide" size="sm" :disable="false" />
+        </div>
+        <div class="km-field text-secondary-text pb-xs pl-sm mt-lg">URL</div>
+        <div class="cluster">
+          <div class="flex-1 mr-sm">
+            <km-input ref="input" border-radius="8px" height="36px" :readonly="true" :model-value="appUrl" />
+          </div>
+          <div class="flex-none">
+            <km-btn icon="copy" icon-size="16px" size="sm" flat tooltip="Copy" @click="copy" />
+          </div>
+          <div class="flex-none">
+            <km-btn icon="external-link" icon-size="16px" size="sm" flat tooltip="Open in new tab" @click="openInNewTab" />
+          </div>
+        </div>
+      </template>
+    </km-section>
+    <km-separator class="my-lg" />
+    <km-section :title="m.section_microsoftTeams()" :sub-title="m.subtitle_teamsCredentials()">
+      <div class="km-field text-secondary-text pb-xs pl-sm mt-lg">
+        <km-toggle v-model="enable_ms_teams" size="sm" :disable="false" />
+      </div>
+      <template v-if="enable_ms_teams">
+        <km-separator class="mb-lg" />
+        <km-notification-text :notification="m.hint_teamsCredentialsAgent()" />
+        <div class="km-field text-secondary-text pb-xs pl-sm mt-lg">Client ID</div>
+        <km-input v-model="ms_teams_client_id" :placeholder="m.agents_enterMsTeamsClientId()" />
+        <div class="km-field text-secondary-text pb-xs pl-sm mt-lg">Tenant ID</div>
+        <km-input v-model="ms_teams_tenant_id" :placeholder="m.agents_enterMsTeamsTenantId()" />
+        <km-encrypted-input class="mt-md" :value="ms_teams_secret_value" :encrypted-value="has_ms_teams_secret_value" :label="m.agents_secretValue()" :placeholder="m.agents_enterMsTeamsSecretValue()" fake-encrypted-value="******" @update:value="ms_teams_secret_value = $event" />
+        <km-notification-text class="mt-lg">
+          <div>Check&nbsp;<a class="text-primary cursor-pointer" @click="openHelp">Admin Manual</a>&nbsp;for further steps on MS Teams Agent installation</div>
+        </km-notification-text>
+      </template>
+    </km-section>
+    <km-separator class="my-lg" />
+    <km-section :title="m.section_slack()" :sub-title="m.subtitle_slackCredentials()">
+      <div class="km-field text-secondary-text pb-xs pl-sm mt-lg">
+        <km-toggle v-model="enable_slack" size="sm" :disable="false" />
+      </div>
+      <template v-if="enable_slack">
+        <km-separator class="mb-lg" />
+        <km-notification-text :notification="m.hint_slackCredentialsAgent()" />
+        <div class="km-field text-secondary-text pb-xs pl-sm mt-lg">Client ID</div>
+        <km-input v-model="slack_client_id" :placeholder="m.agents_enterSlackClientId()" />
+        <km-encrypted-input class="mt-md" :value="slack_token" :encrypted-value="has_slack_encryptes.token" :label="m.agents_token()" :placeholder="m.agents_enterSlackToken()" fake-encrypted-value="******" @update:value="slack_token = $event" />
+        <km-encrypted-input class="mt-md" :value="slack_client_secret" :encrypted-value="has_slack_encryptes.client_secret" :label="m.agents_clientSecret()" :placeholder="m.agents_enterSlackClientSecret()" fake-encrypted-value="******" @update:value="slack_client_secret = $event" />
+        <km-encrypted-input class="mt-md" :value="slack_signing_secret" :encrypted-value="has_slack_encryptes.signing_secret" :label="m.agents_signingSecret()" :placeholder="m.agents_enterSlackSigningSecret()" fake-encrypted-value="******" @update:value="slack_signing_secret = $event" />
+        <div class="km-field text-secondary-text pb-xs pl-sm mt-lg">Agent Scopes</div>
+        <km-input v-model="slack_scopes" :placeholder="m.agents_enterSlackScopes()" />
+        <km-btn class="mt-md" :label="m.agents_connectToSlack()" tone="inverse" :disable="isSlackInstallDisabled" :content-style="&quot;width: auto;&quot;" @click="openSlackInstall" />
+      </template>
+    </km-section>
+    <km-separator class="my-lg" />
+    <km-section :title="m.section_whatsApp()" :sub-title="m.subtitle_whatsApp()">
+      <div class="km-field text-secondary-text pb-xs pl-sm mt-lg">
+        <km-toggle v-model="enable_whatsapp" size="sm" :disable="false" />
+      </div>
+      <template v-if="enable_whatsapp">
+        <km-separator class="mb-lg" />
+        <km-notification-text :notification="m.hint_whatsAppCredentialsAgent()" />
+        <div class="km-field text-secondary-text pb-xs pl-sm mt-lg">Phone Number ID</div>
+        <km-input v-model="whatsapp_phone_number_id" :placeholder="m.agents_enterWhatsappPhoneNumberId()" />
+        <km-encrypted-input class="mt-md" :value="whatsapp_token" :encrypted-value="has_whatsapp_encrypted.token" :label="m.agents_token()" :placeholder="m.agents_enterWhatsappToken()" fake-encrypted-value="******" @update:value="whatsapp_token = $event" />
+        <km-encrypted-input class="mt-md" :value="whatsapp_app_secret" :encrypted-value="has_whatsapp_encrypted.app_secret" :label="m.agents_appSecret()" :placeholder="m.agents_enterWhatsappAppSecret()" fake-encrypted-value="******" @update:value="whatsapp_app_secret = $event" />
+        <km-notification-text class="mt-lg">
+          <div>Check&nbsp;<a class="text-primary cursor-pointer" @click="openHelp">Admin Manual</a>&nbsp;for further steps on WhatsApp Agent installation</div>
+        </km-notification-text>
+      </template>
+    </km-section>
+  </div>
 </template>
 <script setup>
 import { ref, computed } from 'vue'
 import { m } from '@/paraglide/messages'
 import { useAppStore } from '@/stores/appStore'
 import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
-import { copyToClipboard } from 'quasar'
+import { copyToClipboard } from '@ds/utils/clipboard'
 
 const { draft, updateHighLevelNestedProperty } = useAgentEntityDetail()
 const appStore = useAppStore()
@@ -129,6 +100,7 @@ const appStore = useAppStore()
 const themeOptions = ref([
   { label: 'Oracle Redwood', value: 'siebel' },
   { label: 'Salesforce', value: 'salesforce' },
+  { label: 'Magnet Dark', value: 'dark' },
 ])
 const system_name = computed(() => {
   return draft.value?.system_name || ''

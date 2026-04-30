@@ -1,66 +1,64 @@
-<template lang="pug">
-layouts-details-layout
-  template(#header)
-    .row.items-center.q-gap-12.no-wrap.full-width.bg-white.border-radius-8
-      .col.full-width
-        .col-auto
-          .row.items-center.q-gap-12.q-mb-xs
-            .km-heading-7.text-black {{ title }}
-            q-space 
-            //- km-chip.text-text-grey(label='Email', color='in-progress', round)
-        .row.q-gap-16.q-pb-16
-          .row.items-center.q-gap-4
-            .km-field.text-secondary-text Start time
-            .km-field.text-black {{ time.start }}
-          .row.items-center.q-gap-4
-            .km-field.text-secondary-text End time
-            .km-field.text-black {{ time.end }}
-
-        .row.justify-between.q-gap-12.full-width
-          .col.bg-white.ba-border.border-radius-8.q-py-xs.q-px-sm
-            .text-weight-medium.q-pb-8(style='font-size: 12px') Duration
-            .text-primary.text-weight-medium(style='font-size: 16px') {{ duration }}
-          .col.bg-white.ba-border.border-radius-8.q-py-xs.q-px-sm
-            .text-weight-medium.q-pb-8(style='font-size: 12px') Total Cost
-            .text-primary.text-weight-medium(style='font-size: 16px') $ {{ totalCost }}
-          .col.bg-white.ba-border.border-radius-8.q-py-xs.q-px-sm
-            .text-weight-medium.q-pb-8(style='font-size: 12px') Status
-            .row.items-center.q-gap-4
-              km-chip.text-text-grey.text-capitalize(:label='status', color='in-progress', round)
-              //- km-chip.text-text-grey(label='In Progress', color='in-progress', round)
-          .col.bg-white.ba-border.border-radius-8.q-py-xs.q-px-sm
-            .text-weight-medium.q-pb-8(style='font-size: 12px') Resolution
-            km-chip.text-capitalize(
-              :label='resolutionStatusChip.label',
-              :color='resolutionStatusChip.color',
-              :class='resolutionStatusChip.text',
-              round,
-              v-if='resolution'
-            )
-          //- .col.bg-white.ba-border.border-radius-8.q-py-xs.q-px-sm
-          //-   .text-weight-medium.q-pb-8(style='font-size: 12px') Language
-          //-   km-chip.text-text-grey.text-capitalize(:label='language', color='in-progress', round, v-if='language')
-  template(#content)
-    .column.no-wrap.q-px-16.q-gap-(style='height: 100vh')
-      q-scroll-area.fit
-        .column.no-wrap.q-px-16.q-gap-16
-          template(v-for='(message, index) in allMessages')
-            agent-message(
-              v-if='message?.role === "user" || message?.role === "assistant"',
-              :message='message',
-              :nextMessage='message.action_call_requests?.length > 0 ? allMessages[index + 1] : null',
-              :key='index',
-              :lastMessage='true',
-              :feedback='message.feedback',
-              :isDisabled='true',
-              :isSelected='selectedMessage?.id === message.id',
-              @click='messageSelected(message)',
-              @select='messageSelected(message)'
-            )
-  template(#drawer)
-    conversation-drawer(v-if='!selectedMessage', :conversation='conversation', @close='getConversation()')
-    conversation-message-drawer(:message='selectedMessage', :conversation='conversation', v-else, @close='selectedMessage = null')
-q-inner-loading(:showing='loading', color='primary')
+<template>
+  <layouts-details-layout>
+    <template #header>
+      <div class="cluster full-width bg-white border-radius-8" data-gap="md" data-wrap="no">
+        <div class="flex-1 full-width">
+          <div class="flex-none">
+            <div class="cluster mb-xs" data-gap="md">
+              <div class="km-heading-7 text-black">{{ title }}</div>
+              <div class="km-space" />
+            </div>
+          </div>
+          <div class="cluster pb-lg" data-gap="lg">
+            <div class="cluster" data-gap="xs">
+              <div class="km-field text-secondary-text">Start time</div>
+              <div class="km-field text-black">{{ time.start }}</div>
+            </div>
+            <div class="cluster" data-gap="xs">
+              <div class="km-field text-secondary-text">End time</div>
+              <div class="km-field text-black">{{ time.end }}</div>
+            </div>
+          </div>
+          <div class="cluster full-width" data-gap="md" data-justify="between">
+            <div class="flex-1 bg-white ba-border border-radius-8 py-xs px-sm">
+              <div class="text-weight-medium pb-sm conversation-page__stat-label">Duration</div>
+              <div class="text-primary text-weight-medium conversation-page__stat-value">{{ duration }}</div>
+            </div>
+            <div class="flex-1 bg-white ba-border border-radius-8 py-xs px-sm">
+              <div class="text-weight-medium pb-sm conversation-page__stat-label">Total Cost</div>
+              <div class="text-primary text-weight-medium conversation-page__stat-value">$ {{ totalCost }}</div>
+            </div>
+            <div class="flex-1 bg-white ba-border border-radius-8 py-xs px-sm">
+              <div class="text-weight-medium pb-sm conversation-page__stat-label">Status</div>
+              <div class="cluster" data-gap="xs">
+                <km-chip class="text-text-grey text-capitalize" :label="status" tone="neutral" round />
+              </div>
+            </div>
+            <div class="flex-1 bg-white ba-border border-radius-8 py-xs px-sm">
+              <div class="text-weight-medium pb-sm conversation-page__stat-label">Resolution</div>
+              <km-chip v-if="resolution" class="text-capitalize" :label="resolutionStatusChip.label" :tone="resolutionStatusChip.tone" round />
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+    <template #content>
+      <div class="stack px-lg conversation-page__viewport" data-gap="0">
+        <km-scroll-area class="fit">
+          <div class="stack px-lg" data-gap="lg">
+            <template v-for="(message, index) in allMessages" :key="index">
+              <agent-message v-if="message?.role === &quot;user&quot; || message?.role === &quot;assistant&quot;" :key="index" :message="message" :next-message="message.action_call_requests?.length &gt; 0 ? allMessages[index + 1] : null" :last-message="true" :feedback="message.feedback" :is-disabled="true" :is-selected="selectedMessage?.id === message.id" @click="messageSelected(message)" @select="messageSelected(message)" />
+            </template>
+          </div>
+        </km-scroll-area>
+      </div>
+    </template>
+    <template #drawer>
+      <conversation-drawer v-if="!selectedMessage" :conversation="conversation" @close="getConversation()" />
+      <conversation-message-drawer v-else :message="selectedMessage" :conversation="conversation" @close="selectedMessage = null" />
+    </template>
+  </layouts-details-layout>
+  <km-inner-loading :showing="loading" />
 </template>
 <script>
 import { formatDateTime } from '@shared/utils/dateTime'
@@ -104,9 +102,9 @@ export default {
     },
     resolutionStatusChip() {
       if (!this.conversation?.analytics?.conversation_data?.resolution_status) return ''
-      if (this.resolution === 'resolved') return { color: 'like-bg', label: 'Resolved', text: 'text-like-text' }
-      if (this.resolution === 'not_resolved') return { color: 'error-bg', label: 'Not resolved', text: 'text-error-text' }
-      return { color: 'in-progress', label: 'Transferred', text: 'text-text-grey' }
+      if (this.resolution === 'resolved') return { tone: 'success', label: 'Resolved' }
+      if (this.resolution === 'not_resolved') return { tone: 'danger', label: 'Not resolved' }
+      return { tone: 'neutral', label: 'Transferred' }
     },
     resolution() {
       return this.conversation?.analytics?.conversation_data?.resolution_status ?? '-'
@@ -151,3 +149,17 @@ export default {
   },
 }
 </script>
+
+<style scoped>
+.conversation-page__stat-label {
+  font-size: var(--ds-font-size-xs);
+}
+
+.conversation-page__stat-value {
+  font-size: var(--ds-font-size-body-lg);
+}
+
+.conversation-page__viewport {
+  block-size: 100vb;
+}
+</style>

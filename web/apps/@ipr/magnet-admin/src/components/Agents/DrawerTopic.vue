@@ -1,33 +1,28 @@
-<template lang="pug">
-km-drawer-layout(storageKey="drawer-agents-topic")
-  template(#header)
-    .row.items-center
-      km-btn(
-        flat,
-        simple,
-        :label='m.agents_backToAgentPreview()',
-        iconSize='16px',
-        icon='fas fa-arrow-left',
-        @click='activeTopic = null',
-        color='secondary-text'
-      )
-    .km-heading-4.q-mt-md {{ m.agents_topicDetails() }}
-  .km-field.text-secondary-text.q-pb-sm.q-pl-8 Name
-    km-input(ref='input', border-radius='8px', height='36px', type='text', v-model='name')
-  .km-field.text-secondary-text.q-pb-sm.q-pl-8 System name
-    km-input(ref='input', border-radius='8px', height='36px', type='text', v-model='system_name')
-  .km-field.text-secondary-text.q-pb-sm.q-pl-8 Description for LLM
-    km-input(ref='input', rows='10', border-radius='8px', height='36px', type='textarea', v-model='description')
-  .row.items-center.justify-end
-    .km-button-text.q-mb-xs.q-ml-sm.text-text-gray
-    km-btn(
-      flat,
-      iconAfter='fas fa-arrow-right',
-      @click='openTopicDetails',
-      iconSize='16px',
-      color='secondary-text',
-      :label='m.common_moreDetailsAndActions()'
-    )
+<template>
+  <km-drawer-layout storage-key="drawer-agents-topic">
+    <template #header>
+      <div class="cluster">
+        <km-btn flat simple :label="m.agents_backToAgentPreview()" icon-size="16px" icon="arrow-left" tone="subtle" @click="activeTopic = null" />
+      </div>
+      <div class="km-heading-4 mt-md">{{ m.agents_topicDetails() }}</div>
+    </template>
+    <div class="km-field text-secondary-text pb-sm pl-sm">
+      Name
+      <km-input ref="input" v-model="name" border-radius="8px" height="36px" type="text" />
+    </div>
+    <div class="km-field text-secondary-text pb-sm pl-sm">
+      System name
+      <km-input ref="input" v-model="system_name" border-radius="8px" height="36px" type="text" />
+    </div>
+    <div class="km-field text-secondary-text pb-sm pl-sm">
+      Description for LLM
+      <km-input ref="input" v-model="description" rows="10" border-radius="8px" height="36px" type="textarea" />
+    </div>
+    <div class="cluster" data-justify="end">
+      <div class="km-button-text mb-xs ml-sm text-text-gray" />
+      <km-btn flat icon-after="arrow-right" icon-size="16px" tone="subtle" :label="m.common_moreDetailsAndActions()" @click="openTopicDetails" />
+    </div>
+  </km-drawer-layout>
 </template>
 
 <script>

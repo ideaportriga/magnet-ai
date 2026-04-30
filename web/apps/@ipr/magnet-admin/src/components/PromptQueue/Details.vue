@@ -1,231 +1,152 @@
-<template lang="pug">
-.row.no-wrap.overflow-hidden.full-height(v-if='loading', style='min-width: 1200px')
-  km-inner-loading(:showing='loading')
-layouts-details-layout.q-mx-auto(v-else, v-model:name='name', v-model:description='description', v-model:systemName='system_name', :contentContainerStyle='{ maxWidth: "1200px", minWidth: "600px", margin: "0 auto" }')
-  template(#header-actions)
-    km-btn(:label='m.common_execute()', flat, icon='play_arrow', iconSize='16px', @click='pqStore.executeDrawerOpen = true')
-    km-btn(:label='m.common_save()', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving')
-  template(#content)
-    q-tabs.bb-border.full-width(
-      v-model='tab',
-      narrow-indicator,
-      dense,
-      align='left',
-      active-color='primary',
-      indicator-color='primary',
-      no-caps
-    )
-      q-tab(name='steps', :label='m.common_steps()')
-      q-tab(name='expected_input', :label='m.common_expectedInput()')
-      q-tab(name='test_inputs', :label='m.common_testInputs()')
-    .column.no-wrap.q-gap-12.full-height.full-width.overflow-auto.q-mb-sm.q-mt-sm(style='min-height: 0')
-      template(v-if='tab === "steps"')
-        .col-auto.full-width
-          .row.items-center.justify-between.q-mb-sm
-            .km-heading-6 Steps
-            km-btn(:label='m.common_addStep()', icon='add', @click='addStep')
-          .q-gutter-sm
-            template(v-for='(step, stepIdx) in stepsList', :key='stepIdx')
-              .ba-border.border-radius-8.q-pa-8.q-mb-sm
-                .row.items-center.justify-between.q-mb-sm
-                  .km-field.text-secondary-text Step {{ stepIdx + 1 }}
-                  km-btn(icon='delete', flat, dense, color='negative', @click='removeStep(stepIdx)')
-                .row.q-gutter-xs.q-mb-sm(v-if='getStepAvailableInputs(stepIdx).length')
-                  .km-description.text-secondary-text.col-auto Available:
-                  .row.q-gutter-xs.wrap
-                    q-chip(
-                      v-for='binding in getStepAvailableInputs(stepIdx)',
-                      :key='binding',
-                      dense,
-                      size='sm',
-                      color='primary',
-                      text-color='white'
-                    ) {{ binding }}
-                .row.q-col-gutter-sm
-                  .col-6(v-for='(prompt, promptIdx) in (step.prompts || [])', :key='promptIdx')
-                    .ba-border.border-radius-8.q-pa-6.q-mb-xs
-                      .row.items-center.justify-between.q-mb-xs
-                        .km-field.text-secondary-text Prompt {{ promptIdx + 1 }}
-                        km-btn(icon='delete', flat, dense, color='negative', size='sm', @click='removePrompt(stepIdx, promptIdx)')
-                      .km-field.text-secondary-text.q-pb-xs.q-mb-xs Template
-                      km-select(
-                        :model-value='prompt.prompt_template_id',
-                        @update:model-value='(val) => updatePromptTemplate(stepIdx, promptIdx, val)',
-                        :options='promptTemplateOptions || []',
-                        option-label='name',
-                        option-value='system_name',
-                        emit-value,
-                        map-options,
-                        hasDropdownSearch,
-                        height='30px',
-                        :placeholder='m.promptQueue_selectPromptTemplate()'
-                      )
-                      .km-field.text-secondary-text.q-pb-xs.q-mt-sm
-                        .row.items-center
-                          span Input
-                          q-btn.q-ml-xs(
-                            v-if='getPromptPlaceholderKeys(stepIdx, promptIdx).length',
-                            flat,
-                            dense,
-                            size='sm',
-                            :label='getPromptInputMode(stepIdx, promptIdx) === "json" ? "Fields" : "JSON"',
-                            @click='setPromptInputMode(stepIdx, promptIdx, getPromptInputMode(stepIdx, promptIdx) === "json" ? "keyed" : "json")'
-                          )
-                      template(v-if='getPromptInputMode(stepIdx, promptIdx) === "keyed" && getPromptPlaceholderKeys(stepIdx, promptIdx).length')
-                        .row.q-gutter-sm(v-for='key in getPromptPlaceholderKeys(stepIdx, promptIdx)', :key='key').items-center
-                          .col-auto.km-description {{ key }}
-                          .col
-                            km-input(
-                              :label='`{${key}}`',
-                              :model-value='getPromptInputValue(stepIdx, promptIdx, key)',
-                              @update:model-value='(v) => updatePromptInputValue(stepIdx, promptIdx, key, v)',
-                              :placeholder='m.promptQueue_exampleInputTaskPath()'
-                            )
-                      template(v-else)
-                        .km-field.text-secondary-text.q-pb-xs(v-if='getPromptPlaceholderKeys(stepIdx, promptIdx).length') Input (JSON)
-                        km-input(
-                          :model-value='getPromptInputText(stepIdx, promptIdx)',
-                          type='textarea',
-                          rows='3',
-                          :placeholder='m.promptQueue_exampleMappingOrPath()',
-                          @update:model-value='(v) => setPromptInputDraft(stepIdx, promptIdx, v)',
-                          @blur='commitPromptInput(stepIdx, promptIdx)'
-                        )
-                        .km-description.text-secondary-text Variable name → value or path (input.task, result.data). Plain string for single placeholder.
-                      .km-field.text-secondary-text.q-pb-xs.q-mt-sm Output key
-                      km-input(
-                        :placeholder='m.promptQueue_exampleData()',
-                        :model-value='prompt.output_key ?? ""',
-                        @update:model-value='(v) => updatePromptOutputKey(stepIdx, promptIdx, v)'
-                      )
-                      .km-description.text-secondary-text Store as result.{output_key} (e.g. result.data)
-                .row.q-mt-sm
-                  km-btn(:label='m.common_addPrompt()', icon='add', flat, dense, @click='addPrompt(stepIdx)')
-                template(v-if='false')
-                  .row.q-mb-sm.q-mt-sm
-                    q-checkbox(
-                      :model-value='isStepApiToolCallEnabled(stepIdx)',
-                      @update:model-value='(v) => setStepApiToolCallEnabled(stepIdx, v)',
-                      :label='m.promptQueue_apiToolCall()'
-                    )
-                  .ba-border.border-radius-8.q-pa-6.q-mb-sm(v-if='isStepApiToolCallEnabled(stepIdx)')
-                    .km-field.text-secondary-text.q-pb-xs.q-mb-xs API Server
-                    km-select(
-                      :model-value='getStepApiToolCall(stepIdx)?.api_server ?? ""',
-                      @update:model-value='(v) => updateStepApiToolCall(stepIdx, "api_server", v)',
-                      :options='apiServers || []',
-                      option-label='name',
-                      option-value='system_name',
-                      emit-value,
-                      map-options,
-                      hasDropdownSearch,
-                      height='30px',
-                      :placeholder='m.promptQueue_selectApiServer()'
-                    )
-                    .km-field.text-secondary-text.q-pb-xs.q-mt-sm API Tool
-                    km-select(
-                      :model-value='getStepApiToolCall(stepIdx)?.api_tool ?? ""',
-                      @update:model-value='(v) => updateStepApiToolCall(stepIdx, "api_tool", v)',
-                      :options='getStepApiToolTools(stepIdx) || []',
-                      option-label='label',
-                      option-value='value',
-                      emit-value,
-                      map-options,
-                      hasDropdownSearch,
-                      height='30px',
-                      :placeholder='m.promptQueue_selectApiTool()'
-                    )
-                    .km-field.text-secondary-text.q-pb-xs.q-mt-sm Body (JSON)
-                    km-input(
-                      :model-value='getStepApiToolCallBody(stepIdx)',
-                      type='textarea',
-                      rows='4',
-                      :placeholder='m.promptQueue_exampleKeyMapping()',
-                      @update:model-value='(v) => setStepApiToolCallBodyDraft(stepIdx, v)',
-                      @blur='commitStepApiToolCallBody(stepIdx)'
-                    )
-                    .km-field.text-secondary-text.q-pb-xs.q-mt-sm Output key
-                    km-input(
-                      :placeholder='m.promptQueue_exampleApiResult()',
-                      :model-value='getStepApiToolCall(stepIdx)?.output_key ?? ""',
-                      @update:model-value='(v) => updateStepApiToolCall(stepIdx, "output_key", v)'
-                    )
-                    .km-description.text-secondary-text Store as result.{output_key} (e.g. result.api_result)
-              .row.justify-center.q-py-xs(v-if='stepIdx < stepsList.length - 1')
-                q-icon(name='arrow_downward', size='24px', color='grey-6')
-          .ba-border.border-radius-8.q-pa-8.q-mt-sm(v-if='stepsList.length && allOutputKeys.length')
-            .km-field.text-secondary-text.q-mb-sm Available outputs
-            .row.q-gutter-xs.wrap
-              q-chip(
-                v-for='binding in allOutputKeys',
-                :key='binding',
-                dense,
-                size='sm',
-                color='primary',
-                text-color='white'
-              ) {{ binding }}
-      template(v-if='tab === "expected_input"')
-        .col-auto.full-width
-          .km-heading-6.q-mb-sm Expected input parameters
-          .km-description.text-secondary-text.q-mb-sm Parameters to provide when running this queue
-          .row.q-gutter-sm.items-center.q-mb-sm
-            km-input(
-              :model-value='newParamName',
-              @update:model-value='newParamName = $event',
-              :placeholder='m.promptQueue_exampleTaskQuery()',
-              style='max-width: 200px',
-              @keydown.enter.prevent='addExpectedInputParam'
-            )
-            km-btn(:label='m.common_add()', icon='add', flat, dense, @click='addExpectedInputParam')
-          .q-gutter-sm
-            .row.q-gutter-sm(v-for='param in expectedInputParams', :key='param')
-              q-chip(
-                dense,
-                :color='isManuallyAddedParam(param) ? "primary" : "grey-4"',
-                :text-color='isManuallyAddedParam(param) ? "white" : "grey-9"',
-                removable,
-                @remove='removeExpectedInputParam(param)'
-              ) {{ param }}
-          .q-mt-sm(v-if='!expectedInputParams.length && !newParamName')
-            .km-description.text-secondary-text No input parameters. Add above or reference input.task, input.query in prompts.
-      template(v-if='tab === "test_inputs"')
-        .col-auto.full-width
-          .km-heading-6.q-mb-sm Test Inputs
-          .km-description.text-secondary-text.q-mb-sm Save input value sets to quickly load them in the Execute drawer
-          .row.q-gutter-sm.items-center.q-mb-sm
-            km-input(
-              :model-value='newTestInputName',
-              @update:model-value='newTestInputName = $event',
-              :placeholder='m.promptQueue_testName()',
-              style='max-width: 200px',
-              @keydown.enter.prevent='addTestInput'
-            )
-            km-btn(:label='m.common_add()', icon='add', flat, dense, @click='addTestInput')
-          .q-gutter-sm
-            .ba-border.border-radius-8.q-pa-8.q-mb-sm(v-for='(ti, tiIdx) in testInputsList', :key='tiIdx')
-              .row.items-center.justify-between.q-mb-sm
-                .km-field.text-secondary-text {{ ti.name }}
-                km-btn(icon='delete', flat, dense, color='negative', size='sm', @click='removeTestInput(tiIdx)')
-              .row.q-gutter-sm(v-for='param in expectedInputParams', :key='param')
-                .col-auto.km-description(style='min-width: 100px') {{ param }}
-                .col
-                  km-input(
-                    :model-value='getTestInputValue(tiIdx, param)',
-                    @update:model-value='(v) => setTestInputValue(tiIdx, param, v)',
-                    :placeholder='m.common_value()',
-                    style='max-width: 300px'
-                  )
-          .q-mt-sm(v-if='!testInputsList.length')
-            .km-description.text-secondary-text No test inputs. Add above. Define expected input params in Expected input tab first.
-  template(#drawer)
-    prompt-queue-execute-drawer(
-      v-if='executeDrawerOpen',
-      :open='executeDrawerOpen',
-      :config-id='configId',
-      :expected-input-params='expectedInputParams || []',
-      :test-inputs='testInputsList',
-      @update:open='(v) => pqStore.executeDrawerOpen = v'
-    )
+<template>
+  <div v-if="loading" class="cluster overflow-hidden full-height prompt-queue-details__viewport" data-wrap="no">
+    <km-inner-loading :showing="loading" />
+  </div>
+  <layouts-details-layout v-else :name="name" :description="description" :system-name="system_name" class="mx-auto" :content-container-style="{ maxWidth: &quot;1200px&quot;, minWidth: &quot;600px&quot;, margin: &quot;0 auto&quot; }" @update:name="name = $event" @update:description="description = $event" @update:system-name="system_name = $event">
+    <template #header-actions>
+      <km-btn :label="m.common_execute()" flat icon="play" icon-size="16px" @click="pqStore.executeDrawerOpen = true" />
+      <km-btn :label="m.common_save()" flat icon="save" icon-size="16px" :loading="saving" :disable="saving" @click="save" />
+    </template>
+    <template #content>
+      <km-tabs v-model="tab" :items="tabs" class="bb-border full-width" narrow-indicator dense align="left" no-caps />
+      <div class="stack full-height full-width overflow-auto mb-sm mt-sm min-h-0" data-gap="sm">
+        <template v-if="tab === &quot;steps&quot;">
+          <div class="full-width">
+            <div class="cluster mb-sm" data-justify="between">
+              <div class="km-heading-6">Steps</div>
+              <km-btn :label="m.common_addStep()" icon="add" @click="addStep" />
+            </div>
+            <div class="gap-sm">
+              <template v-for="(step, stepIdx) in stepsList" :key="stepIdx">
+                <div class="ba-border border-radius-8 p-sm mb-sm">
+                  <div class="cluster mb-sm" data-justify="between">
+                    <div class="km-field text-secondary-text">Step {{ stepIdx + 1 }}</div>
+                    <km-btn icon="delete" flat dense tone="danger" @click="removeStep(stepIdx)" />
+                  </div>
+                  <div v-if="getStepAvailableInputs(stepIdx).length" class="cluster mb-sm" data-gap="xs">
+                    <div class="km-description text-secondary-text flex-none">Available:</div>
+                    <div class="cluster" data-gap="xs">
+                      <km-chip v-for="binding in getStepAvailableInputs(stepIdx)" :key="binding" dense size="sm" tone="brand">{{ binding }}</km-chip>
+                    </div>
+                  </div>
+                  <div class="prompt-queue-details__prompt-grid">
+                    <div v-for="(prompt, promptIdx) in (step.prompts || [])" :key="promptIdx">
+                      <div class="ba-border border-radius-8 p-sm mb-xs">
+                        <div class="cluster mb-xs" data-justify="between">
+                          <div class="km-field text-secondary-text">Prompt {{ promptIdx + 1 }}</div>
+                          <km-btn icon="delete" flat dense tone="danger" size="sm" @click="removePrompt(stepIdx, promptIdx)" />
+                        </div>
+                        <div class="km-field text-secondary-text pb-xs mb-xs">Template</div>
+                        <km-select :model-value="prompt.prompt_template_id" :options="promptTemplateOptions || []" option-label="name" option-value="system_name" emit-value map-options has-dropdown-search height="30px" :placeholder="m.promptQueue_selectPromptTemplate()" @update:model-value="(val) =&gt; updatePromptTemplate(stepIdx, promptIdx, val)" />
+                        <div class="km-field text-secondary-text pb-xs mt-sm">
+                          <div class="cluster">
+                            <span>Input</span>
+                            <km-btn v-if="getPromptPlaceholderKeys(stepIdx, promptIdx).length" class="ml-xs" flat dense size="sm" :label="getPromptInputMode(stepIdx, promptIdx) === &quot;json&quot; ? &quot;Fields&quot; : &quot;JSON&quot;" @click="setPromptInputMode(stepIdx, promptIdx, getPromptInputMode(stepIdx, promptIdx) === &quot;json&quot; ? &quot;keyed&quot; : &quot;json&quot;)" />
+                          </div>
+                        </div>
+                        <template v-if="getPromptInputMode(stepIdx, promptIdx) === &quot;keyed&quot; &amp;&amp; getPromptPlaceholderKeys(stepIdx, promptIdx).length">
+                          <div v-for="key in getPromptPlaceholderKeys(stepIdx, promptIdx)" :key="key" class="cluster" data-gap="sm">
+                            <div class="flex-none km-description">{{ key }}</div>
+                            <div class="flex-1">
+                              <km-input :label="`{${key}}`" :model-value="getPromptInputValue(stepIdx, promptIdx, key)" :placeholder="m.promptQueue_exampleInputTaskPath()" @update:model-value="(v) =&gt; updatePromptInputValue(stepIdx, promptIdx, key, v)" />
+                            </div>
+                          </div>
+                        </template>
+                        <template v-else>
+                          <div v-if="getPromptPlaceholderKeys(stepIdx, promptIdx).length" class="km-field text-secondary-text pb-xs">Input (JSON)</div>
+                          <km-input :model-value="getPromptInputText(stepIdx, promptIdx)" type="textarea" rows="3" :placeholder="m.promptQueue_exampleMappingOrPath()" @update:model-value="(v) =&gt; setPromptInputDraft(stepIdx, promptIdx, v)" @blur="commitPromptInput(stepIdx, promptIdx)" />
+                          <div class="km-description text-secondary-text">Variable name → value or path (input.task, result.data). Plain string for single placeholder.</div>
+                        </template>
+                        <div class="km-field text-secondary-text pb-xs mt-sm">Output key</div>
+                        <km-input :placeholder="m.promptQueue_exampleData()" :model-value="prompt.output_key ?? &quot;&quot;" @update:model-value="(v) =&gt; updatePromptOutputKey(stepIdx, promptIdx, v)" />
+                        <div class="km-description text-secondary-text">Store as result.{output_key} (e.g. result.data)</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="cluster mt-sm">
+                    <km-btn :label="m.common_addPrompt()" icon="add" flat dense @click="addPrompt(stepIdx)" />
+                  </div>
+                  <template v-if="false">
+                    <div class="cluster mb-sm mt-sm">
+                      <km-checkbox :model-value="isStepApiToolCallEnabled(stepIdx)" :label="m.promptQueue_apiToolCall()" @update:model-value="(v) =&gt; setStepApiToolCallEnabled(stepIdx, v)" />
+                    </div>
+                    <div v-if="isStepApiToolCallEnabled(stepIdx)" class="ba-border border-radius-8 p-sm mb-sm">
+                      <div class="km-field text-secondary-text pb-xs mb-xs">API Server</div>
+                      <km-select :model-value="getStepApiToolCall(stepIdx)?.api_server ?? &quot;&quot;" :options="apiServers || []" option-label="name" option-value="system_name" emit-value map-options has-dropdown-search height="30px" :placeholder="m.promptQueue_selectApiServer()" @update:model-value="(v) =&gt; updateStepApiToolCall(stepIdx, &quot;api_server&quot;, v)" />
+                      <div class="km-field text-secondary-text pb-xs mt-sm">API Tool</div>
+                      <km-select :model-value="getStepApiToolCall(stepIdx)?.api_tool ?? &quot;&quot;" :options="getStepApiToolTools(stepIdx) || []" option-label="label" option-value="value" emit-value map-options has-dropdown-search height="30px" :placeholder="m.promptQueue_selectApiTool()" @update:model-value="(v) =&gt; updateStepApiToolCall(stepIdx, &quot;api_tool&quot;, v)" />
+                      <div class="km-field text-secondary-text pb-xs mt-sm">Body (JSON)</div>
+                      <km-input :model-value="getStepApiToolCallBody(stepIdx)" type="textarea" rows="4" :placeholder="m.promptQueue_exampleKeyMapping()" @update:model-value="(v) =&gt; setStepApiToolCallBodyDraft(stepIdx, v)" @blur="commitStepApiToolCallBody(stepIdx)" />
+                      <div class="km-field text-secondary-text pb-xs mt-sm">Output key</div>
+                      <km-input :placeholder="m.promptQueue_exampleApiResult()" :model-value="getStepApiToolCall(stepIdx)?.output_key ?? &quot;&quot;" @update:model-value="(v) =&gt; updateStepApiToolCall(stepIdx, &quot;output_key&quot;, v)" />
+                      <div class="km-description text-secondary-text">Store as result.{output_key} (e.g. result.api_result)</div>
+                    </div>
+                  </template>
+                </div>
+                <div v-if="stepIdx &lt; stepsList.length - 1" class="cluster py-xs" data-justify="center">
+                  <km-glyph name="arrow_downward" size="24px" tone="muted" />
+                </div>
+              </template>
+            </div>
+            <div v-if="stepsList.length &amp;&amp; allOutputKeys.length" class="ba-border border-radius-8 p-sm mt-sm">
+              <div class="km-field text-secondary-text mb-sm">Available outputs</div>
+              <div class="cluster" data-gap="xs">
+                <km-chip v-for="binding in allOutputKeys" :key="binding" dense size="sm" tone="brand">{{ binding }}</km-chip>
+              </div>
+            </div>
+          </div>
+        </template>
+        <template v-if="tab === &quot;expected_input&quot;">
+          <div class="full-width">
+            <div class="km-heading-6 mb-sm">Expected input parameters</div>
+            <div class="km-description text-secondary-text mb-sm">Parameters to provide when running this queue</div>
+            <div class="cluster mb-sm" data-gap="sm">
+              <km-input :model-value="newParamName" :placeholder="m.promptQueue_exampleTaskQuery()" class="prompt-queue-details__input-200" @update:model-value="newParamName = $event" @keydown.enter.prevent="addExpectedInputParam" />
+              <km-btn :label="m.common_add()" icon="add" flat dense @click="addExpectedInputParam" />
+            </div>
+            <div class="gap-sm">
+              <div v-for="param in expectedInputParams" :key="param" class="cluster" data-gap="sm">
+                <km-chip dense :tone="isManuallyAddedParam(param) ? &quot;brand&quot; : &quot;neutral&quot;" removable @remove="removeExpectedInputParam(param)">{{ param }}</km-chip>
+              </div>
+            </div>
+            <div v-if="!expectedInputParams.length &amp;&amp; !newParamName" class="mt-sm">
+              <div class="km-description text-secondary-text">No input parameters. Add above or reference input.task, input.query in prompts.</div>
+            </div>
+          </div>
+        </template>
+        <template v-if="tab === &quot;test_inputs&quot;">
+          <div class="full-width">
+            <div class="km-heading-6 mb-sm">Test Inputs</div>
+            <div class="km-description text-secondary-text mb-sm">Save input value sets to quickly load them in the Execute drawer</div>
+            <div class="cluster mb-sm" data-gap="sm">
+              <km-input :model-value="newTestInputName" :placeholder="m.promptQueue_testName()" class="prompt-queue-details__input-200" @update:model-value="newTestInputName = $event" @keydown.enter.prevent="addTestInput" />
+              <km-btn :label="m.common_add()" icon="add" flat dense @click="addTestInput" />
+            </div>
+            <div class="gap-sm">
+              <div v-for="(ti, tiIdx) in testInputsList" :key="tiIdx" class="ba-border border-radius-8 p-sm mb-sm">
+                <div class="cluster mb-sm" data-justify="between">
+                  <div class="km-field text-secondary-text">{{ ti.name }}</div>
+                  <km-btn icon="delete" flat dense tone="danger" size="sm" @click="removeTestInput(tiIdx)" />
+                </div>
+                <div v-for="param in expectedInputParams" :key="param" class="cluster" data-gap="sm">
+                  <div class="flex-none km-description prompt-queue-details__param-label">{{ param }}</div>
+                  <div class="flex-1">
+                    <km-input :model-value="getTestInputValue(tiIdx, param)" :placeholder="m.common_value()" class="prompt-queue-details__input-300" @update:model-value="(v) =&gt; setTestInputValue(tiIdx, param, v)" />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div v-if="!testInputsList.length" class="mt-sm">
+              <div class="km-description text-secondary-text">No test inputs. Add above. Define expected input params in Expected input tab first.</div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </template>
+    <template #drawer>
+      <prompt-queue-execute-drawer v-if="executeDrawerOpen" :open="executeDrawerOpen" :config-id="configId" :expected-input-params="expectedInputParams || []" :test-inputs="testInputsList" @update:open="(v) =&gt; pqStore.executeDrawerOpen = v" />
+    </template>
+  </layouts-details-layout>
 </template>
 
 <script setup>
@@ -249,6 +170,11 @@ const loading = ref(true)
 const saving = ref(false)
 const executeDrawerOpen = computed(() => pqStore.executeDrawerOpen ?? false)
 const tab = ref('steps')
+const tabs = ref([
+  { value: 'steps', label: m.common_steps() },
+  { value: 'expected_input', label: m.common_expectedInput() },
+  { value: 'test_inputs', label: m.common_testInputs() },
+])
 const newParamName = ref('')
 const newTestInputName = ref('')
 const promptInputDrafts = ref({})
@@ -601,7 +527,6 @@ const getStepAvailableInputs = (stepIdx) => {
   }
   return bindings
 }
-
 const expectedInputParams = computed(() => {
   const params = new Set()
   const steps = config.value?.config?.steps
@@ -811,10 +736,39 @@ watch(config, (val) => {
 }, { deep: true })
 </script>
 
-<style lang="stylus" scoped>
-.ba-border
-  border-color: rgba(0, 0, 0, 0.24) !important
+<style scoped>
+.ba-border {
+  border-color: rgba(0,0,0,0.24) !important;
+}
+.bb-border {
+  border-block-end-color: rgba(0,0,0,0.24) !important;
+}
 
-.bb-border
-  border-bottom-color: rgba(0, 0, 0, 0.24) !important
+.prompt-queue-details__prompt-grid {
+  display: grid;
+  gap: var(--ds-space-sm);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 767px) {
+  .prompt-queue-details__prompt-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.prompt-queue-details__viewport {
+  min-inline-size: 1200px;
+}
+
+.prompt-queue-details__input-200 {
+  max-inline-size: 200px;
+}
+
+.prompt-queue-details__input-300 {
+  max-inline-size: 300px;
+}
+
+.prompt-queue-details__param-label {
+  min-inline-size: 100px;
+}
 </style>

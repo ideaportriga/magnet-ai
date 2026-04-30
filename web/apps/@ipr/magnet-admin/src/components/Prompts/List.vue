@@ -1,56 +1,41 @@
-<template lang="pug">
-.column.q-py-md.q-pl-md.q-pr-md.q-gap-16.no-wrap.full-height
-  //- HEADER
-  .col-auto
-      .row.items-center
-        .col
-          .km-heading-4 {{ m.nav_promptTemplates() }}
-
-      //- .col-auto
-      //-   km-btn(label="New" size="sm" @click="$emit('create')")
-
-  //- SEARCH
-  .col-auto
-    km-input.full-width(icon-before='search', @input='search = $event', :model-value='search', :placeholder='m.common_searchPromptTemplates()', clearable)
-  .row.q-pt-16
-    km-btn(:label='m.common_newPromptTemplate()', @click='$emit("create")')
-
-  //- LIST
-  .col.overflow-auto.q-pr-sm
-    template(v-for='item in displayPrompts')
-      .rounded-borders.cursor-pointer.q-py-sm.prompt-card.bb-border(
-        @click.stop='$emit("update:selected", item.id)',
-        :class='{ "bg-table-active text-black": selected === item.id }'
-      )
-        .row.items-center.q-gap-12.q-px-sm.no-wrap
-          //- .col-auto.q-px-xs
-          //-   q-icon(:name="item.iconName || 'fas fa-wrench'" :color="selected === item.id ? 'semi-transparent-primary' : 'semi-transparent-primary'" size="20px")
-          .col
-            .km-title.ellipsis(style='text-overflow: hidden') {{ item.name }}
-            div(style='min-height: 22px')
-              .km-description.ellipsis-2-lines(:class='selected === item.id ? "text-grey" : "text-grey"') {{ item.description }}
-          .col-auto
-            template(v-if='item.pinned === 1')
-              q-btn.pin-selected.q-px-xs.q-pt-sm(
-                icon='fas fa-thumbtack',
-                flat,
-                size='8px',
-                color='secondary',
-                @click.stop='$emit("setPin", { id: item.id, val: 0 })'
-              )
-            template(v-else)
-              q-btn.pin-not-selected.q-px-xs.q-pt-sm(
-                icon='fas fa-thumbtack',
-                flat,
-                size='8px',
-                color='transparent',
-                @click.stop='$emit("setPin", { id: item.id, val: 1 })'
-              )
-
-  //- .col-auto.bg-green-3
-    .row.items-center.q-py-xl
-      .col
-        .km-heading-4 Footer
+<template>
+  <div class="stack py-md pl-md pr-md full-height" data-gap="lg">
+    <div class="flex-none">
+      <div class="cluster">
+        <div class="flex-1">
+          <div class="km-heading-4">{{ m.nav_promptTemplates() }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="flex-none">
+      <km-input class="full-width" icon-before="search" :model-value="search" :placeholder="m.common_searchPromptTemplates()" clearable @input="search = $event" />
+    </div>
+    <div class="cluster pt-lg">
+      <km-btn :label="m.common_newPromptTemplate()" @click="$emit(&quot;create&quot;)" />
+    </div>
+    <div class="flex-1 overflow-auto pr-sm">
+      <template v-for="item in displayPrompts" :key="item">
+        <div class="rounded-borders cursor-pointer py-sm prompt-card bb-border" :class="{ &quot;bg-table-active text-black&quot;: selected === item.id }" @click.stop="$emit(&quot;update:selected&quot;, item.id)">
+          <div class="cluster px-sm" data-gap="md" data-wrap="no">
+            <div class="flex-1">
+              <div class="km-title ellipsis" style="text-overflow: ellipsis">{{ item.name }}</div>
+              <div style="min-block-size: 22px">
+                <div class="km-description ellipsis-2-lines" :class="selected === item.id ? &quot;text-grey&quot; : &quot;text-grey&quot;">{{ item.description }}</div>
+              </div>
+            </div>
+            <div class="flex-none">
+              <template v-if="item.pinned === 1">
+                <km-btn class="pin-selected px-xs pt-sm" icon="pin" flat size="8px" tone="muted" @click.stop="$emit(&quot;setPin&quot;, { id: item.id, val: 0 })" />
+              </template>
+              <template v-else>
+                <km-btn class="pin-not-selected px-xs pt-sm" icon="pin" flat size="8px" @click.stop="$emit(&quot;setPin&quot;, { id: item.id, val: 1 })" />
+              </template>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
 </template>
 
 <script>
@@ -102,13 +87,20 @@ export default {
 }
 </script>
 
-<style lang="stylus" scoped>
-.prompt-card:hover
-  background: var(--q-table-active)
-  .pin-not-selected
-    color: grey !important
-  .pin-not-selected:hover
-    color: var(--q-primary) !important
-  .pin-selected:hover
-    color: lightgrey !important
+<style scoped>
+.prompt-card:hover {
+  background: var(--ds-color-table-active);
+}
+.pin-not-selected {
+  color: transparent !important;
+}
+.prompt-card:hover .pin-not-selected {
+  color: var(--ds-color-gray-500) !important;
+}
+.prompt-card:hover .pin-not-selected:hover {
+  color: var(--ds-color-primary) !important;
+}
+.prompt-card:hover .pin-selected:hover {
+  color: var(--ds-color-gray-200) !important;
+}
 </style>

@@ -1,121 +1,78 @@
-<template lang="pug">
-.column.no-wrap.full-height
-  q-scroll-area.fit
-    .col-auto.collection-container.q-mx-auto.full-width.q-px-md.q-pt-16
-
-      //- Stats cards
-      .row.q-gap-16.q-mb-16(v-if="stats")
-        .col
-          .border.border-radius-12.bg-white.ba-border.q-pa-16
-            .text-caption.text-grey-7 {{ m.files_totalFiles() }}
-            .text-h6 {{ stats.total_files }}
-            .text-caption.text-grey-7 {{ formatBytes(stats.total_size) }}
-        .col(v-for="item in stats.by_entity_type", :key="item.entity_type")
-          .border.border-radius-12.bg-white.ba-border.q-pa-16
-            .text-caption.text-grey-7 {{ item.entity_type }}
-            .text-h6 {{ item.count }}
-            .text-caption.text-grey-7 {{ formatBytes(item.total_size) }}
-
-      //- Backend breakdown
-      .row.q-gap-16.q-mb-16(v-if="stats && stats.by_backend.length > 1")
-        .col(v-for="item in stats.by_backend", :key="item.backend_key")
-          .border.border-radius-12.bg-white.ba-border.q-pa-12
-            .row.items-center.q-gap-8
-              q-icon(name="fas fa-hard-drive", size="16px", color="grey-7")
-              .text-caption.text-grey-7 {{ item.backend_key }}
-              q-space
-              .text-body2 {{ m.files_filesCount({ count: String(item.count) }) }}
-              .text-caption.text-grey-7.q-ml-8 {{ formatBytes(item.total_size) }}
-
-      //- Files table
-      .ba-border.border-radius-12.bg-white.q-pa-16.column(style="min-height: 0")
-        .row.q-mb-12.items-center
-          km-input.q-mr-12(:placeholder="m.common_search()", iconBefore="search", :modelValue="globalFilter", @input="globalFilter = $event", clearable)
-          q-select.q-mr-12(
-            v-model="filterEntityType",
-            :options="entityTypeOptions",
-            :label="m.files_entityType()",
-            clearable,
-            dense,
-            outlined,
-            emit-value,
-            map-options,
-            style="min-width: 180px"
-          )
-          q-select(
-            v-model="filterBackend",
-            :options="backendOptions",
-            :label="m.files_backend()",
-            clearable,
-            dense,
-            outlined,
-            emit-value,
-            map-options,
-            style="min-width: 160px"
-          )
-          q-space
-          km-btn(
-            icon="refresh",
-            :label="m.common_refresh()",
-            @click="onRefresh",
-            iconColor="icon",
-            hoverColor="primary",
-            labelClass="km-title",
-            flat,
-            iconSize="16px",
-            hoverBg="primary-bg"
-          )
-        .col(style="min-height: 0")
-          km-data-table(:table="table", :loading="isLoading", fill-height, row-key="id")
-            template(#cell-filename="{ row }")
-              a.cursor-pointer.text-primary(@click.prevent="downloadFile(row)") {{ row.filename }}
-            template(#cell-size="{ row }")
-              | {{ formatBytes(row.size) }}
-            template(#cell-created_at="{ row }")
-              | {{ formatDate(row.created_at) }}
-            template(#cell-expires_at="{ row }")
-              template(v-if="row.expires_at")
-                q-badge(:color="isExpiringSoon(row.expires_at) ? 'orange-7' : 'grey-6'", text-color="white")
-                  | {{ formatTTL(row.expires_at) }}
-            template(#cell-actions="{ row }")
-              .row.no-wrap.items-center.justify-end
-                km-btn(
-                  icon="download",
-                  flat,
-                  dense,
-                  size="sm",
-                  iconSize="14px",
-                  iconColor="icon",
-                  hoverColor="primary",
-                  hoverBg="primary-bg",
-                  :tooltip="m.common_download()",
-                  @click.stop="downloadFile(row)"
-                )
-                km-btn(
-                  icon="delete",
-                  flat,
-                  dense,
-                  size="sm",
-                  iconSize="14px",
-                  iconColor="icon",
-                  hoverColor="negative",
-                  hoverBg="negative-bg",
-                  :tooltip="m.common_delete()",
-                  @click.stop="confirmDelete(row)"
-                )
-
-  //- Delete confirmation dialog
-  q-dialog(v-model="showDeleteDialog")
-    q-card(style="min-width: 350px")
-      q-card-section
-        .text-h6 {{ m.files_deleteFile() }}
-      q-card-section.q-pt-none
-        | {{ m.files_deleteFileConfirm() }}&nbsp;
-        strong {{ fileToDelete?.filename }}
-        | ?
-      q-card-actions(align="right")
-        q-btn(flat, :label="m.common_cancel()", @click="showDeleteDialog = false")
-        q-btn(flat, :label="m.common_delete()", color="negative", @click="deleteFile")
+<template>
+  <div class="stack full-height" data-gap="0">
+    <km-scroll-area class="fit">
+      <div class="flex-none collection-container mx-auto full-width px-md pt-lg">
+        <div v-if="stats" class="cluster mb-lg" data-gap="lg">
+          <div class="flex-1">
+            <div class="border border-radius-12 bg-white ba-border p-lg">
+              <div class="text-caption text-grey-7">{{ m.files_totalFiles() }}</div>
+              <div class="text-h6">{{ stats.total_files }}</div>
+              <div class="text-caption text-grey-7">{{ formatBytes(stats.total_size) }}</div>
+            </div>
+          </div>
+          <div v-for="item in stats.by_entity_type" :key="item.entity_type" class="flex-1">
+            <div class="border border-radius-12 bg-white ba-border p-lg">
+              <div class="text-caption text-grey-7">{{ item.entity_type }}</div>
+              <div class="text-h6">{{ item.count }}</div>
+              <div class="text-caption text-grey-7">{{ formatBytes(item.total_size) }}</div>
+            </div>
+          </div>
+        </div>
+        <div v-if="stats &amp;&amp; stats.by_backend.length &gt; 1" class="cluster mb-lg" data-gap="lg">
+          <div v-for="item in stats.by_backend" :key="item.backend_key" class="flex-1">
+            <div class="border border-radius-12 bg-white ba-border p-md">
+              <div class="cluster" data-gap="sm">
+                <km-glyph name="storage" size="16px" tone="weak" />
+                <div class="text-caption text-grey-7">{{ item.backend_key }}</div>
+                <div class="km-space" />
+                <div class="text-body2">{{ m.files_filesCount({ count: String(item.count) }) }}</div>
+                <div class="text-caption text-grey-7 ml-sm">{{ formatBytes(item.total_size) }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="ba-border border-radius-12 bg-white p-lg stack" data-gap="0" style="min-block-size: 0">
+          <div class="cluster mb-md">
+            <km-input class="mr-md" :placeholder="m.common_search()" icon-before="search" :model-value="globalFilter" clearable @input="globalFilter = $event" />
+            <km-select v-model="filterEntityType" class="mr-md" :options="entityTypeOptions" :label="m.files_entityType()" clearable dense outlined emit-value map-options style="min-inline-size: 180px" />
+            <km-select v-model="filterBackend" :options="backendOptions" :label="m.files_backend()" clearable dense outlined emit-value map-options style="min-inline-size: 160px" />
+            <div class="km-space" />
+            <km-btn icon="refresh" :label="m.common_refresh()" interaction-tone="brand" label-class="km-title" flat icon-size="16px" @click="onRefresh" />
+          </div>
+          <div class="flex-1" style="min-block-size: 0">
+            <km-data-table :table="table" :loading="isLoading" fill-height row-key="id">
+              <template #cell-filename="{ row }"><a class="cursor-pointer text-primary" @click.prevent="downloadFile(row)">{{ row.filename }}</a></template>
+              <template #cell-size="{ row }">{{ formatBytes(row.size) }}</template>
+              <template #cell-created_at="{ row }">{{ formatDate(row.created_at) }}</template>
+              <template #cell-expires_at="{ row }">
+                <template v-if="row.expires_at">
+                  <km-badge :tone="isExpiringSoon(row.expires_at) ? 'warning' : 'neutral'">{{ formatTTL(row.expires_at) }}</km-badge>
+                </template>
+              </template>
+              <template #cell-actions="{ row }">
+                <div class="cluster" data-wrap="no" data-justify="end">
+                  <km-btn icon="download" flat dense size="sm" icon-size="14px" interaction-tone="brand" :tooltip="m.common_download()" @click.stop="downloadFile(row)" />
+                  <km-btn icon="delete" flat dense size="sm" icon-size="14px" interaction-tone="danger" :tooltip="m.common_delete()" @click.stop="confirmDelete(row)" />
+                </div>
+              </template>
+            </km-data-table>
+          </div>
+        </div>
+      </div>
+    </km-scroll-area>
+    <km-dialog v-model="showDeleteDialog">
+      <km-card style="min-inline-size: 350px">
+        <div class="km-card-section">
+          <div class="text-h6">{{ m.files_deleteFile() }}</div>
+        </div>
+        <div class="km-card-section pt-0">{{ m.files_deleteFileConfirm() }}&nbsp;<strong>{{ fileToDelete?.filename }}</strong>?</div>
+        <div class="km-card-actions" align="right">
+          <km-btn flat :label="m.common_cancel()" @click="showDeleteDialog = false" />
+          <km-btn flat :label="m.common_delete()" tone="danger" @click="deleteFile" />
+        </div>
+      </km-card>
+    </km-dialog>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -292,10 +249,11 @@ onMounted(() => {
 })
 </script>
 
-<style lang="stylus" scoped>
-.collection-container
-  min-width 450px
-  max-width 1200px
-  width 100%
-  overflow hidden
+<style scoped>
+.collection-container {
+  min-inline-size: 450px;
+  max-inline-size: 1200px;
+  inline-size: 100%;
+  overflow: hidden;
+}
 </style>

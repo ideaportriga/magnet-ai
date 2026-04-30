@@ -1,51 +1,42 @@
-<template lang="pug">
-//- Page-level layout: flex row with a flex-grow content column and a
-//- fixed-width drawer column. Parent (router-view inside
-//- .km-view-height) gives us a bounded height; we clip our own
-//- overflow so neither column can push the layout past the viewport.
-//- Every flex child gets `km-flex-min-0` (min-width: 0; min-height: 0)
-//- so inner `overflow: auto` scroll containers actually engage.
-.row.no-wrap.overflow-hidden.full-height.details-layout
-  .col.no-wrap.full-height.justify-center.fit.q-px-md.no-wrap.q-pt-sm.q-pb-lg.km-flex-min-0(:style='contentContainerStyle')
-    .column.full-height.no-wrap.km-flex-min-0
-      slot(name='breadcrumbs')
-        div
-      .full-width.q-mb-sm.bg-white.border-radius-8.q-py-12.q-px-16(v-if='!noHeader')
-        .row.items-center.no-wrap.full-width
-          .col.km-flex-min-w-0
-            slot(name='header')
-              layouts-details-header(
-                :name='name',
-                @update:name='(value) => $emit("update:name", value)',
-                :description='description',
-                @update:description='(value) => $emit("update:description", value)',
-                :systemName='systemName',
-                @update:systemName='(value) => $emit("update:systemName", value)',
-                :infoText='infoText'
-              )
-          .col-auto.row.items-start.no-wrap.q-gap-8.q-ml-md(v-if='$slots["header-actions"]')
-            slot(name='header-actions')
-        slot(name='subheader', v-if='$slots.subheader || variants?.length > 0')
-          layouts-details-sub-header(
-            :variants='variants',
-            :selectedVariant='selectedVariant',
-            :activeVariant='activeVariant',
-            @activateVariant='emit("activateVariant")',
-            @addVariant='emit("addVariant")',
-            @deleteVariant='emit("deleteVariant")',
-            @selectVariant='emit("selectVariant", $event)',
-            @updateVariantProperty='emit("updateVariantProperty", $event)'
-          )
-      .col.overflow-hidden.no-wrap.column.km-flex-min-0(:class='noContentWrapper ? "" : "ba-border bg-white border-radius-8 q-pa-16"')
-        slot(name='content')
-          div Content
-  //- `full-height` ensures the drawer wrapper matches the row's height so
-  //- the drawer's internal `.full-height` resolves against the viewport,
-  //- not the (overflowing) sibling content. Without this the drawer can
-  //- grow taller than the viewport and its footer — e.g. the "Test Model"
-  //- action in ModelDrawer — gets pushed off-screen.
-  .col-auto.full-height
-    slot(name='drawer')
+<template>
+  <div class="cluster overflow-hidden full-height details-layout" data-wrap="no">
+    <div class="flex-1 no-wrap full-height fit px-md pt-sm pb-lg km-flex-min-0" :style="contentContainerStyle">
+      <!-- Outer .flex-1 fills 100% of the space between the sidebar and the
+           drawer; the inner .details-layout__content stack carries the
+           max-width so the actual entity card sits centered between them. -->
+      <div class="stack full-height km-flex-min-0 mx-auto details-layout__content" data-gap="0">
+        <slot name="breadcrumbs">
+          <div />
+        </slot>
+        <div v-if="!noHeader" class="full-width mb-sm bg-white border-radius-8 py-md px-lg">
+          <div v-if="$slots.header" class="cluster full-width" data-wrap="no">
+            <div class="flex-1 km-flex-min-w-0">
+              <slot name="header" />
+            </div>
+            <div v-if="$slots[&quot;header-actions&quot;]" class="flex-none cluster ml-md" data-align="start" data-wrap="no" data-gap="sm">
+              <slot name="header-actions" />
+            </div>
+          </div>
+          <layouts-details-header v-else :name="name" :description="description" :system-name="systemName" :system-name-rules="systemNameRules" :info-text="infoText" :show-description="showDescription" :show-record-info="showRecordInfo" :created-at="createdAt" :updated-at="updatedAt" :created-by="createdBy" :updated-by="updatedBy" :updated-label="updatedLabel" @update:name="(value) =&gt; $emit(&quot;update:name&quot;, value)" @update:description="(value) =&gt; $emit(&quot;update:description&quot;, value)" @update:system-name="(value) =&gt; $emit(&quot;update:systemName&quot;, value)">
+            <template v-if="$slots[&quot;header-actions&quot;]" #actions>
+              <slot name="header-actions" />
+            </template>
+          </layouts-details-header>
+          <slot v-if="$slots.subheader || variants?.length &gt; 0" name="subheader">
+            <layouts-details-sub-header :variants="variants" :selected-variant="selectedVariant" :active-variant="activeVariant" @activate-variant="emit(&quot;activateVariant&quot;)" @add-variant="emit(&quot;addVariant&quot;)" @delete-variant="emit(&quot;deleteVariant&quot;)" @select-variant="emit(&quot;selectVariant&quot;, $event)" @update-variant-property="emit(&quot;updateVariantProperty&quot;, $event)" />
+          </slot>
+        </div>
+        <div class="flex-1 overflow-hidden no-wrap stack km-flex-min-0" data-gap="0" :class="noContentWrapper ? '' : 'ba-border bg-white border-radius-8 p-lg'">
+          <slot name="content">
+            <div>Content</div>
+          </slot>
+        </div>
+      </div>
+    </div>
+    <div class="flex-none full-height">
+      <slot name="drawer" />
+    </div>
+  </div>
 </template>
 
 <script setup>
@@ -64,6 +55,38 @@ const props = defineProps({
     type: String,
     default: 'It is highly recommended to fill in system name only once and not change it later.',
   },
+  systemNameRules: {
+    type: Array,
+    default: () => [],
+  },
+  showDescription: {
+    type: Boolean,
+    default: true,
+  },
+  showRecordInfo: {
+    type: Boolean,
+    default: false,
+  },
+  createdAt: {
+    type: [String, Number, Date],
+    default: '',
+  },
+  updatedAt: {
+    type: [String, Number, Date],
+    default: '',
+  },
+  createdBy: {
+    type: String,
+    default: '',
+  },
+  updatedBy: {
+    type: String,
+    default: '',
+  },
+  updatedLabel: {
+    type: String,
+    default: '',
+  },
   noHeader: {
     type: Boolean,
     default: false,
@@ -77,8 +100,8 @@ const props = defineProps({
     default: () => [],
   },
   selectedVariant: {
-    type: Object,
-    default: () => {},
+    type: [String, Object],
+    default: '',
   },
   activeVariant: {
     type: String,
@@ -100,3 +123,10 @@ const emit = defineEmits([
   'updateVariantProperty',
 ])
 </script>
+
+<style>
+.details-layout__content {
+  inline-size: 100%;
+  max-inline-size: 1200px;
+}
+</style>

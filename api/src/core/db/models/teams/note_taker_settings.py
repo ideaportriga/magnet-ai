@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from advanced_alchemy.types import JsonB
-from sqlalchemy import ForeignKey, String, Text
+from sqlalchemy import ForeignKey, Integer, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from core.db.models.base import UUIDAuditSimpleBase
@@ -16,6 +16,15 @@ class NoteTakerSettings(UUIDAuditSimpleBase):
         JsonB,
         nullable=True,
         comment="Settings in JSON format",
+    )
+
+    # Bumped whenever `NoteTakerSettingsSchema` changes shape; used by future
+    # migrations that need to rewrite JSONB `config` rows in-place.
+    settings_revision: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        server_default=text("1"),
+        comment="Schema revision for the `config` JSONB payload.",
     )
 
     # Reference to a Provider record that holds Azure Bot credentials

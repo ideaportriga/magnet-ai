@@ -1,92 +1,56 @@
-<template lang="pug">
-km-inner-loading(:showing='loading')
-layouts-details-layout(v-if='!loading')
-  template(#header)
-    km-input-flat.km-heading-4.full-width.text-black(data-test='name-input', :placeholder='m.common_name()', :modelValue='name', @change='name = $event')
-    km-input-flat.km-description.full-width.text-black(data-test='description-input', :placeholder='m.common_description()', :modelValue='description', @change='description = $event')
-    .row.items-center.q-pl-6
-      q-icon.col-auto(name='o_info', color='text-secondary')
-        q-tooltip.bg-white.block-shadow.text-secondary-text.km-description(self='top middle', :offset='[-50, -50]') {{ m.tooltip_systemNameUniqueId() }}
-      km-input-flat.col.km-description.text-black.full-width(
-        data-test='system-name-input',
-        :placeholder='m.placeholder_enterSystemNameReadable()',
-        :modelValue='system_name',
-        @change='system_name = $event',
-        @focus='showInfo = true',
-        @blur='showInfo = false',
-        :rules='[validSystemName()]'
-      )
-    .km-description.text-secondary.q-pl-6(v-if='showInfo') {{ m.hint_systemNameRecommendation() }}
-  template(#header-actions)
-    km-btn(:label='m.common_recordInfo()', flat, icon='info', iconSize='16px')
-      q-tooltip.bg-white.block-shadow
-        .q-pa-sm
-          .q-mb-sm
-            .text-secondary-text.km-button-xs-text {{ m.common_createdLabel() }}
-            .text-secondary-text.km-description {{ created_at }}
-          .q-mb-sm
-            .text-secondary-text.km-button-xs-text {{ m.common_lastSynced() }}
-            .text-secondary-text.km-description {{ modified_at }}
-          .q-mb-sm
-            .text-secondary-text.km-button-xs-text {{ m.common_createdBy() }}
-            .text-secondary-text.km-description {{ created_by }}
-          div
-            .text-secondary-text.km-button-xs-text {{ m.common_modifiedBy() }}
-            .text-secondary-text.km-description {{ updated_by }}
-    km-btn(data-test='revert-btn', :label='m.common_revert()', icon='fas fa-undo', iconSize='16px', flat, @click='revert()', v-if='isDirty')
-    km-btn(data-test='save-btn', :label='m.common_save()', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving || !isDirty')
-    km-btn(data-test='save-and-sync-btn', :label='m.common_saveAndSync()', flat, @click='refreshCollection', iconSize='16px', icon='fa-solid fa-rotate')
-    q-btn.q-px-xs(data-test='show-more-btn', flat, :icon='"fas fa-ellipsis-v"', size='13px')
-      q-menu(anchor='bottom right', self='top right')
-        q-item(data-test='clone-btn', clickable, @click='showNewDialog = true', dense)
-          q-item-section
-            .km-heading-3 {{ m.common_clone() }}
-        q-item(data-test='delete-btn', clickable, @click='showDeleteDialog = true', dense)
-          q-item-section
-            .km-heading-3 {{ m.common_delete() }}
-    km-popup-confirm(
-      :visible='showDeleteDialog',
-      :confirmButtonLabel='m.deleteConfirm_deleteEntity({ entity: m.entity_knowledgeSource() })',
-      :cancelButtonLabel='m.common_cancel()',
-      notificationIcon='fas fa-triangle-exclamation',
-      @confirm='deleteKnowledge',
-      @cancel='showDeleteDialog = false'
-    )
-      .row.item-center.justify-center.km-heading-7 {{ m.deleteConfirm_aboutToDelete({ entity: m.entity_knowledgeSource() }) }}
-      .row.text-center.justify-center {{ m.deleteConfirm_knowledgeSourceBody() }}
-    km-popup-confirm(
-      :visible='showSyncConfirm',
-      :confirmButtonLabel='m.common_openSyncJob()',
-      :cancelButtonLabel='m.common_cancel()',
-      notificationIcon='fas fa-info-circle',
-      @confirm='openJobDetails',
-      @cancel='showSyncConfirm = false'
-    )
-      .row.item-center.justify-center.km-heading-7.q-mb-md {{ m.syncConfirm_syncingStarted() }}
-      .row.text-center.justify-center {{ m.syncConfirm_syncJobCreated({ jobId: job_id }) }}
-  template(#content)
-    km-tabs(v-model='tab')
-      template(v-for='t in tabs')
-        q-tab(:name='t.name', :label='t.label')
-    .column.no-wrap.q-gap-16.full-height.full-width.overflow-auto.q-mb-md.q-mt-lg(style='min-height: 0')
-      .row.q-gap-16.full-height.full-width
-        .col.full-height.full-width
-          .column.full-height.full-width.q-gap-16.overflow-auto.no-wrap
-            collections-generalinfo(v-if='tab == "settings"')
-            collections-metadata-page(v-if='tab == "metadata"')
-            collections-chunks(v-if='tab == "chunks"', :selectedRow='selectedChunk', @selectRow='selectedChunk = $event')
-            collections-scheduler(v-if='tab == "scheduler"')
-  template(#drawer)
-    collections-metadata-drawer(v-if='tab == "metadata" && activeMetadataConfig')
-    collection-items-drawer(v-else-if='tab == "chunks" && selectedChunk', :selectedRow='selectedChunk', @close='selectedChunk = null')
-    collections-drawer(v-else)
-collections-create-new(v-if='showNewDialog', :showNewDialog='showNewDialog', @cancel='showNewDialog = false', copy)
+<template>
+  <km-inner-loading :showing="loading" />
+  <layouts-details-layout v-if="!loading" :name="name" :description="description" :system-name="system_name" :system-name-rules="[validSystemName()]" :created-at="created_at" :updated-at="modified_at" :created-by="created_by" :updated-by="updated_by" :updated-label="m.common_lastSynced()" show-record-info @update:name="name = $event" @update:description="description = $event" @update:system-name="system_name = $event">
+    <template #header-actions>
+      <km-btn v-if="isDirty" data-test="revert-btn" :label="m.common_revert()" icon="undo" icon-size="16px" flat @click="revert()" />
+      <km-btn data-test="save-btn" :label="m.common_save()" flat icon="save" icon-size="16px" :loading="saving" :disable="saving || !isDirty" @click="save" />
+      <km-btn data-test="save-and-sync-btn" :label="m.common_saveAndSync()" flat icon-size="16px" icon="fa-solid fa-rotate" @click="refreshCollection" />
+      <ds-dropdown-menu-root>
+        <ds-dropdown-menu-trigger as-child>
+          <km-btn class="px-xs" data-test="show-more-btn" flat icon="more-vertical" size="13px" />
+        </ds-dropdown-menu-trigger>
+        <ds-dropdown-menu-content side="bottom" align="end" :side-offset="4">
+          <ds-dropdown-menu-item data-test="clone-btn" @select="showNewDialog = true">{{ m.common_clone() }}</ds-dropdown-menu-item>
+          <ds-dropdown-menu-item data-test="delete-btn" variant="destructive" @select="showDeleteDialog = true">{{ m.common_delete() }}</ds-dropdown-menu-item>
+        </ds-dropdown-menu-content>
+      </ds-dropdown-menu-root>
+      <km-popup-confirm :visible="showDeleteDialog" :confirm-button-label="m.deleteConfirm_deleteEntity({ entity: m.entity_knowledgeSource() })" :cancel-button-label="m.common_cancel()" notification-icon="warning" @confirm="deleteKnowledge" @cancel="showDeleteDialog = false">
+        <div class="cluster mb-md" data-justify="center">{{ m.deleteConfirm_aboutToDelete({ entity: m.entity_knowledgeSource() }) }}</div>
+        <div class="cluster text-center" data-justify="center">{{ m.deleteConfirm_knowledgeSourceBody() }}</div>
+      </km-popup-confirm>
+      <km-popup-confirm :visible="showSyncConfirm" :confirm-button-label="m.common_openSyncJob()" :cancel-button-label="m.common_cancel()" notification-icon="info" @confirm="openJobDetails" @cancel="showSyncConfirm = false">
+        <div class="cluster mb-md" data-justify="center">{{ m.syncConfirm_syncingStarted() }}</div>
+        <div class="cluster text-center" data-justify="center">{{ m.syncConfirm_syncJobCreated({ jobId: job_id }) }}</div>
+      </km-popup-confirm>
+    </template>
+    <template #content>
+      <km-tabs v-model="tab" :items="tabs" />
+      <div class="stack full-height full-width overflow-auto mb-md mt-lg" data-gap="lg" style="min-block-size: 0">
+        <div class="cluster full-height full-width" data-gap="lg">
+          <div class="flex-1 full-height full-width">
+            <div class="stack full-height full-width overflow-auto" data-gap="lg">
+              <collections-generalinfo v-if="tab == &quot;settings&quot;" />
+              <collections-metadata-page v-if="tab == &quot;metadata&quot;" />
+              <collections-chunks v-if="tab == &quot;chunks&quot;" :selected-row="selectedChunk" @select-row="selectedChunk = $event" />
+              <collections-scheduler v-if="tab == &quot;scheduler&quot;" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+    <template #drawer>
+      <collections-metadata-drawer v-if="tab == &quot;metadata&quot; &amp;&amp; activeMetadataConfig" />
+      <collection-items-drawer v-else-if="tab == &quot;chunks&quot; &amp;&amp; selectedChunk" :selected-row="selectedChunk" @close="selectedChunk = null" />
+      <collections-drawer v-else />
+    </template>
+  </layouts-details-layout>
+  <collections-create-new v-if="showNewDialog" :show-new-dialog="showNewDialog" copy @cancel="showNewDialog = false" />
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useQuasar } from 'quasar'
+import { notify } from '@ds/composables/useNotify'
 import { useEntityQueries } from '@/queries/entities'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import { validSystemName } from '@/utils/validationRules'
@@ -101,7 +65,6 @@ const emit = defineEmits(['update:closeDrawer'])
 
 const route = useRoute()
 const router = useRouter()
-const q = useQuasar()
 const queries = useEntityQueries()
 const { draft, isDirty, isLoading, updateField, save: entitySave, revert, remove, buildPayload, data: serverData } = useEntityDetail('collections')
 const collectionMetadataStore = useCollectionMetadataStore()
@@ -113,7 +76,6 @@ const { data: listData } = queries.collections.useList()
 const { mutateAsync: updateCollection } = queries.collections.useUpdate()
 const { mutateAsync: createCollection } = queries.collections.useCreate()
 
-const showInfo = ref(false)
 const showNewDialog = ref(false)
 const showDeleteDialog = ref(false)
 const showSyncConfirm = ref(false)
@@ -122,10 +84,10 @@ const job_id = ref(null)
 const selectedChunk = ref(null)
 
 const tabs = ref([
-  { name: 'chunks', label: m.common_chunks() },
-  { name: 'metadata', label: m.common_metadata() },
-  { name: 'settings', label: m.common_settings() },
-  { name: 'scheduler', label: m.common_scheduleAndRuns() },
+  { value: 'chunks', label: m.common_chunks() },
+  { value: 'metadata', label: m.common_metadata() },
+  { value: 'settings', label: m.common_settings() },
+  { value: 'scheduler', label: m.common_scheduleAndRuns() },
 ])
 const tab = ref('chunks')
 
@@ -181,23 +143,10 @@ async function deleteKnowledge() {
     const result = await remove()
     if (!result.success) throw result.error || new Error('Failed to delete')
     emit('update:closeDrawer', null)
-    q.notify({
-      color: 'green-9', textColor: 'white',
-      icon: 'check_circle',
-      group: 'success',
-      message: m.notify_entityDeleted({ entity: m.entity_knowledgeSource() }),
-      timeout: 1000,
-    })
+    notify.success(m.notify_entityDeleted({ entity: m.entity_knowledgeSource() }))
     navigate('/knowledge-sources')
   } catch (error) {
-    const errorMessage = error?.message || m.notify_failedToDelete()
-    q.notify({
-      color: 'red-9', textColor: 'white',
-      icon: 'error',
-      group: 'error',
-      message: errorMessage,
-      timeout: 3000,
-    })
+    notify.error(error?.message || m.notify_failedToDelete())
   } finally {
     saving.value = false
   }
@@ -237,13 +186,7 @@ async function createSyncJob() {
   const job = await response.json()
   job_id.value = job.job_id
 
-  q.notify({
-    color: 'green-9', textColor: 'white',
-    icon: 'check_circle',
-    group: 'success',
-    message: m.collections_syncJobCreated(),
-    timeout: 1000,
-  })
+  notify.success(m.collections_syncJobCreated())
 }
 
 function transformSourceFields(source) {
@@ -282,13 +225,7 @@ async function save() {
   // Validate system_name before saving
   const systemNameValidation = validSystemName()(draft.value?.system_name)
   if (systemNameValidation !== true) {
-    q.notify({
-      color: 'red-9', textColor: 'white',
-      icon: 'error',
-      group: 'error',
-      message: systemNameValidation,
-      timeout: 3000,
-    })
+    notify.error(systemNameValidation)
     return
   }
 
@@ -311,21 +248,9 @@ async function save() {
     } else {
       await createCollection(draft.value)
     }
-    q.notify({
-      color: 'green-9', textColor: 'white',
-      icon: 'check_circle',
-      group: 'success',
-      message: m.notify_savedSuccessfully(),
-      timeout: 2000,
-    })
+    notify.success(m.notify_savedSuccessfully())
   } catch (error) {
-    q.notify({
-      color: 'red-9', textColor: 'white',
-      icon: 'error',
-      group: 'error',
-      message: error.message || 'Failed to save',
-      timeout: 3000,
-    })
+    notify.error(error.message || 'Failed to save')
   } finally {
     saving.value = false
   }
@@ -339,15 +264,8 @@ function formatDate(date) {
 }
 </script>
 
-<style lang="stylus">
-
-@keyframes wobble {
-    0% { transform: rotate(-5deg); }
-    50% { transform: rotate(5deg); }
-    100% { transform: rotate(-5deg); }
-}
-
+<style>
 .wobble {
-    animation: wobble 2s infinite;
+  animation: ds-attention-wobble var(--ds-duration-attention) infinite;
 }
 </style>

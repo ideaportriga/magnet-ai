@@ -1,212 +1,124 @@
-<template lang="pug">
-km-drawer-layout(storageKey="drawer-prompts", noScroll)
-  template(#header)
-    .km-heading-7
-      .row
-        .col {{ m.common_preview() }}
-        .col-auto
-          km-btn(flat, simple, :label='m.common_evaluate()', iconSize='16px', icon='fas fa-clipboard-check', @click='showNewDialog = true')
-  .column.full-height.full-width.no-wrap.q-px-16
-    .col-auto(style='overflow-x: auto')
-      .row.items-center.q-mb-xs
-        .col
-          .km-heading-5.text-text-grey {{ m.common_input() }}
-        .col-auto
-          q-btn(
-            flat,
-            round,
-            dense,
-            icon='code',
-            :color="inputViewMode === 'code' ? 'primary' : 'grey-5'",
-            @click="inputViewMode = 'code'"
-          )
-            q-tooltip.bg-white.block-shadow.km-description.text-text-grey {{ m.prompts_showRawInput() }}
-          q-btn(
-            flat,
-            round,
-            dense,
-            icon='visibility',
-            :color="inputViewMode === 'preview' ? 'primary' : 'grey-5'",
-            @click="inputViewMode = 'preview'"
-          )
-            q-tooltip.bg-white.block-shadow.km-description.text-text-grey {{ m.prompts_showRenderedPreview() }}
-
-      div.prompt-locked.markdown-content(v-show="inputViewMode === 'preview'")
-        div(v-html='inputRenderedHtml')
-      km-input(
-        v-show="inputViewMode === 'code'",
-        data-test='preview-input',
-        ref='input',
-        rows='10',
-        :placeholder='m.prompts_typeYourText()',
-        :model-value='testText',
-        @input='testText = $event',
-        @keydown.enter='submit',
-        border-radius='8px',
-        height='36px',
-        type='textarea'
-      )
-      .km-field.text-secondary-text {{ m.prompts_plainTextOrJson() }}
-      .q-mt-md
-      .row.q-mt-sm.items-center
-        .col-auto
-          km-select-flat(
-            :placeholder='m.prompts_inputOptions()',
-            :options='inputOptions',
-            :model-value='selectedInputOptionOption',
-            @update:model-value='onInputOptionSelect'
-          )
-      template(v-if='selectedInputOption === "pdf"')
-        .q-mt-md
-          km-file-picker(
-            :model-value='files',
-            accept='.pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls,.odt,.ods,.rtf,.html,.htm,.csv,.tsv,.txt,.md,.eml,.epub,.png,.jpg,.jpeg,.gif,.webp,.bmp,.tiff',
-            multiple,
-            :loading='fileUploadInProgress',
-            :hint='m.prompts_dropFiles()',
-            @update:model-value='onFilePickerUpdate'
-          )
-      template(v-if='selectedInputOption === "audio"')
-        .q-mt-md
-          km-file-picker(
-            :model-value='audioFiles',
-            accept='.flac,.m4a,.mp3,.ogg,.wav,.webm,.mp4',
-            :loading='audioUpload.isUploading.value',
-            :loading-text='audioUpload.uploadStatus.value',
-            :hint='m.prompts_dropAudioFile()',
-            @update:model-value='onAudioFilePickerUpdate'
-          )
-          .row(v-if='audioUpload.error.value').q-mt-xs
-            .col.text-negative.text-body2 {{ audioUpload.error.value }}
-      template(v-if='selectedInputOption === "speech"')
-        .q-mt-md
-          .row.items-center
-            .col-auto.q-mr-sm
-              q-btn(
-                v-if='!scribe.isConnected.value',
-                outline,
-                color='primary',
-                @click='startTranscription',
-                size='sm',
-                padding='6px 12px'
-              )
-                q-icon(name='fas fa-microphone', size='14px', class='q-mr-xs')
-                | {{ m.prompts_startRecording() }}
-              q-btn(
-                v-else,
-                outline,
-                color='error-text',
-                @click='stopTranscription',
-                size='sm',
-                padding='6px 12px'
-              )
-                q-icon(name='fas fa-stop', size='14px', class='q-mr-xs')
-                | {{ m.prompts_stopRecording() }}
-            .col(v-if='isLoadingToken || scribe.isConnected.value')
-              q-spinner(v-if='isLoadingToken', size='20px', color='primary')
-              span(v-else-if='scribe.isConnected.value').text-error-text
-                span.q-mr-xs ●
-                | {{ m.prompts_recording() }}
-          .row(v-if='scribe.error.value').q-mt-xs
-            .col.text-negative.text-body2 {{ scribe.error.value }}
-      .q-mt-md
-
-      .row.justify-end
-        .col-auto.q-my-md
-          q-btn.border-radius-6.q-mb-4(
-            data-test='preview-btn',
-            color='primary',
-            :disable='!testText?.length',
-            @click='submit',
-            unelevated,
-            padding='6px 7px',
-            style='maxheight: 28px'
-          )
-            template(v-slot:default)
-              q-icon(name='fas fa-paper-plane', size='16px')
-      .col-auto
-        q-separator
-        //- OUTPUT
-        .row.q-py-8.items-center
-          .col
-            .km-heading-5.text-text-grey {{ m.common_output() }}
-          .col.row.justify-center
-            km-btn.width-100(
-              v-if='detailedResponse',
-              color='primary',
-              iconColor='primary',
-              labelClass='km-title',
-              :label='m.common_viewCostsLatency()',
-              @click='showDetails = true',
-              flat,
-              iconSize='16px',
-              hoverBg='primary-bg'
-            )
-          .col-auto
-            q-toggle(v-model='markdown', :label='m.common_markdown()', color='primary')
-    q-scroll-area.col(style='min-height: 0')
-      template(v-if='loading')
-        .row.justify-center
-          q-spinner-dots(size='62px', color='primary')
-      template(v-else-if='text !== undefined')
-        .row.no-wrap.q-pt-18
-          .col-auto
-            q-avatar(text-color='white', size='36px')
-              km-icon(:name='"magnet"', width='20', height='22')
-          .col.border-radius-12.q-pb-md
-            .q-py-6.q-px-12
-              km-markdown(v-if='markdown', :source='text') 
-              pre(v-if='!markdown') {{ text }}
-
-    .col-auto
-      .row.items-center
-        .col-auto
-          km-btn(flat, simple, :label='m.common_clearPreview()', iconSize='16px', icon='fas fa-eraser', @click='clearText')
-        q-space
-        .col-auto
-          km-btn(icon='fas fa-copy', iconSize='16px', size='sm', flat, @click='copy', :label='m.common_copy()', :tooltip='m.common_copy()')
-
-  evaluation-jobs-create-new(
-    :showNewDialog='showNewDialog',
-    @create='createEvaluation',
-    @cancel='showNewDialog = false',
-    v-if='showNewDialog',
-    :system_name='promptSystemName',
-    type='prompt_template',
-    disable-prompt-selection
-  )
-  km-popup-confirm(
-    :visible='showEvaluationCreateDialog',
-    :confirmButtonLabel='m.common_viewEvaluation()',
-    notificationIcon='far fa-circle-check',
-    :cancelButtonLabel='m.common_cancel()',
-    @cancel='showEvaluationCreateDialog = false',
-    @confirm='navigateToEval()'
-  )
-    .row.item-center.justify-center.km-heading-7 {{ m.common_evaluationStarted() }}
-    .row.text-center.justify-center {{ m.common_evaluationTakeTime() }}
-    .row.text-center.justify-center {{ m.common_evaluationViewResults() }}
-  km-popup-confirm(
-    :visible='showDetails',
-    :title='m.prompts_costsAndLatency()',
-    :confirmButtonLabel='m.common_ok()',
-    :cancelButtonLabel='m.common_cancel()',
-    @cancel='showDetails = false',
-    @confirm='showDetails = false'
-  )
-    prompts-cost-popup(:record='detailedResponse')
+<template>
+  <km-drawer-layout storage-key="drawer-prompts" no-scroll>
+    <div class="stack full-height full-width min-h-0 min-w-0" data-gap="md">
+      <div class="cluster km-heading-7" data-align="center" data-gap="sm" data-justify="between" data-wrap="no">
+        <div>{{ m.common_preview() }}</div>
+        <km-btn flat simple :label="m.common_evaluate()" icon-size="16px" icon="clipboard-check" @click="showNewDialog = true" />
+      </div>
+      <div class="stack flex-none min-w-0 overflow-auto" data-gap="sm">
+        <div class="stack" data-gap="sm">
+          <div class="stack" data-gap="xs">
+            <div class="cluster" data-align="center" data-gap="sm" data-justify="between" data-wrap="no">
+              <div class="flex-1">
+                <div class="km-title text-secondary-text">{{ m.common_input() }}</div>
+              </div>
+              <div class="flex-none">
+                <km-btn flat round dense icon="code" :tone="inputViewMode === 'code' ? 'brand' : 'weak'" :tooltip="m.prompts_showRawInput()" @click="inputViewMode = 'code'" />
+                <km-btn flat round dense icon="eye" :tone="inputViewMode === 'preview' ? 'brand' : 'weak'" :tooltip="m.prompts_showRenderedPreview()" @click="inputViewMode = 'preview'" />
+              </div>
+            </div>
+            <div v-show="inputViewMode === 'preview'" class="bg-light rounded-lg p-sm overflow-auto">
+              <km-markdown :source="testText" />
+            </div>
+            <km-input v-show="inputViewMode === 'code'" ref="input" data-test="preview-input" autogrow :rows="1" :min-rows="1" :max-rows="10" :placeholder="m.prompts_typeYourText()" :model-value="testText" type="textarea" @input="testText = $event" @keydown.enter="submit">
+              <template #append>
+                <km-btn data-test="preview-btn" type="button" size="icon-xs" icon="send" icon-size="16px" icon-tone="inverse" :disable="!testText?.length" @click="submit" />
+              </template>
+            </km-input>
+            <div class="km-field text-secondary-text">{{ m.prompts_plainTextOrJson() }}</div>
+          </div>
+          <div class="cluster full-width" data-align="center" data-gap="sm" data-justify="between" data-wrap="no">
+            <km-select-flat :placeholder="m.prompts_inputOptions()" :options="inputOptions" :model-value="selectedInputOptionOption" @update:model-value="onInputOptionSelect" />
+          </div>
+        </div>
+        <km-file-picker v-if="selectedInputOption === &quot;pdf&quot;" :model-value="files" accept=".pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls,.odt,.ods,.rtf,.html,.htm,.csv,.tsv,.txt,.md,.eml,.epub,.png,.jpg,.jpeg,.gif,.webp,.bmp,.tiff" multiple :loading="fileUploadInProgress" :hint="m.prompts_dropFiles()" @update:model-value="onFilePickerUpdate" />
+        <div v-if="selectedInputOption === &quot;audio&quot;" class="stack" data-gap="xs">
+          <km-file-picker :model-value="audioFiles" accept=".flac,.m4a,.mp3,.ogg,.wav,.webm,.mp4" :loading="audioUpload.isUploading.value" :loading-text="audioUpload.uploadStatus.value" :hint="m.prompts_dropAudioFile()" @update:model-value="onAudioFilePickerUpdate" />
+          <div v-if="audioUpload.error.value">
+            <div class="flex-1 text-negative text-body2">{{ audioUpload.error.value }}</div>
+          </div>
+        </div>
+        <div v-if="selectedInputOption === &quot;speech&quot;" class="stack" data-gap="xs">
+          <div class="cluster" data-align="center" data-gap="sm">
+            <div class="flex-none">
+              <km-btn v-if="!scribe.isConnected.value" outline tone="brand" size="sm" padding="6px 12px" @click="startTranscription">
+                <km-glyph class="mr-xs" name="microphone" size="14px" />{{ m.prompts_startRecording() }}
+              </km-btn>
+              <km-btn v-else outline tone="danger" size="sm" padding="6px 12px" @click="stopTranscription">
+                <km-glyph class="mr-xs" name="stop" size="14px" />{{ m.prompts_stopRecording() }}
+              </km-btn>
+            </div>
+            <div v-if="isLoadingToken || scribe.isConnected.value" class="flex-1">
+              <km-loader v-if="isLoadingToken" size="20px" /><span v-else-if="scribe.isConnected.value" class="text-error-text"><span class="mr-xs">●</span>{{ m.prompts_recording() }}</span>
+            </div>
+          </div>
+          <div v-if="scribe.error.value">
+            <div class="flex-1 text-negative text-body2">{{ scribe.error.value }}</div>
+          </div>
+        </div>
+        <div class="stack flex-none" data-gap="sm">
+          <km-separator class="my-0" />
+          <div class="cluster min-w-0" data-align="center" data-gap="sm" data-justify="between" data-wrap="no">
+            <div class="flex-1">
+              <div class="km-title text-secondary-text">{{ m.common_output() }}</div>
+            </div>
+            <div class="cluster" data-gap="xs" data-justify="end" data-wrap="no">
+              <km-btn v-if="detailedResponse" tone="brand" icon-tone="brand" interaction-tone="brand" label-class="km-title" :label="m.common_viewCostsLatency()" flat icon-size="16px" @click="showDetails = true" />
+              <km-toggle v-model="markdown" :label="m.common_markdown()" />
+            </div>
+          </div>
+        </div>
+      </div>
+      <km-scroll-area class="flex-1 min-h-0">
+        <template v-if="loading">
+          <div class="cluster" data-justify="center">
+            <km-loader size="62px" />
+          </div>
+        </template>
+        <template v-else-if="text !== undefined">
+          <div class="cluster pt-sm" data-wrap="no">
+            <div class="flex-none">
+              <km-avatar tone="brand" size="36px">
+                <km-icon :name="&quot;magnet&quot;" width="20" height="22" />
+              </km-avatar>
+            </div>
+            <div class="flex-1 rounded-lg pb-md">
+              <div class="p-sm">
+                <km-markdown v-if="markdown" :source="text" />
+                <pre v-if="!markdown" class="font-mono whitespace-pre-wrap overflow-auto">{{ text }}</pre>
+              </div>
+            </div>
+          </div>
+        </template>
+      </km-scroll-area>
+    </div>
+    <template #footer>
+      <div class="cluster" data-align="center" data-gap="sm" data-justify="between" data-wrap="no">
+        <km-btn flat simple :label="m.common_clearPreview()" icon-size="16px" icon="eraser" @click="clearText" />
+        <km-btn icon="copy" icon-size="16px" size="sm" flat :label="m.common_copy()" :tooltip="m.common_copy()" @click="copy" />
+      </div>
+    </template>
+    <evaluation-jobs-create-new v-if="showNewDialog" :show-new-dialog="showNewDialog" :system_name="promptSystemName" type="prompt_template" disable-prompt-selection @create="createEvaluation" @cancel="showNewDialog = false" />
+    <km-popup-confirm :visible="showEvaluationCreateDialog" :confirm-button-label="m.common_viewEvaluation()" notification-icon="check" :cancel-button-label="m.common_cancel()" @cancel="showEvaluationCreateDialog = false" @confirm="navigateToEval()">
+      <div class="cluster km-heading-7" data-justify="center">{{ m.common_evaluationStarted() }}</div>
+      <div class="cluster text-center" data-justify="center">{{ m.common_evaluationTakeTime() }}</div>
+      <div class="cluster text-center" data-justify="center">{{ m.common_evaluationViewResults() }}</div>
+    </km-popup-confirm>
+    <km-popup-confirm :visible="showDetails" :title="m.prompts_costsAndLatency()" :confirm-button-label="m.common_ok()" :cancel-button-label="m.common_cancel()" @cancel="showDetails = false" @confirm="showDetails = false">
+      <prompts-cost-popup :record="detailedResponse" />
+    </km-popup-confirm>
+  </km-drawer-layout>
 </template>
 <script>
 import { defineComponent, ref } from 'vue'
 import { m } from '@/paraglide/messages'
-import { copyToClipboard } from 'quasar'
+import { copyToClipboard } from '@ds/utils/clipboard'
 import { useAppStore } from '@/stores/appStore'
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 import { useSpecificationsStore } from '@/stores/specificationsStore'
 import { fetchData } from '@shared'
 import { useScribe } from '@/composables/useScribe'
 import { useAudioUpload } from '@/composables/useAudioUpload'
-import MarkdownIt from 'markdown-it'
 import { notify } from '@shared/utils/notify'
 
 export default defineComponent({
@@ -225,7 +137,6 @@ export default defineComponent({
     const isLoadingToken = ref(false)
     const transcriptionBaseText = ref('')
     const selectedInputOption = ref(null)
-    const md = new MarkdownIt({ html: false, breaks: true })
 
     return {
       m,
@@ -239,7 +150,6 @@ export default defineComponent({
       isLoadingToken,
       transcriptionBaseText,
       selectedInputOption,
-      markdownRenderer: md,
       inputViewMode: ref('code'),
       detailedResponse: ref(undefined),
       showDetails: ref(false),
@@ -280,24 +190,6 @@ export default defineComponent({
     selectedInputOptionOption() {
       if (!this.selectedInputOption) return null
       return this.inputOptions.find((o) => o.value === this.selectedInputOption) ?? null
-    },
-    inputRenderedHtml() {
-      const input = this.testText || ''
-      const varRegex = /\{[A-Za-z_][A-Za-z0-9_]*\}/g
-      const vars = []
-      const textForMd = input.replace(varRegex, (match) => {
-        const varName = match.slice(1, -1)
-        const idx = vars.length
-        vars.push(varName)
-        return `\u200B__VAR${idx}__\u200B`
-      })
-      let html = this.markdownRenderer.render(textForMd)
-      vars.forEach((varName, idx) => {
-        const placeholder = `\u200B__VAR${idx}__\u200B`
-        const escaped = varName.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-        html = html.split(placeholder).join(`<span class="prompt-var-chip">${escaped}</span>`)
-      })
-      return html
     },
     scribeCommitted() {
       return this.scribe.committedTranscripts?.value ?? []
@@ -437,8 +329,15 @@ export default defineComponent({
     },
 
     async submit(event) {
-      if (event.shiftKey) return
-      event.preventDefault()
+      if (event?.shiftKey) return
+      event?.preventDefault?.()
+
+      const selectedModel = this.selectedRowDetails?.system_name_for_model
+      if (!selectedModel) {
+        notify.error(`${m.common_llmModel()}: ${m.common_required()}`)
+        return
+      }
+
       this.text = undefined
       this.loading = true
       this.selectedInputOption = null
@@ -453,7 +352,7 @@ export default defineComponent({
           topP: this.selectedRowDetails?.topP,
           maxTokens: parseInt(this.selectedRowDetails?.maxTokens),
           response_format: this.selectedRowDetails?.response_format,
-          system_name_for_model: this.selectedRowDetails?.system_name_for_model,
+          system_name_for_model: selectedModel,
           system_name_for_prompt_template: this.promptSystemName,
           prompt_template_variant: this.selectedRowDetails?.variant,
         })) || undefined
@@ -523,106 +422,3 @@ export default defineComponent({
   },
 })
 </script>
-
-<style lang="stylus" scoped>
-.prompt-locked
-  background: #f7f7f9
-  border-radius: 8px
-  padding: 12px 16px
-  min-height: 120px
-  max-height: 220px
-  overflow-y: auto
-  font-size: var(--km-font-size-caption)
-
-.prompt-locked :deep(.prompt-var-chip)
-  display: inline-flex
-  align-items: center
-  padding: 2px 8px
-  margin: 2px 2px
-  border-radius: 4px
-  font-size: var(--km-font-size-caption)
-  font-weight: 500
-  border: 1px solid var(--q-primary)
-  color: var(--q-primary)
-  background: transparent
-
-.prompt-locked :deep(p)
-  margin: 0 0 8px 0
-  line-height: 1.5
-
-.prompt-locked :deep(p:last-child)
-  margin-bottom: 0
-
-.prompt-locked :deep(ul),
-.prompt-locked :deep(ol)
-  padding-left: 20px
-  margin: 0 0 8px 0
-
-.prompt-locked :deep(table)
-  border-collapse: collapse
-  border: 1px solid rgba(0, 0, 0, 0.12)
-  margin: 0 0 8px 0
-  width: auto
-  font-size: inherit
-
-.prompt-locked :deep(th),
-.prompt-locked :deep(td)
-  border: 1px solid rgba(0, 0, 0, 0.12)
-  padding: 6px 10px
-  text-align: left
-  font-size: inherit
-
-.prompt-locked :deep(pre),
-.prompt-locked :deep(code)
-  background: rgba(0, 0, 0, 0.06)
-  border-radius: 4px
-  padding: 2px 6px
-  font-size: var(--km-font-size-caption)
-
-.prompt-locked :deep(pre)
-  padding: 12px
-  overflow-x: auto
-  white-space: pre-wrap
-
-.prompt-locked :deep(h1),
-.prompt-locked :deep(h2),
-.prompt-locked :deep(h3),
-.prompt-locked :deep(h4),
-.prompt-locked :deep(h5),
-.prompt-locked :deep(h6)
-  margin: 12px 0 6px 0
-  line-height: 1.3
-  font-size: var(--km-font-size-h2)
-  font-weight: 600
-
-.prompt-locked :deep(h2)
-  font-size: var(--km-font-size-body-lg)
-
-.prompt-locked :deep(h3)
-  font-size: 15px
-
-.prompt-locked :deep(h4)
-  font-size: var(--km-font-size-body)
-
-.prompt-locked :deep(h5)
-  font-size: var(--km-font-size-label)
-
-.prompt-locked :deep(h6)
-  font-size: var(--km-font-size-caption)
-
-.prompt-locked :deep(h1:first-child),
-.prompt-locked :deep(h2:first-child),
-.prompt-locked :deep(h3:first-child),
-.prompt-locked :deep(h4:first-child)
-  margin-top: 0
-
-.prompt-locked :deep(strong)
-  font-weight: 600
-
-.prompt-locked :deep(a)
-  color: var(--q-primary)
-  text-decoration: none
-
-.prompt-locked :deep(a:hover)
-  text-decoration: underline
-</style>

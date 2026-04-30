@@ -52,6 +52,8 @@ def create_access_token(
         exp=datetime.now(UTC)
         + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRATION_MINUTES),
         jti=str(uuid4()),
+        iss=settings.JWT_ISSUER or None,
+        aud=settings.JWT_AUDIENCE or None,
         extras={
             "user_id": str(user.id),
             "is_superuser": user.is_superuser,

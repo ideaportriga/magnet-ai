@@ -1,19 +1,17 @@
-<template lang="pug">
-.row.q-mb-12
-  .col-auto.center-flex-y
-    km-input(data-test='search-input', :placeholder='m.common_search()', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
-  q-space
-  .col-auto.center-flex-y
-    km-btn.q-mr-12(data-test='new-btn', :label='m.common_new()', @click='showNewDialog = true')
-.col(style='min-height: 0')
-  km-data-table(
-    :table='table',
-    :loading='isLoading', :fetching='isFetching',
-    fill-height,
-    row-key='system_name',
-    @row-click='openDetails'
-  )
-model-providers-new-provider(:showNewDialog='showNewDialog', @cancel='showNewDialog = false')
+<template>
+  <div class="cluster mb-md">
+    <div class="flex-none center-flex-y">
+      <km-input data-test="search-input" :placeholder="m.common_search()" icon-before="search" :model-value="globalFilter" clearable @input="globalFilter = $event" />
+    </div>
+    <div class="km-space" />
+    <div class="flex-none center-flex-y">
+      <km-btn class="mr-md" data-test="new-btn" :label="m.common_new()" @click="showNewDialog = true" />
+    </div>
+  </div>
+  <div class="flex-1" style="min-block-size: 0">
+    <km-data-table :table="table" :loading="isLoading" :fetching="isFetching" fill-height row-key="system_name" @row-click="openDetails" />
+  </div>
+  <model-providers-new-provider :show-new-dialog="showNewDialog" @cancel="showNewDialog = false" />
 </template>
 <script setup lang="ts">
 import { ref } from 'vue'

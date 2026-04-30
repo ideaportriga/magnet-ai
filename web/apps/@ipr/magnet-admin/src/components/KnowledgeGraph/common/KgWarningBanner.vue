@@ -1,7 +1,7 @@
 <template>
   <div class="kg-warning-banner" :class="`kg-warning-banner--${variant}`">
-    <q-icon :name="iconName" :color="iconColor" size="28px" class="q-mr-sm" />
-    <div class="col">
+    <km-glyph :name="iconName" :tone="iconTone" size="28px" class="mr-sm" />
+    <div class="flex-1">
       <slot />
     </div>
   </div>
@@ -22,15 +22,15 @@ const props = withDefaults(defineProps<Props>(), {
   variant: 'warning',
 })
 
-const variantConfig: Record<BannerVariant, { icon: string; iconColor: string }> = {
-  warning: { icon: 'warning', iconColor: 'yellow-8' },
-  error: { icon: 'error', iconColor: 'negative' },
-  info: { icon: 'info', iconColor: 'primary' },
-  neutral: { icon: 'info', iconColor: 'grey-7' },
+const variantConfig: Record<BannerVariant, { icon: string; iconTone: string }> = {
+  warning: { icon: 'warning', iconTone: 'warning' },
+  error: { icon: 'error', iconTone: 'danger' },
+  info: { icon: 'info', iconTone: 'info' },
+  neutral: { icon: 'info', iconTone: 'weak' },
 }
 
 const iconName = computed(() => props.icon || variantConfig[props.variant].icon)
-const iconColor = computed(() => variantConfig[props.variant].iconColor)
+const iconTone = computed(() => variantConfig[props.variant].iconTone)
 </script>
 
 <style scoped>
@@ -39,32 +39,32 @@ const iconColor = computed(() => variantConfig[props.variant].iconColor)
   align-items: center;
   gap: 8px;
   padding: 16px;
-  border-radius: var(--radius-sm);
-  font-size: var(--km-font-size-label);
+  border-radius: var(--ds-radius-sm);
+  font-size: var(--ds-font-size-label);
   line-height: 1.4;
 }
 
 .kg-warning-banner--warning {
-  background: var(--q-warning-bg);
-  border: 1px solid var(--q-warning);
-  color: var(--q-secondary);
+  background: var(--ds-color-warning-bg);
+  border: 1px solid var(--ds-color-warning);
+  color: var(--ds-color-secondary);
 }
 
 .kg-warning-banner--error {
-  background: var(--q-error-bg);
-  border: 1px solid var(--q-error);
-  color: var(--q-error-text);
+  background: var(--ds-color-error-bg);
+  border: 1px solid var(--ds-color-error);
+  color: var(--ds-color-error-text);
 }
 
 .kg-warning-banner--info {
-  background: var(--q-primary-bg);
-  border: 1px solid var(--q-primary);
-  color: var(--q-primary-text);
+  background: var(--ds-color-primary-bg);
+  border: 1px solid var(--ds-color-primary);
+  color: var(--ds-color-primary-text);
 }
 
 .kg-warning-banner--neutral {
-  background: var(--q-light);
-  border: 1px solid var(--q-border);
-  color: var(--q-label);
+  background: var(--ds-color-light);
+  border: 1px solid var(--ds-color-border);
+  color: var(--ds-color-label);
 }
 </style>

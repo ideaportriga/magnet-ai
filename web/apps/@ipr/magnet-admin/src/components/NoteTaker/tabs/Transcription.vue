@@ -1,42 +1,25 @@
-<template lang="pug">
-div
-  km-section(title='Transcription model', subTitle='Select transcription model to transcribe speech to text')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 Model
-    km-select(
-      v-model='pipelineId',
-      :options='pipelineOptions',
-      option-label='label',
-      option-value='value',
-      emit-value,
-      map-options,
-      height='auto',
-      minHeight='36px'
-    )
-    .km-description.text-secondary-text.q-pt-xs.q-pl-8 Speech to text transcription model
-
-  q-separator.q-my-lg
-
-  km-section(title='Limit max number of speakers', subTitle='For some models, you can use max number of speakers or diarization threshold parameters to help model detect speakers more accurately.')
-    .row.items-center.justify-between
-      .km-field.text-secondary-text.q-pl-8 Send max number of speakers
-      q-toggle(v-model='sendNumberOfSpeakers', color='primary')
-    .km-description.text-secondary-text.q-pt-xs.q-pl-8 When enabled, Note Taker sends speaker count to transcription backend.
-
-  q-separator.q-my-lg
-
-  km-section(title='Keyterms', subTitle='Keyterms to improve transcription accuracy')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 Keyterms
-    km-input.full-width(
-      type='textarea',
-      autogrow,
-      :rows='3',
-      height='36px',
-      minHeight='80px',
-      border-radius='8px',
-      :placeholder='m.noteTaker_exampleKeyterms()',
-      v-model='keyterms'
-    )
-    .km-description.text-secondary-text.q-pt-xs.q-pl-8 Comma separated
+<template>
+  <div>
+    <km-section title="Transcription model" sub-title="Select transcription model to transcribe speech to text">
+      <div class="km-field text-secondary-text pb-xs pl-sm">Model</div>
+      <km-select v-model="pipelineId" :options="pipelineOptions" option-label="label" option-value="value" emit-value map-options height="auto" min-height="36px" />
+      <div class="km-description text-secondary-text pt-xs pl-sm">Speech to text transcription model</div>
+    </km-section>
+    <km-separator class="my-lg" />
+    <km-section title="Limit max number of speakers" sub-title="For some models, you can use max number of speakers or diarization threshold parameters to help model detect speakers more accurately.">
+      <div class="cluster" data-justify="between">
+        <div class="km-field text-secondary-text pl-sm">Send max number of speakers</div>
+        <km-toggle v-model="sendNumberOfSpeakers" />
+      </div>
+      <div class="km-description text-secondary-text pt-xs pl-sm">When enabled, Note Taker sends speaker count to transcription backend.</div>
+    </km-section>
+    <km-separator class="my-lg" />
+    <km-section title="Keyterms" sub-title="Keyterms to improve transcription accuracy">
+      <div class="km-field text-secondary-text pb-xs pl-sm">Keyterms</div>
+      <km-input v-model="keyterms" class="full-width" type="textarea" autogrow :rows="3" height="36px" min-height="80px" border-radius="8px" :placeholder="m.noteTaker_exampleKeyterms()" />
+      <div class="km-description text-secondary-text pt-xs pl-sm">Comma separated</div>
+    </km-section>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -50,12 +33,12 @@ const ntStore = useNoteTakerStore()
 const appStore = useAppStore()
 
 const pipelineOptions = ref<{ label: string; value: string }[]>([
-  { label: 'Default (auto)', value: '' },
+  { label: 'Default (auto)', value: '__auto__' },
 ])
 
 const pipelineId = computed({
-  get: () => ntStore.settings?.pipeline_id ?? '',
-  set: (v: string) => ntStore.updateSetting( { path: 'pipeline_id', value: v }),
+  get: () => ntStore.settings?.pipeline_id || '__auto__',
+  set: (v: string) => ntStore.updateSetting({ path: 'pipeline_id', value: v === '__auto__' ? '' : v }),
 })
 const sendNumberOfSpeakers = computed({
   get: () => ntStore.settings?.send_number_of_speakers ?? false,
@@ -81,7 +64,7 @@ const fetchSttModels = async () => {
     const items: any[] = Array.isArray(data) ? data : (data?.items || data?.data || [])
     if (items.length > 0) {
       pipelineOptions.value = [
-        { label: 'Default (auto)', value: '' },
+        { label: 'Default (auto)', value: '__auto__' },
         ...items.map((m: any) => ({ label: m.name || m.system_name, value: m.system_name })),
       ]
     }

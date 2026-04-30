@@ -1,62 +1,30 @@
-<template lang="pug">
-q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")')
-  q-card.card-style(style='min-width: 800px')
-    q-card-section.card-section-style
-      .row
-        .col
-          .km-heading-7 {{ m.agents_newAction() }}
-        .col-auto
-          q-btn(icon='close', flat, dense, @click='$emit("cancel")')
-    q-card-section.card-section-style.q-mb-md
-      agents-tool-selection(v-model:selected='selected')
-        //- .column.no-wrap.q-gap-16.full-height.full-width.overflow-auto.q-mb-md.q-mt-lg(style='min-height: 0')
-        //-   .row
-        //-     .col-auto.center-flex-y
-        //-     km-input(:placeholder='m.common_search()', iconBefore='search', v-model='searchString', @input='searchString = $event', clearable) 
-        //-   .row.q-gap-16.full-height.full-width  
-        //-     .col.full-height.full-width
-        //-       .column.items-center.full-height.full-width.q-gap-16.overflow-auto
-        //-         .col-auto.full-width(v-if='tab != "mcp_tool" && tab != "api"')
-        //-           km-table-new(
-        //-             @selectRow='selectRecord',
-        //-             selection='multiple',
-        //-             row-key='system_name',
-        //-             :active-record-id='selectedRow?.id',
-        //-             v-model:selected='selected',
-        //-             :columns='columns',
-        //-             :rows='rows ?? []',
-        //-             binary-state-sort,
-        //-             :infinite-scroll='true'
-        //-           )
-        //-         .col-auto.full-width(v-if='tab == "mcp_tool"')
-        //-           agents-select-section(
-        //-             v-for='(server, index) in mcp_servers',
-        //-             :searchString='searchString',
-        //-             :key='server.id',
-        //-             :server='server',
-        //-             :selected='selected',
-        //-             @select='selectRecord',
-        //-             type='mcp_tool',
-        //-             system-name-key='name'
-        //-           )
-        //-         .col-auto.full-width(v-if='tab == "api"')
-        //-           agents-select-section(
-        //-             v-for='(server, index) in api_servers',
-        //-             :key='server.id',
-        //-             :server='server',
-        //-             :selected='selected',
-        //-             @select='selectRecord',
-        //-             type='api',
-        //-             system-name-key='system_name',
-        //-             :search-fields='["name", "description", "system_name"]',
-        //-             :search-string='searchString'
-        //-           )
-      .row.q-mt-lg
-        .col-auto
-          km-btn(flat, :label='m.common_cancel()', color='primary', @click='$emit("cancel")')
-        .col
-        .col-auto
-          km-btn(:label='m.common_add()', @click='create')
+<template>
+  <km-dialog :model-value="showNewDialog" @cancel="$emit(&quot;cancel&quot;)">
+    <km-card class="card-style" style="min-inline-size: 800px">
+      <div class="km-card-section card-section-style">
+        <div class="cluster">
+          <div class="flex-1">
+            <div class="km-heading-7">{{ m.agents_newAction() }}</div>
+          </div>
+          <div class="flex-none">
+            <km-btn icon="close" flat dense @click="$emit(&quot;cancel&quot;)" />
+          </div>
+        </div>
+      </div>
+      <div class="km-card-section card-section-style mb-md">
+        <agents-tool-selection v-model:selected="selected" />
+        <div class="cluster mt-lg">
+          <div class="flex-none">
+            <km-btn flat :label="m.common_cancel()" tone="brand" @click="$emit(&quot;cancel&quot;)" />
+          </div>
+          <div class="flex-1" />
+          <div class="flex-none">
+            <km-btn :label="m.common_add()" @click="create" />
+          </div>
+        </div>
+      </div>
+    </km-card>
+  </km-dialog>
 </template>
 <script>
 import { ref, computed } from 'vue'

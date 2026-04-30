@@ -1,49 +1,104 @@
-<template lang="pug">
-q-dialog(:model-value='feedbackConfirmModal')
-  q-card.bg-white.q-px-32.q-pb-32.q-pt-40(style='width: 400px; max-width: 400px; border-radius: 8px')
-    .row.right-flex(style='position: absolute; right: 16px; top: 13px')
-      q-btn(icon='fas fa-times', text-color='blue-grey-3', flat, round, dense, v-close-popup)
-    .column.q-gap-8
-      .col-12
-        .km-title {{ m.feedback_thankYou() }}
-      .col-12.q-pb-24
-        .km-paragraph {{ m.feedback_willHelpImprove() }}
-      .row.right-flex.q-gap-16
-        km-btn(:label='m.common_close()', @click='$emit("update:feedbackConfirmModal", false)')
-q-dialog(:model-value='showFeedbackModal')
-  q-card.bg-white.q-px-32.q-pb-32.q-pt-40(
-    style='width: 400px; max-width: 400px; border-radius: 8px; --'
-  )
-    .row.right-flex(style='position: absolute; right: 16px; top: 13px')
-      q-btn(icon='fas fa-times', text-color='blue-grey-3', flat, round, dense, v-close-popup)
-    .column.q-gap-8
-      .km-title {{ m.feedback_pleaseHelp() }}
-      .q-pb-24
-        .km-paragraph {{ m.feedback_whyNotHappy() }}
-
-      q-option-group.filter-list-chipped(
-        v-model="reason"
-        :options="reasonsList"
-        type="radio"
-        color="primary"
-      )
-
-      .q-py-24
-        .km-heading.q-px-8.q-px-2.q-mb-xs {{ m.feedback_comment() }}
-        km-input.search-prompt-input(
-          rounded,
-          outlined,
-          autogrow,
-          bg-color='background',
-          :placeholder='m.placeholder_howToImproveAnswer()',
-          :model-value='comment',
-          @update:modelValue='comment = $event'
-        )
-      .row.right-flex.q-gap-16
-        km-btn(
-          :label='m.feedback_sendFeedback()',
-          @click='$emit("submit", feedbackModal, { type: "dislike", reason, comment })'
-        )
+<template>
+  <km-dialog :model-value="feedbackConfirmModal">
+    <km-card class="bg-white px-3xl pb-3xl pt-4xl feedback-modal__card">
+      <div
+        class="cluster feedback-modal__close"
+        data-justify="end"
+      >
+        <km-btn
+          icon="close"
+          flat
+          round
+          dense
+          @click="$emit(&quot;update:feedbackConfirmModal&quot;, false)"
+        />
+      </div>
+      <div
+        class="stack"
+        data-gap="sm"
+      >
+        <div>
+          <div class="km-title">
+            {{ m.feedback_thankYou() }}
+          </div>
+        </div>
+        <div class="pb-2xl">
+          <div class="km-paragraph">
+            {{ m.feedback_willHelpImprove() }}
+          </div>
+        </div>
+        <div
+          class="cluster"
+          data-gap="lg"
+          data-justify="end"
+        >
+          <km-btn
+            :label="m.common_close()"
+            @click="$emit(&quot;update:feedbackConfirmModal&quot;, false)"
+          />
+        </div>
+      </div>
+    </km-card>
+  </km-dialog>
+  <km-dialog :model-value="showFeedbackModal">
+    <km-card class="bg-white px-3xl pb-3xl pt-4xl feedback-modal__card">
+      <div
+        class="cluster feedback-modal__close"
+        data-justify="end"
+      >
+        <km-btn
+          icon="close"
+          flat
+          round
+          dense
+          @click="$emit(&quot;update:feedbackModal&quot;, false)"
+        />
+      </div>
+      <div
+        class="stack"
+        data-gap="sm"
+      >
+        <div class="km-title">
+          {{ m.feedback_pleaseHelp() }}
+        </div>
+        <div class="pb-2xl">
+          <div class="km-paragraph">
+            {{ m.feedback_whyNotHappy() }}
+          </div>
+        </div>
+        <km-option-group
+          v-model="reason"
+          class="filter-list-chipped"
+          :options="reasonsList"
+          type="radio"
+        />
+        <div class="py-2xl">
+          <div class="km-heading px-sm px-2xs mb-xs">
+            {{ m.feedback_comment() }}
+          </div>
+          <km-input
+            class="search-prompt-input"
+            rounded
+            outlined
+            autogrow
+            :placeholder="m.placeholder_howToImproveAnswer()"
+            :model-value="comment"
+            @update:model-value="comment = $event"
+          />
+        </div>
+        <div
+          class="cluster"
+          data-gap="lg"
+          data-justify="end"
+        >
+          <km-btn
+            :label="m.feedback_sendFeedback()"
+            @click="$emit(&quot;submit&quot;, feedbackModal, { type: &quot;dislike&quot;, reason, comment })"
+          />
+        </div>
+      </div>
+    </km-card>
+  </km-dialog>
 </template>
 
 <script>
@@ -86,3 +141,16 @@ export default {
   },
 }
 </script>
+
+<style scoped>
+.feedback-modal__card {
+  inline-size: 400px;
+  max-inline-size: 400px;
+  border-radius: var(--ds-radius-lg);
+}
+.feedback-modal__close {
+  position: absolute;
+  inset-inline-end: var(--ds-space-lg);
+  inset-block-start: var(--ds-space-md);
+}
+</style>

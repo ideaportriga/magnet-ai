@@ -1,10 +1,10 @@
 <template>
-  <q-dialog :model-value="modelValue" @update:model-value="$emit('update:modelValue', $event)">
-    <q-card class="q-px-lg q-py-sm dialog-card">
+  <km-dialog :model-value="modelValue" @update:model-value="$emit('update:modelValue', $event)">
+    <km-card class="px-lg py-sm dialog-card">
       <!-- Header -->
-      <q-card-section>
-        <div class="row items-center">
-          <div class="col row items-center q-gutter-x-sm">
+      <div class="km-card-section">
+        <div class="cluster">
+          <div class="flex-1 cluster gap-x-sm">
             <div>
               <div class="km-heading-7">Prompt Validation</div>
               <div class="km-description text-secondary-text">
@@ -12,20 +12,20 @@
               </div>
             </div>
           </div>
-          <q-btn icon="close" flat round dense color="grey-6" @click="$emit('update:modelValue', false)" />
+          <km-btn icon="close" flat round dense tone="weak" @click="$emit('update:modelValue', false)" />
         </div>
-      </q-card-section>
+      </div>
 
       <!-- Content -->
-      <q-card-section class="q-pt-none dialog-content">
-        <div class="row q-col-gutter-md">
+      <div class="km-card-section pt-0 dialog-content">
+        <div class="cluster" data-gap="md">
           <!-- Left: Validation Results -->
-          <div class="col-5">
+          <div class="basis-5">
             <div class="validation-panel">
-              <div class="panel-header row items-center justify-between q-mb-sm">
+              <div class="panel-header cluster mb-sm" data-justify="between">
                 <span class="km-heading-8 text-weight-medium">Validation Results</span>
                 <div class="status-badge" :class="hasErrors ? 'status-error' : 'status-success'">
-                  <q-icon :name="hasErrors ? 'error' : 'check_circle'" size="18px" />
+                  <km-glyph :name="hasErrors ? 'error' : 'check'" size="18px" />
                   <span>{{ hasErrors ? `${errorCount} error${errorCount > 1 ? 's' : ''}` : 'Valid' }}</span>
                 </div>
               </div>
@@ -36,12 +36,12 @@
                     <div v-for="(error, idx) in validationErrors" :key="idx" class="error-item" :style="{ animationDelay: `${idx * 50}ms` }">
                       <div class="error-stripe" :class="getErrorTypeClass(error.type)" />
                       <div class="error-body">
-                        <div class="row items-center q-gutter-x-xs q-mb-xs">
-                          <q-badge :color="getErrorBadgeColor(error.type)" :label="getErrorTypeLabel(error.type)" class="error-type-badge" />
+                        <div class="cluster mb-xs gap-x-xs">
+                          <km-badge :tone="getErrorBadgeTone(error.type)" :label="getErrorTypeLabel(error.type)" class="error-type-badge" />
                           <span v-if="error.section" class="section-tag">{{ formatSectionName(error.section) }}</span>
                         </div>
                         <div class="error-message">{{ error.message }}</div>
-                        <div v-if="error.details" class="error-details q-mt-xs">
+                        <div v-if="error.details" class="error-details mt-xs">
                           <pre>{{ error.details }}</pre>
                         </div>
                       </div>
@@ -52,10 +52,10 @@
                 <template v-else>
                   <div class="success-state">
                     <div class="success-icon-wrapper">
-                      <q-icon name="check_circle" size="48px" color="positive" class="success-icon" />
+                      <km-glyph name="check" size="48px" tone="success" class="success-icon" />
                     </div>
-                    <div class="km-heading-8 q-mt-md">All Checks Passed</div>
-                    <div class="km-description text-secondary-text q-mt-xs">Your prompt template structure is valid and ready to use.</div>
+                    <div class="km-heading-8 mt-md">All Checks Passed</div>
+                    <div class="km-description text-secondary-text mt-xs">Your prompt template structure is valid and ready to use.</div>
                   </div>
                 </template>
               </div>
@@ -63,13 +63,11 @@
           </div>
 
           <!-- Right: Template Preview -->
-          <div class="col-7">
+          <div class="basis-7">
             <div class="preview-panel">
-              <div class="panel-header row items-center justify-between q-mb-sm">
+              <div class="panel-header cluster mb-sm" data-justify="between">
                 <span class="km-heading-8 text-weight-medium">Template Preview</span>
-                <q-btn icon="content_copy" flat dense size="sm" color="grey-7" @click="copyTemplate">
-                  <q-tooltip>Copy to clipboard</q-tooltip>
-                </q-btn>
+                <km-btn icon="copy" flat dense size="sm" tone="weak" tooltip="Copy to clipboard" @click="copyTemplate" />
               </div>
 
               <div class="code-preview">
@@ -81,15 +79,15 @@
             </div>
           </div>
         </div>
-      </q-card-section>
+      </div>
 
       <!-- Footer -->
-      <q-card-actions class="q-pa-md">
-        <q-space />
-        <km-btn :label="m.common_close()" flat color="primary" @click="$emit('update:modelValue', false)" />
-      </q-card-actions>
-    </q-card>
-  </q-dialog>
+      <div class="km-card-actions p-md">
+        <div class="km-space" />
+        <km-btn :label="m.common_close()" flat tone="brand" @click="$emit('update:modelValue', false)" />
+      </div>
+    </km-card>
+  </km-dialog>
 </template>
 
 <script setup lang="ts">
@@ -129,15 +127,15 @@ function getErrorTypeClass(type: ValidationError['type']): string {
   return classes[type] || 'stripe-grey'
 }
 
-function getErrorBadgeColor(type: ValidationError['type']): string {
-  const colors: Record<string, string> = {
-    missing_section: 'negative',
+function getErrorBadgeTone(type: ValidationError['type']): string {
+  const tones: Record<string, string> = {
+    missing_section: 'danger',
     invalid_section: 'warning',
-    parse_error: 'purple-6',
+    parse_error: 'context',
     incompatible: 'info',
-    not_found: 'grey-6',
+    not_found: 'neutral-strong',
   }
-  return colors[type] || 'grey-6'
+  return tones[type] || 'neutral-strong'
 }
 
 function getErrorTypeLabel(type: ValidationError['type']): string {
@@ -168,9 +166,9 @@ function copyTemplate() {
 
 <style scoped>
 .dialog-card {
-  min-width: 900px;
-  max-width: 1000px;
-  max-height: 90vh;
+  min-inline-size: 900px;
+  max-inline-size: 1000px;
+  max-block-size: 90vb;
   display: flex;
   flex-direction: column;
 }
@@ -183,14 +181,14 @@ function copyTemplate() {
 /* Panels */
 .validation-panel,
 .preview-panel {
-  height: 100%;
+  block-size: 100%;
   display: flex;
   flex-direction: column;
 }
 
 .panel-header {
-  padding-bottom: 8px;
-  height: 32px;
+  padding-block-end: 8px;
+  block-size: 32px;
 }
 
 /* Status Badge */
@@ -199,46 +197,46 @@ function copyTemplate() {
   align-items: center;
   gap: 6px;
   padding: 4px 10px;
-  margin-right: 24px;
-  border-radius: var(--radius-full);
-  font-size: var(--km-font-size-caption);
+  margin-inline-end: 24px;
+  border-radius: var(--ds-radius-full);
+  font-size: var(--ds-font-size-caption);
   font-weight: 600;
 }
 
 .status-error {
-  background: var(--q-error-bg);
-  color: var(--q-error-text);
-  border: 1px solid var(--q-error-bg);
+  background: var(--ds-color-error-bg);
+  color: var(--ds-color-error-text);
+  border: 1px solid var(--ds-color-error-bg);
 }
 
 .status-success {
-  background: var(--q-success);
-  color: var(--q-success-text);
-  border: 1px solid var(--q-success);
+  background: var(--ds-color-success);
+  color: var(--ds-color-success-text);
+  border: 1px solid var(--ds-color-success);
 }
 
 /* Errors Container */
 .errors-container {
   flex: 1;
-  overflow-y: auto;
-  max-height: 420px;
-  padding-right: 16px;
+  overflow-block: auto;
+  max-block-size: 420px;
+  padding-inline-end: 16px;
 }
 
 .error-item {
   display: flex;
   gap: 12px;
   padding: 12px;
-  margin-bottom: 8px;
-  background: var(--q-background);
-  border: 1px solid var(--q-border);
-  border-radius: var(--radius-lg);
-  animation: slideIn 0.3s ease forwards;
+  margin-block-end: 8px;
+  background: var(--ds-color-background);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-lg);
+  animation: slide-in 0.3s ease forwards;
   opacity: 0;
   transform: translateY(-8px);
 }
 
-@keyframes slideIn {
+@keyframes slide-in {
   to {
     opacity: 1;
     transform: translateY(0);
@@ -246,69 +244,69 @@ function copyTemplate() {
 }
 
 .error-stripe {
-  width: 4px;
-  border-radius: var(--radius-xs);
+  inline-size: 4px;
+  border-radius: var(--ds-radius-xs);
   flex-shrink: 0;
   align-self: stretch;
 }
 
 .stripe-error {
-  background: var(--q-negative);
+  background: var(--ds-color-error);
 }
 
 .stripe-warning {
-  background: var(--q-warning);
+  background: var(--ds-color-warning);
 }
 
 .stripe-purple {
-  background: var(--q-secondary);
+  background: var(--ds-color-secondary);
 }
 
 .stripe-info {
-  background: var(--q-info);
+  background: var(--ds-color-info);
 }
 
 .stripe-grey {
-  background: var(--q-icon);
+  background: var(--ds-color-icon);
 }
 
 .error-body {
   flex: 1;
-  min-width: 0;
+  min-inline-size: 0;
 }
 
 .error-type-badge {
-  font-size: var(--km-font-size-xs);
+  font-size: var(--ds-font-size-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
 
 .section-tag {
-  font-size: var(--km-font-size-sm);
-  color: var(--q-label);
+  font-size: var(--ds-font-size-sm);
+  color: var(--ds-color-label);
   padding: 2px 6px;
-  background: var(--q-light);
-  border-radius: var(--radius-sm);
-  font-family: var(--km-font-mono);
+  background: var(--ds-color-light);
+  border-radius: var(--ds-radius-sm);
+  font-family: var(--ds-font-mono);
 }
 
 .error-message {
-  font-size: var(--km-font-size-label);
+  font-size: var(--ds-font-size-label);
   line-height: 1.4;
-  color: var(--q-black);
+  color: var(--ds-color-black);
 }
 
 .error-details {
   display: flex;
   align-items: flex-start;
-  font-size: var(--km-font-size-sm);
-  color: var(--q-error-text);
+  font-size: var(--ds-font-size-sm);
+  color: var(--ds-color-error-text);
   padding: 0 8px;
-  margin-top: 10px;
-  background: var(--q-warning-bg);
-  border: 1px solid var(--q-warning);
-  border-radius: var(--radius-sm);
+  margin-block-start: 10px;
+  background: var(--ds-color-warning-bg);
+  border: 1px solid var(--ds-color-warning);
+  border-radius: var(--ds-radius-sm);
 }
 
 .error-details pre {
@@ -330,10 +328,10 @@ function copyTemplate() {
 }
 
 .success-icon {
-  animation: bounceIn 0.4s ease;
+  animation: bounce-in 0.4s ease;
 }
 
-@keyframes bounceIn {
+@keyframes bounce-in {
   0% {
     transform: scale(0);
     opacity: 0;
@@ -351,11 +349,11 @@ function copyTemplate() {
 .code-preview {
   display: flex;
   flex-direction: column;
-  background: var(--q-background);
-  border: 1px solid var(--q-border);
-  border-radius: var(--radius-lg);
-  max-height: 420px;
-  overflow-y: auto;
+  background: var(--ds-color-background);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-lg);
+  max-block-size: 420px;
+  overflow-block: auto;
 }
 
 .code-row {
@@ -365,29 +363,29 @@ function copyTemplate() {
 
 .code-row:first-child .line-number,
 .code-row:first-child .code-content {
-  padding-top: 12px;
+  padding-block-start: 12px;
 }
 
 .code-row:last-child .line-number,
 .code-row:last-child .code-content {
-  padding-bottom: 12px;
+  padding-block-end: 12px;
 }
 
 .code-row:hover {
-  background-color: var(--q-light);
+  background-color: var(--ds-color-light);
 }
 
 .line-number {
   padding: 0 6px;
-  font-family: var(--km-font-mono);
-  font-size: var(--km-font-size-caption);
+  font-family: var(--ds-font-mono);
+  font-size: var(--ds-font-size-caption);
   line-height: 1.5;
-  color: var(--q-icon);
-  text-align: right;
-  min-width: 32px;
+  color: var(--ds-color-icon);
+  text-align: end;
+  min-inline-size: 32px;
   user-select: none;
-  border-right: 1px solid var(--q-border);
-  background: var(--q-light);
+  border-inline-end: 1px solid var(--ds-color-border);
+  background: var(--ds-color-light);
   flex-shrink: 0;
 }
 
@@ -395,29 +393,31 @@ function copyTemplate() {
   flex: 1;
   margin: 0;
   padding: 0 16px;
-  font-family: var(--km-font-mono);
-  font-size: var(--km-font-size-caption);
+  font-family: var(--ds-font-mono);
+  font-size: var(--ds-font-size-caption);
   line-height: 1.5;
-  color: var(--q-black);
+  color: var(--ds-color-black);
   white-space: pre-wrap;
-  word-break: break-word;
+  overflow-wrap: break-word;
   background: transparent;
 }
 
 /* Footer hint code */
 code {
   padding: 2px 6px;
-  background: var(--q-light);
-  border-radius: var(--radius-sm);
-  font-family: var(--km-font-mono);
-  font-size: var(--km-font-size-sm);
-  color: var(--q-label);
+  background: var(--ds-color-light);
+  border-radius: var(--ds-radius-sm);
+  font-family: var(--ds-font-mono);
+  font-size: var(--ds-font-size-sm);
+  color: var(--ds-color-label);
 }
 
 /* Transitions */
 .error-slide-enter-active,
 .error-slide-leave-active {
-  transition: all 0.25s ease;
+  transition:
+    opacity var(--ds-duration-slow) var(--ds-ease-out),
+    transform var(--ds-duration-slow) var(--ds-ease-out);
 }
 
 .error-slide-enter-from {
@@ -433,7 +433,7 @@ code {
 /* Scrollbar */
 .errors-container::-webkit-scrollbar,
 .code-preview::-webkit-scrollbar {
-  width: 6px;
+  inline-size: 6px;
 }
 
 .errors-container::-webkit-scrollbar-track,
@@ -443,12 +443,12 @@ code {
 
 .errors-container::-webkit-scrollbar-thumb,
 .code-preview::-webkit-scrollbar-thumb {
-  background: var(--q-border-2);
-  border-radius: var(--radius-xs);
+  background: var(--ds-color-border-2);
+  border-radius: var(--ds-radius-xs);
 }
 
 .errors-container::-webkit-scrollbar-thumb:hover,
 .code-preview::-webkit-scrollbar-thumb:hover {
-  background: var(--q-icon);
+  background: var(--ds-color-icon);
 }
 </style>

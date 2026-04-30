@@ -1,104 +1,91 @@
-<template lang="pug">
-q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")')
-  q-card.card-style(style='min-width: 700px')
-    q-card-section.card-section-style
-      .row
-        .col
-          .km-heading-7 {{ job.id ? 'Reconfigure' : 'New' }} Job
-        .col-auto
-          q-btn(icon='close', flat, dense, @click='$emit("cancel")')
-    q-card-section.card-section-style.q-mb-md
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 Name
-      .full-width
-        km-input(height='30px', v-model='form.name', ref='nameRef')
-
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-pt-md Job execution type
-      .full-width
-        km-select(v-model='form.executionType', :options='executionTypes', emit-value, map-options, :disabled='isFormDefault')
-
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-pt-md Job
-      .full-width
-        km-select(v-model='form.jobType', :options='jobTypes', emit-value, map-options, :disabled='isFormDefault')
-
-      // is_system checkbox for recurring jobs only
-      .row.items-center.q-mt-md(v-if='form.executionType === "recurring"')
-        km-checkbox(v-model='form.is_system', :label='m.collections_systemJob()', :disable='form.executionType !== "recurring"')
-        //- When is_system is checked, all additional parameters are hidden, as it applies to all records
-
-      // Hide additional parameters if is_system is checked
-      template(v-if='!form.is_system')
-        template(v-if='form.jobType === "sync_collection"')
-          .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-pt-md System name
-          .full-width
-            km-input(height='30px', v-model='form.system_name', :placeholder='m.jobs_enterSystemName()', :disabled='isFormDefault')
-
-        template(v-if='form.jobType === "post_processing_conversations"')
-          .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-pt-md Agents
-          .full-width
-          km-select(
-            data-test='agents-select',
-            height='auto',
-            minHeight='36px',
-            :placeholder='m.jobs_selectAgents()',
-            multiple,
-            :options='agents',
-            v-model='form.agents',
-            use-chips,
-            hasDropdownSearch,
-            emit-value,
-            map-options,
-            option-value='system_name',
-            option-label='name'
-          )
-
-        template(v-if='form.jobType === "cleanup_logs"')
-          .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-pt-md Retention period (days)
-          .full-width
-            km-input(type='number', height='30px', v-model.number='form.retention_days', placeholder='30', :min='1')
-          .km-tiny.text-secondary-text.q-pl-8.q-pt-xs Logs older than this will be deleted
-          .row.items-center.q-mt-md.q-pl-8.q-gap-16
-            km-checkbox(v-model='form.cleanup_traces', :label='m.observability_deleteTraces()')
-            km-checkbox(v-model='form.cleanup_metrics', :label='m.observability_deleteMetrics()')
-
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-pt-md(v-if='form.executionType === "recurring"') Job interval
-      .full-width(v-if='form.executionType === "recurring"')
-        q-btn-toggle(
-          v-model='form.interval',
-          toggle-color='primary-light',
-          :options='intervals',
-          dense,
-          text-color='text-weak',
-          toggle-text-color='primary'
-        )
-      .row.q-mt-md.items-center.q-gap-8.q-pl-8(
-        v-if='(form.interval === "daily" || form.interval === "weekly") && form.executionType !== "one_time_immediate"'
-      )
-        .row.items-center.q-gap-8(v-if='form.interval === "weekly"')
-          .km-field.text-secondary-text Every
-          km-select(v-model='form.day', :options='days', emit-value, map-options)
-        .row.items-center.q-gap-8
-          .km-field.text-secondary-text at
-          km-select(v-model='form.time', :options='times')
-      //- Custom cron input
-      .row.q-mt-md.q-pl-8(v-if='form.interval === "custom" && form.executionType === "recurring"')
-        .col
-          .km-field.text-secondary-text.q-pb-xs Cron expression
-          km-input(height='30px', v-model='form.customCron', :placeholder='m.common_cronExpression()')
-          .km-tiny.text-secondary-text.q-mt-xs Format: minute hour day month day_of_week (e.g., */10 * * * * for every 10 minutes)
-      .row.q-mt-md.items-center
-        km-checkbox(size='40px', v-model='form.enabled', disable)
-        .km-field Send error notifications (upcoming feature)
-      .km-tiny.text-secondary-text Email admin in case of syncing errors. Applies only for scheduled sync.
-      template(v-if='form.enabled')
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-pt-md Error notification email
-        .full-width
-          km-input(height='30px', v-model='form.error_email', ref='errorEmailRef')
-      .row.q-mt-lg
-        .col-auto
-          km-btn(flat, :label='m.common_cancel()', color='primary', @click='$emit("cancel")')
-        .col
-        .col-auto
-          km-btn(:label='m.common_save()', @click='finish')
+<template>
+  <km-dialog :model-value="showNewDialog" @cancel="$emit(&quot;cancel&quot;)">
+    <km-card class="card-style" style="min-inline-size: 700px">
+      <div class="km-card-section card-section-style">
+        <div class="cluster" data-justify="between">
+          <div class="km-heading-7">{{ job.id ? 'Reconfigure' : 'New' }} Job</div>
+          <km-btn icon="close" flat dense @click="$emit(&quot;cancel&quot;)" />
+        </div>
+      </div>
+      <div class="km-card-section card-section-style mb-md">
+        <div class="km-field text-secondary-text pb-xs pl-sm">Name</div>
+        <div class="full-width">
+          <km-input ref="nameRef" v-model="form.name" height="30px" />
+        </div>
+        <div class="km-field text-secondary-text pb-xs pl-sm pt-md">Job execution type</div>
+        <div class="full-width">
+          <km-select v-model="form.executionType" :options="executionTypes" emit-value map-options :disabled="isFormDefault" />
+        </div>
+        <div class="km-field text-secondary-text pb-xs pl-sm pt-md">Job</div>
+        <div class="full-width">
+          <km-select v-model="form.jobType" :options="jobTypes" emit-value map-options :disabled="isFormDefault" />
+        </div>
+        <!-- is_system checkbox for recurring jobs only-->
+        <div v-if="form.executionType === &quot;recurring&quot;" class="cluster mt-md">
+          <km-checkbox v-model="form.is_system" :label="m.collections_systemJob()" :disable="form.executionType !== &quot;recurring&quot;" />
+        </div>
+        <!-- Hide additional parameters if is_system is checked-->
+        <template v-if="!form.is_system">
+          <template v-if="form.jobType === &quot;sync_collection&quot;">
+            <div class="km-field text-secondary-text pb-xs pl-sm pt-md">System name</div>
+            <div class="full-width">
+              <km-input v-model="form.system_name" height="30px" :placeholder="m.jobs_enterSystemName()" :disabled="isFormDefault" />
+            </div>
+          </template>
+          <template v-if="form.jobType === &quot;post_processing_conversations&quot;">
+            <div class="km-field text-secondary-text pb-xs pl-sm pt-md">Agents</div>
+            <div class="full-width" />
+            <km-select v-model="form.agents" data-test="agents-select" height="auto" min-height="36px" :placeholder="m.jobs_selectAgents()" multiple :options="agents" use-chips has-dropdown-search emit-value map-options option-value="system_name" option-label="name" />
+          </template>
+          <template v-if="form.jobType === &quot;cleanup_logs&quot;">
+            <div class="km-field text-secondary-text pb-xs pl-sm pt-md">Retention period (days)</div>
+            <div class="full-width">
+              <km-input v-model.number="form.retention_days" type="number" height="30px" placeholder="30" :min="1" />
+            </div>
+            <div class="km-tiny text-secondary-text pl-sm pt-xs">Logs older than this will be deleted</div>
+            <div class="cluster mt-md pl-sm" data-gap="lg">
+              <km-checkbox v-model="form.cleanup_traces" :label="m.observability_deleteTraces()" />
+              <km-checkbox v-model="form.cleanup_metrics" :label="m.observability_deleteMetrics()" />
+            </div>
+          </template>
+        </template>
+        <div v-if="form.executionType === &quot;recurring&quot;" class="km-field text-secondary-text pb-xs pl-sm pt-md">Job interval</div>
+        <div v-if="form.executionType === &quot;recurring&quot;" class="full-width">
+          <km-btn-toggle v-model="form.interval" :options="intervals" dense />
+        </div>
+        <div v-if="(form.interval === &quot;daily&quot; || form.interval === &quot;weekly&quot;) &amp;&amp; form.executionType !== &quot;one_time_immediate&quot;" class="cluster mt-md pl-sm" data-gap="sm">
+          <div v-if="form.interval === &quot;weekly&quot;" class="cluster" data-gap="sm">
+            <div class="km-field text-secondary-text">Every</div>
+            <km-select v-model="form.day" :options="days" emit-value map-options />
+          </div>
+          <div class="cluster" data-gap="sm">
+            <div class="km-field text-secondary-text">at</div>
+            <km-select v-model="form.time" :options="times" />
+          </div>
+        </div>
+        <div v-if="form.interval === &quot;custom&quot; &amp;&amp; form.executionType === &quot;recurring&quot;" class="mt-md pl-sm">
+          <div class="km-field text-secondary-text pb-xs">Cron expression</div>
+          <km-input v-model="form.customCron" height="30px" :placeholder="m.common_cronExpression()" />
+          <div class="km-tiny text-secondary-text mt-xs">Format: minute hour day month day_of_week (e.g., */10 * * * * for every 10 minutes)</div>
+        </div>
+        <div class="cluster mt-md">
+          <km-checkbox v-model="form.enabled" size="40px" disable />
+          <div class="km-field">Send error notifications (upcoming feature)</div>
+        </div>
+        <div class="km-tiny text-secondary-text">Email admin in case of syncing errors. Applies only for scheduled sync.</div>
+        <template v-if="form.enabled">
+          <div class="km-field text-secondary-text pb-xs pl-sm pt-md">Error notification email</div>
+          <div class="full-width">
+            <km-input ref="errorEmailRef" v-model="form.error_email" height="30px" />
+          </div>
+        </template>
+        <div class="cluster mt-lg" data-justify="between">
+          <km-btn flat :label="m.common_cancel()" tone="brand" @click="$emit(&quot;cancel&quot;)" />
+          <km-btn :label="m.common_save()" @click="finish" />
+        </div>
+      </div>
+    </km-card>
+  </km-dialog>
 </template>
 
 <script>

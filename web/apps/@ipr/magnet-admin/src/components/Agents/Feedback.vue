@@ -1,8 +1,8 @@
-<template lang="pug">
-.row.q-gap-16.items-center(style='height: 40px')
-  km-icon-btn(:color='`${liked ? "primary" : "icon"}`', icon='fas fa-thumbs-up', iconSize='16px', @click='react($event, true)')
-
-  km-icon-btn(:color='`${disliked ? "primary" : "icon"}`', icon='fas fa-thumbs-down', iconSize='16px', @click='react($event, false)')
+<template>
+  <div class="cluster" data-gap="lg" style="block-size: 40px">
+    <km-icon-btn :tone="liked ? &quot;brand&quot; : undefined" icon="thumbs-up" icon-size="16px" @click="react($event, true)" />
+    <km-icon-btn :tone="disliked ? &quot;brand&quot; : undefined" icon="thumbs-down" icon-size="16px" @click="react($event, false)" />
+  </div>
 </template>
 
 <script>

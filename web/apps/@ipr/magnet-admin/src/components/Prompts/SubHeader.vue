@@ -1,63 +1,28 @@
-<template lang="pug">
-q-separator.q-my-sm
-.row.items-center
-  .col-auto.q-py-auto
-    km-select-flat.bg-white(:options='variants', v-model='selected_variant', bg-color='background', height='30px', hasDropdownSearch)
-      template(#option='{ itemProps, select, option }')
-        q-item.bb-border(clickable, v-bind='itemProps', dense, @click='select(option)')
-          q-item-section
-            q-item-label.km-label {{ option.label }}
-          q-item-section(v-if='option?.active_variant', avatar)
-            q-chip.q-mr-sm(:label='m.common_activate()', color='primary-light', text-color='primary', flat, size='sm')
-    //- km-select(:options="variants" v-model="selected_variant" bg-color="background", height="30px", hasDropdownSearch).bg-white
-    //-   template(#option="{ itemProps, opt, selected, toggleOption }")
-    //-     q-item.ba-border(v-bind='itemProps' dense)
-    //-       q-item-section
-    //-         q-item-label.km-label {{opt.label}} 
-    //-       q-item-section(v-if="opt?.active_variant" avatar)
-    //-         q-chip.q-mr-sm(
-    //-         label="Active"
-    //-         color="primary-light"
-    //-         text-color="primary"
-    //-         flat
-    //-         size="sm"
-    //-         )
-      //- q-item-label.km-label {{opt}} 
-  .col.q-mx-sm
-    km-input-flat.km-description.full-width(:placeholder='m.common_description()', :modelValue='variant_description', @change='variant_description = $event')
-  .col-auto.q-mr-sm
-    km-btn.width-100(
-      v-if='!isActive',
-      :label='m.common_activate()',
-      icon='far fa-circle-check',
-      iconColor='icon',
-      hoverColor='primary',
-      labelClass='km-title',
-      flat,
-      iconSize='16px',
-      hoverBg='primary-bg',
-      @click='activateVariantAction'
-    )
-    q-chip.q-mr-sm(v-if='isActive', :label='m.common_activate()', color='primary-light', text-color='primary')
-
-  q-separator(vertical, color='white')
-  .col-auto.text-white.q-mx-md
-    km-btn(
-      :label='m.common_copyToNew()',
-      icon='fas fa-plus',
-      iconColor='icon',
-      hoverColor='primary',
-      labelClass='km-title',
-      flat,
-      iconSize='16px',
-      hoverBg='primary-bg',
-      @click='addVariant'
-    )
-  .col-auto.text-white.q-mr-md
-    km-btn.q-mx-xs(flat, :icon='"far fa-trash-can"', iconSize='16px', size='13px', @click='deleteVariantAction', :disable='variants?.length === 1')
-
-  prompts-create-new(v-if='showNewDialog', :showNewDialog='showNewDialog', @cancel='showNewDialog = false', copy)
-  km-inner-loading(:showing='loading')
+<template>
+  <div class="prompt-variant-subheader">
+    <km-separator class="my-sm" />
+    <div class="prompt-variant-toolbar cluster" data-gap="sm">
+      <div class="flex-none py-auto">
+        <km-dropdown-select :model-value="selectedVariant" :options="variants" @update:model-value="setSelectedVariant" />
+      </div>
+      <div class="prompt-variant-toolbar__description flex-1 mx-sm">
+        <km-input-flat class="km-description full-width" :placeholder="m.common_description()" :model-value="variant_description" @change="variant_description = $event" />
+      </div>
+      <div class="prompt-variant-toolbar__status flex-none mr-sm">
+        <km-btn v-if="!isActive" :label="m.common_activate()" icon="check" interaction-tone="brand" label-class="km-title" flat icon-size="16px" @click="activateVariantAction" />
+        <km-chip v-else class="mr-sm" :label="m.common_active()" tone="brand" />
+      </div>
+      <km-separator vertical tone="inverse" />
+      <div class="flex-none text-white mx-md">
+        <km-btn :label="m.common_copyToNew()" icon="add" interaction-tone="brand" label-class="km-title" flat icon-size="16px" @click="addVariant" />
+      </div>
+      <div class="flex-none text-white mr-md">
+        <km-btn class="mx-xs" flat :icon="&quot;delete&quot;" icon-size="16px" size="13px" :disable="variants?.length === 1" :tooltip="m.common_delete()" @click="deleteVariantAction" />
+      </div>
+      <prompts-create-new v-if="showNewDialog" :show-new-dialog="showNewDialog" copy @cancel="showNewDialog = false" />
+      <km-inner-loading :showing="loading" />
+    </div>
+  </div>
 </template>
 
 <script>
@@ -66,8 +31,10 @@ import { m } from '@/paraglide/messages'
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 import { ref, computed } from 'vue'
 import { notify } from '@shared/utils/notify'
+import KmDropdownSelect from '@ds/components/domain/KmDropdownSelect.vue'
 
 export default {
+  components: { KmDropdownSelect },
   props: ['activeRow'],
   emits: ['update:closeDrawer'],
   setup() {
@@ -107,19 +74,13 @@ export default {
     isActive() {
       return this.selectedVariant == this.draft?.active_variant
     },
-    selected_variant: {
-      get() {
-        return this.getVariantLabel(this.selectedVariant)
-      },
-      set(value) {
-        this.setSelectedVariant(value.value)
-      },
-    },
     variants() {
       return this.draft?.variants?.map((el) => ({
         label: el.display_name || this.getVariantLabel(el.variant),
         value: el.variant,
-        active_variant: el.variant == this.draft?.active_variant,
+        badgeLabel: el.variant == this.draft?.active_variant ? m.common_active() : '',
+        badgeTone: 'brand',
+        badgeIcon: 'check',
       }))
     },
     variant_description: {
@@ -235,3 +196,18 @@ export default {
   },
 }
 </script>
+
+<style scoped>
+.prompt-variant-toolbar {
+  min-inline-size: 0;
+}
+
+.prompt-variant-toolbar__description {
+  min-inline-size: 0;
+}
+
+.prompt-variant-toolbar__status {
+  display: inline-flex;
+  align-items: center;
+}
+</style>

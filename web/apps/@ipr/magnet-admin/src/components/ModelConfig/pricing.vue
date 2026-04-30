@@ -1,59 +1,64 @@
-<template lang="pug">
-div
-  km-section(title='Pricing', subTitle='Pricing information about the model')
-    .row.q-gap-16.q-mb-md
-      .column
-        .km-field.text-secondary-text.q-pl-8.q-mb-sm(style='min-width: 140px') Input units
-          km-select(
-            height='auto',
-            minHeight='30px',
-            v-model='price_input_unit_name',
-            :options='priceUnitOptions',
-            map-options,
-            emit-value,
-            option-value='value',
-            option-label='label'
-          )
-      .column
-        .full-width.row.q-gap-16.items-center
-          .km-field.text-secondary-text.q-pl-8.q-mb-sm Price for {{ type === 'prompts' ? 'standard' : '' }} input {{ price_input_unit_name }}
-            km-input(prefix='$', height='32px', v-model='price_standard_input', style='max-width: 200px')
-          .text-secondary-text.q-mt-xs per
-          km-input.q-mt-sm(height='32px', v-model='price_standard_input_unit_count', style='max-width: 150px')
-          .text-secondary-text.q-mt-xs {{ price_input_unit_name }}
-        .full-width.row.q-gap-16.items-center(v-if='type === "prompts"')
-          .km-field.text-secondary-text.q-pl-8.q-mb-sm Price for cached input {{ price_input_unit_name }}
-            km-input(prefix='$', height='32px', v-model='price_cached_input', style='max-width: 200px')
-          .text-secondary-text.q-mt-xs per
-          km-input.q-mt-sm(height='32px', v-model='price_cached_input_unit_count', style='max-width: 150px')
-          .text-secondary-text.q-mt-xs {{ price_input_unit_name }}
-
-    .row.q-gap-16.q-mb-md(v-if='type === "prompts"')
-      .column
-        .km-field.text-secondary-text.q-pl-8.q-mb-sm(style='min-width: 140px') Output units
-          km-select(
-            height='auto',
-            minHeight='30px',
-            v-model='price_output_unit_name',
-            :options='priceUnitOptions',
-            map-options,
-            emit-value,
-            option-value='value',
-            option-label='label'
-          )
-      .column
-        .full-width.row.q-gap-16.items-center
-          .km-field.text-secondary-text.q-pl-8.q-mb-sm Price for {{ type === 'prompts' ? 'standard' : '' }} output {{ price_output_unit_name }}
-            km-input(prefix='$', height='30px', v-model='price_standard_output', style='max-width: 200px')
-          .text-secondary-text per
-          km-input(height='32px', v-model='price_standard_output_unit_count', style='max-width: 150px')
-          .text-secondary-text {{ price_output_unit_name }}
-        .full-width.row.q-gap-16.items-center
-          .km-field.text-secondary-text.q-pl-8.q-mb-sm Price for reasoning output {{ price_output_unit_name }}
-            km-input(prefix='$', height='32px', v-model='price_reasoning_output', style='max-width: 200px')
-          .text-secondary-text per
-          km-input(height='32px', v-model='price_reasoning_output_unit_count', style='max-width: 150px')
-          .text-secondary-text {{ price_output_unit_name }}
+<template>
+  <div>
+    <km-section title="Pricing" sub-title="Pricing information about the model">
+      <div class="cluster mb-md" data-gap="lg">
+        <div class="stack">
+          <div class="km-field text-secondary-text pl-sm mb-sm pricing__label">
+            Input units
+            <km-select v-model="price_input_unit_name" height="auto" min-height="30px" :options="priceUnitOptions" map-options emit-value option-value="value" option-label="label" />
+          </div>
+        </div>
+        <div class="stack">
+          <div class="cluster full-width" data-gap="lg">
+            <div class="km-field text-secondary-text pl-sm mb-sm">
+              Price for {{ type === 'prompts' ? 'standard' : '' }} input {{ price_input_unit_name }}
+              <km-input v-model="price_standard_input" prefix="$" height="32px" class="pricing__amount-input" />
+            </div>
+            <div class="text-secondary-text mt-xs">per</div>
+            <km-input v-model="price_standard_input_unit_count" class="mt-sm pricing__count-input" height="32px" />
+            <div class="text-secondary-text mt-xs">{{ price_input_unit_name }}</div>
+          </div>
+          <div v-if="type === &quot;prompts&quot;" class="cluster full-width" data-gap="lg">
+            <div class="km-field text-secondary-text pl-sm mb-sm">
+              Price for cached input {{ price_input_unit_name }}
+              <km-input v-model="price_cached_input" prefix="$" height="32px" class="pricing__amount-input" />
+            </div>
+            <div class="text-secondary-text mt-xs">per</div>
+            <km-input v-model="price_cached_input_unit_count" class="mt-sm pricing__count-input" height="32px" />
+            <div class="text-secondary-text mt-xs">{{ price_input_unit_name }}</div>
+          </div>
+        </div>
+      </div>
+      <div v-if="type === &quot;prompts&quot;" class="cluster mb-md" data-gap="lg">
+        <div class="stack">
+          <div class="km-field text-secondary-text pl-sm mb-sm pricing__label">
+            Output units
+            <km-select v-model="price_output_unit_name" height="auto" min-height="30px" :options="priceUnitOptions" map-options emit-value option-value="value" option-label="label" />
+          </div>
+        </div>
+        <div class="stack">
+          <div class="cluster full-width" data-gap="lg">
+            <div class="km-field text-secondary-text pl-sm mb-sm">
+              Price for {{ type === 'prompts' ? 'standard' : '' }} output {{ price_output_unit_name }}
+              <km-input v-model="price_standard_output" prefix="$" height="30px" class="pricing__amount-input" />
+            </div>
+            <div class="text-secondary-text">per</div>
+            <km-input v-model="price_standard_output_unit_count" height="32px" class="pricing__count-input" />
+            <div class="text-secondary-text">{{ price_output_unit_name }}</div>
+          </div>
+          <div class="cluster full-width" data-gap="lg">
+            <div class="km-field text-secondary-text pl-sm mb-sm">
+              Price for reasoning output {{ price_output_unit_name }}
+              <km-input v-model="price_reasoning_output" prefix="$" height="32px" class="pricing__amount-input" />
+            </div>
+            <div class="text-secondary-text">per</div>
+            <km-input v-model="price_reasoning_output_unit_count" height="32px" class="pricing__count-input" />
+            <div class="text-secondary-text">{{ price_output_unit_name }}</div>
+          </div>
+        </div>
+      </div>
+    </km-section>
+  </div>
 </template>
 
 <script>
@@ -224,3 +229,17 @@ export default {
   methods: {},
 }
 </script>
+
+<style scoped>
+.pricing__label {
+  min-inline-size: 140px;
+}
+
+.pricing__amount-input {
+  max-inline-size: 200px;
+}
+
+.pricing__count-input {
+  max-inline-size: 150px;
+}
+</style>

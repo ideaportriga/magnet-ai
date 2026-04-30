@@ -26,26 +26,25 @@
     </kg-dialog-section>
 
     <kg-dialog-section :title="m.knowledgeGraph_sp_sectionScopeTitle()" :description="m.knowledgeGraph_sp_sectionScopeDesc()" icon="folder">
-      <q-btn-toggle
+      <km-btn-toggle
         v-model="contentType"
         :options="[
           { label: m.knowledgeGraph_sp_toggleDocuments(), value: 'documents' },
           { label: m.knowledgeGraph_sp_togglePages(), value: 'pages' },
           { label: m.knowledgeGraph_sp_toggleCustom(), value: 'custom' }
         ]"
-        toggle-color="primary"
         unelevated
-        class="q-mb-lg"
+        class="mb-lg"
       />
 
-      <div class="q-mb-md">
-        <div class="km-input-label q-pb-xs">{{ m.knowledgeGraph_sp_labelLibrary() }}</div>
+      <div class="mb-md">
+        <div class="km-input-label pb-xs">{{ m.knowledgeGraph_sp_labelLibrary() }}</div>
         <km-input v-model="library" height="36px" />
       </div>
 
       <template v-if="library !== SITEPAGES_LIBRARY">
-        <div class="q-mb-md">
-          <div class="km-input-label q-pb-xs">{{ m.knowledgeGraph_sp_labelFolderPath() }}</div>
+        <div class="mb-md">
+          <div class="km-input-label pb-xs">{{ m.knowledgeGraph_sp_labelFolderPath() }}</div>
           <km-input v-model="folderPath" height="36px" :placeholder="m.knowledgeGraph_sp_folderPathPlaceholder()" />
         </div>
 
@@ -53,13 +52,13 @@
           v-model="includeSubfolders"
           :title="m.knowledgeGraph_sp_includeSubfoldersTitle()"
           :description="m.knowledgeGraph_sp_includeSubfoldersDesc()"
-          class="q-mt-lg"
+          class="mt-lg"
         />
       </template>
 
       <div v-else class="text-grey-7 text-body2">
         <div>{{ m.knowledgeGraph_sp_willSyncAllPages() }}</div>
-        <div class="q-mt-sm">
+        <div class="mt-sm">
           {{ m.knowledgeGraph_sp_sitePagesContentProfileTip() }}
         </div>
       </div>

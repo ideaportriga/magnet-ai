@@ -1,5 +1,5 @@
 const load = async (themeName) => {
-  await Promise.all([import('../base/app.styl'), import(`../themes/${themeName}/theme.styl`), import(`../themes/${themeName}/init.js`)])
+  await Promise.all([import('../base/app.css'), import(`../themes/${themeName}/theme.css`), import(`../themes/${themeName}/init.js`)])
 }
 
 export default load

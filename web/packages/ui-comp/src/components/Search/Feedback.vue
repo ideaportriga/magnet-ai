@@ -1,42 +1,12 @@
-<template lang="pug">
-q-dialog(:model-value='modal', @hide='$emit("update:modal", false)')
-  q-card.bg-white.q-px-32.q-pb-32.q-pt-40(
-    style='width: 400px; max-width: 400px; border-radius: 8px; --'
-  )
-    .row.right-flex(style='position: absolute; right: 16px; top: 13px')
-      q-btn(icon='fas fa-times', text-color='blue-grey-3', flat, round, dense, v-close-popup)
-    .column.q-gap-8
-      .km-title {{ mergedT.title }}
-      .q-pb-24
-        .km-paragraph {{ mergedT.subtitle }}
+<script setup lang="ts">
+/**
+ * "Why was this answer bad?" feedback dialog. Rewritten on `@ds`.
+ */
 
-      q-option-group.filter-list-chipped(
-        v-model="reason"
-        :options="reasonsList"
-        type="radio"
-        color="primary"
-      )
-
-      .q-py-24
-        .km-heading.q-px-8.q-px-2.q-mb-xs {{ mergedT.commentLabel }}
-        km-input.search-prompt-input(
-          rounded,
-          outlined,
-          autogrow,
-          bg-color='background',
-          :placeholder='mergedT.commentPlaceholder',
-          :model-value='comment',
-          @update:modelValue='comment = $event'
-        )
-      .row.right-flex.q-gap-16
-        km-btn(
-          :label='mergedT.sendFeedback',
-          @click='submit()'
-        )
-</template>
-
-<script lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
+import { DsDialog, DsRadioGroup } from '@ds/primitives'
+import KmBtn from '@ds/components/domain/KmBtn.vue'
+import KmInput from '@ds/components/domain/KmInput.vue'
 
 const DEFAULT_T = {
   title: 'Please help us improve the answers!',
@@ -49,48 +19,60 @@ const DEFAULT_T = {
   reasonOutdated: "It's outdated",
 }
 
-export default {
-  props: {
-    modal: {},
-    t: {
-      type: Object,
-      default: () => ({}),
-    },
-  },
-  emits: ['onSubmit', 'update:modal'],
-  setup() {
-    const comment = ref('')
+const modal = defineModel<boolean>('modal')
+const props = defineProps<{
+  t?: Record<string, string>
+}>()
 
-    const reason = ref()
-    return {
-      reason,
-      comment,
-    }
-  },
-  computed: {
-    mergedT() {
-      return { ...DEFAULT_T, ...this.t }
-    },
-    reasonsList() {
-      return [
-        { label: this.mergedT.reasonNotRelevant, value: 'not_relevant' },
-        { label: this.mergedT.reasonNotCorrect, value: 'inaccurate' },
-        { label: this.mergedT.reasonOutdated, value: 'outdated' },
-      ]
-    },
-  },
-  watch: {},
-  created() {},
-  mounted() {},
-  methods: {
-    submit() {
-      this.$emit('onSubmit', { type: 'dislike', reason: this.reason, comment: this.comment })
-      this.$emit('update:modal', false)
-      this.comment = ''
-      this.reason = []
-    },
-  },
+const emit = defineEmits<{
+  onSubmit: [payload: { type: 'dislike'; reason: string; comment: string }]
+}>()
+
+const reason = ref('')
+const comment = ref('')
+
+const mergedT = computed(() => ({ ...DEFAULT_T, ...(props.t ?? {}) }))
+
+const reasonsList = computed(() => [
+  { value: 'not_relevant', label: mergedT.value.reasonNotRelevant },
+  { value: 'inaccurate', label: mergedT.value.reasonNotCorrect },
+  { value: 'outdated', label: mergedT.value.reasonOutdated },
+])
+
+function submit() {
+  emit('onSubmit', { type: 'dislike', reason: reason.value, comment: comment.value })
+  modal.value = false
+  comment.value = ''
+  reason.value = ''
 }
 </script>
 
-<style lang="stylus"></style>
+<template>
+  <DsDialog v-model:open="modal" size="sm">
+    <template #title>{{ mergedT.title }}</template>
+
+    <div class="search-feedback stack" data-gap="lg">
+      <p class="search-feedback__subtitle">{{ mergedT.subtitle }}</p>
+
+      <DsRadioGroup v-model="reason" :options="reasonsList" />
+
+      <div class="stack" data-gap="2xs">
+        <span class="search-feedback__label">{{ mergedT.commentLabel }}</span>
+        <KmInput v-model="comment" autogrow rounded :placeholder="mergedT.commentPlaceholder" />
+      </div>
+    </div>
+
+    <template #footer>
+      <KmBtn :label="mergedT.sendFeedback" @click="submit" />
+    </template>
+  </DsDialog>
+</template>
+
+<style scoped>
+.search-feedback__subtitle { font-size: var(--ds-font-size-body); margin: 0; }
+.search-feedback__label {
+  font-size: var(--ds-font-size-caption);
+  font-weight: var(--ds-font-weight-medium);
+  color: var(--ds-color-label);
+}
+</style>

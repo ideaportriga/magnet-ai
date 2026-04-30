@@ -1,11 +1,11 @@
 <template>
   <div>
-    <div class="row justify-start items-center q-mb-sm">
+    <div class="cluster mb-sm" data-align="start">
       <km-btn :label="m.retrieval_addExample()" size="sm" flat @click="openDialog(null)" />
     </div>
 
     <!--
-      §E.1.1 — migrated from <q-table> to <km-data-table> (TanStack Table).
+      §E.1.1 — migrated from <km-table> to <km-data-table> (TanStack Table).
       Named cell slots (#cell-<colId>) replace q-table's body-cell-<name>
       templates. Empty state and menu/action cells use the same shape.
     -->
@@ -29,30 +29,25 @@
       </template>
 
       <template #cell-menu="{ row }">
-        <q-btn dense flat color="dark" icon="more_vert" @click.stop>
-          <q-menu anchor="bottom right" self="top right" auto-close>
-            <q-list dense>
-              <q-item clickable @click="openDialog(row)">
-                <q-item-section thumbnail>
-                  <q-icon name="edit" color="primary" size="20px" class="q-ml-sm" />
-                </q-item-section>
-                <q-item-section>{{ m.common_edit() }}</q-item-section>
-              </q-item>
-              <q-separator />
-              <q-item clickable @click="emit('remove', row.id)">
-                <q-item-section thumbnail>
-                  <q-icon name="delete" color="negative" size="20px" class="q-ml-sm" />
-                </q-item-section>
-                <q-item-section>{{ m.common_delete() }}</q-item-section>
-              </q-item>
-            </q-list>
-          </q-menu>
-        </q-btn>
+        <ds-dropdown-menu-root>
+          <ds-dropdown-menu-trigger as-child>
+            <km-btn dense flat tone="neutral" icon="more-vertical" @click.stop />
+          </ds-dropdown-menu-trigger>
+          <ds-dropdown-menu-content side="bottom" align="end" :side-offset="4">
+            <ds-dropdown-menu-item @select="openDialog(row)">
+              <km-glyph name="edit" size="18px" /><span>{{ m.common_edit() }}</span>
+            </ds-dropdown-menu-item>
+            <ds-dropdown-menu-separator />
+            <ds-dropdown-menu-item variant="destructive" @select="emit('remove', row.id)">
+              <km-glyph name="delete" size="18px" /><span>{{ m.common_delete() }}</span>
+            </ds-dropdown-menu-item>
+          </ds-dropdown-menu-content>
+        </ds-dropdown-menu-root>
       </template>
 
       <template #empty-state>
         <div>
-          <q-icon name="lightbulb" size="24px" color="grey-5" class="q-mr-sm" />
+          <km-glyph name="lightbulb" size="24px" tone="muted" class="mr-sm" />
           <span class="text-grey-6">{{ m.retrieval_noExamplesYet() }}</span>
         </div>
       </template>
@@ -124,6 +119,6 @@ const handleSave = (example: RetrievalExample) => {
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 200px;
+  max-inline-size: 200px;
 }
 </style>

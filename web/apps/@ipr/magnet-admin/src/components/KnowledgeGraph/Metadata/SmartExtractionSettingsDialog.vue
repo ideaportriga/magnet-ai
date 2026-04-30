@@ -10,14 +10,14 @@
     @cancel="emit('cancel')"
     @confirm="onConfirm"
   >
-    <div class="column q-gap-16">
+    <div class="stack" data-gap="lg">
       <!-- Extraction Settings -->
       <kg-dialog-section
         :title="m.knowledgeGraph_extractionSettings()"
         :description="m.knowledgeGraph_extractionSettingsDesc()"
-        icon="auto_awesome"
+        icon="magic"
       >
-        <div class="column q-gap-16">
+        <div class="stack" data-gap="lg">
           <kg-field-row :label="m.knowledgeGraph_extractionMode()" :hint="m.knowledgeGraph_extractionModeHint()">
             <kg-tile-select v-model="approach" :options="approachOptions" :cols="2" />
           </kg-field-row>
@@ -45,26 +45,26 @@
             ? m.knowledgeGraph_segmentationDesc()
             : m.knowledgeGraph_chunkSegmentationDesc()
         "
-        icon="content_cut"
+        icon="cut"
       >
         <template v-if="approach === 'document'">
-          <div class="row q-col-gutter-lg">
-            <div class="col-12 col-md-5">
+          <div class="cluster" data-gap="lg">
+            <div class="basis-12 basis-md-5">
               <kg-field-row :label="m.knowledgeGraph_segmentSizeChars()">
                 <km-input v-model.number="segmentSize" type="number" min="100" height="36px" />
               </kg-field-row>
             </div>
-            <div class="col-12 col-md-7">
+            <div class="basis-12 basis-md-7">
               <kg-field-row :label="m.knowledgeGraph_segmentOverlap()">
-                <div class="row items-center q-gap-md">
-                  <q-slider
+                <div class="cluster" data-gap="md">
+                  <km-slider
                     v-model="segmentOverlap"
                     :min="0"
                     :max="0.9"
                     :step="0.02"
                     label
                     :label-value="`${Math.round((segmentOverlap || 0) * 100)}%`"
-                    class="col"
+                    class="flex-1"
                   />
                   <span class="overlap-value">{{ Math.round((segmentOverlap || 0) * 100) }}%</span>
                 </div>
@@ -163,10 +163,10 @@ const onConfirm = () => {
 <style scoped>
 /* Overlap value display */
 .overlap-value {
-  font-size: var(--km-font-size-label);
+  font-size: var(--ds-font-size-label);
   font-weight: 500;
-  color: var(--q-secondary-text);
-  min-width: 40px;
-  text-align: right;
+  color: var(--ds-color-secondary-text);
+  min-inline-size: 40px;
+  text-align: end;
 }
 </style>

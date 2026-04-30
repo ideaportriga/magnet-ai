@@ -1,0 +1,206 @@
+/* =============================================================================
+ * MOTION TOKENS
+ * =============================================================================
+ * Timing tokens for transitions and animations. Reka UI primitives can read
+ * these via custom properties to align micro-interactions with the rest of
+ * the design system.
+ * ============================================================================= */
+
+:root {
+  --ds-duration-instant: 80ms;
+  --ds-duration-fast: 150ms;
+  --ds-duration-base: 200ms;
+  --ds-duration-slow: 300ms;
+  --ds-duration-slower: 500ms;
+  --ds-duration-attention: 2s;
+
+  --ds-ease-linear: linear;
+  --ds-ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --ds-ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ds-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ds-ease-spring: cubic-bezier(0.5, 1.6, 0.4, 1);
+
+  --ds-transition-colors:
+    color var(--ds-duration-fast) var(--ds-ease-out),
+    background-color var(--ds-duration-fast) var(--ds-ease-out),
+    border-color var(--ds-duration-fast) var(--ds-ease-out);
+  --ds-transition-opacity: opacity var(--ds-duration-fast) var(--ds-ease-out);
+  --ds-transition-transform: transform var(--ds-duration-base) var(--ds-ease-out);
+  --ds-transition-shadow: box-shadow var(--ds-duration-fast) var(--ds-ease-out);
+  --ds-transition-overlay-enter:
+    opacity var(--ds-duration-base) var(--ds-ease-out),
+    transform var(--ds-duration-base) var(--ds-ease-out);
+  --ds-transition-overlay-exit:
+    opacity var(--ds-duration-fast) var(--ds-ease-in),
+    transform var(--ds-duration-fast) var(--ds-ease-in);
+}
+
+@keyframes ds-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes ds-dot-pulse {
+  0%,
+  80%,
+  100% {
+    transform: scale(0.6);
+    opacity: 0.5;
+  }
+
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes ds-dot-wobble-up {
+  0%,
+  100% {
+    transform: translateY(0%) scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: translateY(-66%) scale(0.65);
+    opacity: 0.8;
+  }
+}
+
+@keyframes ds-dot-wobble-down {
+  0%,
+  100% {
+    transform: translateY(0%) scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: translateY(66%) scale(0.65);
+    opacity: 0.8;
+  }
+}
+
+@keyframes ds-attention-wobble {
+  0%,
+  100% { transform: rotate(-5deg); }
+  50% { transform: rotate(5deg); }
+}
+
+@keyframes ds-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes ds-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes ds-scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes ds-scale-out {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.98); }
+}
+
+@keyframes ds-dialog-in {
+  from { opacity: 0; transform: translate(-50%, -48%) scale(0.96); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+@keyframes ds-dialog-out {
+  from { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  to { opacity: 0; transform: translate(-50%, -48%) scale(0.98); }
+}
+
+@keyframes ds-menu-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes ds-menu-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes ds-nav-menu-zoom-in {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes ds-nav-menu-zoom-out {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.95); }
+}
+
+@keyframes ds-nav-menu-slide-from-right {
+  from { opacity: 0; transform: translateX(13rem); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes ds-nav-menu-slide-from-left {
+  from { opacity: 0; transform: translateX(-13rem); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes ds-nav-menu-slide-to-right {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(13rem); }
+}
+
+@keyframes ds-nav-menu-slide-to-left {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(-13rem); }
+}
+
+@keyframes ds-slide-in-from-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes ds-slide-out-to-right {
+  from { transform: translateX(0); }
+  to { transform: translateX(100%); }
+}
+
+@keyframes ds-slide-in-from-left {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes ds-slide-out-to-left {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
+
+@keyframes ds-slide-in-from-top {
+  from { transform: translateY(-100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes ds-slide-out-to-top {
+  from { transform: translateY(0); }
+  to { transform: translateY(-100%); }
+}
+
+@keyframes ds-slide-in-from-bottom {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes ds-slide-out-to-bottom {
+  from { transform: translateY(0); }
+  to { transform: translateY(100%); }
+}
+
+@keyframes ds-collapse-down {
+  from { block-size: 0; }
+  to { block-size: var(--reka-collapsible-content-height, var(--reka-accordion-content-height, 0px)); }
+}
+
+@keyframes ds-collapse-up {
+  from { block-size: var(--reka-collapsible-content-height, var(--reka-accordion-content-height, 0px)); }
+  to { block-size: 0; }
+}

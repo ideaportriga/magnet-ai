@@ -1,59 +1,27 @@
-<template lang="pug">
-div
-  km-section(
-    :title='m.agents_topicSelectionPromptTemplate()',
-    :subTitle='m.subtitle_topicSelection()'
-  )
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_promptTemplate() }}
-    km-select(
-      height='30px',
-      :placeholder='m.agents_standardQaPrompt()',
-      :options='promptTemplatesOptions',
-      v-model='topicSelectionPromptTemplate',
-      hasDropdownSearch,
-      emit-value,
-      map-options,
-      option-value='system_name',
-      :option-show='(item) => item?.category === "agent"'
-    )
-    .km-description.text-secondary-text.q-pb-4 {{ m.agents_promptTemplateMustSupportJson() }}
-    .row.q-mt-sm
-      .col-auto
-        km-btn(
-          flat,
-          simple,
-          :label='topicSelectionPromptTemplate ? m.common_openPromptTemplate() : m.common_openPromptTemplatesLibrary()',
-          iconSize='16px',
-          icon='fas fa-comment-dots',
-          @click='topicSelectionPromptTemplate ? navigate(`prompt-templates/${topicSelectionPromptTemplateId}`) : navigate("prompt-templates")'
-        )
-  q-separator.q-my-lg
-  km-section(
-    :title='m.agents_topicProcessingPromptTemplate()',
-    :subTitle='m.subtitle_topicProcessing()'
-  )
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_promptTemplate() }}
-    km-select(
-      height='30px',
-      :options='promptTemplatesOptions',
-      v-model='topicProcessingPromptTemplate',
-      hasDropdownSearch,
-      emit-value,
-      map-options,
-      option-value='system_name',
-      :option-show='(item) => item?.category === "agent"'
-    )
-    .km-description.text-secondary-text.q-pb-4 {{ m.agents_promptTemplateMustSupportToolCalling() }}
-    .row.q-mt-sm
-      .col-auto
-        km-btn(
-          flat,
-          simple,
-          :label='topicProcessingPromptTemplate ? m.common_openPromptTemplate() : m.common_openPromptTemplatesLibrary()',
-          iconSize='16px',
-          icon='fas fa-comment-dots',
-          @click='topicProcessingPromptTemplate ? navigate(`prompt-templates/${topicProcessingPromptTemplateId}`) : navigate("prompt-templates")'
-        )
+<template>
+  <div>
+    <km-section :title="m.agents_topicSelectionPromptTemplate()" :sub-title="m.subtitle_topicSelection()">
+      <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.common_promptTemplate() }}</div>
+      <km-select v-model="topicSelectionPromptTemplate" height="30px" :placeholder="m.agents_standardQaPrompt()" :options="promptTemplatesOptions" has-dropdown-search emit-value map-options option-value="system_name" :option-show="(item) =&gt; item?.category === &quot;agent&quot;" />
+      <div class="km-description text-secondary-text pb-xs">{{ m.agents_promptTemplateMustSupportJson() }}</div>
+      <div class="cluster mt-sm">
+        <div class="flex-none">
+          <km-btn flat simple :label="topicSelectionPromptTemplate ? m.common_openPromptTemplate() : m.common_openPromptTemplatesLibrary()" icon-size="16px" icon="chat" @click="topicSelectionPromptTemplate ? navigate(`prompt-templates/${topicSelectionPromptTemplateId}`) : navigate(&quot;prompt-templates&quot;)" />
+        </div>
+      </div>
+    </km-section>
+    <km-separator class="my-lg" />
+    <km-section :title="m.agents_topicProcessingPromptTemplate()" :sub-title="m.subtitle_topicProcessing()">
+      <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.common_promptTemplate() }}</div>
+      <km-select v-model="topicProcessingPromptTemplate" height="30px" :options="promptTemplatesOptions" has-dropdown-search emit-value map-options option-value="system_name" :option-show="(item) =&gt; item?.category === &quot;agent&quot;" />
+      <div class="km-description text-secondary-text pb-xs">{{ m.agents_promptTemplateMustSupportToolCalling() }}</div>
+      <div class="cluster mt-sm">
+        <div class="flex-none">
+          <km-btn flat simple :label="topicProcessingPromptTemplate ? m.common_openPromptTemplate() : m.common_openPromptTemplatesLibrary()" icon-size="16px" icon="chat" @click="topicProcessingPromptTemplate ? navigate(`prompt-templates/${topicProcessingPromptTemplateId}`) : navigate(&quot;prompt-templates&quot;)" />
+        </div>
+      </div>
+    </km-section>
+  </div>
 </template>
 
 <script>

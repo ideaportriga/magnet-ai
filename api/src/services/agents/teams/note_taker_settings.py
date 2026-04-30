@@ -1,81 +1,51 @@
 import asyncio
 import json
 import logging
-from typing import Any, Optional
+from typing import Any
 from uuid import UUID
 
 import httpx
+from advanced_alchemy.extensions.litestar import providers
 from litestar import Controller, delete, get, post, put
 from litestar.params import Body
 from litestar.exceptions import HTTPException
-from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select, func
+from sqlalchemy import select
 
 from core.db.models.teams.note_taker_settings import NoteTakerSettings
 from core.db.session import async_session_maker
+from core.domain.note_taker_jobs.status import JobStatus
+from core.domain.note_taker_settings.schemas import (
+    CURRENT_SETTINGS_REVISION,
+    IntegrationConfluenceSchema,
+    IntegrationSalesforceSchema,
+    IntegrationsSchema,
+    NoteTakerSettingsRecordCreateSchema,
+    NoteTakerSettingsRecordUpdateSchema,
+    NoteTakerSettingsSchema,
+    PromptSettingSchema,
+)
+from core.domain.note_taker_settings.service import NoteTakerSettingsService
 
 logger = logging.getLogger(__name__)
 
 
+# Re-exports (kept for backward compatibility with `services.agents.teams.
+# note_taker_settings` import callers; new code should import from
+# `core.domain.note_taker_settings`).
+__all__ = [
+    "IntegrationConfluenceSchema",
+    "IntegrationSalesforceSchema",
+    "IntegrationsSchema",
+    "NoteTakerSettingsRecordCreateSchema",
+    "NoteTakerSettingsRecordUpdateSchema",
+    "NoteTakerSettingsSchema",
+    "PromptSettingSchema",
+    "NoteTakerSettingsController",
+    "NOTE_TAKER_SETTINGS_SYSTEM_NAME",
+]
+
+
 NOTE_TAKER_SETTINGS_SYSTEM_NAME = "NOTE_TAKER_SETTINGS"
-
-
-class PromptSettingSchema(BaseModel):
-    enabled: bool = False
-    prompt_template: str = ""
-
-
-class NoteTakerSettingsSchema(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-
-    subscription_recordings_ready: bool = False
-    # pipeline_id stores the stt_model_system_name (e.g. "ELEVENLABS2_SCRIBE_V1").
-    # Empty string means the transcription service will use its own default provider.
-    pipeline_id: str = ""
-    send_number_of_speakers: bool = False
-    accept_commands_from_non_organizer: bool = False
-    create_knowledge_graph_embedding: bool = False
-    knowledge_graph_system_name: str = ""
-    keyterms: str = ""
-    integration: dict[str, Any] = Field(
-        default_factory=lambda: {
-            "confluence": {
-                "enabled": False,
-                "confluence_api_server": "",
-                "confluence_create_page_tool": "",
-                "space_key": "",
-                "parent_id": "",
-                "title_template": "Meeting notes: {meeting_title} ({date})",
-            },
-            "salesforce": {
-                "send_transcript_to_salesforce": False,
-                "salesforce_api_server": "",
-                "salesforce_stt_recording_tool": "",
-            },
-        }
-    )
-    chapters: PromptSettingSchema = Field(default_factory=PromptSettingSchema)
-    summary: PromptSettingSchema = Field(default_factory=PromptSettingSchema)
-    insights: PromptSettingSchema = Field(default_factory=PromptSettingSchema)
-    post_transcription: PromptSettingSchema = Field(default_factory=PromptSettingSchema)
-
-
-class NoteTakerSettingsRecordCreateSchema(BaseModel):
-    name: str
-    system_name: str
-    description: str = ""
-    config: NoteTakerSettingsSchema = Field(default_factory=NoteTakerSettingsSchema)
-    provider_system_name: Optional[str] = None
-    superuser_id: Optional[str] = None
-
-
-class NoteTakerSettingsRecordUpdateSchema(BaseModel):
-    name: Optional[str] = None
-    system_name: Optional[str] = None
-    description: Optional[str] = None
-    config: Optional[NoteTakerSettingsSchema] = None
-    provider_system_name: Optional[str] = None
-    superuser_id: Optional[str] = None
 
 
 def _default_settings_payload() -> dict[str, Any]:
@@ -91,214 +61,184 @@ def _settings_to_payload(settings: NoteTakerSettings) -> dict[str, Any]:
         "config": settings.config or _default_settings_payload(),
         "provider_system_name": settings.provider_system_name,
         "superuser_id": settings.superuser_id,
+        "settings_revision": getattr(settings, "settings_revision", 1),
         "created_at": settings.created_at,
         "updated_at": settings.updated_at,
     }
 
 
-def _validate_salesforce_settings(data: NoteTakerSettingsSchema) -> None:
-    salesforce_settings = (data.integration or {}).get("salesforce") or {}
-    if salesforce_settings.get("send_transcript_to_salesforce") and (
-        not salesforce_settings.get("salesforce_api_server")
-        or not salesforce_settings.get("salesforce_stt_recording_tool")
-    ):
-        raise ValueError(
-            "Salesforce API server and STT recording tool are required when "
-            "send_transcript_to_salesforce is enabled."
-        )
-
-
-def _validate_confluence_settings(data: NoteTakerSettingsSchema) -> None:
-    confluence_settings = (data.integration or {}).get("confluence") or {}
-    if not confluence_settings.get("enabled"):
-        return
-
-    if not confluence_settings.get("space_key"):
-        raise ValueError(
-            "Confluence space_id is required when confluence is enabled (enter numeric spaceId from Confluence REST v2)."
-        )
-
-    server = (
-        confluence_settings.get("confluence_api_server")
-        # or confluence_settings.get("api_server_system_name")
-    )
-    tool = (
-        confluence_settings.get("confluence_create_page_tool")
-        # or confluence_settings.get("api_tool_system_name")
-        # or confluence_settings.get("tool_system_name")
-    )
-    if not server or not tool:
-        raise ValueError(
-            "Confluence API server and create-page tool are required when confluence is enabled."
-        )
-
-
-def _validate_post_transcription_settings(data: NoteTakerSettingsSchema) -> None:
-    section = data.post_transcription
-    if not section.enabled:
-        return
-    if not str(section.prompt_template or "").strip():
-        raise ValueError(
-            "Prompt template is required when post-transcription processing is enabled."
-        )
-
-
 async def _get_settings_by_id_or_system_name(
-    session, settings_id: str
+    service_or_session: NoteTakerSettingsService | Any,
+    settings_id: str,
 ) -> NoteTakerSettings | None:
+    """Look up a settings row by UUID or by `system_name`.
+
+    Accepts either a ``NoteTakerSettingsService`` (preferred — used inside
+    Litestar route handlers) or a raw ``AsyncSession`` (used by background
+    runners that don't run inside the Litestar DI container). The session
+    fallback constructs a service on the fly so the call site stays simple.
+    """
     try:
         parsed_id = UUID(settings_id)
     except (TypeError, ValueError):
         parsed_id = None
 
-    if parsed_id is not None:
-        stmt = select(NoteTakerSettings).where(NoteTakerSettings.id == parsed_id)
+    if isinstance(service_or_session, NoteTakerSettingsService):
+        service = service_or_session
     else:
-        stmt = select(NoteTakerSettings).where(
-            NoteTakerSettings.system_name == settings_id
-        )
-    result = await session.execute(stmt)
-    return result.scalars().first()
+        service = NoteTakerSettingsService(session=service_or_session)
+
+    if parsed_id is not None:
+        return await service.get_one_or_none(id=parsed_id)
+    return await service.get_one_or_none(system_name=settings_id)
 
 
 class NoteTakerSettingsController(Controller):
     path = "/note-taker/settings"
     tags = ["Admin / Note Taker"]
 
+    dependencies = providers.create_service_dependencies(
+        NoteTakerSettingsService,
+        "settings_service",
+        filters={
+            "pagination_type": "limit_offset",
+            "id_filter": UUID,
+            "pagination_size": 50,
+        },
+    )
+
     @get()
-    async def list_settings(self) -> list[dict[str, Any]]:
-        async with async_session_maker() as session:
-            stmt = select(NoteTakerSettings).order_by(
-                NoteTakerSettings.created_at.asc()
-            )
-            result = await session.execute(stmt)
-            settings = result.scalars().all()
-            return [_settings_to_payload(item) for item in settings]
+    async def list_settings(
+        self,
+        settings_service: NoteTakerSettingsService,
+    ) -> list[dict[str, Any]]:
+        results, _ = await settings_service.list_and_count(
+            order_by=[(NoteTakerSettings.created_at, False)],
+        )
+        return [_settings_to_payload(item) for item in results]
 
     @get("/{settings_id:str}")
-    async def get_settings(self, settings_id: str) -> dict[str, Any]:
-        async with async_session_maker() as session:
-            settings = await _get_settings_by_id_or_system_name(session, settings_id)
-            if settings is None:
-                return {}
-            return _settings_to_payload(settings)
+    async def get_settings(
+        self,
+        settings_service: NoteTakerSettingsService,
+        settings_id: str,
+    ) -> dict[str, Any]:
+        settings = await _get_settings_by_id_or_system_name(
+            settings_service, settings_id
+        )
+        if settings is None:
+            return {}
+        return _settings_to_payload(settings)
 
     @post()
     async def create_settings(
         self,
+        settings_service: NoteTakerSettingsService,
         data: NoteTakerSettingsRecordCreateSchema = Body(),
         request: Any = None,
     ) -> dict[str, Any]:
-        _validate_salesforce_settings(data.config)
-        _validate_confluence_settings(data.config)
-        _validate_post_transcription_settings(data.config)
-        async with async_session_maker() as session:
-            settings = NoteTakerSettings(
-                name=data.name,
-                system_name=data.system_name,
-                description=data.description,
-                config=data.config.model_dump(),
-                provider_system_name=data.provider_system_name or None,
-                superuser_id=data.superuser_id or None,
-            )
-            session.add(settings)
-            await session.commit()
-            await session.refresh(settings)
-
-        return _settings_to_payload(settings)
+        settings = NoteTakerSettings(
+            name=data.name,
+            system_name=data.system_name,
+            description=data.description,
+            config=data.config.model_dump(),
+            provider_system_name=data.provider_system_name or None,
+            superuser_id=data.superuser_id or None,
+            settings_revision=CURRENT_SETTINGS_REVISION,
+        )
+        obj = await settings_service.create(settings, auto_commit=True)
+        return _settings_to_payload(obj)
 
     @put()
     async def update_settings(
         self,
+        settings_service: NoteTakerSettingsService,
         data: NoteTakerSettingsSchema = Body(),
     ) -> dict[str, Any]:
-        _validate_salesforce_settings(data)
-        _validate_confluence_settings(data)
-        _validate_post_transcription_settings(data)
-        async with async_session_maker() as session:
-            stmt = select(NoteTakerSettings).where(
-                NoteTakerSettings.system_name == NOTE_TAKER_SETTINGS_SYSTEM_NAME
+        settings = await settings_service.get_one_or_none(
+            system_name=NOTE_TAKER_SETTINGS_SYSTEM_NAME
+        )
+        if settings is None:
+            settings = NoteTakerSettings(
+                name="Note Taker Settings",
+                system_name=NOTE_TAKER_SETTINGS_SYSTEM_NAME,
+                description="Settings for the Teams note taker bot.",
+                config=_default_settings_payload(),
+                settings_revision=CURRENT_SETTINGS_REVISION,
             )
-            result = await session.execute(stmt)
-            settings = result.scalars().first()
-
-            if settings is None:
-                settings = NoteTakerSettings(
-                    name="Note Taker Settings",
-                    system_name=NOTE_TAKER_SETTINGS_SYSTEM_NAME,
-                    description="Settings for the Teams note taker bot.",
-                    config=_default_settings_payload(),
-                )
-                session.add(settings)
-
-            settings.config = data.model_dump()
-            await session.commit()
-            await session.refresh(settings)
-            return _settings_to_payload(settings)
+            obj = await settings_service.create(settings, auto_commit=False)
+        else:
+            obj = settings
+        obj.config = data.model_dump()
+        obj.settings_revision = CURRENT_SETTINGS_REVISION
+        await settings_service.repository.session.commit()
+        await settings_service.repository.session.refresh(obj)
+        return _settings_to_payload(obj)
 
     @put("/{settings_id:str}")
     async def update_settings_by_id(
         self,
+        settings_service: NoteTakerSettingsService,
         settings_id: str,
         data: NoteTakerSettingsRecordUpdateSchema = Body(),
         request: Any = None,
     ) -> dict[str, Any]:
-        async with async_session_maker() as session:
-            settings = await _get_settings_by_id_or_system_name(session, settings_id)
-            if settings is None:
-                raise ValueError("Note taker settings not found.")
+        settings = await _get_settings_by_id_or_system_name(
+            settings_service, settings_id
+        )
+        if settings is None:
+            raise HTTPException(
+                status_code=404, detail="Note taker settings not found."
+            )
 
-            if data.config is not None:
-                _validate_salesforce_settings(data.config)
-                _validate_confluence_settings(data.config)
-                _validate_post_transcription_settings(data.config)
-                settings.config = data.config.model_dump()
-            if data.name is not None:
-                settings.name = data.name
-            if data.system_name is not None:
-                settings.system_name = data.system_name
-            if data.description is not None:
-                settings.description = data.description
-            if data.provider_system_name is not None:
-                settings.provider_system_name = data.provider_system_name or None
-            if data.superuser_id is not None:
-                settings.superuser_id = data.superuser_id or None
+        if data.config is not None:
+            settings.config = data.config.model_dump()
+            settings.settings_revision = CURRENT_SETTINGS_REVISION
+        if data.name is not None:
+            settings.name = data.name
+        if data.system_name is not None:
+            settings.system_name = data.system_name
+        if data.description is not None:
+            settings.description = data.description
+        if data.provider_system_name is not None:
+            settings.provider_system_name = data.provider_system_name or None
+        if data.superuser_id is not None:
+            settings.superuser_id = data.superuser_id or None
 
-            await session.commit()
-            await session.refresh(settings)
-
+        await settings_service.repository.session.commit()
+        await settings_service.repository.session.refresh(settings)
         return _settings_to_payload(settings)
 
     @delete("/{settings_id:str}", status_code=200)
     async def delete_settings(
-        self, settings_id: str, request: Any = None
+        self,
+        settings_service: NoteTakerSettingsService,
+        settings_id: str,
+        request: Any = None,
     ) -> dict[str, Any]:
         """Delete a note taker settings record and unregister its runtime from the registry."""
-        async with async_session_maker() as session:
-            settings = await _get_settings_by_id_or_system_name(session, settings_id)
-            if settings is None:
-                raise HTTPException(
-                    status_code=404, detail="Note taker settings not found."
-                )
-            payload = _settings_to_payload(settings)
-            provider_sn = str(settings.provider_system_name or "").strip()
-            deleted_id = settings.id
+        settings = await _get_settings_by_id_or_system_name(
+            settings_service, settings_id
+        )
+        if settings is None:
+            raise HTTPException(
+                status_code=404, detail="Note taker settings not found."
+            )
+        payload = _settings_to_payload(settings)
+        provider_sn = str(settings.provider_system_name or "").strip()
+        deleted_id = settings.id
 
-            # Count how many OTHER settings still reference the same provider
-            remaining_count = 0
-            if provider_sn:
-                count_result = await session.execute(
-                    select(func.count())
-                    .select_from(NoteTakerSettings)
-                    .where(
-                        NoteTakerSettings.provider_system_name == provider_sn,
-                        NoteTakerSettings.id != deleted_id,
-                    )
-                )
-                remaining_count = count_result.scalar_one_or_none() or 0
+        # Count how many OTHER settings still reference the same provider —
+        # used by the registry-cleanup branch below.
+        remaining_count = 0
+        if provider_sn:
+            others, total = await settings_service.list_and_count(
+                NoteTakerSettings.provider_system_name == provider_sn,
+                NoteTakerSettings.id != deleted_id,
+            )
+            remaining_count = total
 
-            await session.delete(settings)
-            await session.commit()
+        await settings_service.delete(deleted_id, auto_commit=True)
 
         # Unregister from registry if available
         if request is not None:
@@ -322,7 +262,10 @@ class NoteTakerSettingsController(Controller):
 
     @post("/{settings_id:str}/reload", status_code=200)
     async def reload_runtime(
-        self, settings_id: str, request: Any = None
+        self,
+        settings_service: NoteTakerSettingsService,
+        settings_id: str,
+        request: Any = None,
     ) -> dict[str, Any]:
         """
         Reload the runtime for a note taker settings record.
@@ -336,42 +279,41 @@ class NoteTakerSettingsController(Controller):
             build_note_taker_runtime,
         )
 
-        async with async_session_maker() as session:
-            settings = await _get_settings_by_id_or_system_name(session, settings_id)
-            if settings is None:
-                raise HTTPException(
-                    status_code=404, detail="Note taker settings not found."
-                )
+        settings = await _get_settings_by_id_or_system_name(
+            settings_service, settings_id
+        )
+        if settings is None:
+            raise HTTPException(
+                status_code=404, detail="Note taker settings not found."
+            )
 
-            # Resolve credentials from Provider
-            creds: dict[str, str] = {}
-            if settings.provider_system_name:
-                stmt = select(_Provider).where(
-                    _Provider.system_name == settings.provider_system_name
-                )
-                provider = (await session.execute(stmt)).scalars().first()
-                if provider is None:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Provider '{settings.provider_system_name}' not found.",
-                    )
-                secrets = provider.secrets_encrypted or {}
-                conn = provider.connection_config or {}
-                creds = {
-                    "client_id": secrets.get("client_id")
-                    or conn.get("client_id")
-                    or "",
-                    "client_secret": secrets.get("client_secret") or "",
-                    "tenant_id": secrets.get("tenant_id")
-                    or conn.get("tenant_id")
-                    or "",
-                    "auth_handler_id": conn.get("auth_handler_id") or "",
-                }
-            else:
+        # Resolve credentials from Provider (still a raw select — Provider
+        # has no domain service in core/domain/ yet).
+        creds: dict[str, str] = {}
+        if settings.provider_system_name:
+            session = settings_service.repository.session
+            stmt = select(_Provider).where(
+                _Provider.system_name == settings.provider_system_name
+            )
+            provider = (await session.execute(stmt)).scalars().first()
+            if provider is None:
                 raise HTTPException(
                     status_code=400,
-                    detail="No provider_system_name configured for this record.",
+                    detail=f"Provider '{settings.provider_system_name}' not found.",
                 )
+            secrets = provider.secrets_encrypted or {}
+            conn = provider.connection_config or {}
+            creds = {
+                "client_id": secrets.get("client_id") or conn.get("client_id") or "",
+                "client_secret": secrets.get("client_secret") or "",
+                "tenant_id": secrets.get("tenant_id") or conn.get("tenant_id") or "",
+                "auth_handler_id": conn.get("auth_handler_id") or "",
+            }
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="No provider_system_name configured for this record.",
+            )
 
         client_id = str(creds.get("client_id") or "").strip()
         client_secret = str(creds.get("client_secret") or "").strip()
@@ -420,15 +362,19 @@ class NoteTakerSettingsController(Controller):
 
     @get("/{settings_id:str}/status", status_code=200)
     async def get_runtime_status(
-        self, settings_id: str, request: Any = None
+        self,
+        settings_service: NoteTakerSettingsService,
+        settings_id: str,
+        request: Any = None,
     ) -> dict[str, Any]:
         """Check if the runtime for this settings record is loaded in the registry."""
-        async with async_session_maker() as session:
-            settings = await _get_settings_by_id_or_system_name(session, settings_id)
-            if settings is None:
-                raise HTTPException(
-                    status_code=404, detail="Note taker settings not found."
-                )
+        settings = await _get_settings_by_id_or_system_name(
+            settings_service, settings_id
+        )
+        if settings is None:
+            raise HTTPException(
+                status_code=404, detail="Note taker settings not found."
+            )
 
         has_credentials = bool(settings.provider_system_name)
         runtime_loaded = False
@@ -462,18 +408,20 @@ class NoteTakerSettingsController(Controller):
 
 
 async def _update_preview_job_status(
-    job_id: str, *, status: str, result: dict[str, Any] | None = None
+    job_id: str,
+    *,
+    status: JobStatus | str,
+    result: dict[str, Any] | None = None,
 ) -> None:
-    """Update a preview job's status and result via the domain service."""
-    from core.db.models.teams.note_taker_job import NoteTakerJob
-    from uuid import UUID
+    """Update a preview job's status and result via NoteTakerJobsService."""
+    from core.domain.note_taker_jobs.service import NoteTakerJobsService
 
     async with async_session_maker() as session:
-        stmt = select(NoteTakerJob).where(NoteTakerJob.id == UUID(job_id))
-        row = (await session.execute(stmt)).scalars().first()
+        service = NoteTakerJobsService(session=session)
+        row = await service.get_one_or_none(id=UUID(job_id))
         if row is None:
             return
-        row.status = status
+        row.status = JobStatus(status).value
         if result is not None:
             row.result = result
         await session.commit()
@@ -489,7 +437,7 @@ async def _run_preview_job_background(
     job_id: str,
     settings_id: str,
     source_url: str | None,
-    file_bytes: bytes | None = None,
+    object_key: str | None = None,
     upload_filename: str | None = None,
     upload_content_type: str | None = None,
     participants: list[str],
@@ -497,33 +445,34 @@ async def _run_preview_job_background(
 ) -> None:
     """Drive the transcription pipeline for a preview job, updating DB status.
 
-    Either ``source_url`` (remote file to download) or ``file_bytes`` (already
-    in-memory from a multipart upload) must be provided.
+    Either ``source_url`` (remote file to download here) or ``object_key``
+    (already staged in object storage by the controller) must be provided.
+    The unified path lets the URL and upload entrypoints share the same
+    taskiq queue: callers stage bytes synchronously where they have them
+    and hand off only the object reference to the worker.
     """
     from speech_to_text.transcription import service as transcription_service
     from .note_taker_files import _probe_remote_file_metadata, _upload_stream_to_object
 
-    await _update_preview_job_status(job_id, status="running")
+    await _update_preview_job_status(job_id, status=JobStatus.RUNNING)
 
     try:
-        if not source_url and not file_bytes:
+        if not source_url and not object_key:
             await _update_preview_job_status(
-                job_id, status="failed", result={"error": "No source provided."}
+                job_id, status=JobStatus.FAILED, result={"error": "No source provided."}
             )
             return
 
         name = f"preview_{job_id}"
-        object_key: str
 
-        if file_bytes is not None:
-            # --- Multipart upload path ---
+        if object_key is not None:
+            # --- Pre-uploaded object path ---
             raw_ct = (
                 (upload_content_type or "application/octet-stream")
                 .split(";")[0]
                 .strip()
             )
             if not raw_ct.startswith(("audio/", "video/")):
-                # Try to guess from filename extension
                 from pathlib import Path as _Path
 
                 suffix = _Path(upload_filename or "").suffix.lower()
@@ -541,7 +490,7 @@ async def _run_preview_job_background(
                 if not raw_ct.startswith(("audio/", "video/")):
                     await _update_preview_job_status(
                         job_id,
-                        status="failed",
+                        status=JobStatus.FAILED,
                         result={"error": f"Unsupported content type: {raw_ct}"},
                     )
                     return
@@ -553,17 +502,6 @@ async def _run_preview_job_background(
             filename = upload_filename or f"{name}{suffix_from_ct}"
             ext = (
                 "." + filename.rsplit(".", 1)[-1] if "." in filename else suffix_from_ct
-            )
-
-            async def _bytes_iter(data: bytes, chunk: int = 65536):
-                for i in range(0, len(data), chunk):
-                    yield data[i : i + chunk]
-
-            object_key = await _upload_stream_to_object(
-                stream=_bytes_iter(file_bytes),
-                size=len(file_bytes),
-                content_type=content_type,
-                filename=filename,
             )
         else:
             # --- URL download path ---
@@ -584,7 +522,7 @@ async def _run_preview_job_background(
             if not content_type.startswith(("audio/", "video/")):
                 await _update_preview_job_status(
                     job_id,
-                    status="failed",
+                    status=JobStatus.FAILED,
                     result={"error": f"Unsupported content type: {content_type}"},
                 )
                 return
@@ -628,11 +566,14 @@ async def _run_preview_job_background(
                 )
 
         # Ensure STT storage pool is initialized before submitting.
+        # `init_pool` is now a documented no-op — the pool lives on the
+        # SQLAlchemy engine — but we keep the call as a touchpoint in case
+        # the contract changes again.
         try:
             from stores import get_db_store
 
             db_store = get_db_store()
-            await db_store.client._ensure_pool_initialized()
+            await db_store.client.init_pool()
         except Exception as pool_err:
             logger.warning("Preview job %s: pool init warning: %s", job_id, pool_err)
 
@@ -666,12 +607,12 @@ async def _run_preview_job_background(
         try:
             status: str = await asyncio.wait_for(_poll_transcription(), timeout=900)
         except asyncio.TimeoutError:
-            status = "timeout"
+            status = JobStatus.TIMEOUT.value
 
         if status not in {"completed", "transcribed", "diarized"}:
             await _update_preview_job_status(
                 job_id,
-                status="failed",
+                status=JobStatus.FAILED,
                 result={
                     "error": f"Transcription status: {status}",
                     "transcription_job_id": transcription_job_id,
@@ -758,7 +699,7 @@ async def _run_preview_job_background(
 
         await _update_preview_job_status(
             job_id,
-            status="transcribed",
+            status=JobStatus.TRANSCRIBED,
             result={
                 "transcription_job_id": transcription_job_id,
                 "transcription": transcription,
@@ -773,7 +714,7 @@ async def _run_preview_job_background(
     except Exception as exc:
         logger.exception("Preview job %s failed: %s", job_id, exc)
         await _update_preview_job_status(
-            job_id, status="failed", result={"error": str(exc)}
+            job_id, status=JobStatus.FAILED, result={"error": str(exc)}
         )
 
 
@@ -791,15 +732,14 @@ async def _rerun_postprocessing_background(
     from .note_taker_utils import _merge_note_taker_settings, format_transcript_segments
     from .transcript_postprocess import annotate_transcript_speakers
 
-    await _update_preview_job_status(job_id, status="rerunning")
+    await _update_preview_job_status(job_id, status=JobStatus.RERUNNING)
 
     try:
-        from core.db.models.teams.note_taker_job import NoteTakerJob
-        from uuid import UUID as _UUID
+        from core.domain.note_taker_jobs.service import NoteTakerJobsService
 
         async with async_session_maker() as session:
-            stmt = select(NoteTakerJob).where(NoteTakerJob.id == _UUID(job_id))
-            job_row = (await session.execute(stmt)).scalars().first()
+            jobs_service = NoteTakerJobsService(session=session)
+            job_row = await jobs_service.get_one_or_none(id=UUID(job_id))
         if not job_row:
             return
 
@@ -814,7 +754,7 @@ async def _rerun_postprocessing_background(
         if not transcription_job_id:
             await _update_preview_job_status(
                 job_id,
-                status="failed",
+                status=JobStatus.FAILED,
                 result={"error": "No transcription_job_id in job result."},
             )
             return
@@ -824,7 +764,9 @@ async def _rerun_postprocessing_background(
         )
         if not transcription:
             await _update_preview_job_status(
-                job_id, status="failed", result={"error": "Transcription not found."}
+                job_id,
+                status=JobStatus.FAILED,
+                result={"error": "Transcription not found."},
             )
             return
 
@@ -895,7 +837,7 @@ async def _rerun_postprocessing_background(
 
         await _update_preview_job_status(
             job_id,
-            status="completed",
+            status=JobStatus.COMPLETED,
             result={
                 **result,
                 "speaker_mapping": speaker_mapping,
@@ -907,5 +849,5 @@ async def _rerun_postprocessing_background(
     except Exception as exc:
         logger.exception("Rerun postprocessing for job %s failed: %s", job_id, exc)
         await _update_preview_job_status(
-            job_id, status="failed", result={"error": str(exc)}
+            job_id, status=JobStatus.FAILED, result={"error": str(exc)}
         )

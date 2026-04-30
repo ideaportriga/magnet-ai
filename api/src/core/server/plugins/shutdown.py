@@ -34,14 +34,9 @@ class ShutdownPlugin(InitPluginProtocol):
         # Cancel background monitors started in startup plugin
         await self._cancel_event_loop_monitor(app)
 
-        # Shutdown scheduler
-        await self._shutdown_scheduler(app)
-
-        # Wait for tracked background tasks to finish (or cancel after timeout)
-        from core.server.background_tasks import shutdown_background_tasks
-
-        timeout = float(os.environ.get("GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS", "30"))
-        await shutdown_background_tasks(shutdown_timeout=timeout)
+        # Shutdown the TaskIQ broker on the API process. Worker/scheduler
+        # processes handle their own broker lifecycle via the CLI.
+        await self._shutdown_taskiq_broker(app)
 
         # Flush OTEL traces so spans reach the collector before the engine
         # (and the shared sync span-exporter engine) is torn down. §C.7.
@@ -86,23 +81,21 @@ class ShutdownPlugin(InitPluginProtocol):
         except Exception as e:
             logger.warning("OTEL flush failed: %s", e)
 
-    async def _shutdown_scheduler(self, app: Litestar) -> None:
-        """Shutdown the scheduler."""
-        scheduler = getattr(app.state, "scheduler", None)
-        if scheduler is not None:
-            try:
-                logger.info("Shutting down scheduler...")
-                # Try with wait parameter first, fallback to basic shutdown if not supported
-                try:
-                    scheduler.shutdown(wait=True)  # Wait for current jobs to complete
-                except TypeError:
-                    # Fallback for schedulers that don't support wait parameter
-                    scheduler.shutdown()
-                logger.info("Scheduler shut down successfully")
-            except Exception as e:
-                logger.error(f"Error shutting down scheduler: {e}")
-        else:
-            logger.info("No scheduler to shut down")
+    @staticmethod
+    async def _shutdown_taskiq_broker(app: Litestar) -> None:
+        try:
+            broker = getattr(app.state, "taskiq_broker", None)
+            if broker is None:
+                return
+            # `TaskiqRuntimePlugin` flips `is_worker_process=True` during
+            # in-process startup; we still own the broker lifecycle and
+            # must close the asyncpg pools here. The previous
+            # `if is_worker_process: return` guard belonged to the
+            # multi-container era and is wrong for in-process.
+            await broker.shutdown()
+            logger.info("TaskIQ broker shut down")
+        except Exception as exc:  # noqa: BLE001
+            logger.error("Error shutting down TaskIQ broker: %s", exc)
 
     async def _close_http_client(self) -> None:
         """Close the shared httpx.AsyncClient."""

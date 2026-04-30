@@ -1,7 +1,7 @@
 /**
  * MCP Servers — CRUD contract.
  *
- * Create dialog is a q-dialog (not km-popup-confirm) with name, system_name,
+ * Create dialog is a km-dialog (not km-popup-confirm) with name, system_name,
  * url, and transport radio. data-test attrs added on all three inputs via
  * I.2 audit. Detail page has name + system_name (no description — C6/C7
  * skipped).

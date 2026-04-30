@@ -21,6 +21,10 @@ param databaseConnectionString string
 @description('Fernet encryption key')
 param secretEncryptionKey string
 
+@secure()
+@description('SECRET_KEY for JWT auth. Generate with `openssl rand -hex 32`.')
+param secretKey string = ''
+
 var appName = 'ca-magnet-ai-${environment}'
 var redirectUri = 'https://${appName}.${envDefaultDomain}/auth/callback'
 
@@ -43,6 +47,10 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
           name: 'secret-encryption-key'
           value: secretEncryptionKey
         }
+        {
+          name: 'secret-key'
+          value: secretKey
+        }
       ]
       activeRevisionsMode: 'Single'
       ingress: {
@@ -59,6 +67,12 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
       }
     }
     template: {
+      // Must be ≥ TASKIQ_DEFAULT_TIMEOUT_SECONDS so SIGTERM lets a
+      // long-running task (sync_kg_source / api_ingest can each be 30 min)
+      // finish before the replica is force-killed. The
+      // TaskiqRuntimePlugin._stop_runtime caps wait at
+      // TASKIQ_WAIT_TASKS_TIMEOUT (1860s).
+      terminationGracePeriodSeconds: 1900
       containers: [
         {
           image: containerImage
@@ -87,6 +101,10 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
             {
               name: 'SECRET_ENCRYPTION_KEY'
               secretRef: 'secret-encryption-key'
+            }
+            {
+              name: 'SECRET_KEY'
+              secretRef: 'secret-key'
             }
             {
               name: 'MICROSOFT_ENTRA_ID_REDIRECT_URI'
@@ -148,32 +166,74 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
               name: 'SCHEDULER_POOL_PRE_PING'
               value: 'true'
             }
+            // ---- TaskIQ (single-container in-process layout) ----
+            // Worker and scheduler run as asyncio tasks inside the
+            // Litestar event loop via TaskiqRuntimePlugin. Concurrency is
+            // kept low because heavy CPU work in the worker would block
+            // API request handling on the same loop.
+            {
+              name: 'TASKIQ_INPROCESS_WORKER_ENABLED'
+              value: 'true'
+            }
+            {
+              name: 'TASKIQ_INPROCESS_SCHEDULER_ENABLED'
+              value: 'true'
+            }
+            {
+              name: 'TASKIQ_WORKER_CONCURRENCY'
+              value: '2'
+            }
+            {
+              name: 'TASKIQ_DEFAULT_TIMEOUT_SECONDS'
+              value: '1800'
+            }
+            {
+              name: 'TASKIQ_WAIT_TASKS_TIMEOUT'
+              value: '1860'
+            }
+            {
+              name: 'TASKIQ_SCHEDULER_UPDATE_INTERVAL'
+              value: '10'
+            }
           ]
           resources: {
             cpu: json('0.5')
             memory: '1Gi'
           }
           probes: [
+            // Liveness: hit /health/live which inspects the in-process
+            // TaskIQ worker / scheduler asyncio tasks. A dead runtime
+            // task is not recoverable inside the same process — let
+            // Container Apps recycle the replica.
             {
               type: 'Liveness'
               failureThreshold: 3
               periodSeconds: 10
               successThreshold: 1
-              tcpSocket: {
+              httpGet: {
+                path: '/health/live'
                 port: 8000
+                scheme: 'HTTP'
               }
               timeoutSeconds: 5
             }
+            // Readiness: deeper probe (DB pool, API key cache, taskiq
+            // tasks). 503 here only takes the replica out of ingress
+            // rotation, not restarts it.
             {
               type: 'Readiness'
               failureThreshold: 48
               periodSeconds: 5
               successThreshold: 1
-              tcpSocket: {
+              httpGet: {
+                path: '/health/ready'
                 port: 8000
+                scheme: 'HTTP'
               }
               timeoutSeconds: 5
             }
+            // Startup: keep TCP — /health endpoints aren't bound until
+            // Litestar finishes its plugin chain.
             {
               type: 'Startup'
               failureThreshold: 240
@@ -189,6 +249,11 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
         }
       ]
       scale: {
+        // SINGLETON. The in-process scheduler MUST be the only scheduler
+        // running against `taskiq_schedules` — multiple replicas would
+        // double-fire every cron tick. To horizontally scale API in the
+        // future, move scheduler into its own Container App and keep
+        // THAT one at maxReplicas: 1.
         minReplicas: 1
         maxReplicas: 1
       }

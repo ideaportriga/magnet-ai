@@ -1,24 +1,16 @@
-<template lang="pug">
-.column.q-mt-24.width-100.q-gap-12.border-radius-6
-  .km-chip.text-secondary.text-uppercase
-    .row.items-center
-      km-btn.col-auto(:icon='"fas fa-chevron-left"', @click='navigate("knowledge-sources")', iconSize='16px', iconColor='secondary-text', flat)
-      .col {{ m.common_knowledgeSources() }}
-    km-separator 
-  template(v-for='item in knowledge')
-    km-btn.width-100(
-      :bg='routerMetaName === item.name ? "primary-bg" : undefined',
-      :color='routerMetaName === item.name ? "primary" : undefined',
-      :iconColor='routerMetaName === item.name ? "primary" : "icon"',
-      :labelClass='"km-title"',
-      :icon='item.icon',
-      :label='item.label',
-      @click='navigate(item.path)',
-      flat,
-      iconSize='14px',
-      hoverBg='primary-bg',
-      :hoverColor='routerMetaName !== item.name ? "primary" : undefined'
-    )
+<template>
+  <div class="stack mt-2xl width-100 border-radius-6" data-gap="sm">
+    <div class="km-chip text-secondary text-uppercase">
+      <div class="cluster">
+        <km-btn class="flex-none" :icon="&quot;chevron-left&quot;" icon-size="16px" icon-tone="subtle" flat @click="navigate(&quot;knowledge-sources&quot;)" />
+        <div class="flex-1">{{ m.common_knowledgeSources() }}</div>
+      </div>
+      <km-separator />
+    </div>
+    <template v-for="item in knowledge" :key="item">
+      <km-btn class="width-100" :selected="routerMetaName === item.name" :label-class="&quot;km-title&quot;" :icon="item.icon" :label="item.label" flat icon-size="14px" interaction-tone="brand" @click="navigate(item.path)" />
+    </template>
+  </div>
 </template>
 
 <script lang="ts">
@@ -45,13 +37,13 @@ export default {
         {
           name: 'CollectionDetail',
           label: m.common_configurations(),
-          icon: 'fas fa-gear',
+          icon: 'settings',
           path: `knowledge-sources/${this.id}`,
         },
         {
           name: 'CollectionItems',
           label: m.common_chunks(),
-          icon: 'fas fa-bars',
+          icon: 'menu',
           path: `knowledge-sources/${this.id}/items`,
         },
       ]
@@ -74,14 +66,13 @@ export default {
 }
 </script>
 
-<style lang="stylus" scoped>
+<style scoped>
 .km-toolbar {
   overflow: scroll;
-  width: 100%;
+  inline-size: 100%;
   box-sizing: border-box;
 }
-
 .km-toolbar::-webkit-scrollbar {
-  width: 4px;
+  inline-size: 4px;
 }
 </style>

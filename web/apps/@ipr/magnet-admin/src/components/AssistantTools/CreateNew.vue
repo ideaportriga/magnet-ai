@@ -1,32 +1,21 @@
-<template lang="pug">
-km-popup-confirm(
-  :visible='showNewDialog',
-  :title='m.dialog_newAssistantToolApi()',
-  :confirmButtonLabel='m.dialog_createAssistantTool()',
-  :cancelButtonLabel='m.common_cancel()',
-  @confirm='createTools',
-  @cancel='$emit("cancel")',
-  :loading='loading'
-)
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.label_apiProvider() }}
-    .full-width
-      km-select(
-        height='30px',
-        :placeholder='m.label_apiProvider()',
-        :options='[{ value: "siebel_test", label: "API Provider Siebel Test" }]',
-        hasDropdownSearch,
-        option-value='value',
-        option-label='label',
-        map-options,
-        v-model='newRow.api_provider'
-      )
-
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.label_apiSpecification() }}
-    q-file(outlined, :label='m.common_uploadFile()', ref='fileRef', v-model='newRow.file', dense)
-      template(v-slot:append)
-        q-icon(name='attach_file')
-
-    .km-description.text-secondary-text.q-py-8 {{ m.hint_uploadApiSpecification() }}
+<template>
+  <km-popup-confirm :visible="showNewDialog" :title="m.dialog_newAssistantToolApi()" :confirm-button-label="m.dialog_createAssistantTool()" :cancel-button-label="m.common_cancel()" :loading="loading" @confirm="createTools" @cancel="$emit(&quot;cancel&quot;)">
+    <div class="km-field text-secondary-text pb-xs pl-sm mb-md">
+      {{ m.label_apiProvider() }}
+      <div class="full-width">
+        <km-select v-model="newRow.api_provider" height="30px" :placeholder="m.label_apiProvider()" :options="[{ value: &quot;siebel_test&quot;, label: &quot;API Provider Siebel Test&quot; }]" has-dropdown-search option-value="value" option-label="label" map-options />
+      </div>
+    </div>
+    <div class="km-field text-secondary-text pb-xs pl-sm">
+      {{ m.label_apiSpecification() }}
+      <km-file-picker ref="fileRef" v-model="newRow.file" outlined :label="m.common_uploadFile()" dense>
+        <template #append>
+          <km-glyph name="attach" />
+        </template>
+      </km-file-picker>
+      <div class="km-description text-secondary-text py-sm">{{ m.hint_uploadApiSpecification() }}</div>
+    </div>
+  </km-popup-confirm>
 </template>
 <script>
 import { ref, reactive, computed } from 'vue'
@@ -37,6 +26,7 @@ import { fetchData } from '@shared'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useAppStore } from '@/stores/appStore'
 import { useEntityConfig } from '@/composables/useEntityConfig'
+import { validateRef } from '@/utils/validateRef'
 import { notify } from '@shared/utils/notify'
 
 export default {
@@ -119,7 +109,7 @@ export default {
       return []
     },
     validateFields() {
-      const validStates = this.requiredFields.map((field) => this.$refs[`${field}Ref`]?.validate())
+      const validStates = this.requiredFields.map((field) => validateRef(this.$refs[`${field}Ref`]))
       return !validStates.includes(false)
     },
     async createTools() {
@@ -148,7 +138,3 @@ export default {
 }
 </script>
 
-<style lang="stylus">
-.km-input:not(.q-field--readonly) .q-field__control::before
-  background: var(--q-white) !important;
-</style>

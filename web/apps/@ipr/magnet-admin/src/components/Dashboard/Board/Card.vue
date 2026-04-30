@@ -1,18 +1,28 @@
-<template lang="pug">
-.column.ba-border.border-radius-12.q-pa-16.no-wrap.fit(v-bind='$attrs', :class='`bg-${themeStyle.bg} ba-${themeStyle.border}`')
-  .row.justify-between.items-center.q-pb-12.items-center(:class='`bb-${themeStyle.border}`')
-    slot(name='header')
-      .col
-        .row.items-center.q-gap-4
-          .km-title.text-dashboard-heading {{ header }}
-          q-icon.col-auto.q-ml-4(name='o_info', color='secondary', v-if='tooltip')
-            q-tooltip.bg-white.block-shadow.km-description(self='top middle', :offset='[-50, -50]')
-              .text-secondary-text {{ tooltip }}
-      .col-auto(v-if='headerAction')
-        km-btn(flat, icon='fas fa-chevron-right', iconSize='14px', color='secondary-text', size='xs', @click='headerAction')
-  .column.fit.q-pt-16
-    slot(name='body')
-      .km-paragraph {{ body }}
+<template>
+  <div class="stack ba-border border-radius-12 p-lg fit" data-gap="0" v-bind="$attrs" :class="`bg-${themeStyle.bg} ba-${themeStyle.border}`">
+    <div class="cluster pb-md" :class="`bb-${themeStyle.border}`" data-justify="between">
+      <slot name="header">
+        <div class="flex-1">
+          <div class="cluster" data-gap="xs">
+            <div class="km-title text-dashboard-heading">{{ header }}</div>
+            <km-glyph v-if="tooltip" class="flex-none ml-xs" name="info">
+              <km-tooltip class="bg-white block-shadow km-description" self="top middle" :offset="[-50, -50]">
+                <div class="text-secondary-text">{{ tooltip }}</div>
+              </km-tooltip>
+            </km-glyph>
+          </div>
+        </div>
+        <div v-if="headerAction" class="flex-none">
+          <km-btn flat icon="chevron-right" icon-size="14px" tone="subtle" size="xs" @click="headerAction" />
+        </div>
+      </slot>
+    </div>
+    <div class="stack fit pt-lg" data-gap="0">
+      <slot name="body">
+        <div class="km-paragraph">{{ body }}</div>
+      </slot>
+    </div>
+  </div>
 </template>
 
 <script>
@@ -46,6 +56,12 @@ export default {
         return {
           bg: 'table-header',
           border: 'border-2',
+        }
+      }
+      if (this.theme === 'muted') {
+        return {
+          bg: 'border',
+          border: 'border',
         }
       }
       return {

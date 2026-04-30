@@ -1,38 +1,43 @@
-<template lang="pug">
-.bg-white.fit.height-100.fit.q-pb-32
-  .col-auto
-    .row.items-center.justify-between
-      .km-heading-7.q-mb-16 {{ m.common_inputs() }}
-  //-     km-checkbox(v-model="jsonMode" label="JSON mode")
-  .column(v-for='form in form')
-    .row
-      .row.km-table-chip.km-small-chip.text-black.q-mb-8 {{ form.title }}
-    .column.q-gap-4(v-if='!jsonMode')
-      .row(v-for='field in form.fields')
-        component.full-width(:is='field.render.component', v-bind='field.render.props', v-model='formValues[form.title][field.name]')
-        .km-description-2.text-secondary-text.q-pb-4.q-pl-8 {{ field.description ?? m.apiTools_noDescription() }}
-    .column.q-gap-4.q-mb-16(v-else)
-      km-codemirror(v-model='jsonString[form.title]', :style='{ minHeight: "150px" }', :options='{ mode: "application/json" }', language='json')
-  .row.justify-end.bb-border.full-width
-    q-btn.q-my-6.border-radius-6(color='primary', @click='testApiTool', unelevated, padding='7px 8px', :disable='processing')
-      template(v-slot:default)
-        q-icon(name='fas fa-paper-plane', size='16px')
-
-  .col-auto.q-mt-lg
-    .row.items-center.justify-between
-      .km-heading-7.q-mb-xs {{ m.common_outputs() }}
-    .column.q-gap-4(v-if='response')
-      km-codemirror(
-        v-if='response',
-        v-model='response',
-        :style='{ minHeight: "150px" }',
-        :options='{ mode: "application/json" }',
-        language='json',
-        readonly
-      )
-    template(v-if='!response && processing')
-      .column.justify-center.items-center
-        q-spinner-dots(size='62px', color='primary')
+<template>
+  <div class="bg-white fit height-100 fit pb-3xl">
+    <div class="flex-none">
+      <div class="cluster mb-lg" data-justify="between">
+        <div class="km-heading-7">{{ m.common_inputs() }}</div>
+      </div>
+    </div>
+    <div v-for="formItem in form" :key="formItem.title" class="stack">
+      <div class="km-table-chip km-small-chip text-black mb-sm">{{ formItem.title }}</div>
+      <div v-if="!jsonMode" class="stack" data-gap="xs">
+        <div v-for="field in formItem.fields" :key="field.name">
+          <component :is="field.render.component" v-bind="field.render.props" v-model="formValues[formItem.title][field.name]" class="full-width" />
+          <div class="km-description-2 text-secondary-text pb-xs pl-sm">{{ field.description ?? m.apiTools_noDescription() }}</div>
+        </div>
+      </div>
+      <div v-else class="stack mb-lg" data-gap="xs">
+        <km-codemirror v-model="jsonString[formItem.title]" :style="{ minHeight: &quot;150px&quot; }" :options="{ mode: &quot;application/json&quot; }" language="json" />
+      </div>
+    </div>
+    <div class="cluster bb-border full-width" data-justify="end">
+      <km-btn class="my-sm border-radius-6" unelevated padding="7px 8px" :disable="processing" @click="testApiTool">
+        <template #default>
+          <km-glyph name="send" size="16px" />
+        </template>
+      </km-btn>
+    </div>
+    <div class="flex-none mt-lg">
+      <div class="cluster mb-xs" data-justify="between">
+        <div class="km-heading-7">{{ m.common_outputs() }}</div>
+      </div>
+      <div v-if="response" class="stack" data-gap="xs">
+        <km-codemirror v-if="response" v-model="response" :style="{ minHeight: &quot;150px&quot; }" :options="{ mode: &quot;application/json&quot; }" language="json" readonly />
+      </div>
+      <template v-if="!response &amp;&amp; processing">
+        <div class="flex items-center justify-center" style="flex-direction: column">
+          <km-loader size="62px" />
+        </div>
+      </template>
+    </div>
+  </div>
 </template>
 <script>
 import { ref } from 'vue'

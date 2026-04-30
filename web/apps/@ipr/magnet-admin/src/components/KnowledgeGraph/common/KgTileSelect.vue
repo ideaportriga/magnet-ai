@@ -1,7 +1,7 @@
 <template>
   <div class="kg-tile-grid" :style="{ '--kg-cols': props.cols }">
     <div v-for="option in options" :key="option.value">
-      <q-card
+      <km-card
         flat
         bordered
         class="kg-tile-select cursor-pointer full-height"
@@ -13,9 +13,9 @@
         @keydown.enter.prevent="$emit('update:modelValue', option.value)"
         @keydown.space.prevent="$emit('update:modelValue', option.value)"
       >
-        <q-card-section class="q-pa-md">
-          <div class="row items-center q-gutter-x-sm q-mb-sm">
-            <q-icon v-if="option.icon" :name="option.icon" :color="modelValue === option.value ? 'primary' : ''" size="20px" />
+        <div class="km-card-section p-md">
+          <div class="cluster mb-sm gap-x-sm">
+            <km-glyph v-if="option.icon" :name="option.icon" :tone="modelValue === option.value ? 'brand' : undefined" size="20px" />
             <div class="text-weight-medium" :class="modelValue === option.value ? 'text-primary' : ''">
               {{ option.label }}
             </div>
@@ -23,8 +23,8 @@
           <div class="text-caption text-secondary-text" :class="{ 'kg-tile-select__description--with-icon': option.icon }">
             {{ option.description }}
           </div>
-        </q-card-section>
-      </q-card>
+        </div>
+      </km-card>
     </div>
   </div>
 </template>
@@ -68,27 +68,23 @@ defineEmits<{
 }
 
 .kg-tile-select {
-  transition: all 0.2s ease;
-  border-color: var(--q-border);
+  transition: var(--ds-transition-colors);
+  border-color: var(--ds-color-border);
 }
 
 .kg-tile-select:hover,
 .kg-tile-select--selected {
-  color: var(--q-primary);
-  border-color: var(--q-primary);
-  background-color: var(--q-primary-transparent);
-}
-
-.kg-tile-select:hover :deep(.q-icon) {
-  color: var(--q-primary);
+  color: var(--ds-color-primary);
+  border-color: var(--ds-color-primary);
+  background-color: var(--ds-color-primary-transparent);
 }
 
 .kg-tile-select:focus-visible {
-  outline: 2px solid var(--q-primary);
+  outline: 2px solid var(--ds-color-primary);
   outline-offset: 2px;
 }
 
 .kg-tile-select__description--with-icon {
-  padding-left: 28px;
+  padding-inline-start: 28px;
 }
 </style>

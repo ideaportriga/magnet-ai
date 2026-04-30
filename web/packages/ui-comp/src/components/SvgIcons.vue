@@ -1,5 +1,5 @@
-<template lang="pug">
-svg(width='0', height='0', v-html='svgsContent')
+<template>
+  <svg width="0" height="0" v-html="svgsContent" />
 </template>
 
 <script>

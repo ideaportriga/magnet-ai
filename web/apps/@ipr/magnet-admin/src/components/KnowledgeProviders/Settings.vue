@@ -1,56 +1,40 @@
-<template lang="pug">
-.full-width
-  km-section(:title='m.section_generalInfo()', :subTitle='m.subtitle_generalKspSettings()')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_type() }}
-    .row.items-center.q-gap-16.no-wrap
-      km-select.full-width(:model-value='provider.type', readonly, disabled)
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-lg {{ m.label_endpoint() }}
-    .row.items-center.q-gap-8.no-wrap
-      .col
-        .row.items-center.q-gap-8.no-wrap.relative-position
-          km-input.full-width(
-            :model-value='endpointValue',
-            @update:model-value='tempEndpoint = $event',
-            :readonly='!isEditingEndpoint',
-            :placeholder='m.placeholder_exampleApiEndpoint()'
-          )
-          .controls.full-height.row.items-center
-            km-btn(v-if='!isEditingEndpoint', icon='fa fa-pen', flat, iconSize='12px', @click='startEditingEndpoint', size='xs')
-            km-btn(v-if='isEditingEndpoint', icon='fa fa-xmark', flat, iconSize='12px', @click='cancelEditingEndpoint', size='xs')
-            km-btn(v-if='isEditingEndpoint', icon='fa fa-check', flat, iconSize='12px', @click='saveEndpoint', size='xs', color='primary')
-    .km-description.text-secondary-text.q-pb-4.q-pl-8(v-if='!isEditingEndpoint') {{ m.hint_endpointWarning() }}
-    .km-description.text-negative.q-pb-4.q-pl-8(v-if='isEditingEndpoint') {{ m.hint_changeEndpointWarning() }}
-
-  km-popup-confirm(
-    :visible='showEndpointWarning',
-    :title='m.dialog_changeEndpoint()',
-    :confirmButtonLabel='m.confirm_yesClearSecrets()',
-    :cancelButtonLabel='m.common_cancel()',
-    :notification='m.hint_changeEndpointWarning()',
-    @confirm='confirmEndpointChange',
-    @cancel='cancelEndpointChange'
-  )
-    .text-body1 Are you sure you want to change the endpoint?
-    .text-body2.q-mt-md Current endpoint: {{ provider.endpoint || 'Not set' }}
-    .text-body2 New endpoint: {{ tempEndpoint }}
-
-  q-separator.q-mt-lg.q-mb-lg
-  km-section(:title='m.section_connection()', :subTitle='m.subtitle_connectionParams()')
-    .row.items-center.q-gap-8.no-wrap.q-mt-lg(v-for='[key, value] in connectionEntries', :key='key')
-      .col
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Key
-        km-input(:label='m.common_key()', :model-value='key', @update:model-value='updateConnectionKey(key, $event)')
-      .col
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Value
-        km-input(:label='m.common_value()', :model-value='value', @update:model-value='updateConnectionValue(key, $event)')
-      .col-auto
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 &nbsp;
-        km-btn(@click='removeConnection(key)', icon='o_delete', size='sm', flat, color='negative')
-    .row.q-pt-16
-      km-btn(:label='m.common_addRecord()', @click='addConnection', size='sm', icon='o_add', flat)
-  q-separator.q-mt-lg.q-mb-lg
-  km-section(:title='m.section_secrets()', :subTitle='m.subtitle_useSecretsKsp()')
-    km-secrets(v-model:secrets='secrets', :original-secrets='originalProviderSecrets', :remount-value='remountValue')
+<template>
+  <div class="full-width">
+    <km-section :title="m.section_generalInfo()" :sub-title="m.subtitle_generalKspSettings()">
+      <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.common_type() }}</div>
+      <div class="cluster" data-gap="lg" data-wrap="no">
+        <km-select class="full-width" :model-value="provider.type" readonly disabled />
+      </div>
+      <div class="km-field text-secondary-text pb-xs pl-sm mt-lg">{{ m.label_endpoint() }}</div>
+      <div class="cluster" data-gap="sm" data-wrap="no">
+        <div class="flex-1">
+          <div class="cluster relative-position" data-gap="sm" data-wrap="no">
+            <km-input class="full-width" :model-value="endpointValue" :readonly="!isEditingEndpoint" :placeholder="m.placeholder_exampleApiEndpoint()" @update:model-value="tempEndpoint = $event" />
+            <div class="controls full-height cluster">
+              <km-btn v-if="!isEditingEndpoint" icon="edit" flat icon-size="12px" size="xs" @click="startEditingEndpoint" />
+              <km-btn v-if="isEditingEndpoint" icon="close" flat icon-size="12px" size="xs" @click="cancelEditingEndpoint" />
+              <km-btn v-if="isEditingEndpoint" icon="check" flat icon-size="12px" size="xs" tone="brand" @click="saveEndpoint" />
+            </div>
+          </div>
+        </div>
+      </div>
+      <div v-if="!isEditingEndpoint" class="km-description text-secondary-text pb-xs pl-sm">{{ m.hint_endpointWarning() }}</div>
+      <div v-if="isEditingEndpoint" class="km-description text-negative pb-xs pl-sm">{{ m.hint_changeEndpointWarning() }}</div>
+    </km-section>
+    <km-popup-confirm :visible="showEndpointWarning" :title="m.dialog_changeEndpoint()" :confirm-button-label="m.confirm_yesClearSecrets()" :cancel-button-label="m.common_cancel()" :notification="m.hint_changeEndpointWarning()" @confirm="confirmEndpointChange" @cancel="cancelEndpointChange">
+      <div class="text-body1">Are you sure you want to change the endpoint?</div>
+      <div class="text-body2 mt-md">Current endpoint: {{ provider.endpoint || 'Not set' }}</div>
+      <div class="text-body2">New endpoint: {{ tempEndpoint }}</div>
+    </km-popup-confirm>
+    <km-separator class="mt-lg mb-lg" />
+    <km-section :title="m.section_connection()" :sub-title="m.subtitle_connectionParams()">
+      <key-value-editor :model-value="provider?.connection_config || {}" @update:model-value="updateField('connection_config', $event)" />
+    </km-section>
+    <km-separator class="mt-lg mb-lg" />
+    <km-section :title="m.section_secrets()" :sub-title="m.subtitle_useSecretsKsp()">
+      <km-secrets v-model:secrets="secrets" :original-secrets="originalProviderSecrets" :remount-value="remountValue" />
+    </km-section>
+  </div>
 </template>
 
 <script setup>
@@ -107,11 +91,6 @@ const cancelEndpointChange = () => {
   tempEndpoint.value = provider.value?.endpoint || ''
 }
 
-const connectionEntries = computed(() => {
-  const config = provider.value?.connection_config || {}
-  return Object.entries(config)
-})
-
 const originalProviderSecrets = computed(() => {
   const secrets = data.value?.secrets_encrypted
   if (!secrets) return []
@@ -132,35 +111,12 @@ const secrets = computed({
   },
 })
 
-const addConnection = () => {
-  const newConfig = { ...provider.value.connection_config, '': '' }
-  updateField('connection_config', newConfig)
-}
-
-const removeConnection = (key) => {
-  const newConfig = { ...provider.value.connection_config }
-  delete newConfig[key]
-  updateField('connection_config', newConfig)
-}
-
-const updateConnectionKey = (oldKey, newKey) => {
-  const config = { ...provider.value.connection_config }
-  const value = config[oldKey]
-  delete config[oldKey]
-  config[newKey] = value
-  updateField('connection_config', config)
-}
-
-const updateConnectionValue = (key, newValue) => {
-  const config = { ...provider.value.connection_config }
-  config[key] = newValue
-  updateField('connection_config', config)
-}
 </script>
 
-<style lang="stylus" scoped>
-.controls
-  position: absolute
-  right: 5px
-  top: 0
+<style scoped>
+.controls {
+  position: absolute;
+  inset-inline-end: 5px;
+  inset-block-start: 0;
+}
 </style>

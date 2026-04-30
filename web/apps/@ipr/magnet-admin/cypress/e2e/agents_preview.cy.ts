@@ -16,8 +16,16 @@ runPreviewContract({
   entity: 'Agents',
   listRoute: '#/agents',
   openPreviewableDetail: () => {
-    // Agents list is a card grid — wait for at least one row/card, then open it.
-    cy.get('[data-test="table-row"]', { timeout: 15000 }).first().click()
+    // Agents list is a card grid. The card's right-side `agent-card__sysname`
+    // has `@click.stop` and absorbs a center click; the grid container's
+    // padding/gap area also fails cypress's `elementFromPoint` actionability
+    // check at the card's edges. Click the title block directly — it always
+    // exists, sits above any chip-copy stop region, and triggers the card's
+    // `@click="openDetails"` listener.
+    cy.get('[data-test="table-row"]', { timeout: 15000 })
+      .first()
+      .find('.agent-card__title-block')
+      .click()
     cy.url({ timeout: 15000 }).should('match', /agents\/[a-f0-9-]{8,}/)
   },
   inputSelector: '[data-test="preview-input"]',

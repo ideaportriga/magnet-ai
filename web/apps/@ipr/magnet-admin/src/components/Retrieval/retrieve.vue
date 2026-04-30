@@ -1,106 +1,94 @@
-<template lang="pug">
-<!-- Knowledge sources section -->
-km-section(:title='m.label_knowledgeSources()', :subTitle='m.subtitle_selectKnowledgeSourcesRetrieval()')
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.label_knowledgeSources() }}
-  km-select(
-    height='auto',
-    minHeight='36px',
-    :placeholder='m.common_selectKnowledgeSources()',
-    multiple,
-    :options='collections',
-    v-model='collectionSystemNames',
-    use-chips,
-    hasDropdownSearch
-  )
-  .row.q-mt-sm
-    .col-auto
-      km-btn(flat, simple, :label='m.common_openKnowledgeSources()', iconSize='16px', icon='fas fa-book', @click='navigate("knowledge-sources")')
-q-separator.q-my-lg
-
-<!-- Search capabilities section -->
-km-section(
-  :title='m.retrieval_searchCapabilities()',
-  :subTitle='m.subtitle_configureSearch()'
-)
-  .column.q-gap-16
-    .column
-      .row.items-baseline
-        .col-auto.q-mr-sm
-          q-toggle(v-model='allowMetadataFilter', dense)
-        .col.q-mb-sm {{ m.retrieval_allowMetadataFiltering() }}
-      .km-description.text-secondary-text.q-mt-xs.q-ml-sm {{ m.retrieval_allowMetadataFilteringDesc() }}
-    .column
-      .row.items-baseline
-        .col-auto.q-mr-sm
-          q-toggle(:model-value='true', disable, dense)
-        .col.q-mb-sm {{ m.retrieval_useSemanticSearch() }}
-      .km-description.text-secondary-text.q-mt-xs.q-ml-sm {{ m.retrieval_useSemanticSearchDesc() }}
-    .column
-      .row.items-baseline
-        .col-auto.q-mr-sm
-          q-toggle(v-model='useKeywordSearch', dense)
-        .col.q-mb-sm {{ m.retrieval_useKeywordSearch() }}
-      .km-description.text-secondary-text.q-mt-xs.q-ml-sm {{ m.retrieval_useKeywordSearchDesc() }}
-q-separator.q-my-lg
-
-<!-- Re-ranking section -->
-km-section(
-  :title='m.retrieval_reRanking()',
-  :subTitle='m.subtitle_reranking()'
-)
-  .column
-    .col
-      .row.items-baseline
-        .col-auto.q-mr-sm
-          q-toggle(v-model='isReRanking', dense)
-        .col.q-mb-sm {{ m.retrieval_reRankWithLlm() }}
-    .col
-    template(v-if='isReRanking')
-      .col.q-mt-md
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_llmModel() }}
-        km-select(
-          height='auto',
-          minHeight='36px',
-          :placeholder='m.common_reRankModel()',
-          v-model='reRankingModel',
-          :options='modelOptions',
-          optionLabel='display_name',
-          emit-value,
-          mapOptions,
-          optionValue='system_name'
-        )
-          template(#option='{ itemProps, opt, selected, toggleOption }')
-            q-item.ba-border(v-bind='itemProps', dense, @click='toggleOption(opt)')
-              q-item-section
-                q-item-label.km-label {{ opt.display_name }}
-                .row.q-mt-xs(v-if='opt.provider_system_name')
-                  q-chip(color='primary-light', text-color='primary', size='sm', dense) {{ opt.provider_system_name }}
-        .km-field.text-secondary-text {{ m.retrieval_useLlmToRank() }}
-      q-separator.q-my-md
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.retrieval_maxChunksForReranking() }}
-      div(style='max-width: 200px')
-        km-input(type='number', height='30px', :placeholder='m.common_numberOfChunksToSelect()', v-model='reRankingMaxChankRetrieve')
-      .km-description.text-secondary-text.q-pb-4 {{ m.retrieval_rerankingChunksDesc() }}
-q-separator.q-my-lg
-
-<!-- Similarity score section -->
-km-section(:title='m.section_similarityScore()', :subTitle='m.subtitle_similarityScore()')
-  km-slider-card(
-    v-model='similarityScoreThreshold',
-    :name='m.retrieval_similarityScoreThreshold()',
-    :min='0',
-    :max='1',
-    :minLabel='m.retrieval_unrelated()',
-    :maxLabel='m.retrieval_similar()',
-    :defaultValue='0.75',
-    :description='m.retrieval_similarityScoreDesc()'
-  )
-q-separator.q-my-lg
-km-section(:title='m.section_chunkLimits()', :subTitle='m.subtitle_configureRetrieval()')
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_numberOfChunksToSelect() }}
-  div(style='max-width: 200px')
-    km-input(type='number', height='30px', :placeholder='m.common_numberOfChunks()', v-model='maxChunksRetrieved')
-  .km-description.text-secondary-text.q-pb-4 {{ m.common_maxBestRetrievedChunks() }}
+<template>
+  <!-- Knowledge sources section -->
+  <km-section :title="m.label_knowledgeSources()" :sub-title="m.subtitle_selectKnowledgeSourcesRetrieval()">
+    <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.label_knowledgeSources() }}</div>
+    <km-select v-model="collectionSystemNames" height="auto" min-height="36px" :placeholder="m.common_selectKnowledgeSources()" multiple :options="collections" use-chips has-dropdown-search />
+    <div class="mt-sm">
+      <km-btn flat simple :label="m.common_openKnowledgeSources()" icon-size="16px" icon="book" @click="navigate(&quot;knowledge-sources&quot;)" />
+    </div>
+  </km-section>
+  <km-separator class="my-lg" /><!-- Search capabilities section -->
+  <km-section :title="m.retrieval_searchCapabilities()" :sub-title="m.subtitle_configureSearch()">
+    <div class="stack" data-gap="lg">
+      <div class="stack">
+        <div class="cluster" data-align="baseline">
+          <div class="flex-none mr-sm">
+            <km-toggle v-model="allowMetadataFilter" dense />
+          </div>
+          <div class="flex-1 mb-sm">{{ m.retrieval_allowMetadataFiltering() }}</div>
+        </div>
+        <div class="km-description text-secondary-text mt-xs ml-sm">{{ m.retrieval_allowMetadataFilteringDesc() }}</div>
+      </div>
+      <div class="stack">
+        <div class="cluster" data-align="baseline">
+          <div class="flex-none mr-sm">
+            <km-toggle :model-value="true" disable dense />
+          </div>
+          <div class="flex-1 mb-sm">{{ m.retrieval_useSemanticSearch() }}</div>
+        </div>
+        <div class="km-description text-secondary-text mt-xs ml-sm">{{ m.retrieval_useSemanticSearchDesc() }}</div>
+      </div>
+      <div class="stack">
+        <div class="cluster" data-align="baseline">
+          <div class="flex-none mr-sm">
+            <km-toggle v-model="useKeywordSearch" dense />
+          </div>
+          <div class="flex-1 mb-sm">{{ m.retrieval_useKeywordSearch() }}</div>
+        </div>
+        <div class="km-description text-secondary-text mt-xs ml-sm">{{ m.retrieval_useKeywordSearchDesc() }}</div>
+      </div>
+    </div>
+  </km-section>
+  <km-separator class="my-lg" /><!-- Re-ranking section -->
+  <km-section :title="m.retrieval_reRanking()" :sub-title="m.subtitle_reranking()">
+    <div class="stack">
+      <div>
+        <div class="cluster" data-align="baseline">
+          <div class="flex-none mr-sm">
+            <km-toggle v-model="isReRanking" dense />
+          </div>
+          <div class="flex-1 mb-sm">{{ m.retrieval_reRankWithLlm() }}</div>
+        </div>
+      </div>
+      <div class="full-width" />
+      <template v-if="isReRanking">
+        <div class="full-width mt-md">
+          <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.common_llmModel() }}</div>
+          <km-select v-model="reRankingModel" height="auto" min-height="36px" :placeholder="m.common_reRankModel()" :options="modelOptions" option-label="display_name" emit-value map-options option-value="system_name">
+            <template #option="{ itemProps, opt, toggleOption }">
+              <li class="km-item ba-border" v-bind="itemProps" dense @click="toggleOption(opt)">
+                <div class="km-item-section">
+                  <span class="km-item-label km-label">{{ opt.display_name }}</span>
+                  <div v-if="opt.provider_system_name" class="mt-xs">
+                    <km-chip tone="brand" size="sm" dense>{{ opt.provider_system_name }}</km-chip>
+                  </div>
+                </div>
+              </li>
+            </template>
+          </km-select>
+          <div class="km-field text-secondary-text">{{ m.retrieval_useLlmToRank() }}</div>
+        </div>
+        <km-separator class="my-md" />
+        <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.retrieval_maxChunksForReranking() }}</div>
+        <div style="max-inline-size: 200px">
+          <km-input v-model="reRankingMaxChankRetrieve" type="number" height="30px" :placeholder="m.common_numberOfChunksToSelect()" />
+        </div>
+        <div class="km-description text-secondary-text pb-xs">{{ m.retrieval_rerankingChunksDesc() }}</div>
+      </template>
+    </div>
+  </km-section>
+  <km-separator class="my-lg" /><!-- Similarity score section -->
+  <km-section :title="m.section_similarityScore()" :sub-title="m.subtitle_similarityScore()">
+    <km-slider-card v-model="similarityScoreThreshold" :name="m.retrieval_similarityScoreThreshold()" :min="0" :max="1" :min-label="m.retrieval_unrelated()" :max-label="m.retrieval_similar()" :default-value="0.75" :description="m.retrieval_similarityScoreDesc()" />
+  </km-section>
+  <km-separator class="my-lg" />
+  <km-section :title="m.section_chunkLimits()" :sub-title="m.subtitle_configureRetrieval()">
+    <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.common_numberOfChunksToSelect() }}</div>
+    <div style="max-inline-size: 200px">
+      <km-input v-model="maxChunksRetrieved" type="number" height="30px" :placeholder="m.common_numberOfChunks()" />
+    </div>
+    <div class="km-description text-secondary-text pb-xs">{{ m.common_maxBestRetrievedChunks() }}</div>
+  </km-section>
 </template>
 
 <script>

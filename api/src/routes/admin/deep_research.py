@@ -26,7 +26,6 @@ from core.domain.deep_research.service import (
     DeepResearchRunService,
 )
 from services.deep_research.models import DeepResearchConfig
-from services.deep_research.services import run_deep_research_workflow
 
 if TYPE_CHECKING:
     pass
@@ -179,13 +178,10 @@ class DeepResearchRunController(Controller):
 
         obj = await run_service.create(run_data, auto_commit=True)
 
-        from core.server.background_tasks import spawn_background_task
+        from tasks.definitions import deep_research_bg_task
 
         run_id = str(obj.id)
-        spawn_background_task(
-            run_deep_research_workflow(run_id),
-            name=f"deep-research-{run_id}",
-        )
+        await deep_research_bg_task.kiq(run_id=run_id)
 
         return DeepResearchRunCreatedResponse(run_id=obj.id)
 

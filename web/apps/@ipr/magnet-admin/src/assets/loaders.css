@@ -1,95 +1,62 @@
 .three-body {
   position: relative;
   display: inline-block;
-  height: var(--uib-size);
-  width: var(--uib-size);
-  animation: spin calc(var(--uib-speed) * 2.5) infinite linear;
+  block-size: var(--uib-size);
+  inline-size: var(--uib-size);
+  animation: ds-spin calc(var(--uib-speed) * 2.5) infinite var(--ds-ease-linear);
 }
 
 .three-body__dot {
   position: absolute;
-  height: 100%;
-  width: 30%;
+  block-size: 100%;
+  inline-size: 30%;
 }
 
 .three-body__dot:after {
   content: '';
   position: absolute;
-  height: 0%;
-  width: 100%;
-  padding-bottom: 100%;
+  block-size: 0%;
+  inline-size: 100%;
+  padding-block-end: 100%;
   background-color: var(--uib-color);
   border-radius: 50%;
 }
 
 .three-body__dot:nth-child(1) {
-  bottom: 5%;
-  left: 0;
+  inset-block-end: 5%;
+  inset-inline-start: 0;
   transform: rotate(60deg);
   transform-origin: 50% 85%;
 }
 
 .three-body__dot:nth-child(1)::after {
-  bottom: 0;
-  left: 0;
-  animation: wobble1 var(--uib-speed) infinite ease-in-out;
+  inset-block-end: 0;
+  inset-inline-start: 0;
+  animation: ds-dot-wobble-up var(--uib-speed) infinite var(--ds-ease-in-out);
   animation-delay: calc(var(--uib-speed) * -0.3);
 }
 
 .three-body__dot:nth-child(2) {
-  bottom: 5%;
-  right: 0;
+  inset-block-end: 5%;
+  inset-inline-end: 0;
   transform: rotate(-60deg);
   transform-origin: 50% 85%;
 }
 
 .three-body__dot:nth-child(2)::after {
-  bottom: 0;
-  left: 0;
-  animation: wobble1 var(--uib-speed) infinite calc(var(--uib-speed) * -0.15) ease-in-out;
+  inset-block-end: 0;
+  inset-inline-start: 0;
+  animation: ds-dot-wobble-up var(--uib-speed) infinite calc(var(--uib-speed) * -0.15) var(--ds-ease-in-out);
 }
 
 .three-body__dot:nth-child(3) {
-  bottom: -5%;
-  left: 0;
+  inset-block-end: -5%;
+  inset-inline-start: 0;
   transform: translateX(116.666%);
 }
 
 .three-body__dot:nth-child(3)::after {
-  top: 0;
-  left: 0;
-  animation: wobble2 var(--uib-speed) infinite ease-in-out;
-}
-
-@keyframes spin {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes wobble1 {
-  0%,
-  100% {
-    transform: translateY(0%) scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: translateY(-66%) scale(0.65);
-    opacity: 0.8;
-  }
-}
-
-@keyframes wobble2 {
-  0%,
-  100% {
-    transform: translateY(0%) scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: translateY(66%) scale(0.65);
-    opacity: 0.8;
-  }
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  animation: ds-dot-wobble-down var(--uib-speed) infinite var(--ds-ease-in-out);
 }

@@ -1,50 +1,62 @@
-<template lang="pug">
-km-drawer-layout(storageKey="drawer-retrieval", noScroll)
-  template(#header)
-    .km-heading-7(v-if='!showChunkInfo')
-      .row
-        .col {{ m.common_preview() }}
-  .column.full-height(v-if='!showChunkInfo')
-    .col.column.no-wrap.q-pb-md.relative-position.q-px-16
-      template(v-if='uiSettings?.header_configuration?.header')
-        .row.justify-center.q-pb-12.q-pt-md.q-gap-2.items-center.full-width.text-center
-          .km-heading-5 {{ uiSettings?.header_configuration?.header }}
-        .row.justify-center.q-pb-12.q-gap-2.items-center.full-width(v-if='uiSettings?.header_configuration?.sub_header')
-          .km-heading-2.text-center.q-pb-16 {{ uiSettings?.header_configuration?.sub_header }}
-      retrieval-metadata-filter.q-mt-md(v-if='allowMetadataFilter', v-model='metadataFilter', :sources='collectionSystemNames', :collections='collectionItems')
-      q-separator.q-mt-md(v-if='allowMetadataFilter')
-      retrieval-prompt.q-mt-md(@onLoad='scrollTop', ref='prompt', hideCollectionPicker, retrieval, :searchString='searchString', @searchRetrieval='handleSearchRetrieval')
-      template(v-if='isShowHints')
-        .row.items-center
-          .col.km-heading-3 {{ m.common_youCanAskLikeThis() }}
-          .col-auto
-            km-btn(flat, color='primary', @click='showHints = false')
-              .km-button-text {{ m.common_dontShowHints() }}
-        template(v-for='(item, index) in sampleQuestion', :key='index')
-          km-btn(flat, @click='refine(item)')
-            .wrapped-text {{ item }}
-      template(v-if='answers.length')
-        q-scroll-area.full-height.col(ref='scroll')
-          .column.q-gap-16
-            template(v-for='(answer, index) in answers', :key='index')
-              retrieval-answer(:answer='answer', @refine='refine', @selectAnswer='setDetailInfo')
-    q-separator.q-mb-xs
-    .col-auto.q-px-16
-      .row.items-center
-        km-btn(flat, simple, :label='m.common_clearPreviewAction()', iconSize='16px', icon='fas fa-eraser', @click='clearAnswers', :disable='!answers?.length')
-  template(v-if='showChunkInfo')
-    collections-drawer-chunk(:selectedRow='selectedAnswer', @close='showChunkInfo = false')
-  km-popup-confirm(
-    :visible='showEvaluationCreateDialog',
-    :confirmButtonLabel='m.common_viewEvaluation()',
-    notificationIcon='far fa-circle-check',
-    :cancelButtonLabel='m.common_cancel()',
-    @cancel='showEvaluationCreateDialog = false',
-    @confirm='navigate(`evaluation-jobs/${evaluationId}`)'
-  )
-    .row.item-center.justify-center.km-heading-7 {{ m.common_evaluationStarted() }}
-    .row.text-center.justify-center {{ m.common_evaluationTakeTime() }}
-    .row.text-center.justify-center {{ m.common_evaluationViewResults() }}
+<template>
+  <km-drawer-layout storage-key="drawer-retrieval" no-scroll>
+    <template #header>
+      <div v-if="!showChunkInfo" class="km-heading-7">{{ m.common_preview() }}</div>
+    </template>
+    <div v-if="!showChunkInfo" class="stack full-height" data-gap="0">
+      <div class="flex-1 stack pb-md relative-position px-lg" data-gap="0">
+        <template v-if="uiSettings?.header_configuration?.header">
+          <div class="cluster pb-md pt-md full-width text-center" data-justify="center" data-gap="sm">
+            <div class="km-heading-5">{{ uiSettings?.header_configuration?.header }}</div>
+          </div>
+          <div v-if="uiSettings?.header_configuration?.sub_header" class="cluster pb-md full-width" data-justify="center" data-gap="sm">
+            <div class="km-heading-2 text-center pb-lg">{{ uiSettings?.header_configuration?.sub_header }}</div>
+          </div>
+        </template>
+        <retrieval-metadata-filter v-if="allowMetadataFilter" v-model="metadataFilter" class="mt-md" :sources="collectionSystemNames" :collections="collectionItems" />
+        <km-separator v-if="allowMetadataFilter" class="mt-md" />
+        <retrieval-prompt ref="prompt" class="mt-md" hide-collection-picker retrieval :search-string="searchString" @on-load="scrollTop" @search-retrieval="handleSearchRetrieval" />
+        <template v-if="isShowHints">
+          <div class="cluster">
+            <div class="flex-1 km-heading-3">{{ m.common_youCanAskLikeThis() }}</div>
+            <div class="flex-none">
+              <km-btn flat tone="brand" @click="showHints = false">
+                <div class="km-button-text">{{ m.common_dontShowHints() }}</div>
+              </km-btn>
+            </div>
+          </div>
+          <template v-for="(item, index) in sampleQuestion" :key="index">
+            <km-btn flat block justify="start" @click="refine(item)">
+              <div class="wrapped-text">{{ item }}</div>
+            </km-btn>
+          </template>
+        </template>
+        <template v-if="answers.length">
+          <km-scroll-area ref="scroll" class="full-height flex-1">
+            <div class="stack" data-gap="lg">
+              <template v-for="(answer, index) in answers" :key="index">
+                <retrieval-answer :answer="answer" @refine="refine" @select-answer="setDetailInfo" />
+              </template>
+            </div>
+          </km-scroll-area>
+        </template>
+      </div>
+      <km-separator class="mb-xs" />
+      <div class="flex-none px-lg">
+        <div class="cluster">
+          <km-btn flat simple :label="m.common_clearPreviewAction()" icon-size="16px" icon="eraser" :disable="!answers?.length" @click="clearAnswers" />
+        </div>
+      </div>
+    </div>
+    <template v-if="showChunkInfo">
+      <collections-drawer-chunk :selected-row="selectedAnswer" @close="showChunkInfo = false" />
+    </template>
+    <km-popup-confirm :visible="showEvaluationCreateDialog" :confirm-button-label="m.common_viewEvaluation()" notification-icon="check" :cancel-button-label="m.common_cancel()" @cancel="showEvaluationCreateDialog = false" @confirm="navigate(`evaluation-jobs/${evaluationId}`)">
+      <div class="cluster km-heading-7" data-justify="center">{{ m.common_evaluationStarted() }}</div>
+      <div class="cluster text-center" data-justify="center">{{ m.common_evaluationTakeTime() }}</div>
+      <div class="cluster text-center" data-justify="center">{{ m.common_evaluationViewResults() }}</div>
+    </km-popup-confirm>
+  </km-drawer-layout>
 </template>
 
 <script>
@@ -176,10 +188,10 @@ export default {
 }
 </script>
 
-<style lang="stylus" scoped>
+<style scoped>
 .search-container {
-  min-width: 450px;
-  max-width: 800px;
-  width: 100%;
+  min-inline-size: 450px;
+  max-inline-size: 800px;
+  inline-size: 100%;
 }
 </style>

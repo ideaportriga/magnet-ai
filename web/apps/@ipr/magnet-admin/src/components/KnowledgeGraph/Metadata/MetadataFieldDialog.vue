@@ -9,7 +9,7 @@
     @cancel="emit('cancel')"
     @confirm="onConfirm"
   >
-    <div class="column q-gap-16">
+    <div class="stack" data-gap="lg">
       <!-- Basic Info Section -->
       <kg-dialog-section :title="m.knowledgeGraph_fieldIdentity()" :description="m.knowledgeGraph_fieldIdentityDesc()" icon="edit">
         <kg-field-row :cols="2">
@@ -21,7 +21,7 @@
           </kg-field-row>
         </kg-field-row>
 
-        <kg-field-row :label="m.common_description()" class="q-mt-md">
+        <kg-field-row :label="m.common_description()" class="mt-md">
           <km-input
             v-model="description"
             autogrow
@@ -53,10 +53,10 @@
               <!-- Source header (click to expand) -->
               <div class="source-section__header" @click="toggleSourceSection(source.source_id)">
                 <div class="source-section__left">
-                  <q-icon
+                  <km-glyph
                     :name="activeResolutionSourceId === source.source_id ? 'keyboard_arrow_down' : 'keyboard_arrow_right'"
                     size="20px"
-                    color="grey-7"
+                    tone="weak"
                     class="source-section__chevron"
                   />
                   <span class="source-section__type">{{ getSourceTypeName(source.source_type_key) }}</span>
@@ -83,7 +83,7 @@
                       :disabled="!canAddKind('file')"
                       @click="addChainStep('file')"
                     >
-                      <q-icon name="description" size="12px" />
+                      <km-glyph name="file-text" size="12px" />
                       <span>{{ m.knowledgeGraph_fileMetadata() }}</span>
                     </button>
                     <button
@@ -93,7 +93,7 @@
                       :disabled="!canAddKind('source')"
                       @click="addChainStep('source')"
                     >
-                      <q-icon name="cloud_download" size="12px" />
+                      <km-glyph name="cloud_download" size="12px" />
                       <span>{{ m.knowledgeGraph_sourceMetadata() }}</span>
                     </button>
                     <button
@@ -103,7 +103,7 @@
                       :disabled="!canAddKind('llm')"
                       @click="addChainStep('llm')"
                     >
-                      <q-icon name="smart_toy" size="12px" />
+                      <km-glyph name="robot" size="12px" />
                       <span>{{ m.knowledgeGraph_smartExtraction() }}</span>
                     </button>
                     <button
@@ -113,7 +113,7 @@
                       :disabled="!canAddKind('constant')"
                       @click="addChainStep('constant')"
                     >
-                      <q-icon name="pin" size="12px" />
+                      <km-glyph name="pin" size="12px" />
                       <span>{{ m.knowledgeGraph_constantValue() }}</span>
                     </button>
                   </div>
@@ -134,13 +134,13 @@
                     :class="`value-chain__item--${step.kind}`"
                   >
                     <div class="value-chain__handle" :class="{ 'value-chain__handle--disabled': activeResolutionNonConstantChain.length <= 1 }">
-                      <q-icon name="drag_indicator" size="16px" color="grey-5" />
+                      <km-glyph name="drag" size="16px" tone="muted" />
                     </div>
 
                     <div class="value-chain__body">
                       <div class="value-chain__number">{{ stepIndex + 1 }}</div>
                       <div class="value-chain__kind">
-                        <q-icon :name="valueSourceKindIcon(step.kind)" size="18px" :color="valueSourceKindColor(step.kind)" />
+                        <km-glyph :name="valueSourceKindIcon(step.kind)" size="18px" :tone="valueSourceKindTone(step.kind)" />
                         <span class="value-chain__kind-label">{{ valueSourceKindLabel(step.kind) }}</span>
                       </div>
 
@@ -180,7 +180,7 @@
                     </div>
 
                     <div class="value-chain__close">
-                      <q-btn icon="close" size="sm" round flat @click="removeChainStep(step._id)" />
+                      <km-btn icon="close" size="sm" round flat @click="removeChainStep(step._id)" />
                     </div>
                   </div>
                 </VueDraggable>
@@ -188,16 +188,16 @@
                 <!-- Constant (fixed, terminal) -->
                 <div v-if="activeResolutionConstantStep" class="value-chain__item value-chain__item--constant">
                   <div class="value-chain__handle value-chain__handle--disabled">
-                    <q-icon name="drag_indicator" size="16px" color="grey-5" />
+                    <km-glyph name="drag" size="16px" tone="muted" />
                   </div>
 
                   <div class="value-chain__body">
                     <div class="value-chain__number">{{ activeResolutionNonConstantChain.length + 1 }}</div>
                     <div class="value-chain__kind">
-                      <q-icon
+                      <km-glyph
                         :name="valueSourceKindIcon(activeResolutionConstantStep.kind)"
                         size="14px"
-                        :color="valueSourceKindColor(activeResolutionConstantStep.kind)"
+                        :tone="valueSourceKindTone(activeResolutionConstantStep.kind)"
                       />
                       <span class="value-chain__kind-label">{{ valueSourceKindLabel(activeResolutionConstantStep.kind) }}</span>
                     </div>
@@ -227,12 +227,12 @@
                   </div>
 
                   <div class="value-chain__close">
-                    <q-btn icon="close" size="sm" round flat @click="removeChainStep(activeResolutionConstantStep._id)" />
+                    <km-btn icon="close" size="sm" round flat @click="removeChainStep(activeResolutionConstantStep._id)" />
                   </div>
                 </div>
 
                 <div v-if="source.chain.length === 0" class="value-chain__empty">
-                  <q-icon name="add_circle_outline" size="18px" color="grey-5" />
+                  <km-glyph name="add_circle_outline" size="18px" tone="muted" />
                   <span>{{ m.knowledgeGraph_addStepsHint() }}</span>
                 </div>
               </div>
@@ -522,14 +522,14 @@ const valueSourceKindIcon = (kind: MetadataFieldValueSourceKind) => {
   return icons[kind] || 'tune'
 }
 
-const valueSourceKindColor = (kind: MetadataFieldValueSourceKind) => {
-  const colors: Record<MetadataFieldValueSourceKind, string> = {
-    source: 'indigo-8',
-    file: 'teal-8',
-    llm: 'purple-8',
-    constant: 'grey-8',
+const valueSourceKindTone = (kind: MetadataFieldValueSourceKind) => {
+  const tones: Record<MetadataFieldValueSourceKind, string> = {
+    source: 'info',
+    file: 'accent',
+    llm: 'context',
+    constant: 'weak',
   }
-  return colors[kind] || 'grey-8'
+  return tones[kind] || 'weak'
 }
 
 const canAddKind = (kind: MetadataFieldValueSourceKind) => {
@@ -724,14 +724,14 @@ const onConfirm = () => {
   display: flex;
   flex-direction: column;
   gap: 1px;
-  border: 1px solid var(--q-border);
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-sm);
   overflow: hidden;
-  background: var(--q-border);
+  background: var(--ds-color-border);
 }
 
 .source-section {
-  background: var(--q-white);
+  background: var(--ds-color-white);
 }
 
 .source-section__header {
@@ -744,19 +744,19 @@ const onConfirm = () => {
 }
 
 .source-section__header:hover {
-  background: var(--q-background);
+  background: var(--ds-color-background);
 }
 
 .source-section--expanded .source-section__header {
-  background: var(--q-light);
-  border-bottom: 1px solid var(--q-border);
+  background: var(--ds-color-light);
+  border-block-end: 1px solid var(--ds-color-border);
 }
 
 .source-section__left {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-width: 0;
+  min-inline-size: 0;
 }
 
 .source-section__chevron {
@@ -765,21 +765,21 @@ const onConfirm = () => {
 }
 
 .source-section__type {
-  font-size: var(--km-font-size-sm);
+  font-size: var(--ds-font-size-sm);
   font-weight: 600;
-  color: var(--q-label);
+  color: var(--ds-color-label);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   padding: 2px 6px;
-  background: var(--q-light);
-  border-radius: var(--radius-xs);
+  background: var(--ds-color-light);
+  border-radius: var(--ds-radius-xs);
   flex-shrink: 0;
 }
 
 .source-section__name {
-  font-size: var(--km-font-size-label);
+  font-size: var(--ds-font-size-label);
   font-weight: 500;
-  color: var(--q-black);
+  color: var(--ds-color-black);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -790,17 +790,17 @@ const onConfirm = () => {
 }
 
 .source-section__badge {
-  font-size: var(--km-font-size-sm);
+  font-size: var(--ds-font-size-sm);
   font-weight: 500;
   padding: 4px 10px;
-  border-radius: var(--radius-xl);
+  border-radius: var(--ds-radius-xl);
   background: #e8f4ea; /* intentional semantic success badge color */
-  color: #2e7d42; /* intentional semantic success badge color */
+  color: var(--ds-color-success-on-soft); /* intentional semantic success badge color */
 }
 
 .source-section__badge--empty {
-  background: var(--q-light);
-  color: var(--q-label);
+  background: var(--ds-color-light);
+  color: var(--ds-color-label);
 }
 
 .source-section__content {
@@ -808,7 +808,7 @@ const onConfirm = () => {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  background: var(--q-background);
+  background: var(--ds-color-background);
 }
 
 .source-section__toolbar {
@@ -820,8 +820,8 @@ const onConfirm = () => {
 }
 
 .source-section__hint {
-  font-size: var(--km-font-size-sm);
-  color: var(--q-label);
+  font-size: var(--ds-font-size-sm);
+  color: var(--ds-color-label);
   flex-shrink: 0;
 }
 
@@ -836,9 +836,9 @@ const onConfirm = () => {
   display: flex;
   align-items: stretch;
   gap: 0;
-  border: 1px solid var(--q-border);
-  border-radius: var(--radius-md);
-  background: var(--q-white);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-white);
   overflow: hidden;
 }
 
@@ -846,7 +846,7 @@ const onConfirm = () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
+  inline-size: 28px;
   flex-shrink: 0;
   cursor: grab;
   user-select: none;
@@ -862,7 +862,7 @@ const onConfirm = () => {
   align-items: center;
   gap: 10px;
   flex: 1;
-  min-width: 0;
+  min-inline-size: 0;
   padding: 8px 0 8px 10px;
 }
 
@@ -870,15 +870,15 @@ const onConfirm = () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  inline-size: 20px;
+  block-size: 20px;
   flex-shrink: 0;
-  font-size: var(--km-font-size-xs);
+  font-size: var(--ds-font-size-xs);
   font-weight: 600;
-  color: var(--q-label);
-  background: var(--q-white);
-  border: 1px solid var(--q-border-2);
-  border-radius: var(--radius-full);
+  color: var(--ds-color-label);
+  background: var(--ds-color-white);
+  border: 1px solid var(--ds-color-border-2);
+  border-radius: var(--ds-radius-full);
 }
 
 .value-chain__kind {
@@ -886,20 +886,20 @@ const onConfirm = () => {
   align-items: center;
   justify-content: flex-start;
   gap: 6px;
-  width: 144px;
-  height: 32px;
+  inline-size: 144px;
+  block-size: 32px;
   padding: 0 10px;
-  border-radius: var(--radius-sm);
-  font-size: var(--km-font-size-sm);
+  border-radius: var(--ds-radius-sm);
+  font-size: var(--ds-font-size-sm);
   font-weight: 600;
   white-space: nowrap;
   flex-shrink: 0;
-  background: var(--q-light);
-  color: var(--q-label);
+  background: var(--ds-color-light);
+  color: var(--ds-color-label);
 }
 
 .value-chain__kind-label {
-  font-size: var(--km-font-size-caption);
+  font-size: var(--ds-font-size-caption);
   font-weight: 600;
   letter-spacing: 0.01em;
 }
@@ -909,21 +909,21 @@ const onConfirm = () => {
   flex-direction: column;
   gap: 2px;
   flex: 1;
-  min-width: 0;
+  min-inline-size: 0;
 }
 
 .value-chain__llm-hint {
   display: flex;
   align-items: center;
-  height: 32px;
-  font-size: var(--km-font-size-caption);
-  color: var(--q-label);
+  block-size: 32px;
+  font-size: var(--ds-font-size-caption);
+  color: var(--ds-color-label);
 }
 
 .value-chain__error {
-  font-size: var(--km-font-size-xs);
-  color: var(--q-error-text);
-  padding-left: 2px;
+  font-size: var(--ds-font-size-xs);
+  color: var(--ds-color-error-text);
+  padding-inline-start: 2px;
 }
 
 .value-chain__close {
@@ -934,16 +934,12 @@ const onConfirm = () => {
   flex-shrink: 0;
   background: none;
   border: none;
-  color: var(--q-icon);
+  color: var(--ds-color-icon);
   cursor: pointer;
 }
 
-.value-chain__close :deep(.q-focus-helper) {
-  background: none !important;
-}
-
 .value-chain__close:hover {
-  color: var(--q-error);
+  color: var(--ds-color-error);
 }
 
 .value-chain__empty {
@@ -952,11 +948,11 @@ const onConfirm = () => {
   justify-content: center;
   gap: 8px;
   padding: 16px;
-  border: 1px dashed var(--q-border);
-  border-radius: var(--radius-md);
-  background: var(--q-white);
-  font-size: var(--km-font-size-caption);
-  color: var(--q-label);
+  border: 1px dashed var(--ds-color-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-white);
+  font-size: var(--ds-font-size-caption);
+  color: var(--ds-color-label);
 }
 
 /* Origin Buttons */
@@ -972,12 +968,12 @@ const onConfirm = () => {
   gap: 4px;
   padding: 3px 8px;
   border: 1px solid;
-  border-radius: var(--radius-sm);
-  font-size: var(--km-font-size-sm);
+  border-radius: var(--ds-radius-sm);
+  font-size: var(--ds-font-size-sm);
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s ease;
-  background: var(--q-white);
+  transition: var(--ds-transition-colors);
+  background: var(--ds-color-white);
 }
 
 .origin-btn--file {
@@ -1008,21 +1004,17 @@ const onConfirm = () => {
 }
 
 .origin-btn--constant {
-  border-color: #616161;
-  color: #616161;
+  border-color: var(--ds-color-gray-600);
+  color: var(--ds-color-gray-600);
 }
 
 .origin-btn--constant:hover:not(:disabled) {
-  background: var(--q-light);
+  background: var(--ds-color-light);
 }
 
 .origin-btn--disabled {
   border-style: dashed;
   opacity: 0.4;
   cursor: not-allowed;
-}
-
-.value-chain__input--error :deep(.q-field__control:before) {
-  border-color: var(--q-negative) !important;
 }
 </style>

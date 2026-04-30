@@ -1,12 +1,5 @@
-<template lang="pug">
-user-security-page(
-  :user-info='userInfo',
-  :sessions='sessions',
-  @setup-mfa='handleSetupMfa',
-  @disable-mfa='handleDisableMfa',
-  @revoke-session='handleRevokeSession',
-  @revoke-all-sessions='handleRevokeAllSessions'
-)
+<template>
+  <user-security-page :user-info="userInfo" :sessions="sessions" @setup-mfa="handleSetupMfa" @disable-mfa="handleDisableMfa" @revoke-session="handleRevokeSession" @revoke-all-sessions="handleRevokeAllSessions" />
 </template>
 
 <script>

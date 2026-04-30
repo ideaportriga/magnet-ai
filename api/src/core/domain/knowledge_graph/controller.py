@@ -1,4 +1,3 @@
-from core.server.background_tasks import spawn_background_task
 import logging
 import mimetypes
 import re
@@ -8,7 +7,6 @@ from uuid import UUID
 
 import httpx
 from advanced_alchemy.extensions.litestar import providers
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from litestar import Controller, delete, get, patch, post
 from litestar.datastructures import UploadFile
 from litestar.di import Provide
@@ -67,7 +65,6 @@ from services.knowledge_graph import (
 )
 from services.knowledge_graph.llm_entity_extraction import (
     is_extraction_task_active,
-    run_entity_extraction_background,
 )
 from utils.datetime_utils import utc_now_isoformat
 from services.knowledge_graph.retrievers.agent_retriever.agent import (
@@ -75,7 +72,6 @@ from services.knowledge_graph.retrievers.agent_retriever.agent import (
     start_conversation,
 )
 from services.knowledge_graph.sources import FileUploadDataSource
-from services.knowledge_graph.sources.sync_services import sync_source_background
 from services.observability import observability_overrides, observe
 
 from storage import FileLimits, StorageService
@@ -515,12 +511,12 @@ class KnowledgeGraphController(Controller):
         await source_service.set_source_status(db_session, source_id, "syncing")
         await db_session.commit()
 
-        # Launch sync in background and return immediately to prevent stuck "syncing" status on page refresh
-        from core.server.background_tasks import spawn_background_task
+        # Launch sync in background via TaskIQ — survives API restarts and is
+        # visible in `taskiq_messages` for observability.
+        from tasks.definitions import sync_kg_source_bg_task
 
-        spawn_background_task(
-            sync_source_background(graph_id, source_id),
-            name=f"sync-source-{source_id}",
+        await sync_kg_source_bg_task.kiq(
+            graph_id=str(graph_id), source_id=str(source_id)
         )
         return {"status": "started", "message": "Sync started in background"}
 
@@ -539,12 +535,9 @@ class KnowledgeGraphController(Controller):
         db_session: AsyncSession,
         graph_id: UUID,
         source_id: UUID,
-        scheduler: AsyncIOScheduler,
         data: Annotated[KnowledgeGraphSourceScheduleSyncRequest | None, Body()] = None,
     ) -> dict[str, Any]:
-        return await schedule_source_sync(
-            db_session, graph_id, source_id, scheduler, data
-        )
+        return await schedule_source_sync(db_session, graph_id, source_id, data)
 
     @observe(
         name="Unschedule syncing knowledge graph source",
@@ -561,9 +554,8 @@ class KnowledgeGraphController(Controller):
         db_session: AsyncSession,
         graph_id: UUID,
         source_id: UUID,
-        scheduler: AsyncIOScheduler,
     ) -> None:
-        await unschedule_source_sync(db_session, graph_id, source_id, scheduler)
+        await unschedule_source_sync(db_session, graph_id, source_id)
 
     ###########################################################################
     # KNOWLEDGE GRAPH DOCUMENT ENDPOINTS #
@@ -734,9 +726,10 @@ class KnowledgeGraphController(Controller):
         flag_modified(graph_obj, "state")
         await db_session.commit()
 
-        spawn_background_task(
-            run_entity_extraction_background(graph_id, data.model_dump()),
-            name=f"entity-extraction-{graph_id}",
+        from tasks.definitions import entity_extraction_bg_task
+
+        await entity_extraction_bg_task.kiq(
+            graph_id=str(graph_id), payload=data.model_dump()
         )
         return {"status": "started"}
 

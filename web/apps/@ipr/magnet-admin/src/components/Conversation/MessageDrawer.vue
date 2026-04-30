@@ -1,89 +1,88 @@
-<template lang="pug">
-km-drawer-layout(storageKey="drawer-conversation-message")
-  template(#tabs)
-    .row.no-wrap.full-width.q-px-16.q-py-6
-      .row.cursor-pointer.q-gap-8.items-center(@click='$emit("close")')
-        q-icon(name='fas fa-arrow-left', size='14px', color='secondary')
-        .km-title.text-secondary-text {{ m.conversation_backToConversation() }}
-    .bb-border
-    .row.no-wrap.full-width.q-px-16.q-py-6
-      q-tabs(
-        v-model='tab',
-        narrow-indicator,
-        dense,
-        align='left',
-        active-color='primary',
-        indicator-color='primary',
-        active-bg-color='white',
-        no-caps,
-        content-class='km-tabs-dense'
-      )
-        template(v-for='t in tabs')
-          q-tab(:name='t.name', :label='t.label')
-        .fit
-  .column.full-height.q-gap-16
-    .column.q-gap-16(v-if='tab === "details"')
-      .col-6
-        .km-description.text-secondary-text.q-pb-6 Message Time
-        .row
-          .km-label {{ time }}
-      .col-6
-        .km-description.text-secondary-text.q-pb-6.text-capitalize Latency
-        .row
-          .km-label {{ responseTime }}
-      .col-6
-        .km-description.text-secondary-text.q-pb-6.text-capitalize Role
-        .row
-          .km-label.text-capitalize {{ message?.role }}
-      //- .col-6
-      //-   .km-description.text-secondary-text.q-pb-6 Message
-      //-   .row
-      //-     dashboard-markdown(:source='message?.content')
-      .col-6
-        .km-description.text-secondary-text.q-pb-6.text-capitalize Agent Topic
-        .row
-          .km-label {{ topic }}
-      .km-button-text.bb-border.q-pb-4 User satisfaction
-      .col-6
-        .km-description.text-secondary-text.q-pb-6.text-capitalize User feedback
-        .row
-          .km-label.text-capitalize {{ message?.feedback?.type || '-' }}
-      .col-6
-        .km-description.text-secondary-text.q-pb-6.text-capitalize Feedback reason
-        .row
-          .km-label.text-capitalize {{ feedbackReason }}
-      .col-6
-        .km-description.text-secondary-text.q-pb-6.text-capitalize User comment
-        .row
-          .km-label {{ message?.feedback?.comment || '-' }}
-      .col-6
-        .km-description.text-secondary-text.q-pb-6.text-capitalize Copied
-        .row
-          .km-label {{ message?.copied ? 'Yes' : 'No' }}
-    template(v-if='tab == "insights"')
-      .km-button-text.bb-border.q-pb-4 Substandard Result analysis
-      .col-6
-        .km-description.text-secondary-text Substandard Result Reason
-        .row
-          km-select.full-width(v-model='resultReason', :options='substandartResultReasons')
-      .col-6
-        .km-description.text-secondary-text Comment
-        .row
-          km-input.full-width.q-pb-16(autogrow, :rows='3', type='textarea', v-model='comment')
-    .column.q-gap-16(v-if='tab === "costs-latency"')
-
-    .column.q-gap-16(v-if='tab === "steps"')
-      q-timeline
-        agents-timeline-step(v-for='(step, index) in selectedMessagePrepared', :key='`${message.id}-${index}`', :step='step', :index='index')
-  q-separator
-  .row.items-center.q-pa-16.justify-between.bt-border(v-if='selectedRow?.trace_id || isUpdated')
-    .row.items-center.q-gap-8.cursor-pointer(@click='openDetails', v-if='selectedRow?.trace_id')
-      km-btn(flat, :label='m.conversation_viewTrace()', icon='fa fa-external-link', color='secondary-text', labelClass='km-button-text', iconSize='16px')
-
-    .col-auto
-    .row.items-center.q-gap-8
-      km-btn.self-end(:label='m.common_cancel()', @click='cancelUpdate', v-if='isUpdated', flat)
-      km-btn.self-end(:label='m.common_update()', @click='updateMessage', v-if='isUpdated', :loading='loading', :disable='loading')
+<template>
+  <km-drawer-layout storage-key="drawer-conversation-message">
+    <template #tabs>
+      <div class="cluster px-lg py-sm" data-wrap="no">
+        <div class="cluster cursor-pointer" data-gap="sm" @click="$emit(&quot;close&quot;)">
+          <km-glyph name="arrow-left" size="14px" />
+          <div class="km-title text-secondary-text">{{ m.conversation_backToConversation() }}</div>
+        </div>
+      </div>
+      <div class="bb-border" />
+      <div class="cluster px-lg py-sm" data-wrap="no">
+        <km-tabs v-model="tab" narrow-indicator dense align="left" no-caps content-class="km-tabs-dense">
+          <template v-for="t in tabs" :key="t">
+            <km-tab :name="t.name" :label="t.label" />
+          </template>
+          <div class="fit" />
+        </km-tabs>
+      </div>
+    </template>
+    <div class="stack full-height" data-gap="lg">
+      <div v-if="tab === &quot;details&quot;" class="stack" data-gap="lg">
+        <div class="basis-6">
+          <div class="km-description text-secondary-text pb-sm">Message Time</div>
+          <div class="km-label">{{ time }}</div>
+        </div>
+        <div class="basis-6">
+          <div class="km-description text-secondary-text pb-sm text-capitalize">Latency</div>
+          <div class="km-label">{{ responseTime }}</div>
+        </div>
+        <div class="basis-6">
+          <div class="km-description text-secondary-text pb-sm text-capitalize">Role</div>
+          <div class="km-label text-capitalize">{{ message?.role }}</div>
+        </div>
+        <div class="basis-6">
+          <div class="km-description text-secondary-text pb-sm text-capitalize">Agent Topic</div>
+          <div class="km-label">{{ topic }}</div>
+        </div>
+        <div class="km-button-text bb-border pb-xs">User satisfaction</div>
+        <div class="basis-6">
+          <div class="km-description text-secondary-text pb-sm text-capitalize">User feedback</div>
+          <div class="km-label text-capitalize">{{ message?.feedback?.type || '-' }}</div>
+        </div>
+        <div class="basis-6">
+          <div class="km-description text-secondary-text pb-sm text-capitalize">Feedback reason</div>
+          <div class="km-label text-capitalize">{{ feedbackReason }}</div>
+        </div>
+        <div class="basis-6">
+          <div class="km-description text-secondary-text pb-sm text-capitalize">User comment</div>
+          <div class="km-label">{{ message?.feedback?.comment || '-' }}</div>
+        </div>
+        <div class="basis-6">
+          <div class="km-description text-secondary-text pb-sm text-capitalize">Copied</div>
+          <div class="km-label">{{ message?.copied ? 'Yes' : 'No' }}</div>
+        </div>
+      </div>
+      <template v-if="tab == &quot;insights&quot;">
+        <div class="km-button-text bb-border pb-xs">Substandard Result analysis</div>
+        <div class="basis-6">
+          <div class="km-description text-secondary-text">Substandard Result Reason</div>
+          <km-select v-model="resultReason" class="full-width" :options="substandartResultReasons" />
+        </div>
+        <div class="basis-6">
+          <div class="km-description text-secondary-text">Comment</div>
+          <km-input v-model="comment" class="full-width pb-lg" autogrow :rows="3" type="textarea" />
+        </div>
+      </template>
+      <div v-if="tab === &quot;costs-latency&quot;" class="stack" data-gap="lg" />
+      <div v-if="tab === &quot;steps&quot;" class="stack" data-gap="lg">
+        <km-timeline>
+          <agents-timeline-step v-for="(step, index) in selectedMessagePrepared" :key="`${message.id}-${index}`" :step="step" :index="index" />
+        </km-timeline>
+      </div>
+    </div>
+    <km-separator />
+    <div v-if="selectedRow?.trace_id || isUpdated" class="cluster p-lg bt-border" data-justify="between">
+      <div v-if="selectedRow?.trace_id" class="cluster cursor-pointer" data-gap="sm" @click="openDetails">
+        <km-btn flat :label="m.conversation_viewTrace()" icon="external-link" tone="subtle" label-class="km-button-text" icon-size="16px" />
+      </div>
+      <div class="flex-none" />
+      <div class="cluster" data-gap="sm">
+        <km-btn v-if="isUpdated" class="self-end" :label="m.common_cancel()" flat @click="cancelUpdate" />
+        <km-btn v-if="isUpdated" class="self-end" :label="m.common_update()" :loading="loading" :disable="loading" @click="updateMessage" />
+      </div>
+    </div>
+  </km-drawer-layout>
 </template>
 
 <script>
@@ -180,7 +179,7 @@ export default {
           started_at: startTime.toLocaleString(),
           completed_at: endTime.toLocaleString(),
           duration_seconds: duration,
-          icon: step.type === 'classification' ? 'fas fa-layer-group' : step.type === 'topic_completion' ? 'fas fa-microchip' : 'fas fa-code',
+          icon: step.type === 'classification' ? 'stack' : step.type === 'topic_completion' ? 'cpu' : 'code',
           typeLabel: step.type === 'classification' ? 'Classification' : step.type === 'topic_completion' ? 'Topic Completion' : 'Topic Action Call',
         }
       })

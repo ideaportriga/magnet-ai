@@ -1,5 +1,5 @@
-<template lang="pug">
-q-chip.q-ma-none(v-if='type', :label='type', size='sm')
+<template>
+  <km-chip v-if="type" class="m-0" :label="type" size="sm" />
 </template>
 
 <script>

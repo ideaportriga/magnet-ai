@@ -1,75 +1,46 @@
-<template lang="pug">
-km-inner-loading(:showing='loading')
-layouts-details-layout(v-if='!loading', :noHeader='false', :contentContainerStyle='{ maxWidth: "1200px", minWidth: "500px" }')
-  template(#header)
-    km-input-flat.km-heading-4.full-width.text-black(:placeholder='m.common_name()', :modelValue='recordName', @input='recordName = $event')
-    km-input-flat.km-description.full-width.text-black(
-      :placeholder='m.common_description()',
-      :modelValue='recordDescription',
-      @input='recordDescription = $event'
-    )
-    .row.items-center.q-pl-6
-      q-icon.col-auto(name='o_info', color='text-secondary')
-        q-tooltip.bg-white.block-shadow.text-black.km-description(self='top middle', :offset='[-50, -50]') {{ m.tooltip_systemNameUniqueId() }}
-      km-input-flat.col.km-description.full-width(
-        :placeholder='m.placeholder_enterSystemNameReadable()',
-        :modelValue='recordSystemName',
-        @input='recordSystemName = $event'
-      )
-  template(#header-actions)
-    km-btn(:label='m.common_recordInfo()', flat, icon='info', iconSize='16px')
-      q-tooltip.bg-white.block-shadow
-        .q-pa-sm
-          .q-mb-sm
-            .text-secondary-text.km-button-xs-text {{ m.common_createdLabel() }}
-            .text-secondary-text.km-description {{ created_at }}
-          .q-mb-sm
-            .text-secondary-text.km-button-xs-text {{ m.common_modified() }}
-            .text-secondary-text.km-description {{ modified_at }}
-          .q-mb-sm
-            .text-secondary-text.km-button-xs-text {{ m.common_createdBy() }}
-            .text-secondary-text.km-description {{ created_by }}
-          div
-            .text-secondary-text.km-button-xs-text {{ m.common_modifiedBy() }}
-            .text-secondary-text.km-description {{ updated_by }}
-    km-btn(:label='m.common_reloadRuntime()', flat, icon='fas fa-sync', iconSize='16px', @click='reloadRuntime', :loading='reloading')
-    km-btn(:label='m.common_save()', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving')
-    q-btn.q-px-xs(flat, :icon='"fas fa-ellipsis-v"', size='13px')
-      q-menu(anchor='bottom right', self='top right')
-        q-item(clickable, @click='showDeleteDialog = true', dense)
-          q-item-section
-            .km-heading-3 {{ m.common_delete() }}
-    km-popup-confirm(
-      :visible='showDeleteDialog',
-      :confirmButtonLabel='m.deleteConfirm_deleteEntity({ entity: m.entity_noteTaker() })',
-      :cancelButtonLabel='m.common_cancel()',
-      notificationIcon='fas fa-triangle-exclamation',
-      @confirm='confirmDelete',
-      @cancel='showDeleteDialog = false'
-    )
-      .row.item-center.justify-center.km-heading-7 {{ m.deleteConfirm_aboutToDelete({ entity: m.entity_noteTaker() }) }}
-      .row.text-center.justify-center {{ m.deleteConfirm_noteTakerBody() }}
-  template(#content)
-    km-tabs(v-model='tab')
-      q-tab(name='transcription', :label='m.common_transcription()')
-      q-tab(name='post-processing', :label='m.common_postProcessing()')
-      q-tab(name='embedding', :label='m.common_embedding()')
-      q-tab(name='integrations', :label='m.common_integrations()')
-      q-tab(name='ms-teams', :label='m.common_msTeamsSettings()')
-
-    .col.overflow-auto.q-mt-lg(style='min-height: 0')
-      template(v-if='tab === "transcription"')
-        note-taker-tab-transcription
-      template(v-if='tab === "post-processing"')
-        note-taker-tab-post-processing
-      template(v-if='tab === "embedding"')
-        note-taker-tab-embedding
-      template(v-if='tab === "integrations"')
-        note-taker-tab-integrations
-      template(v-if='tab === "ms-teams"')
-        note-taker-tab-ms-teams
-  template(#drawer)
-    note-taker-drawer(:settingsId='configId', v-if='configId')
+<template>
+  <km-inner-loading :showing="loading" />
+  <layouts-details-layout v-if="!loading" :name="recordName" :description="recordDescription" :system-name="recordSystemName" :created-at="created_at" :updated-at="modified_at" :created-by="created_by" :updated-by="updated_by" show-record-info :content-container-style="{ maxWidth: &quot;1200px&quot;, minWidth: &quot;500px&quot; }" @update:name="recordName = $event" @update:description="recordDescription = $event" @update:system-name="recordSystemName = $event">
+    <template #header-actions>
+      <km-btn :label="m.common_reloadRuntime()" flat icon="refresh" icon-size="16px" :loading="reloading" @click="reloadRuntime" />
+      <km-btn :label="m.common_save()" flat icon="save" icon-size="16px" :loading="saving" @click="save" />
+      <ds-dropdown-menu-root>
+        <ds-dropdown-menu-trigger as-child>
+          <km-btn class="px-xs" flat icon="more-vertical" size="13px" />
+        </ds-dropdown-menu-trigger>
+        <ds-dropdown-menu-content side="bottom" align="end" :side-offset="4">
+          <ds-dropdown-menu-item variant="destructive" @select="showDeleteDialog = true">{{ m.common_delete() }}</ds-dropdown-menu-item>
+        </ds-dropdown-menu-content>
+      </ds-dropdown-menu-root>
+      <km-popup-confirm :visible="showDeleteDialog" :confirm-button-label="m.deleteConfirm_deleteEntity({ entity: m.entity_noteTaker() })" :cancel-button-label="m.common_cancel()" notification-icon="warning" @confirm="confirmDelete" @cancel="showDeleteDialog = false">
+        <div class="cluster" data-justify="center">{{ m.deleteConfirm_aboutToDelete({ entity: m.entity_noteTaker() }) }}</div>
+        <div class="cluster text-center" data-justify="center">{{ m.deleteConfirm_noteTakerBody() }}</div>
+      </km-popup-confirm>
+    </template>
+    <template #content>
+      <km-tabs v-model="tab" :items="tabs" />
+      <div class="flex-1 overflow-auto mt-lg" style="min-block-size: 0">
+        <template v-if="tab === &quot;transcription&quot;">
+          <note-taker-tab-transcription />
+        </template>
+        <template v-if="tab === &quot;post-processing&quot;">
+          <note-taker-tab-post-processing />
+        </template>
+        <template v-if="tab === &quot;embedding&quot;">
+          <note-taker-tab-embedding />
+        </template>
+        <template v-if="tab === &quot;integrations&quot;">
+          <note-taker-tab-integrations />
+        </template>
+        <template v-if="tab === &quot;ms-teams&quot;">
+          <note-taker-tab-ms-teams />
+        </template>
+      </div>
+    </template>
+    <template #drawer>
+      <note-taker-drawer v-if="configId" :settings-id="configId" />
+    </template>
+  </layouts-details-layout>
 </template>
 
 <script setup lang="ts">
@@ -102,6 +73,13 @@ queries.promptTemplates.useList()
 queries.api_servers.useList()
 
 const tab = ref('transcription')
+const tabs = ref([
+  { value: 'transcription', label: m.common_transcription() },
+  { value: 'post-processing', label: m.common_postProcessing() },
+  { value: 'embedding', label: m.common_embedding() },
+  { value: 'integrations', label: m.common_integrations() },
+  { value: 'ms-teams', label: m.common_msTeamsSettings() },
+])
 const saving = ref(false)
 const reloading = ref(false)
 const showDeleteDialog = ref(false)

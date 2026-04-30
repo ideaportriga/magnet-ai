@@ -1,202 +1,101 @@
-<template lang="pug">
-km-drawer-layout(v-if='open && currentRecord', storageKey="drawer-evaluation-jobs")
-  template(#header)
-    .km-heading-7 {{ m.evaluation_recordDetails() }}
-  .col-auto.q-mb-md
-    .row
-      q-tabs(
-        v-model='tab',
-        narrow-indicator,
-        dense,
-        align='left',
-        active-color='primary',
-        indicator-color='primary',
-        no-caps,
-        content-class='km-tabs'
-      )
-        template(v-for='t in tabs')
-          q-tab(:name='t.name', :label='t.label')
-  template(v-if='tab == "cost"')
-    .col-auto
-      template(v-if='evalStore.evaluation?.type == "prompt_eval"')
-        .row.q-gap-16.justify-between
-          .km-input-label.text-text-grey {{ m.agents_totalTokens() }}
-            km-input(
-              ref='input',
-              :placeholder='m.prompts_typeYourText()',
-              :model-value='totalTokens',
-              @input='totalTokens = $event',
-              border-radius='8px',
-              height='36px',
-              type='text',
-              readonly
-            )
-          .km-input-label.text-text-grey {{ m.agents_totalCost() }}
-            km-input(
-              ref='input',
-              :placeholder='m.prompts_typeYourText()',
-              :model-value='totalCost',
-              @input='totalCost = $event',
-              border-radius='8px',
-              height='36px',
-              type='text',
-              readonly
-            )
-        q-separator.q-my-md
-
-        .row.q-gap-16.justify-between.q-mb-sm
-          .km-input-label.text-text-grey {{ m.agents_inputTokens() }}
-            km-input(
-              ref='input',
-              :placeholder='m.prompts_typeYourText()',
-              :model-value='inputTokens',
-              @input='inputTokens = $event',
-              border-radius='8px',
-              height='36px',
-              type='text',
-              readonly
-            )
-          .km-input-label.text-text-grey {{ m.agents_inputCost() }}
-            km-input(
-              ref='input',
-              :placeholder='m.prompts_typeYourText()',
-              :model-value='inputCost',
-              @input='inputCost = $event',
-              border-radius='8px',
-              height='36px',
-              type='text',
-              readonly
-            )
-            .km-description.text-secondary-text {{ m.agents_1mTokensPrice({ price: priceInput }) }}
-
-        .row.q-gap-16.justify-between.q-mb-sm
-          .km-input-label.text-text-grey {{ m.agents_outputTokens() }}
-            km-input(
-              ref='input',
-              :placeholder='m.prompts_typeYourText()',
-              :model-value='outputTokens',
-              @input='outputTokens = $event',
-              border-radius='8px',
-              height='36px',
-              type='text',
-              readonly
-            )
-          .km-input-label.text-text-grey {{ m.agents_outputCost() }}
-            km-input(
-              ref='input',
-              :placeholder='m.prompts_typeYourText()',
-              :model-value='outputCost',
-              @input='outputCost = $event',
-              border-radius='8px',
-              height='36px',
-              type='text',
-              readonly
-            )
-            .km-description.text-secondary-text {{ m.agents_1mTokensPrice({ price: priceOutput }) }}
-        .row.q-gap-16.justify-between.q-mb-sm
-          .km-input-label.text-text-grey {{ m.agents_cachedTokens() }}
-            km-input(
-              ref='input',
-              :placeholder='m.prompts_typeYourText()',
-              :model-value='cachedTokens',
-              @input='cachedTokens = $event',
-              border-radius='8px',
-              height='36px',
-              type='text',
-              readonly
-            )
-          .km-input-label.text-text-grey {{ m.agents_cachedCost() }}
-            km-input(
-              ref='input',
-              :placeholder='m.prompts_typeYourText()',
-              :model-value='cachedCost',
-              @input='cachedCost = $event',
-              border-radius='8px',
-              height='36px',
-              type='text',
-              readonly
-            )
-            .km-description.text-secondary-text {{ m.agents_1mTokensPrice({ price: priceCached }) }}
-
-        q-separator.q-my-md
-      .row.q-gap-16.justify-between
-        .km-input-label.text-text-grey {{ m.agents_latency() }}
-          km-input(
-            ref='input',
-            :placeholder='m.prompts_typeYourText()',
-            :model-value='latency',
-            @input='latency = $event',
-            border-radius='8px',
-            height='36px',
-            type='text',
-            readonly
-          )
-  template(v-if='tab == "input_and_output"')
-    .col-auto(v-if='routeName != "EvaluationCompare"')
-      .km-input-label.text-text-grey {{ m.evaluation_input() }}
-      km-input(
-        ref='input',
-        autogrow,
-        :placeholder='m.prompts_typeYourText()',
-        :model-value='evaluationInput',
-        @input='evaluationInput = $event',
-        border-radius='8px',
-        height='36px',
-        type='textarea',
-        readonly
-      )
-    .col-auto.q-mt-md
-      .km-input-label.text-text-grey {{ m.evaluation_generatedOutput() }}
-      km-input(
-        ref='input',
-        autogrow,
-        :placeholder='m.prompts_typeYourText()',
-        :model-value='generatedOutput',
-        @input='generatedOutput = $event',
-        border-radius='8px',
-        height='36px',
-        type='textarea',
-        readonly
-      )
-    .col-auto.q-mt-md(v-if='routeName != "EvaluationCompare"')
-      .km-input-label.text-text-grey {{ m.evaluation_expectedOutput() }}
-      km-input(
-        ref='input',
-        autogrow,
-        :model-value='expectedOutput',
-        @input='expectedOutput = $event',
-        border-radius='8px',
-        height='36px',
-        type='textarea',
-        readonly
-      )
-  .col-auto.q-mt-md(v-if='tab == "input_and_output"')
-    .km-input-label.text-text-grey {{ m.evaluation_score() }}
-      km-select(
-        height='30px',
-        :placeholder='m.evaluation_score()',
-        :options='scoreOpiotns',
-        v-model='score',
-        hasDropdownSearch,
-        option-value='value',
-        option-label='label',
-        emit-value,
-        map-options
-      )
-  .col-auto.q-mt-md(v-if='tab == "input_and_output"')
-    .km-input-label.text-text-grey {{ m.evaluation_comment() }}
-      km-input(
-        ref='input',
-        autogrow,
-        :placeholder='m.prompts_typeYourText()',
-        :model-value='scoreComment',
-        @input='scoreComment = $event',
-        @blur='setScore({ score: score, scoreComment: scoreComment })',
-        border-radius='8px',
-        height='36px',
-        type='textarea',
-        :readonly='!score'
-      )
+<template>
+  <km-drawer-layout v-if="open &amp;&amp; currentRecord" storage-key="drawer-evaluation-jobs">
+    <template #header>
+      <div class="km-heading-7">{{ m.evaluation_recordDetails() }}</div>
+    </template>
+    <div class="mb-md">
+      <div class="cluster">
+        <km-tabs v-model="tab" narrow-indicator dense align="left" no-caps content-class="km-tabs">
+          <template v-for="t in tabs" :key="t">
+            <km-tab :name="t.name" :label="t.label" />
+          </template>
+        </km-tabs>
+      </div>
+    </div>
+    <template v-if="tab == &quot;cost&quot;">
+      <div>
+        <template v-if="evalStore.evaluation?.type == &quot;prompt_eval&quot;">
+          <div class="cluster" data-gap="lg" data-justify="between">
+            <div class="km-input-label text-text-grey">
+              {{ m.agents_totalTokens() }}
+              <km-input ref="input" :placeholder="m.prompts_typeYourText()" :model-value="totalTokens" border-radius="8px" height="36px" type="text" readonly @input="totalTokens = $event" />
+            </div>
+            <div class="km-input-label text-text-grey">
+              {{ m.agents_totalCost() }}
+              <km-input ref="input" :placeholder="m.prompts_typeYourText()" :model-value="totalCost" border-radius="8px" height="36px" type="text" readonly @input="totalCost = $event" />
+            </div>
+          </div>
+          <km-separator class="my-md" />
+          <div class="cluster mb-sm" data-gap="lg" data-justify="between">
+            <div class="km-input-label text-text-grey">
+              {{ m.agents_inputTokens() }}
+              <km-input ref="input" :placeholder="m.prompts_typeYourText()" :model-value="inputTokens" border-radius="8px" height="36px" type="text" readonly @input="inputTokens = $event" />
+            </div>
+            <div class="km-input-label text-text-grey">
+              {{ m.agents_inputCost() }}
+              <km-input ref="input" :placeholder="m.prompts_typeYourText()" :model-value="inputCost" border-radius="8px" height="36px" type="text" readonly @input="inputCost = $event" />
+              <div class="km-description text-secondary-text">{{ m.agents_1mTokensPrice({ price: priceInput }) }}</div>
+            </div>
+          </div>
+          <div class="cluster mb-sm" data-gap="lg" data-justify="between">
+            <div class="km-input-label text-text-grey">
+              {{ m.agents_outputTokens() }}
+              <km-input ref="input" :placeholder="m.prompts_typeYourText()" :model-value="outputTokens" border-radius="8px" height="36px" type="text" readonly @input="outputTokens = $event" />
+            </div>
+            <div class="km-input-label text-text-grey">
+              {{ m.agents_outputCost() }}
+              <km-input ref="input" :placeholder="m.prompts_typeYourText()" :model-value="outputCost" border-radius="8px" height="36px" type="text" readonly @input="outputCost = $event" />
+              <div class="km-description text-secondary-text">{{ m.agents_1mTokensPrice({ price: priceOutput }) }}</div>
+            </div>
+          </div>
+          <div class="cluster mb-sm" data-gap="lg" data-justify="between">
+            <div class="km-input-label text-text-grey">
+              {{ m.agents_cachedTokens() }}
+              <km-input ref="input" :placeholder="m.prompts_typeYourText()" :model-value="cachedTokens" border-radius="8px" height="36px" type="text" readonly @input="cachedTokens = $event" />
+            </div>
+            <div class="km-input-label text-text-grey">
+              {{ m.agents_cachedCost() }}
+              <km-input ref="input" :placeholder="m.prompts_typeYourText()" :model-value="cachedCost" border-radius="8px" height="36px" type="text" readonly @input="cachedCost = $event" />
+              <div class="km-description text-secondary-text">{{ m.agents_1mTokensPrice({ price: priceCached }) }}</div>
+            </div>
+          </div>
+          <km-separator class="my-md" />
+        </template>
+        <div class="cluster" data-gap="lg" data-justify="between">
+          <div class="km-input-label text-text-grey">
+            {{ m.agents_latency() }}
+            <km-input ref="input" :placeholder="m.prompts_typeYourText()" :model-value="latency" border-radius="8px" height="36px" type="text" readonly @input="latency = $event" />
+          </div>
+        </div>
+      </div>
+    </template>
+    <template v-if="tab == &quot;input_and_output&quot;">
+      <div v-if="routeName != &quot;EvaluationCompare&quot;">
+        <div class="km-input-label text-text-grey">{{ m.evaluation_input() }}</div>
+        <km-input ref="input" autogrow :placeholder="m.prompts_typeYourText()" :model-value="evaluationInput" border-radius="8px" height="36px" type="textarea" readonly @input="evaluationInput = $event" />
+      </div>
+      <div class="mt-md">
+        <div class="km-input-label text-text-grey">{{ m.evaluation_generatedOutput() }}</div>
+        <km-input ref="input" autogrow :placeholder="m.prompts_typeYourText()" :model-value="generatedOutput" border-radius="8px" height="36px" type="textarea" readonly @input="generatedOutput = $event" />
+      </div>
+      <div v-if="routeName != &quot;EvaluationCompare&quot;" class="mt-md">
+        <div class="km-input-label text-text-grey">{{ m.evaluation_expectedOutput() }}</div>
+        <km-input ref="input" autogrow :model-value="expectedOutput" border-radius="8px" height="36px" type="textarea" readonly @input="expectedOutput = $event" />
+      </div>
+    </template>
+    <div v-if="tab == &quot;input_and_output&quot;" class="mt-md">
+      <div class="km-input-label text-text-grey">
+        {{ m.evaluation_score() }}
+        <km-select v-model="score" height="30px" :placeholder="m.evaluation_score()" :options="scoreOpiotns" has-dropdown-search option-value="value" option-label="label" emit-value map-options />
+      </div>
+    </div>
+    <div v-if="tab == &quot;input_and_output&quot;" class="mt-md">
+      <div class="km-input-label text-text-grey">
+        {{ m.evaluation_comment() }}
+        <km-input ref="input" autogrow :placeholder="m.prompts_typeYourText()" :model-value="scoreComment" border-radius="8px" height="36px" type="textarea" :readonly="!score" @input="scoreComment = $event" @blur="setScore({ score: score, scoreComment: scoreComment })" />
+      </div>
+    </div>
+  </km-drawer-layout>
 </template>
 <script>
 import { defineComponent, ref, computed } from 'vue'

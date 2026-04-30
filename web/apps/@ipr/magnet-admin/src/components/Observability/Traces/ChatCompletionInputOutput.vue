@@ -1,13 +1,13 @@
 <template>
-  <div class="column q-gap-12">
-    <div v-for="(message, msgIdx) in messages" :key="msgIdx" class="col-auto ba-border border-radius-8 overflow-hidden">
-      <div class="row q-pa-sm bg-light justify-between items-center cursor-pointer km-body-sm" @click="toggleCollapse(msgIdx)">
+  <div class="stack" data-gap="md">
+    <div v-for="(message, msgIdx) in messages" :key="msgIdx" class="flex-none ba-border border-radius-8 overflow-hidden">
+      <div class="cluster p-sm bg-light km-body-sm cursor-pointer" data-justify="between" @click="toggleCollapse(msgIdx)">
         <span>{{ formatRole(message?.label) }}</span>
-        <q-icon :name="collapsed[msgIdx] ? 'expand_less' : 'expand_more'" size="16px" />
+        <km-glyph :name="collapsed[msgIdx] ? 'chevron-up' : 'chevron-down'" size="16px" />
       </div>
-      <div v-if="collapsed[msgIdx]" class="row bt-border">
+      <div v-if="collapsed[msgIdx]" class="cluster bt-border">
         <template v-if="message?.type === 'text'">
-          <div class="row q-pa-sm km-body-sm trace-content">
+          <div class="cluster p-sm km-body-sm trace-content">
             {{ message?.content }}
           </div>
         </template>
@@ -103,7 +103,7 @@ watch(
 
 <style scoped>
 .trace-content {
-  min-height: 30px;
+  min-block-size: 30px;
   white-space: pre-wrap;
   word-break: break-all;
 }

@@ -1,5 +1,25 @@
 import { DateTime } from 'luxon'
 import { get, isObject } from 'lodash'
+import { refreshAuthSession } from '../auth/refreshCoordinator'
+
+function buildFetchUrl(endpoint, service, queryParams) {
+  return `${endpoint}${service ? `/${service}` : ''}${queryParams ? `?${new URLSearchParams(queryParams).toString()}` : ''}`
+}
+
+function getAuthBaseUrl(endpoint) {
+  if (!endpoint) return null
+  const fallbackBase = typeof window !== 'undefined' ? window.location.origin : 'http://localhost'
+  try {
+    const url = new URL(endpoint, fallbackBase)
+    return `${url.protocol}//${url.host}`
+  } catch {
+    return null
+  }
+}
+
+function shouldAttemptRefresh(response, authBaseUrl, credentials) {
+  return response.status === 401 && authBaseUrl !== null && !!credentials && credentials !== 'omit'
+}
 
 async function fetchData(props) {
   const { endpoint = '', method = 'GET', service = '', headers, body, queryParams, credentials, signal } = props
@@ -19,12 +39,17 @@ async function fetchData(props) {
     return response
   }
 
-  const response = await fetch(
-    `${endpoint}${service ? `/${service}` : ''}${queryParams ? `?${new URLSearchParams(queryParams).toString()}` : ''}`,
-    options
-  )
-    .then(handleErrors)
-    .catch((error) => ({ error }))
+  const url = buildFetchUrl(endpoint, service, queryParams)
+
+  const response = await (async () => {
+    let res = await fetch(url, options)
+    const authBaseUrl = getAuthBaseUrl(endpoint)
+    if (shouldAttemptRefresh(res, authBaseUrl, credentials)) {
+      const refreshed = await refreshAuthSession(authBaseUrl)
+      if (refreshed) res = await fetch(url, options)
+    }
+    return handleErrors(res)
+  })().catch((error) => ({ error }))
 
   return response
 }

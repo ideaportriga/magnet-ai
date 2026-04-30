@@ -5,6 +5,7 @@ from uuid import UUID
 
 from advanced_alchemy.extensions.litestar import filters, providers, service
 from litestar import Controller, delete, get, patch, post
+from litestar.exceptions import ClientException
 from litestar.params import Body, Dependency, Parameter
 from litestar.status_codes import HTTP_200_OK
 
@@ -139,19 +140,27 @@ class PromptsController(Controller):
             name=data.name, type="prompt-template"
         )
 
-        result = await execute_prompt_template(
-            system_name_or_config=data.system_name_for_prompt_template,
-            template_variant=data.prompt_template_variant,
-            config_override=PromptTemplateConfig(
-                messages=data.messages,
-                llm_name=data.model,
-                temperature=data.temperature,
-                top_p=data.top_p,
-                max_tokens=data.max_tokens,
-                response_format=data.response_format,
-                model=data.system_name_for_model,
-            ),
-        )
+        try:
+            result = await execute_prompt_template(
+                system_name_or_config=data.system_name_for_prompt_template,
+                template_variant=data.prompt_template_variant,
+                config_override=PromptTemplateConfig(
+                    messages=data.messages,
+                    llm_name=data.model,
+                    temperature=data.temperature,
+                    top_p=data.top_p,
+                    max_tokens=data.max_tokens,
+                    response_format=data.response_format,
+                    model=data.system_name_for_model,
+                ),
+            )
+        except ValueError as exc:
+            error_message = str(exc)
+            if "provider_system_name configured" not in error_message:
+                raise
+            if "Model 'None'" in error_message:
+                error_message = "LLM model is required to preview a prompt template."
+            raise ClientException(error_message) from exc
 
         return result
 

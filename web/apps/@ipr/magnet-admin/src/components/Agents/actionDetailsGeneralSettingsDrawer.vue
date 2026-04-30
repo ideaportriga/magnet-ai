@@ -1,28 +1,29 @@
-<template lang="pug">
-div
-  .km-field.text-secondary-text.q-pb-sm.q-pl-8 {{ m.agents_nameForLlmShort() }}
-    km-input(ref='input', :placeholder='m.agents_nameForLlm()', border-radius='8px', height='36px', v-model='function_name')
-    .km-field.text-secondary-text.q-pb-sm.q-pl-8 {{ m.agents_nameLlmHelp() }}
-  .km-field.text-secondary-text.q-pb-sm.q-pl-8 {{ m.agents_descriptionForLlmShort() }}
-    km-input(ref='input', rows='8', border-radius='8px', height='36px', type='textarea', v-model='function_description')
-
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.agents_toolOfOriginLabel() }}
-  .row.q-gap-8.items-center.q-pl-8
-    .km-label {{ tool_name }}
-    q-icon.cursor-pointer(name='fa fa-external-link', color='secondary', size='10', @click='openTool', v-if='tool_name')
-    km-chip.text-grey.q-ml-sm(:label='getToolTypeLabel(action?.type)', color='in-progress')
-  template(v-if='action?.type === "mcp_tool"')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-sm {{ m.agents_toolProvider() }}
-    .row.q-gap-8.items-center.q-pl-8
-      .km-label {{ tool_object?.name }}
-      q-icon.cursor-pointer(
-        name='fa fa-external-link',
-        color='secondary',
-        size='10',
-        @click='navigate(`mcp/${tool_object?.id}`)',
-        v-if='tool_object?.name'
-      )
-      km-chip.text-grey.q-ml-sm(:label='m.entity_mcpServer()', color='in-progress')
+<template>
+  <div>
+    <div class="km-field text-secondary-text pb-sm pl-sm">
+      {{ m.agents_nameForLlmShort() }}
+      <km-input ref="input" v-model="function_name" :placeholder="m.agents_nameForLlm()" border-radius="8px" height="36px" />
+      <div class="km-field text-secondary-text pb-sm pl-sm">{{ m.agents_nameLlmHelp() }}</div>
+    </div>
+    <div class="km-field text-secondary-text pb-sm pl-sm">
+      {{ m.agents_descriptionForLlmShort() }}
+      <km-input ref="input" v-model="function_description" rows="8" border-radius="8px" height="36px" type="textarea" />
+    </div>
+    <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.agents_toolOfOriginLabel() }}</div>
+    <div class="cluster pl-sm" data-gap="sm">
+      <div class="km-label">{{ tool_name }}</div>
+      <km-glyph v-if="tool_name" class="cursor-pointer" name="external-link" size="10" @click="openTool" />
+      <km-chip class="text-grey ml-sm" :label="getToolTypeLabel(action?.type)" tone="neutral" />
+    </div>
+    <template v-if="action?.type === &quot;mcp_tool&quot;">
+      <div class="km-field text-secondary-text pb-xs pl-sm mt-sm">{{ m.agents_toolProvider() }}</div>
+      <div class="cluster pl-sm" data-gap="sm">
+        <div class="km-label">{{ tool_object?.name }}</div>
+        <km-glyph v-if="tool_object?.name" class="cursor-pointer" name="external-link" size="10" @click="navigate(`mcp/${tool_object?.id}`)" />
+        <km-chip class="text-grey ml-sm" :label="m.entity_mcpServer()" tone="neutral" />
+      </div>
+    </template>
+  </div>
 </template>
 
 <script>

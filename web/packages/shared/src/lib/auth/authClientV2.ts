@@ -13,6 +13,7 @@ import type {
   SignupResult,
   UserInfo,
 } from './types'
+import { refreshAuthSession } from './refreshCoordinator'
 
 export interface ProviderInfo {
   name: string
@@ -60,8 +61,19 @@ export function createAuthClientV2(baseUrl: string): AuthClientV2 {
   return {
     async me() {
       const res = await f(v2('/me'))
-      if (!res.ok) return null
-      return res.json()
+      if (res.ok) return res.json()
+      if (res.status !== 401) return null
+
+      const refreshed = await refreshAuthSession(baseUrl)
+      if (!refreshed) return null
+
+      const retry = await f(v2('/me'))
+      if (!retry.ok) return null
+      return retry.json()
+    },
+
+    async refresh() {
+      return refreshAuthSession(baseUrl)
     },
 
     async loginLocal(email, password) {
@@ -86,11 +98,6 @@ export function createAuthClientV2(baseUrl: string): AuthClientV2 {
         throw new Error(data?.detail || 'Signup failed')
       }
       return res.json()
-    },
-
-    async refresh() {
-      const res = await f(v2('/refresh'), { method: 'POST' })
-      return res.ok
     },
 
     async logout() {

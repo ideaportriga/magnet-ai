@@ -1,41 +1,139 @@
-<template lang="pug">
-.bg-panel-main-bg.full-height.column.no-wrap.bl-border.relative-position(v-if='panels.length > 0')
-  .flex.row.justify-between.items-center.bg-header-bg.q-px-md(style='height: 55px')
-    //logo
-    .flex.items-center.justify-center(:style='{ width: "32px", height: "32px", borderRadius: "50%" }', :class='{ "bg-white": !isIconHide }')
-      km-icon(:name='"magnet"', width='21', height='23', v-if='!isIconHide')
-    //dropdown
-
-    .col-auto.header-select(:style='{ minWidth: $theme === "salesforce" ? "150px" : "240px" }')
-      km-select(height='30px', :options='panels', option-value='value', v-model='tab', @update:model-value='changePanel')
-    //close button and user menu
-    .row.items-center.no-wrap
-      user-menu.q-mr-sm(
-        v-if='auth.authenticated',
-        :user-info='auth.userInfo',
-        @logout='handleLogout',
-        @navigate='handleNavigate'
-      )
-    .flex.items-center.justify-center(:style='{ width: "32px", height: "32px", borderRadius: "50%" }')
-      q-item(clickable, dense, v-if='show_close_button')
-        q-icon.q-pa-xs.rounded-borders(name='close', rounded, size='20px', color='white', @click='hidePanel')
-  km-image.redwood-strip(src='strip.png', v-if='$theme === "siebel"')
-  q-tab-panels.fit.rounded-borders(v-model='tab')
-    template(v-for='(panel, index) in panels')
-      q-tab-panel.q-pa-none(:name='panel.name')
-        component(:is='panel.component.name', :key='`${ai_app?.system_name} ${panel.name}`', v-bind='panel.component.props', :index='index')
-
-//loading
-.bg-light.fit.column.no-wrap.q-pt-xs.bl-border.bg-light.items-center.justify-center(v-else-if='ai_app === undefined')
-  q-spinner.text-primary(size='80px')
-.bg-light.fit.column.no-wrap.q-pt-xs.bl-border.bg-light.items-center.justify-center(v-else-if='ai_app === null')
-  empty-tab(:text='m.panel_noAvailableApp()')
-.bg-light.fit.column.no-wrap.q-pt-xs.bl-border.bg-light.items-center.justify-center(v-else)
-  empty-tab
-
-//footer
-.bg-footer-bg.full-width.row.justify-center.items-center.footer.items-center
-  .footer-text {{ m.panel_poweredBy() }}
+<template>
+  <div
+    v-if="panels.length &gt; 0"
+    class="stack bg-panel-main-bg full-height bl-border relative-position"
+    data-gap="0"
+    data-test="panel-layout"
+  >
+    <div
+      class="cluster bg-header-bg px-md"
+      data-wrap="no"
+      data-justify="between"
+      style="block-size: 55px"
+      data-test="panel-header"
+    >
+      <!--logo-->
+      <div
+        class="flex items-center justify-center"
+        :style="{ width: &quot;32px&quot;, height: &quot;32px&quot;, borderRadius: &quot;50%&quot; }"
+        :class="{ &quot;bg-white&quot;: !isIconHide }"
+      >
+        <km-icon
+          v-if="!isIconHide"
+          :name="&quot;magnet&quot;"
+          width="21"
+          height="23"
+        />
+      </div>
+      <!--dropdown-->
+      <div
+        class="flex-none header-select"
+        :style="{ minWidth: $theme === &quot;salesforce&quot; ? &quot;150px&quot; : &quot;240px&quot; }"
+      >
+        <km-select
+          v-model="tab"
+          height="30px"
+          :options="panels"
+          option-value="value"
+          @update:model-value="changePanel"
+        />
+      </div>
+      <!--close button and user menu-->
+      <div
+        class="cluster"
+        data-wrap="no"
+      >
+        <user-menu
+          v-if="auth.authenticated"
+          class="mr-sm"
+          :user-info="auth.userInfo"
+          @logout="handleLogout"
+          @navigate="handleNavigate"
+        />
+      </div>
+      <div
+        class="flex items-center justify-center"
+        :style="{ width: &quot;32px&quot;, height: &quot;32px&quot;, borderRadius: &quot;50%&quot; }"
+      >
+        <button
+          v-if="show_close_button"
+          class="flex items-center justify-center p-0 bg-transparent border-0 cursor-pointer"
+          type="button"
+          data-test="panel-close"
+          @click="hidePanel"
+        >
+          <km-glyph
+            class="p-xs rounded-borders"
+            name="close"
+            rounded
+            size="20px"
+            tone="inverse"
+          />
+        </button>
+      </div>
+    </div>
+    <km-image
+      v-if="$theme === &quot;siebel&quot;"
+      class="redwood-strip"
+      src="strip.png"
+    />
+    <km-tab-panels
+      v-model="tab"
+      class="fit rounded-borders"
+    >
+      <template
+        v-for="(panel, index) in panels"
+        :key="index"
+      >
+        <km-tab-panel
+          class="p-0"
+          :name="panel.name"
+        >
+          <component
+            :is="panel.component.name"
+            :key="`${ai_app?.system_name} ${panel.name}`"
+            v-bind="panel.component.props"
+            :index="index"
+          />
+        </km-tab-panel>
+      </template>
+    </km-tab-panels>
+  </div>
+  <!--loading-->
+  <div
+    v-else-if="ai_app === undefined"
+    class="flex items-center justify-center bg-light fit bl-border pt-xs"
+    data-test="panel-loading"
+  >
+    <km-loader
+      class="text-primary"
+      size="80px"
+    />
+  </div>
+  <div
+    v-else-if="ai_app === null"
+    class="flex items-center justify-center bg-light fit bl-border pt-xs"
+    data-test="panel-empty-no-app"
+  >
+    <empty-tab :text="m.panel_noAvailableApp()" />
+  </div>
+  <div
+    v-else
+    class="flex items-center justify-center bg-light fit bl-border pt-xs"
+    data-test="panel-empty"
+  >
+    <empty-tab />
+  </div>
+  <!--footer-->
+  <div
+    class="cluster bg-footer-bg full-width footer"
+    data-justify="center"
+    data-test="panel-footer"
+  >
+    <div class="footer-text">
+      {{ m.panel_poweredBy() }}
+    </div>
+  </div>
 </template>
 
 <script>
@@ -114,16 +212,10 @@ export default {
     },
   },
   watch: {
-    loading: {
-      immediate: true,
-      handler(val) {
-        if (val) {
-          this.$q.loading.show()
-        } else {
-          this.$q.loading.hide()
-        }
-      },
-    },
+    // The global loading overlay is owned by App.vue's watcher on
+    // mainStore.globalLoading — duplicating it here previously double-counted
+    // the overlay's pending counter and held the spinner open after this
+    // component unmounted (HMR / navigation).
     panels: {
       immediate: true,
       handler(val) {

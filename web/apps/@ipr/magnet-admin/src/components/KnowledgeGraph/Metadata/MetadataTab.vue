@@ -1,8 +1,8 @@
 <template>
-  <div class="q-px-md">
+  <div class="px-md">
     <!-- Header -->
-    <div class="row items-start q-col-gutter-md q-mb-md">
-      <div class="col">
+    <div class="cluster mb-md" data-gap="md" data-align="start">
+      <div class="flex-1">
         <div class="km-heading-7">{{ m.knowledgeGraph_metadataSchema() }}</div>
         <div class="km-description text-secondary-text">
           {{ m.knowledgeGraph_metadataSchemaDesc() }}
@@ -10,40 +10,40 @@
       </div>
     </div>
 
-    <q-separator class="q-my-md" />
+    <km-separator class="my-md" />
 
     <kg-table-toolbar>
       <template #leading>
         <km-input v-model="searchQuery" :placeholder="m.knowledgeGraph_searchAllFields()" icon-before="search" clearable class="search-input" />
       </template>
       <template #trailing>
-        <km-btn flat size="sm" :disable="availablePresets.length === 0">
-          <q-icon name="o_bookmark_add" size="22px" color="secondary" />
-          <div class="q-pl-sm km-button-sm-text">{{ m.common_preset() }}</div>
-          <q-icon name="expand_more" size="22px" class="q-pl-xs" />
-          <q-menu anchor="bottom right" self="top right" :offset="[0, 4]" class="preset-dropdown-menu">
-            <q-list dense class="preset-dropdown-list">
-              <q-item
-                v-for="preset in availablePresets"
-                :key="preset.name"
-                v-close-popup
-                clickable
-                class="preset-dropdown-item"
-                @click="addPresetField(preset)"
-              >
-                <q-item-section>
-                  <q-item-label class="preset-label">{{ preset.display_name || preset.name }}</q-item-label>
-                  <q-item-label v-if="preset.description" caption class="preset-caption">{{ preset.description }}</q-item-label>
-                </q-item-section>
-              </q-item>
-            </q-list>
-          </q-menu>
-        </km-btn>
+        <ds-dropdown-menu-root>
+          <ds-dropdown-menu-trigger as-child>
+            <km-btn flat size="sm" :disable="availablePresets.length === 0">
+              <km-glyph name="o_bookmark_add" size="22px" />
+              <div class="pl-sm km-button-sm-text">{{ m.common_preset() }}</div>
+              <km-glyph name="chevron-down" size="22px" class="pl-xs" />
+            </km-btn>
+          </ds-dropdown-menu-trigger>
+          <ds-dropdown-menu-content side="bottom" align="end" :side-offset="4" class="preset-dropdown-menu">
+            <ds-dropdown-menu-item
+              v-for="preset in availablePresets"
+              :key="preset.name"
+              class="preset-dropdown-item"
+              @select="addPresetField(preset)"
+            >
+              <div class="stack" data-gap="0">
+                <span class="preset-label">{{ preset.display_name || preset.name }}</span>
+                <span v-if="preset.description" class="preset-caption">{{ preset.description }}</span>
+              </div>
+            </ds-dropdown-menu-item>
+          </ds-dropdown-menu-content>
+        </ds-dropdown-menu-root>
         <km-btn flat icon="refresh" :label="m.common_refresh()" size="sm" @click="handleRefresh" />
       </template>
     </kg-table-toolbar>
 
-    <div class="column q-gap-32">
+    <div class="stack" data-gap="3xl">
       <metadata-fields-table
         :defined-fields="definedFields"
         :discovered-fields="allMetadataValues"
@@ -120,7 +120,7 @@
     <kg-confirm-dialog
       v-model="showDeleteFieldDialog"
       :title="m.knowledgeGraph_deleteFieldDefinitionTitle()"
-      icon="delete_outline"
+      icon="delete"
       :description="m.knowledgeGraph_deleteFieldDefinitionDesc({ name: deletingField?.display_name || deletingField?.name || '' })"
       :confirm-label="m.common_delete()"
       destructive
@@ -133,7 +133,7 @@
     <kg-confirm-dialog
       v-model="showDeleteExtractedFieldDialog"
       :title="m.knowledgeGraph_deleteExtractionFieldTitle()"
-      icon="delete_outline"
+      icon="delete"
       :description="m.knowledgeGraph_deleteExtractionFieldDesc({ name: deletingExtractedField?.name || '' })"
       :confirm-label="m.common_delete()"
       destructive
@@ -1146,17 +1146,17 @@ defineExpose({
 
 <style scoped>
 .search-input {
-  width: 250px;
+  inline-size: 250px;
 }
 
 :deep(.preset-dropdown-menu) {
-  border-radius: var(--radius-lg);
+  border-radius: var(--ds-radius-lg);
   box-shadow:
     0 4px 20px rgba(0, 0, 0, 0.12),
     0 2px 8px rgba(0, 0, 0, 0.08);
-  border: 1px solid var(--q-border);
+  border: 1px solid var(--ds-color-border);
   overflow: hidden;
-  min-width: 280px;
+  min-inline-size: 280px;
 }
 
 :deep(.preset-dropdown-list) {
@@ -1166,24 +1166,24 @@ defineExpose({
 :deep(.preset-dropdown-item) {
   padding: 8px 14px !important;
   margin: 4px 6px;
-  border-radius: var(--radius-md);
+  border-radius: var(--ds-radius-md);
 }
 
 :deep(.preset-dropdown-item:hover) {
-  background-color: var(--q-background);
+  background-color: var(--ds-color-background);
 }
 
 :deep(.preset-label) {
-  font-size: var(--km-font-size-label);
+  font-size: var(--ds-font-size-label);
   font-weight: 500;
-  color: var(--q-black);
+  color: var(--ds-color-black);
   line-height: 1.3;
 }
 
 :deep(.preset-caption) {
-  font-size: var(--km-font-size-sm);
-  color: var(--q-icon);
-  margin-top: 2px;
+  font-size: var(--ds-font-size-sm);
+  color: var(--ds-color-icon);
+  margin-block-start: 2px;
   line-height: 1.3;
 }
 </style>

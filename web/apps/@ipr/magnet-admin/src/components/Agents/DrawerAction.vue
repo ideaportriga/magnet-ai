@@ -1,43 +1,37 @@
-<template lang="pug">
-km-drawer-layout(storageKey="drawer-agents-action", noScroll)
-  template(#header)
-    .row
-      km-btn(
-        flat,
-        simple,
-        :label='m.agents_backToAgentPreview()',
-        iconSize='16px',
-        icon='fas fa-arrow-left',
-        @click='activeTopic = null',
-        color='secondary-text'
-      )
-  .row
-    q-tabs.bb-border(
-      v-if='tabs.length > 1',
-      v-model='tab',
-      narrow-indicator,
-      dense,
-      align='left',
-      active-color='primary',
-      indicator-color='primary',
-      active-bg-color='white',
-      no-caps,
-      content-class='km-tabs-dense'
-    )
-      template(v-for='t in tabs')
-        q-tab(:name='t.name', :label='t.label')
-
-  .column.no-wrap.q-gap-16.full-height.full-width.overflow-auto.q-mb-md.q-mt-lg(style='max-height: calc(100vh - 220px) !important')
-    .row.q-gap-16.full-height.full-width
-      .col.full-height.full-width
-        .column.items-center.full-height.full-width.q-gap-16.overflow-auto
-          .col-auto.full-width
-            template(v-if='tab == "general-settings"')
-              agents-action-details-general-settings-drawer
-            template(v-if='tab == "advanced-settings"')
-              agents-action-details-advanced-settings-drawer(:action='action')
-            template(v-if='tab == "parameters"')
-              agents-action-details-parameters-drawer
+<template>
+  <km-drawer-layout storage-key="drawer-agents-action" no-scroll>
+    <template #header>
+      <div class="cluster">
+        <km-btn flat simple :label="m.agents_backToAgentPreview()" icon-size="16px" icon="arrow-left" tone="subtle" @click="activeTopic = null" />
+      </div>
+    </template>
+    <div class="cluster">
+      <km-tabs v-if="tabs.length &gt; 1" v-model="tab" narrow-indicator dense align="left" no-caps content-class="km-tabs-dense">
+        <template v-for="t in tabs" :key="t.name">
+          <km-tab :name="t.name" :label="t.label" />
+        </template>
+      </km-tabs>
+    </div>
+    <div class="stack full-height full-width overflow-auto mb-md mt-lg" data-gap="lg" style="max-block-size: calc(100vb - 220px) !important">
+      <div class="cluster full-height full-width" data-gap="lg">
+        <div class="flex-1 full-height full-width">
+          <div class="stack items-center full-height full-width overflow-auto" data-gap="lg">
+            <div class="flex-none full-width">
+              <template v-if="tab == &quot;general-settings&quot;">
+                <agents-action-details-general-settings-drawer />
+              </template>
+              <template v-if="tab == &quot;advanced-settings&quot;">
+                <agents-action-details-advanced-settings-drawer :action="action" />
+              </template>
+              <template v-if="tab == &quot;parameters&quot;">
+                <agents-action-details-parameters-drawer />
+              </template>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </km-drawer-layout>
 </template>
 
 <script>
@@ -83,15 +77,8 @@ export default {
 }
 </script>
 
-<style lang="stylus">
-
-@keyframes wobble {
-    0% { transform: rotate(-5deg); }
-    50% { transform: rotate(5deg); }
-    100% { transform: rotate(-5deg); }
-}
-
+<style>
 .wobble {
-    animation: wobble 2s infinite;
+  animation: ds-attention-wobble var(--ds-duration-attention) infinite;
 }
 </style>

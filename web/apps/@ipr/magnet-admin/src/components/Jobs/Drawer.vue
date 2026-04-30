@@ -1,87 +1,79 @@
-<template lang="pug">
-transition(appear, enter-active-class='animated fadeIn', leave-active-class='animated fadeOut')
-  km-drawer-layout(v-if='showDrawer', storageKey="drawer-jobs")
-    template(#header)
-      .km-heading-7 Job details
-    template(v-if='job')
-      .row.align-center
-        .col
-          .km-description.text-secondary-text.q-pb-6 Job info
-          .row
-            .km-label {{ jobName }}
-        .col-auto.items-center.flex
-          .row.items-center.q-gap-4
-            .col-auto
-              km-chip(:label='runConfigurationType', color='light')
-            .col-auto
-              km-chip(:label='jobStatus', color='light')
-      .row.q-pt-16
-        .col
-          .km-description.text-secondary-text.q-pb-6 Target
-          .row.q-gap-8
-            .km-label {{ systemName }}
-            km-chip.text-grey(:label='runConfigurationType', color='in-progress')
-      .col.q-pt-16.full-width
-        .col-auto.km-button-text.q-mb-xs Scheduling settings
-        q-separator.q-mb-xs
-      .row.q-pt-24(style='gap: 18px 0')
-        .col-6
-          .km-description.text-secondary-text.q-pb-6 Job Type
-          .row
-            .km-label {{ jobType }}
-        .col-6
-          .km-description.text-secondary-text.q-pb-6 Next Run
-          .row
-            .km-label {{ nextRun }}
-        .col-6
-          .km-description.text-secondary-text.q-pb-6 Created At
-          .row
-            .km-label {{ createdAt }}
-        .col-6
-          .km-description.text-secondary-text.q-pb-6 Timezone
-          .row
-            .km-label {{ timezone }}
-        .col-6
-          .km-description.text-secondary-text.q-pb-6 Job Interval
-          .row
-            .km-label {{ interval }}
-        .col-6
-          .km-description.text-secondary-text.q-pb-6 Repeat at
-          .row
-            .km-label {{ cronDescription }}
-
-      .row.q-pt-24
-        .col-6
-          .km-description.text-secondary-text.q-pb-6 Job ID
-          .row
-            .km-label {{ jobId }}
-
-    .col-auto.q-pt-16(v-if='job')
-      .row.justify-between
-        .col-auto
-          km-btn(flat, @click='showCancelJobConfirm') Cancel Job
-        .col-auto
-          km-btn(flat, @click='showReconfigureJobConfirm') Reconfigure Job
-
-    km-popup-confirm(
-      :visible='showCancelConfirm',
-      confirmButtonLabel='Yes, cancel job',
-      confirmButtonType='negative',
-      cancelButtonLabel='No, keep job',
-      notificationIcon='fas fa-triangle-exclamation',
-      @confirm='confirmCancelJob',
-      @cancel='closeCancelConfirm'
-    )
-      .row.item-center.justify-center.km-heading-7.q-mb-md Cancel Job
-      .row.text-center.justify-center Are you sure you want to cancel this job?
-
-    jobs-create-new(
-      :showNewDialog='showReconfigureConfirm',
-      @cancel='closeReconfigureConfirm',
-      @create='confirmReconfigureJob',
-      v-if='showReconfigureConfirm',
-      :job='job'
-    )
+<template>
+  <transition appear enter-active-class="animated fadeIn" leave-active-class="animated fadeOut">
+    <km-drawer-layout v-if="showDrawer" storage-key="drawer-jobs">
+      <template #header>
+        <div class="km-heading-7">Job details</div>
+      </template>
+      <template v-if="job">
+        <div class="cluster">
+          <div class="flex-1">
+            <div class="km-description text-secondary-text pb-sm">Job info</div>
+            <div class="km-label">{{ jobName }}</div>
+          </div>
+          <div class="flex-none flex items-center">
+            <div class="cluster" data-gap="xs">
+              <km-chip :label="runConfigurationType" tone="neutral" />
+              <km-chip :label="jobStatus" tone="neutral" />
+            </div>
+          </div>
+        </div>
+        <div class="pt-lg">
+          <div class="km-description text-secondary-text pb-sm">Target</div>
+          <div class="cluster" data-gap="sm">
+            <div class="km-label">{{ systemName }}</div>
+            <km-chip class="text-grey" :label="runConfigurationType" tone="neutral" />
+          </div>
+        </div>
+        <div class="flex-1 pt-lg full-width">
+          <div class="flex-none km-button-text mb-xs">Scheduling settings</div>
+          <km-separator class="mb-xs" />
+        </div>
+        <div class="jobs-drawer__settings-grid pt-2xl">
+          <div>
+            <div class="km-description text-secondary-text pb-sm">Job Type</div>
+            <div class="km-label">{{ jobType }}</div>
+          </div>
+          <div>
+            <div class="km-description text-secondary-text pb-sm">Next Run</div>
+            <div class="km-label">{{ nextRun }}</div>
+          </div>
+          <div>
+            <div class="km-description text-secondary-text pb-sm">Created At</div>
+            <div class="km-label">{{ createdAt }}</div>
+          </div>
+          <div>
+            <div class="km-description text-secondary-text pb-sm">Timezone</div>
+            <div class="km-label">{{ timezone }}</div>
+          </div>
+          <div>
+            <div class="km-description text-secondary-text pb-sm">Job Interval</div>
+            <div class="km-label">{{ interval }}</div>
+          </div>
+          <div>
+            <div class="km-description text-secondary-text pb-sm">Repeat at</div>
+            <div class="km-label">{{ cronDescription }}</div>
+          </div>
+        </div>
+        <div class="cluster pt-2xl">
+          <div class="flex-1">
+            <div class="km-description text-secondary-text pb-sm">Job ID</div>
+            <div class="km-label">{{ jobId }}</div>
+          </div>
+        </div>
+      </template>
+      <div v-if="job" class="flex-none pt-lg">
+        <div class="cluster" data-justify="between">
+          <km-btn flat @click="showCancelJobConfirm">Cancel Job</km-btn>
+          <km-btn flat @click="showReconfigureJobConfirm">Reconfigure Job</km-btn>
+        </div>
+      </div>
+      <km-popup-confirm :visible="showCancelConfirm" confirm-button-label="Yes, cancel job" confirm-button-type="negative" cancel-button-label="No, keep job" notification-icon="warning" @confirm="confirmCancelJob" @cancel="closeCancelConfirm">
+        <div class="cluster km-heading-7 mb-md" data-justify="center">Cancel Job</div>
+        <div class="cluster text-center" data-justify="center">Are you sure you want to cancel this job?</div>
+      </km-popup-confirm>
+      <jobs-create-new v-if="showReconfigureConfirm" :show-new-dialog="showReconfigureConfirm" :job="job" @cancel="closeReconfigureConfirm" @create="confirmReconfigureJob" />
+    </km-drawer-layout>
+  </transition>
 </template>
 
 <script>
@@ -339,3 +331,17 @@ export default {
   },
 }
 </script>
+
+<style scoped>
+.jobs-drawer__settings-grid {
+  display: grid;
+  gap: 18px var(--ds-space-md);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 767px) {
+  .jobs-drawer__settings-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

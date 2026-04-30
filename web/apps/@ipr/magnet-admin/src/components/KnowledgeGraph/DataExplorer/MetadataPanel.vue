@@ -6,13 +6,13 @@
           <span class="panel-title">{{ m.dataExplorer_documentInfo() }}</span>
           <span v-if="totalCount > 0" class="panel-count">{{ m.dataExplorer_fields({ count: totalCount }) }}</span>
         </div>
-        <q-btn flat dense round icon="close" size="sm" class="panel-close-btn" @click="$emit('close')" />
+        <km-btn flat dense round icon="close" size="sm" class="panel-close-btn" @click="$emit('close')" />
       </div>
 
       <div class="panel-body">
         <div v-if="!hasAnyContent" class="panel-empty">
           <div class="empty-icon-wrapper">
-            <q-icon name="label_off" size="32px" />
+            <km-glyph name="label_off" size="32px" />
           </div>
           <div class="empty-text">{{ m.dataExplorer_noInformation() }}</div>
           <div class="empty-subtext">{{ m.dataExplorer_noInformationDesc() }}</div>
@@ -22,22 +22,22 @@
           <!-- AI Summary -->
           <div v-if="hasSummary || totalCount > 0" class="metadata-group">
             <div class="group-header group-header--summary">
-              <div class="row items-center q-gutter-x-sm">
-                <q-icon name="auto_awesome" size="16px" />
+              <div class="cluster gap-x-sm">
+                <km-glyph name="magic" size="16px" />
                 <span class="group-title">{{ m.dataExplorer_aiSummary() }}</span>
               </div>
             </div>
             <div class="group-content">
               <p v-if="hasSummary" class="summary-text">{{ summary }}</p>
-              <div v-else class="text-grey-5 text-italic q-py-sm">{{ m.dataExplorer_noSummary() }}</div>
+              <div v-else class="text-grey-5 text-italic py-sm">{{ m.dataExplorer_noSummary() }}</div>
             </div>
           </div>
 
           <!-- File Metadata -->
           <div v-if="fileMetadata.length > 0" class="metadata-group">
             <div class="group-header group-header--file">
-              <div class="row items-center q-gutter-x-sm">
-                <q-icon name="insert_drive_file" size="16px" />
+              <div class="cluster gap-x-sm">
+                <km-glyph name="file" size="16px" />
                 <span class="group-title">{{ m.dataExplorer_fileProperties() }}</span>
               </div>
             </div>
@@ -45,19 +45,18 @@
               <div v-for="item in fileMetadata" :key="`file:${item.key}`" class="metadata-item">
                 <div class="item-key-wrapper">
                   <div class="item-key" :class="{ 'item-key--defined': isDefined(item.key) }">{{ item.label }}</div>
-                  <q-icon v-if="isDefined(item.key)" name="check_circle" color="primary" size="14px">
-                    <q-tooltip>{{ m.dataExplorer_definedInSchema() }}</q-tooltip>
-                  </q-icon>
+                  <km-glyph v-if="isDefined(item.key)" name="check" tone="brand" size="14px">
+                    <km-tooltip>{{ m.dataExplorer_definedInSchema() }}</km-tooltip>
+                  </km-glyph>
                 </div>
                 <div class="item-value">
-                  <q-badge
+                  <km-badge
                     v-if="item.kind === 'boolean'"
-                    :color="item.value === 'Yes' ? 'teal-5' : 'grey-5'"
-                    text-color="white"
+                    :tone="item.value === 'Yes' ? 'success' : 'neutral'"
                     class="boolean-badge"
                   >
                     {{ item.value }}
-                  </q-badge>
+                  </km-badge>
                   <span v-else class="value-text">{{ item.value }}</span>
                 </div>
               </div>
@@ -67,39 +66,37 @@
           <!-- Source Metadata -->
           <div v-if="sourceMetadata.length > 0" class="metadata-group">
             <div class="group-header group-header--source">
-              <div class="row items-center q-gutter-x-sm">
-                <q-icon name="cloud_sync" size="16px" />
+              <div class="cluster gap-x-sm">
+                <km-glyph name="cloud_sync" size="16px" />
                 <span class="group-title">{{ m.dataExplorer_sourceInformation() }}</span>
               </div>
             </div>
             <div class="group-content">
               <div v-for="item in sourceMetadata" :key="`source:${item.key}`" class="metadata-item">
                 <div class="item-key-wrapper">
-                  <q-icon v-if="isDefined(item.key)" name="fact_check" size="14px" color="primary" class="q-mr-xs">
-                    <q-tooltip>{{ m.dataExplorer_definedInSchema() }}</q-tooltip>
-                  </q-icon>
+                  <km-glyph v-if="isDefined(item.key)" name="clipboard-check" size="14px" tone="brand" class="mr-xs">
+                    <km-tooltip>{{ m.dataExplorer_definedInSchema() }}</km-tooltip>
+                  </km-glyph>
                   <div class="item-key" :class="{ 'item-key--defined': isDefined(item.key) }">{{ item.label }}</div>
                 </div>
                 <div class="item-value">
-                  <q-badge
+                  <km-badge
                     v-if="item.kind === 'boolean'"
-                    :color="item.value === 'Yes' ? 'teal-5' : 'grey-5'"
-                    text-color="white"
+                    :tone="item.value === 'Yes' ? 'success' : 'neutral'"
                     class="boolean-badge"
                   >
                     {{ item.value }}
-                  </q-badge>
+                  </km-badge>
                   <div v-else-if="item.kind === 'list'" class="value-list">
-                    <q-chip
+                    <km-chip
                       v-for="(val, idx) in item.value"
                       :key="idx"
                       dense
-                      color="grey-2"
-                      text-color="grey-9"
+                      tone="neutral"
                       class="value-chip"
                     >
                       {{ val }}
-                    </q-chip>
+                    </km-chip>
                   </div>
                   <span v-else class="value-text">{{ item.value }}</span>
                 </div>
@@ -110,8 +107,8 @@
           <!-- AI Extracted Metadata -->
           <div v-if="llmMetadata.length > 0" class="metadata-group">
             <div class="group-header group-header--ai">
-              <div class="row items-center q-gutter-x-sm">
-                <q-icon name="psychology" size="16px" />
+              <div class="cluster gap-x-sm">
+                <km-glyph name="brain" size="16px" />
                 <span class="group-title">{{ m.dataExplorer_aiExtracted() }}</span>
               </div>
             </div>
@@ -119,19 +116,18 @@
               <div v-for="item in llmMetadata" :key="`llm:${item.key}`" class="metadata-item">
                 <div class="item-key-wrapper">
                   <div class="item-key" :class="{ 'item-key--defined': isDefined(item.key) }">{{ item.label }}</div>
-                  <q-icon v-if="isDefined(item.key)" name="check_circle" size="14px" color="primary">
-                    <q-tooltip>{{ m.dataExplorer_definedInSchema() }}</q-tooltip>
-                  </q-icon>
+                  <km-glyph v-if="isDefined(item.key)" name="check" size="14px" tone="brand">
+                    <km-tooltip>{{ m.dataExplorer_definedInSchema() }}</km-tooltip>
+                  </km-glyph>
                 </div>
                 <div class="item-value">
-                  <q-badge
+                  <km-badge
                     v-if="item.kind === 'boolean'"
-                    :color="item.value === 'Yes' ? 'teal-5' : 'grey-5'"
-                    text-color="white"
+                    :tone="item.value === 'Yes' ? 'success' : 'neutral'"
                     class="boolean-badge"
                   >
                     {{ item.value }}
-                  </q-badge>
+                  </km-badge>
                   <span v-else class="value-text">{{ item.value }}</span>
                 </div>
               </div>
@@ -215,11 +211,11 @@ onMounted(() => {
 
 <style scoped>
 .metadata-panel {
-  width: 380px;
-  min-width: 380px;
-  background: var(--q-white);
+  inline-size: 380px;
+  min-inline-size: 380px;
+  background: var(--ds-color-white);
   border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: var(--radius-xl);
+  border-radius: var(--ds-radius-xl);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -231,9 +227,9 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  background: var(--q-white);
-  border-bottom: 1px solid var(--q-border);
-  color: var(--q-black);
+  background: var(--ds-color-white);
+  border-block-end: 1px solid var(--ds-color-border);
+  color: var(--ds-color-black);
 }
 
 .panel-header-content {
@@ -249,25 +245,25 @@ onMounted(() => {
 }
 
 .panel-count {
-  font-size: var(--km-font-size-caption);
-  color: var(--q-label);
+  font-size: var(--ds-font-size-caption);
+  color: var(--ds-color-label);
   font-weight: 500;
 }
 
 .panel-close-btn {
-  color: var(--q-icon);
+  color: var(--ds-color-icon);
 }
 
 .panel-close-btn:hover {
-  color: var(--q-secondary-text);
-  background: var(--q-border);
+  color: var(--ds-color-secondary-text);
+  background: var(--ds-color-border);
 }
 
 .panel-body {
   flex: 1;
-  overflow-y: auto;
+  overflow-block: auto;
   padding: 16px;
-  background: var(--q-background);
+  background: var(--ds-color-background);
 }
 
 .panel-empty {
@@ -280,28 +276,28 @@ onMounted(() => {
 }
 
 .empty-icon-wrapper {
-  width: 64px;
-  height: 64px;
+  inline-size: 64px;
+  block-size: 64px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--q-white);
-  border: 1px solid var(--q-border);
-  border-radius: var(--radius-full);
-  margin-bottom: 16px;
-  color: var(--q-icon);
+  background: var(--ds-color-white);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-full);
+  margin-block-end: 16px;
+  color: var(--ds-color-icon);
 }
 
 .empty-text {
-  font-size: var(--km-font-size-body);
+  font-size: var(--ds-font-size-body);
   font-weight: 600;
-  color: var(--q-label);
-  margin-bottom: 4px;
+  color: var(--ds-color-label);
+  margin-block-end: 4px;
 }
 
 .empty-subtext {
-  font-size: var(--km-font-size-caption);
-  color: var(--q-icon);
+  font-size: var(--ds-font-size-caption);
+  color: var(--ds-color-icon);
 }
 
 .metadata-groups {
@@ -311,9 +307,9 @@ onMounted(() => {
 }
 
 .metadata-group {
-  background: var(--q-white);
-  border: 1px solid var(--q-border);
-  border-radius: var(--radius-xl);
+  background: var(--ds-color-white);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-xl);
   overflow: hidden;
   box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 }
@@ -323,29 +319,29 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  font-size: var(--km-font-size-label);
+  font-size: var(--ds-font-size-label);
   font-weight: 600;
-  border-bottom: 1px solid var(--q-border);
+  border-block-end: 1px solid var(--ds-color-border);
 }
 
 .group-header--file {
-  background: var(--q-white);
-  color: var(--q-black);
+  background: var(--ds-color-white);
+  color: var(--ds-color-black);
 }
 
 .group-header--source {
-  background: var(--q-white);
-  color: var(--q-black);
+  background: var(--ds-color-white);
+  color: var(--ds-color-black);
 }
 
 .group-header--ai {
-  background: var(--q-white);
-  color: var(--q-black);
+  background: var(--ds-color-white);
+  color: var(--ds-color-black);
 }
 
 .group-header--summary {
-  background: var(--q-white);
-  color: var(--q-black);
+  background: var(--ds-color-white);
+  color: var(--ds-color-black);
 }
 
 .group-title {
@@ -361,33 +357,33 @@ onMounted(() => {
   align-items: flex-start;
   gap: 12px;
   padding: 10px 8px;
-  border-radius: var(--radius-md);
+  border-radius: var(--ds-radius-md);
   transition: background 0.15s ease;
 }
 
 .metadata-item:not(:last-child) {
-  border-bottom: 1px solid var(--q-background);
+  border-block-end: 1px solid var(--ds-color-background);
 }
 
 .metadata-item:hover {
-  background: var(--q-background);
+  background: var(--ds-color-background);
 }
 
 .item-key-wrapper {
   display: flex;
   align-items: center;
   gap: 6px;
-  min-width: 120px;
-  max-width: 120px;
-  min-height: 20px;
+  min-inline-size: 120px;
+  max-inline-size: 120px;
+  min-block-size: 20px;
 }
 
 .item-key {
   flex: 1;
-  min-width: 0;
-  font-size: var(--km-font-size-caption);
+  min-inline-size: 0;
+  font-size: var(--ds-font-size-caption);
   font-weight: 500;
-  color: var(--q-label);
+  color: var(--ds-color-label);
   line-height: 1.4;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -396,19 +392,19 @@ onMounted(() => {
 
 .item-key--defined {
   font-weight: 600;
-  color: var(--q-primary);
+  color: var(--ds-color-primary);
 }
 
 .item-value {
   flex: 1;
-  min-width: 0;
-  min-height: 20px;
+  min-inline-size: 0;
+  min-block-size: 20px;
 }
 
 .value-text {
-  font-size: var(--km-font-size-label);
-  color: var(--q-black);
-  word-break: break-word;
+  font-size: var(--ds-font-size-label);
+  color: var(--ds-color-black);
+  overflow-wrap: break-word;
   line-height: 1.5;
 }
 
@@ -420,21 +416,21 @@ onMounted(() => {
 
 .value-chip {
   margin: 0;
-  height: 20px;
-  font-size: var(--km-font-size-sm);
+  block-size: 20px;
+  font-size: var(--ds-font-size-sm);
 }
 
 .boolean-badge {
-  font-size: var(--km-font-size-xs);
+  font-size: var(--ds-font-size-xs);
   font-weight: 600;
   padding: 2px 8px;
 }
 
 .summary-text {
   margin: 0;
-  font-size: var(--km-font-size-label);
+  font-size: var(--ds-font-size-label);
   line-height: 1.7;
-  color: var(--q-black);
+  color: var(--ds-color-black);
   white-space: pre-wrap;
 }
 
@@ -456,13 +452,12 @@ onMounted(() => {
 @media (max-width: 1024px) {
   .metadata-panel {
     position: absolute;
-    top: 16px;
-    right: 16px;
-    bottom: 16px;
+    inset-block: 16px;
+    inset-inline-end: 16px;
     z-index: 10;
-    width: 400px;
-    max-width: calc(100% - 32px);
-    min-width: 0;
+    inline-size: 400px;
+    max-inline-size: calc(100% - 32px);
+    min-inline-size: 0;
     box-shadow:
       0 10px 25px -5px rgba(0, 0, 0, 0.1),
       0 8px 10px -6px rgba(0, 0, 0, 0.1); /* intentional elevation shadow */

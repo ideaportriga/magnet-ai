@@ -1,36 +1,42 @@
-<template lang="pug">
-.column.full-height(v-if='data?.length', style='min-height: 0')
-  .row.q-mb-12.q-gap-12
-    .col-auto.center-flex-y
-      km-input(:placeholder='m.common_search()', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
-    q-space
-    .col-auto
-      template(v-if='selectedRows.length > 0')
-        km-btn(@click='showDeleteDialog = true', icon='delete', flat, :label='m.common_delete()')
-    .col-auto
-      km-btn(:label='m.apiServers_addTools()', @click='showNewDialog = true')
-  .col(style='min-height: 0')
-    km-data-table(:table='table', fill-height, row-key='system_name', @row-click='handleRowClick')
-template(v-else)
-  .column.justify-center.items-center.full-width.full-height
-    .col.q-pa-xl.bg-light.border-radius-12
-      .row.items-center.justify-center.q-mb-md
-        q-icon(name='fa fa-arrow-right-arrow-left', size='48px', color='primary')
-      .km-heading-7.text-black {{ m.apiServers_noApiToolsYet() }}
-      .km-description.text-black {{ m.apiServers_useApiSpec() }}
-      .row.items-center.justify-center.q-mt-lg
-        km-btn(:label='m.apiServers_addTools()', @click='showNewDialog = true')
-api-servers-new-tools(:showNewDialog='showNewDialog', @cancel='showNewDialog = false')
-km-popup-confirm(
-  :visible='showDeleteDialog',
-  :confirmButtonLabel='m.common_delete()',
-  :cancelButtonLabel='m.common_cancel()',
-  notificationIcon='fas fa-triangle-exclamation',
-  @confirm='deleteSelected',
-  @cancel='showDeleteDialog = false'
-)
-  .km-title.q-pl-16.q-pb-8.q-pt-lg.text-text-grey.text-center {{ m.apiServers_deleteToolsConfirm() }}
-  .km-description.q-pl-16.q-pb-8.q-pt-lg.text-text-grey.text-center {{ m.apiServers_actionCannotBeUndone() }}
+<template>
+  <div v-if="data?.length" class="stack full-height" data-gap="0" style="min-block-size: 0">
+    <div class="cluster mb-md" data-gap="md">
+      <div class="flex-none center-flex-y">
+        <km-input :placeholder="m.common_search()" icon-before="search" :model-value="globalFilter" clearable @input="globalFilter = $event" />
+      </div>
+      <div class="km-space" />
+      <div class="flex-none">
+        <template v-if="selectedRows.length &gt; 0">
+          <km-btn icon="delete" flat :label="m.common_delete()" @click="showDeleteDialog = true" />
+        </template>
+      </div>
+      <div class="flex-none">
+        <km-btn :label="m.apiServers_addTools()" @click="showNewDialog = true" />
+      </div>
+    </div>
+    <div class="flex-1" style="min-block-size: 0">
+      <km-data-table :table="table" fill-height row-key="system_name" @row-click="handleRowClick" />
+    </div>
+  </div>
+  <template v-else>
+    <div class="flex full-width full-height" style="flex-direction: column; justify-content: center; align-items: center">
+      <div class="flex-1 p-xl bg-light border-radius-12">
+        <div class="cluster mb-md" data-justify="center">
+          <km-glyph name="swap" size="48px" tone="brand" />
+        </div>
+        <div class="km-heading-7 text-black">{{ m.apiServers_noApiToolsYet() }}</div>
+        <div class="km-description text-black">{{ m.apiServers_useApiSpec() }}</div>
+        <div class="cluster mt-lg" data-justify="center">
+          <km-btn :label="m.apiServers_addTools()" @click="showNewDialog = true" />
+        </div>
+      </div>
+    </div>
+  </template>
+  <api-servers-new-tools :show-new-dialog="showNewDialog" @cancel="showNewDialog = false" />
+  <km-popup-confirm :visible="showDeleteDialog" :confirm-button-label="m.common_delete()" :cancel-button-label="m.common_cancel()" notification-icon="warning" @confirm="deleteSelected" @cancel="showDeleteDialog = false">
+    <div class="km-title pl-lg pb-sm pt-lg text-text-grey text-center">{{ m.apiServers_deleteToolsConfirm() }}</div>
+    <div class="km-description pl-lg pb-sm pt-lg text-text-grey text-center">{{ m.apiServers_actionCannotBeUndone() }}</div>
+  </km-popup-confirm>
 </template>
 
 <script setup>

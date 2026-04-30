@@ -1,32 +1,102 @@
-<template lang="pug">
-.row.no-wrap.full-height.justify-center.q-pa-16.fit.relative-position
-  .column.search-container
-    //prompt
-    .bg-user-input-bg.q-px-16
-      search-prompt.q-mt-md(@onLoad='scrollTop', ref='prompt', hideCollectionPicker, :rag_code='rag_code')
-    //hints
-    template(v-if='isShowHints')
-      .row.items-center.q-mt-16.q-mb-8
-        .col.km-heading-3 {{ m.common_youCanAskLikeThis() }}
-        .col-auto
-          km-btn(flat, color='primary', @click='showHints = false')
-            .km-button-text {{ m.common_dontShowHints() }}
-
-      template(v-if='$theme === "default"')
-        template(v-for='(item, index) in sampleQuestion', :key='index')
-          km-btn(flat, @click='refine(item)')
-            .wrapped-text {{ item }}
-      template(v-else)
-        template(v-for='(item, index) in sampleQuestion', :key='index')
-          .flex
-            km-btn.hint(bg='transparent', color='primary', @click='refine(item)')
-              .wrapped-text {{ item }}
-    //answers
-    template(v-if='answers.length')
-      q-scroll-area.full-height.col(ref='scroll')
-        .column.q-gap-16.q-mt-md
-          template(v-for='(answer, index) in answers', :key='index')
-            search-answer(:answer='answer', @refine='refine', :uiSettings='uiSettings', :isLastMessage='index == 0')
+<template>
+  <div
+    class="cluster full-height p-lg fit relative-position"
+    data-wrap="no"
+    data-justify="center"
+  >
+    <div
+      class="stack search-container"
+      data-gap="0"
+    >
+      <!--prompt-->
+      <div class="bg-user-input-bg px-lg">
+        <search-prompt
+          ref="prompt"
+          class="mt-md"
+          hide-collection-picker
+          :rag_code="rag_code"
+          @on-load="scrollTop"
+        />
+      </div>
+      <!--hints-->
+      <template v-if="isShowHints">
+        <div class="cluster mt-lg mb-sm">
+          <div class="flex-1 km-heading-3">
+            {{ m.common_youCanAskLikeThis() }}
+          </div>
+          <div class="flex-none">
+            <km-btn
+              flat
+              tone="brand"
+              @click="showHints = false"
+            >
+              <div class="km-button-text">
+                {{ m.common_dontShowHints() }}
+              </div>
+            </km-btn>
+          </div>
+        </div>
+        <template v-if="$theme === &quot;default&quot;">
+          <template
+            v-for="(item, index) in sampleQuestion"
+            :key="index"
+          >
+            <km-btn
+              flat
+              @click="refine(item)"
+            >
+              <div class="wrapped-text">
+                {{ item }}
+              </div>
+            </km-btn>
+          </template>
+        </template>
+        <template v-else>
+          <template
+            v-for="(item, index) in sampleQuestion"
+            :key="index"
+          >
+            <div class="flex">
+              <km-btn
+                class="hint"
+                flat
+                tone="brand"
+                @click="refine(item)"
+              >
+                <div class="wrapped-text">
+                  {{ item }}
+                </div>
+              </km-btn>
+            </div>
+          </template>
+        </template>
+      </template>
+      <!--answers-->
+      <template v-if="answers.length">
+        <km-scroll-area
+          ref="scroll"
+          class="full-height flex-1"
+        >
+          <div
+            class="stack mt-md"
+            data-gap="lg"
+          >
+            <template
+              v-for="(answer, index) in answers"
+              :key="index"
+            >
+              <search-answer
+                :answer="answer"
+                :ui-settings="uiSettings"
+                :is-last-message="index == 0"
+                @refine="refine"
+              />
+            </template>
+          </div>
+        </km-scroll-area>
+      </template>
+    </div>
+  </div>
 </template>
 
 <script>
@@ -122,14 +192,16 @@ export default {
 }
 </script>
 
-<style lang="stylus" scoped>
+<style scoped>
 .search-container {
-  min-width: 450px;
-  max-width: 800px;
-  width: 100%;
+  min-inline-size: 450px;
+  max-inline-size: 800px;
+  inline-size: 100%;
 }
-@media (max-width: 500px)
-  .search-container
-    min-width: unset
-    max-width: unset
+@media (max-width: 500px) {
+  .search-container {
+    min-inline-size: unset;
+    max-inline-size: unset;
+  }
+}
 </style>

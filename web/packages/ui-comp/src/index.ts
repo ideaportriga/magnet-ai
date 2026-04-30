@@ -1,107 +1,95 @@
+/**
+ * `@ui-comp` — public entry point.
+ *
+ * Phase 4d: this package is now a thin bridge over `@ds`. The default
+ * export is the Vue plugin (`app.use(uiComps)`); the named re-exports of
+ * `Km*` come from `@ds/components/domain` so existing `import { KmBtn }
+ * from '@ui'` style imports continue to work.
+ *
+ * The 14 shared non-base components (Agent / auth / Retrieval / Search /
+ * user) are exposed as named exports too, so apps can import them without
+ * relying on the global plugin install.
+ */
+
 import install from './utils/install'
+
+// Default export — Vue plugin install.
 export default install
 
-import Background from './components/base/Background.vue'
-import Btn from './components/base/Btn.vue'
-import BtnExpandDown from './components/base/BtnExpandDown.vue'
-import BtnLoader from './components/base/BtnLoader.vue'
-import Card from './components/base/Card.vue'
-import Checkbox from './components/base/Checkbox.vue'
-import Chip from './components/base/Chip.vue'
-import ChipCopy from './components/base/ChipCopy.vue'
-import ChipsInput from './components/base/ChipsInput.vue'
-import Codemirror from './components/base/Codemirror.vue'
-import ConfirmAction from './components/base/ConfirmAction.vue'
-import Date from './components/base/Date.vue'
-import Drawer from './components/base/Drawer.vue'
-import DrawerLayout from './components/base/DrawerLayout.vue'
-import EmptyState from './components/base/EmptyState.vue'
-import ErrorDialog from './components/base/ErrorDialog.vue'
-import FilePicker from './components/base/FilePicker.vue'
-import FilterBar from './components/base/FilterBar.vue'
-import Icon from './components/base/Icon.vue'
-import IconBtn from './components/base/IconBtn.vue'
-import IconPicker from './components/base/IconPicker.vue'
-import Image from './components/base/Image.vue'
-import InnerLoading from './components/base/InnerLoading.vue'
-import Input from './components/base/Input.vue'
-import InputFlat from './components/base/InputFlat.vue'
-import InputListAdd from './components/base/InputListAdd.vue'
-import JsonEditor from './components/base/JsonEditor.vue'
-import Loader from './components/base/Loader.vue'
-import LocaleSwitcher from './components/base/LocaleSwitcher.vue'
-import Markdown from './components/base/Markdown.vue'
-import NavSection from './components/base/NavSection.vue'
-import NotificationText from './components/base/NotificationText.vue'
-import Picker from './components/base/Picker.vue'
-import PopupConfirm from './components/base/PopupConfirm.vue'
-import Range from './components/base/Range.vue'
-import Score from './components/base/Score.vue'
-import Section from './components/base/Section.vue'
-import Select from './components/base/Select.vue'
-import SelectFlat from './components/base/SelectFlat.vue'
-import Separator from './components/base/Separator.vue'
-import Slider from './components/base/Slider.vue'
-import SliderCard from './components/base/SliderCard.vue'
-import Stepper from './components/base/Stepper.vue'
-import Switch from './components/base/Switch.vue'
-import DataTable from './components/base/DataTable.vue'
-import Tabs from './components/base/Tabs.vue'
-// Legacy Table / TableGroup (q-table wrappers) removed §E.4: app code is
-// fully migrated to <km-data-table> (TanStack Table). Use that instead.
-import Toggle from './components/base/Toggle.vue'
-import Tooltip from './components/base/Tooltip.vue'
+// Re-export every Km* from the design system. Exists so legacy named
+// imports (`import { KmBtn } from '@ui'`) keep resolving.
+export * from '@ds/components/domain'
 
+// Legacy named exports — older admin code imports these without the `Km`
+// prefix (`import { ChipCopy } from '@ui'`). Keep them aliased so the
+// codebase doesn't need a single-PR rename.
 export {
-  Background,
-  Btn,
-  BtnExpandDown,
-  BtnLoader,
-  Card,
-  Checkbox,
-  Chip,
-  ChipCopy,
-  ChipsInput,
-  Codemirror,
-  ConfirmAction,
-  Date,
-  Drawer,
-  DrawerLayout,
-  EmptyState,
-  ErrorDialog,
-  FilePicker,
-  FilterBar,
-  Icon,
-  IconBtn,
-  IconPicker,
-  Image,
-  InnerLoading,
-  Input,
-  InputFlat,
-  InputListAdd,
-  JsonEditor,
-  Loader,
-  LocaleSwitcher,
-  Markdown,
-  NavSection,
-  NotificationText,
-  Picker,
-  PopupConfirm,
-  Range,
-  Score,
-  Section,
-  Select,
-  SelectFlat,
-  Separator,
-  Slider,
-  SliderCard,
-  Stepper,
-  Switch,
-  DataTable,
-  Tabs,
-  Toggle,
-  Tooltip,
-  // Note: LayoutTab previously listed here but never imported into this
-  // module — that was a ReferenceError at evaluation time. magnet-panel
-  // imports its own LayoutTab from its local components directory.
-}
+  KmAvatar as Avatar,
+  KmBackground as Background,
+  KmBadge as Badge,
+  KmBtn as Btn,
+  KmBtnExpandDown as BtnExpandDown,
+  KmBtnLoader as BtnLoader,
+  KmCard as Card,
+  KmCheckbox as Checkbox,
+  KmChip as Chip,
+  KmChipCopy as ChipCopy,
+  KmChipsInput as ChipsInput,
+  KmCodemirror as Codemirror,
+  KmConfirmAction as ConfirmAction,
+  KmDataTable as DataTable,
+  KmDate as Date,
+  KmDrawer as Drawer,
+  KmDrawerLayout as DrawerLayout,
+  KmEmptyState as EmptyState,
+  KmErrorDialog as ErrorDialog,
+  KmFilePicker as FilePicker,
+  KmFilterBar as FilterBar,
+  KmIcon as Icon,
+  KmIconBtn as IconBtn,
+  KmIconPicker as IconPicker,
+  KmImage as Image,
+  KmInnerLoading as InnerLoading,
+  KmInput as Input,
+  KmInputFlat as InputFlat,
+  KmInputListAdd as InputListAdd,
+  KmJsonEditor as JsonEditor,
+  KmLoader as Loader,
+  KmLocaleSwitcher as LocaleSwitcher,
+  KmMarkdown as Markdown,
+  KmNavSection as NavSection,
+  KmNotificationText as NotificationText,
+  KmPicker as Picker,
+  KmPopupConfirm as PopupConfirm,
+  KmRange as Range,
+  KmScore as Score,
+  KmSection as Section,
+  KmSelect as Select,
+  KmSelectFlat as SelectFlat,
+  KmSeparator as Separator,
+  KmSlider as Slider,
+  KmSliderCard as SliderCard,
+  KmStepper as Stepper,
+  KmSwitch as Switch,
+  KmTabs as Tabs,
+  KmToggle as Toggle,
+  KmTooltip as Tooltip,
+} from '@ds/components/domain'
+
+// Shared non-base components (admin + panel use these via global
+// registration; some admin code-gen helpers — e.g. `evaluation_set_records.js`
+// — also import them directly).
+export { default as AgentMessage } from './components/Agent/Message.vue'
+export { default as AgentConfirmation } from './components/Agent/Confirmation.vue'
+export { default as AuthLoginPage } from './components/auth/AuthLoginPage.vue'
+export { default as AuthSignupPage } from './components/auth/AuthSignupPage.vue'
+export { default as AuthForgotPassword } from './components/auth/AuthForgotPassword.vue'
+export { default as RetrievalPrompt } from './components/Retrieval/Prompt.vue'
+export { default as RetrievalAnswer } from './components/Retrieval/Answer.vue'
+export { default as SearchPrompt } from './components/Search/Prompt.vue'
+export { default as SearchAnswer } from './components/Search/Answer.vue'
+export { default as SearchFeedback } from './components/Search/Feedback.vue'
+export { default as SearchFeedbackConfirm } from './components/Search/FeedbackConfirm.vue'
+export { default as UserMenu } from './components/user/UserMenu.vue'
+export { default as UserProfilePage } from './components/user/UserProfilePage.vue'
+export { default as UserSecurityPage } from './components/user/UserSecurityPage.vue'

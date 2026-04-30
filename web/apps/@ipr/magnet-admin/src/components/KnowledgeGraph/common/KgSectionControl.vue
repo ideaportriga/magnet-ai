@@ -1,13 +1,10 @@
 <template>
-  <q-btn-toggle
+  <km-btn-toggle
     :model-value="modelValue"
     class="kg-section-control"
     no-caps
     rounded
     unelevated
-    toggle-color="primary"
-    color="grey-3"
-    text-color="grey-8"
     dense
     :options="options"
     :disable="disabled"
@@ -42,14 +39,5 @@ defineEmits<{
 </script>
 
 <style scoped>
-.kg-section-control :deep(.q-btn) {
-  padding: 4px 8px;
-  min-height: 24px;
-  font-size: var(--km-caption-size, 12px);
-  font-weight: 500;
-}
-
-.kg-section-control :deep(.q-btn .block) {
-  font-size: var(--km-caption-size, 12px);
-}
+/* Styling handled by KmBtnToggle component */
 </style>

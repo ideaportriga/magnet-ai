@@ -42,7 +42,7 @@ describe('Smoke — visit all pages', () => {
       cy.visit(route)
 
       // The page should render the app shell (sidebar, toolbar, or content area)
-      cy.get('.q-layout, .q-page, #app', { timeout: 15000 }).should('exist')
+        cy.get('.km-layout, [data-test="header"], .km-page-container, #app', { timeout: 15000 }).should('exist')
 
       // Should NOT show a hard crash screen
       cy.get('body').should('not.contain.text', 'Application Error')

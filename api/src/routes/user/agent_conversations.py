@@ -15,7 +15,6 @@ from services.agents.conversations import (
     get_missing_messages,
     get_last_conversation_by_client_id,
     set_message_feedback,
-    add_assistant_message,
     update_message_processing_status,
     update_conversation_status,
 )
@@ -306,12 +305,9 @@ class AgentConversationsController(Controller):
             db_session,
             is_async=True,
         )  ### is_async=True means that agent message wont be processed immediately
-        from core.server.background_tasks import spawn_background_task
+        from tasks.definitions import add_assistant_message_bg_task
 
-        spawn_background_task(
-            add_assistant_message(str(conversation.id)),
-            name=f"add-assistant-msg-{conversation.id}",
-        )
+        await add_assistant_message_bg_task.kiq(conversation_id=str(conversation.id))
         return conversation
 
     @post(
@@ -349,16 +345,17 @@ class AgentConversationsController(Controller):
             str(conversation["id"]), AgentConversationMessageProcessingStatus.PROCESSING
         )
 
-        from core.server.background_tasks import spawn_background_task
+        from tasks.definitions import add_user_message_bg_task
 
-        spawn_background_task(
-            self._add_message_route(
-                conversation,
-                data,
-                user_id,
-                **observability_overrides(trace_id=trace_id),
-            ),
-            name=f"add-message-{conversation['id']}",
+        await add_user_message_bg_task.kiq(
+            conversation_id=str(conversation["id"]),
+            user_message_content=data.user_message_content,
+            action_call_confirmations=[
+                c.model_dump() if hasattr(c, "model_dump") else c
+                for c in (data.action_call_confirmations or [])
+            ],
+            user_id=user_id,
+            trace_id=trace_id,
         )
         return message_processing_status
 

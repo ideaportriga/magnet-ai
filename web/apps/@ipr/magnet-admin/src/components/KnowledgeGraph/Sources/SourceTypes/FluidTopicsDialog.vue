@@ -17,10 +17,10 @@
     <kg-dialog-section
       :title="m.knowledgeGraph_ft_contentFiltering()"
       :description="m.knowledgeGraph_ft_contentFilteringDesc()"
-      icon="filter_list"
+      icon="filter"
       focus-highlight
     >
-      <km-codemirror v-model="jsonFilter" language="json" :options="{ mode: 'application/json' }" style="min-height: 200px" />
+      <km-codemirror v-model="jsonFilter" language="json" :options="{ mode: 'application/json' }" style="min-block-size: 200px" />
     </kg-dialog-section>
   </kg-dialog-source-base>
 </template>
@@ -234,17 +234,17 @@ watch([jsonFilter], () => {
 
 <style scoped>
 :deep(.ͼ1.cm-focused) {
-  background: var(--q-white) !important;
-  border: 1px solid var(--q-primary) !important;
+  background: var(--ds-color-white) !important;
+  border: 1px solid var(--ds-color-primary) !important;
   outline: none !important;
 }
 :deep(.cm-editor) {
-  background: var(--q-white) !important;
+  background: var(--ds-color-white) !important;
 }
 :deep(.cm-line) {
   background: transparent !important;
 }
 :deep(.cm-activeLine) {
-  background: rgba(var(--q-primary-rgb, 25, 118, 210), 0.08) !important;
+  background: rgba(var(--ds-color-primary-rgb, 25, 118, 210), 0.08) !important;
 }
 </style>

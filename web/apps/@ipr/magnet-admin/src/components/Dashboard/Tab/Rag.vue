@@ -1,133 +1,143 @@
-<template lang="pug">
-.column.full-height.full-width(style='min-height: 0')
-  q-tabs.full-width.q-mb-16(
-    v-model='tab',
-    narrow-indicator,
-    dense,
-    align='left',
-    active-color='primary',
-    indicator-color='primary',
-    active-bg-color='white',
-    no-caps,
-    content-class='km-tabs'
-  )
-    template(v-for='t in tabs')
-      q-tab(:name='t.name', :label='t.label')
-  .row.items-center.q-gap-4.q-pb-4.justify-between.q-my-16
-    .col-auto.center-flex-y
-      km-filter-bar(v-model:config='currentFilter', v-model:filterObject='activeFilters', ref='filterRef')
-
-  .col.full-width(style='min-height: 0; overflow: hidden')
-    template(v-if='tab === "overview"')
-      .overflow-auto.full-height
-        .km-grid-2
-          dashboard-board-card(header='Usage', theme='dark')
-            template(v-slot:body)
-              .column.q-gap-16
-                dashboard-board-label-value(:label='m.dashboard_totalToolCalls()', :value='data.totalCalls')
-                dashboard-board-label-value(:label='m.dashboard_uniqueUsers()', :value='data.uniqueUsers')
-          dashboard-board-card(header='Performance & cost', theme='dark')
-            template(v-slot:body)
-              .column.q-gap-16
-                .row
-                  .col
-                    dashboard-board-label-value(
-                      :label='m.dashboard_avgToolCallCost()',
-                      :value='data.avgCost',
-                      tooltip='How much one RAG Tool call costs on average'
-                    )
-                  .col
-                    dashboard-board-label-value(:label='m.dashboard_totalToolCost()', :value='data.totalCost')
-                dashboard-board-label-value(
-                  :label='m.dashboard_avgToolCallLatency()',
-                  :value='data.avgLatency',
-                  tooltip='How long one RAG Tool call takes on average'
-                )
-          dashboard-board-card(header='Answer rate')
-            template(v-slot:body)
-              .column.q-gap-16
-                dashboard-board-label-value(:label='m.dashboard_answerRate()', :value='answerRate')
-                .row
-                  dashboard-board-label-value(:label='m.dashboard_answerRatio()')
-                //- dashboard-board-bars(:data='data.questions')
-                template(v-if='questionsDiagram.length')
-                  dashboard-board-box-diagram(:data='questionsDiagram')
-                template(v-else)
-                  dashboard-board-box-diagram(:data='[{ title: "N/A", icon: null, backgroundColor: "table-header" }]')
-                dashboard-board-min-label-value(
-                  :label='m.dashboard_ragQueriesAnalyzed()',
-                  :value='processRate.processed',
-                  tooltip='Number of answers processed out of total questions'
-                )
-          dashboard-board-card(header='User satisfaction')
-            template(v-slot:body)
-              .column.q-gap-16.fit
-                .row
-                  .col
-                    dashboard-board-label-value.q-mt-auto(
-                      :label='m.dashboard_satisfactionRate()',
-                      :value='satisfactionRate',
-                      tooltip='The percentage of positive feedback out of all user feedback'
-                    )
-
-                .row
-                  dashboard-board-label-value(:label='m.dashboard_feedbackRatio()')
-                .col.full-width
-                  template(v-if='data.likes + data.dislikes > 0')
-                    dashboard-board-box-diagram(
-                      :data='[ { title: "Liked", value: data.likes, icon: "fas fa-thumbs-up", iconColor: "like-text", backgroundColor: "like-bg", action: () => setFilterAndNavigate("extra_data.answer_feedback.type", { label: "Like", value: "like" }) }, { title: "Disliked", value: data.dislikes, icon: "fas fa-thumbs-down", iconColor: "error-text", backgroundColor: "dislike-bg", action: () => setFilterAndNavigate("extra_data.answer_feedback.type", { label: "Dislike", value: "dislike" }) }, ]'
-                    )
-                  template(v-else)
-                    dashboard-board-box-diagram(:data='[{ title: "N/A", icon: null, backgroundColor: "table-header" }]')
-                dashboard-board-min-label-value(
-                  :label='m.dashboard_feedbackRate()',
-                  :value='feedbackProcessRate',
-                  tooltip='Percentage of RAG queries with user feedback vs. total RAG queries'
-                )
-        .km-grid.q-mt-16(v-if='$refs?.filterRef?.filterModel?.feature_system_name')
-          dashboard-board-card.km-grid-item-2(header='Question topics')
-            template(v-slot:body)
-              .column.q-gap-16
-                dashboard-board-bars(:data='data.topTopics')
-          dashboard-board-card(header='Question languages')
-            template(v-slot:body)
-              dashboard-board-bars(:data='data.languages')
-          dashboard-board-card(header='Copy answer rate', tooltip='How frequently the RAG Tool output is copied by users')
-            template(v-slot:body)
-              .column.q-gap-16
-                .km-chart-value {{ data.copyRate }}
-        .km-grid-1.q-mt-16(v-else)
-          dashboard-board-card(header='RAG Tools overview')
-            template(v-slot:body)
-              .column.q-gap-16
-                .km-table-compact
-                  km-data-table(:table='overviewTable', row-key='name', hide-pagination, @row-click='overviewRowClick')
-    template(v-if='tab === "list"')
-      .column.full-height(style='min-height: 0')
-        .row.q-mb-12
-          q-space
-          .col-auto
-            dashboard-board-export-button(@exportToCsv='exportToFile("csv")', @exportToJson='exportToFile("json")')
-        .col.overflow-auto(style='min-height: 0')
-          km-data-table(
-            :table='detailsTable',
-            row-key='start_time',
-            :loading='loading',
-            fill-height,
-            hide-pagination,
-            @row-click='detailsRowClick'
-          )
-          .row.items-center.q-px-md.q-py-sm.text-grey.ba-border(v-if='pagination.rowsNumber')
-            .km-description {{ pagination.rowsNumber }} record{{ pagination.rowsNumber !== 1 ? 's' : '' }}
-            q-space
-            .row.items-center.q-gap-8
-              span.km-description Rows per page: {{ pagination.rowsPerPage }}
-            .row.items-center.q-ml-md.q-gap-4
-              q-btn(flat, dense, round, icon='first_page', size='sm', :disable='pagination.page <= 1', @click='goToPage(1)')
-              q-btn(flat, dense, round, icon='chevron_left', size='sm', :disable='pagination.page <= 1', @click='goToPage(pagination.page - 1)')
-              span.km-description {{ pagination.page }} / {{ totalPages }}
-              q-btn(flat, dense, round, icon='chevron_right', size='sm', :disable='pagination.page >= totalPages', @click='goToPage(pagination.page + 1)')
-              q-btn(flat, dense, round, icon='last_page', size='sm', :disable='pagination.page >= totalPages', @click='goToPage(totalPages)')
+<template>
+  <div class="stack full-height full-width" style="min-block-size: 0">
+    <km-tabs v-model="tab" class="full-width mb-lg" narrow-indicator dense align="left" no-caps content-class="km-tabs">
+      <template v-for="t in tabs" :key="t">
+        <km-tab :name="t.name" :label="t.label" />
+      </template>
+    </km-tabs>
+    <div class="cluster pb-xs my-lg" data-justify="between" data-gap="xs">
+      <div class="flex-none center-flex-y">
+        <km-filter-bar ref="filterRef" v-model:config="currentFilter" v-model:filter-object="activeFilters" />
+      </div>
+    </div>
+    <div class="flex-1 full-width" style="min-block-size: 0; overflow: hidden">
+      <template v-if="tab === &quot;overview&quot;">
+        <div class="overflow-auto full-height">
+          <div class="km-grid-2">
+            <dashboard-board-card header="Usage" theme="dark">
+              <template #body>
+                <div class="stack" data-gap="lg">
+                  <dashboard-board-label-value :label="m.dashboard_totalToolCalls()" :value="data.totalCalls" />
+                  <dashboard-board-label-value :label="m.dashboard_uniqueUsers()" :value="data.uniqueUsers" />
+                </div>
+              </template>
+            </dashboard-board-card>
+            <dashboard-board-card header="Performance &amp; cost" theme="dark">
+              <template #body>
+                <div class="stack" data-gap="lg">
+                  <div class="cluster">
+                    <div class="flex-1">
+                      <dashboard-board-label-value :label="m.dashboard_avgToolCallCost()" :value="data.avgCost" tooltip="How much one RAG Tool call costs on average" />
+                    </div>
+                    <div class="flex-1">
+                      <dashboard-board-label-value :label="m.dashboard_totalToolCost()" :value="data.totalCost" />
+                    </div>
+                  </div>
+                  <dashboard-board-label-value :label="m.dashboard_avgToolCallLatency()" :value="data.avgLatency" tooltip="How long one RAG Tool call takes on average" />
+                </div>
+              </template>
+            </dashboard-board-card>
+            <dashboard-board-card header="Answer rate">
+              <template #body>
+                <div class="stack" data-gap="lg">
+                  <dashboard-board-label-value :label="m.dashboard_answerRate()" :value="answerRate" />
+                  <div>
+                    <dashboard-board-label-value :label="m.dashboard_answerRatio()" />
+                  </div>
+                  <template v-if="questionsDiagram.length">
+                    <dashboard-board-box-diagram :data="questionsDiagram" />
+                  </template>
+                  <template v-else>
+                    <dashboard-board-box-diagram :data="[{ title: &quot;N/A&quot;, icon: null, backgroundColor: &quot;table-header&quot; }]" />
+                  </template>
+                  <dashboard-board-min-label-value :label="m.dashboard_ragQueriesAnalyzed()" :value="processRate.processed" tooltip="Number of answers processed out of total questions" />
+                </div>
+              </template>
+            </dashboard-board-card>
+            <dashboard-board-card header="User satisfaction">
+              <template #body>
+                <div class="stack fit" data-gap="lg">
+                  <div class="cluster">
+                    <div class="flex-1">
+                      <dashboard-board-label-value class="mt-auto" :label="m.dashboard_satisfactionRate()" :value="satisfactionRate" tooltip="The percentage of positive feedback out of all user feedback" />
+                    </div>
+                  </div>
+                  <div>
+                    <dashboard-board-label-value :label="m.dashboard_feedbackRatio()" />
+                  </div>
+                  <div class="flex-1 full-width">
+                    <template v-if="data.likes + data.dislikes &gt; 0">
+                      <dashboard-board-box-diagram :data="[ { title: &quot;Liked&quot;, value: data.likes, icon: &quot;thumbs-up&quot;, iconColor: &quot;like-text&quot;, backgroundColor: &quot;like-bg&quot;, action: () =&gt; setFilterAndNavigate(&quot;extra_data.answer_feedback.type&quot;, { label: &quot;Like&quot;, value: &quot;like&quot; }) }, { title: &quot;Disliked&quot;, value: data.dislikes, icon: &quot;thumbs-down&quot;, iconColor: &quot;error-text&quot;, backgroundColor: &quot;dislike-bg&quot;, action: () =&gt; setFilterAndNavigate(&quot;extra_data.answer_feedback.type&quot;, { label: &quot;Dislike&quot;, value: &quot;dislike&quot; }) }, ]" />
+                    </template>
+                    <template v-else>
+                      <dashboard-board-box-diagram :data="[{ title: &quot;N/A&quot;, icon: null, backgroundColor: &quot;table-header&quot; }]" />
+                    </template>
+                  </div>
+                  <dashboard-board-min-label-value :label="m.dashboard_feedbackRate()" :value="feedbackProcessRate" tooltip="Percentage of RAG queries with user feedback vs. total RAG queries" />
+                </div>
+              </template>
+            </dashboard-board-card>
+          </div>
+          <div v-if="$refs?.filterRef?.filterModel?.feature_system_name" class="km-grid mt-lg">
+            <dashboard-board-card class="km-grid-item-2" header="Question topics">
+              <template #body>
+                <div class="stack" data-gap="lg">
+                  <dashboard-board-bars :data="data.topTopics" />
+                </div>
+              </template>
+            </dashboard-board-card>
+            <dashboard-board-card header="Question languages">
+              <template #body>
+                <dashboard-board-bars :data="data.languages" />
+              </template>
+            </dashboard-board-card>
+            <dashboard-board-card header="Copy answer rate" tooltip="How frequently the RAG Tool output is copied by users">
+              <template #body>
+                <div class="stack" data-gap="lg">
+                  <div class="km-chart-value">{{ data.copyRate }}</div>
+                </div>
+              </template>
+            </dashboard-board-card>
+          </div>
+          <div v-else class="km-grid-1 mt-lg">
+            <dashboard-board-card header="RAG Tools overview">
+              <template #body>
+                <div class="stack" data-gap="lg">
+                  <div class="km-table-compact">
+                    <km-data-table :table="overviewTable" row-key="name" hide-pagination @row-click="overviewRowClick" />
+                  </div>
+                </div>
+              </template>
+            </dashboard-board-card>
+          </div>
+        </div>
+      </template>
+      <template v-if="tab === &quot;list&quot;">
+        <div class="stack full-height" style="min-block-size: 0">
+          <div class="cluster mb-md" data-justify="end">
+            <div class="km-space" />
+            <div class="flex-none">
+              <dashboard-board-export-button @export-to-csv="exportToFile(&quot;csv&quot;)" @export-to-json="exportToFile(&quot;json&quot;)" />
+            </div>
+          </div>
+          <div class="flex-1 overflow-auto" style="min-block-size: 0">
+            <km-data-table :table="detailsTable" row-key="start_time" :loading="loading" fill-height hide-pagination @row-click="detailsRowClick" />
+            <div v-if="pagination.rowsNumber" class="cluster px-md py-sm text-grey ba-border" data-justify="between">
+              <div class="km-description">{{ pagination.rowsNumber }} record{{ pagination.rowsNumber !== 1 ? 's' : '' }}</div>
+              <div class="km-space" />
+              <div class="cluster" data-gap="sm"><span class="km-description">Rows per page: {{ pagination.rowsPerPage }}</span></div>
+              <div class="cluster ml-md" data-gap="xs">
+                <km-btn flat dense round icon="first-page" size="sm" :disable="pagination.page &lt;= 1" @click="goToPage(1)" />
+                <km-btn flat dense round icon="chevron_left" size="sm" :disable="pagination.page &lt;= 1" @click="goToPage(pagination.page - 1)" /><span class="km-description">{{ pagination.page }} / {{ totalPages }}</span>
+                <km-btn flat dense round icon="chevron_right" size="sm" :disable="pagination.page &gt;= totalPages" @click="goToPage(pagination.page + 1)" />
+                <km-btn flat dense round icon="last-page" size="sm" :disable="pagination.page &gt;= totalPages" @click="goToPage(totalPages)" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
 </template>
 <script>
 import { fetchData } from '@shared'

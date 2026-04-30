@@ -1,88 +1,43 @@
-<template lang="pug">
-km-inner-loading(:showing='loading')
-layouts-details-layout(v-if='!loading', :contentContainerStyle='{ maxWidth: "1200px", margin: "0 auto" }')
-  template(#header)
-    .col
-      .row.items-center
-        km-input-flat.km-heading-4.full-width.text-black(data-test='name-input', :placeholder='m.common_name()', :model-value='name', @change='name = $event')
-      .row.items-center.q-pl-6
-        q-icon.col-auto(name='o_info', color='text-secondary')
-          q-tooltip.bg-white.block-shadow.text-secondary-text.km-description(self='top middle', :offset='[-50, -50]') {{ m.hint_systemNameUniqueId() }}
-        km-input-flat.col.km-description.text-black.full-width(
-          data-test='system-name-input',
-          :placeholder='m.placeholder_enterSystemNameReadable()',
-          :model-value='system_name',
-          @change='system_name = $event',
-          @focus='showInfo = true',
-          @blur='showInfo = false'
-        )
-      .km-description.text-secondary.q-pl-6(v-if='showInfo') {{ m.hint_systemNameRecommendation() }}
-  template(#header-actions)
-    km-btn(:label='m.common_recordInfo()', flat, icon='info', iconSize='16px')
-      q-tooltip.bg-white.block-shadow
-        .q-pa-sm
-          .q-mb-sm
-            .text-secondary-text.km-button-xs-text {{ m.common_createdLabel() }}
-            .text-secondary-text.km-description {{ created_at }}
-          .q-mb-sm
-            .text-secondary-text.km-button-xs-text {{ m.common_modified() }}
-            .text-secondary-text.km-description {{ modified_at }}
-          .q-mb-sm
-            .text-secondary-text.km-button-xs-text {{ m.common_createdBy() }}
-            .text-secondary-text.km-description {{ created_by }}
-          div
-            .text-secondary-text.km-button-xs-text {{ m.common_modifiedBy() }}
-            .text-secondary-text.km-description {{ updated_by }}
-    km-btn(data-test='revert-btn', :label='m.common_revert()', icon='fas fa-undo', iconSize='16px', flat, @click='revert()', v-if='isDirty')
-    km-btn(data-test='save-btn', :label='m.common_save()', flat, icon='far fa-save', iconSize='16px', @click='handleSave', :loading='saving', :disable='saving || !isDirty')
-    q-btn.q-px-xs(data-test='show-more-btn', flat, :icon='"fas fa-ellipsis-v"', size='13px')
-      q-menu(anchor='bottom right', self='top right')
-        q-item(data-test='clone-btn', clickable, @click='showNewDialog = true', dense)
-          q-item-section
-            .km-heading-3 {{ m.common_clone() }}
-        q-item(data-test='delete-btn', clickable, @click='showDeleteDialog = true', dense)
-          q-item-section
-            .km-heading-3 {{ m.common_delete() }}
-    km-popup-confirm(
-      :visible='showDeleteDialog',
-      :confirmButtonLabel='m.dialog_deleteModelProvider()',
-      :cancelButtonLabel='m.common_cancel()',
-      notificationIcon='fas fa-triangle-exclamation',
-      @confirm='confirmDelete',
-      @cancel='showDeleteDialog = false'
-    )
-      .row.item-center.justify-center.km-heading-7 {{ m.deleteConfirm_aboutToDelete({ entity: m.entity_modelProvider() }) }}
-      .row.text-center.justify-center {{ m.deleteConfirm_permanentDeleteDisable({ entity: m.entity_modelProvider() }) }}
-  template(#content)
-    //- km-flex-min-0 + no-wrap on every flex ancestor so nowrap table
-    //- cells can't propagate their min-content width up past the card.
-    //- (Quasar's `.column` defaults to `flex-wrap: wrap`, which creates
-    //- a new column track wider than the container when content's
-    //- intrinsic width exceeds parent width — breaks horizontal scroll.)
-    .column.no-wrap.full-height.km-flex-min-0
-      q-tabs.bb-border.full-width(
-        v-model='tab',
-        narrow-indicator,
-        dense,
-        align='left',
-        active-color='primary',
-        indicator-color='primary',
-        active-bg-color='white',
-        no-caps,
-        content-class='km-tabs'
-      )
-        template(v-for='t in tabs')
-          q-tab(:name='t.name', :label='t.label')
-      template(v-if='tab == "models"')
-        .col.km-flex-min-0(style='padding-top: 16px; padding-bottom: 16px')
-          model-providers-models(:selectedModel='selectedModel', @select-model='onSelectModel')
-      template(v-if='tab == "settings"')
-        .col.km-flex-min-0.overflow-auto(style='padding-top: 16px; padding-bottom: 16px')
-          model-providers-settings
-
-  template(#drawer)
-    model-providers-model-drawer(v-if='tab == "models" && validSelectedModel')
-    model-providers-drawer(v-else-if='tab == "models" && availableModels.length > 0 && !validSelectedModel')
+<template>
+  <km-inner-loading :showing="loading" />
+  <layouts-details-layout v-if="!loading" :name="name" :system-name="system_name" :created-at="provider?.created_at" :updated-at="provider?.updated_at" :created-by="provider?.created_by" :updated-by="provider?.updated_by" show-record-info :show-description="false" :content-container-style="{ maxWidth: &quot;1200px&quot;, margin: &quot;0 auto&quot; }" @update:name="name = $event" @update:system-name="system_name = $event">
+    <template #header-actions>
+      <km-btn v-if="isDirty" data-test="revert-btn" :label="m.common_revert()" icon="undo" icon-size="16px" flat @click="revert()" />
+      <km-btn data-test="save-btn" :label="m.common_save()" flat icon="save" icon-size="16px" :loading="saving" :disable="saving || !isDirty" @click="handleSave" />
+      <ds-dropdown-menu-root>
+        <ds-dropdown-menu-trigger as-child>
+          <km-btn class="px-xs" data-test="show-more-btn" flat icon="more-vertical" size="13px" />
+        </ds-dropdown-menu-trigger>
+        <ds-dropdown-menu-content side="bottom" align="end" :side-offset="4">
+          <ds-dropdown-menu-item data-test="clone-btn" @select="showNewDialog = true">{{ m.common_clone() }}</ds-dropdown-menu-item>
+          <ds-dropdown-menu-item data-test="delete-btn" variant="destructive" @select="showDeleteDialog = true">{{ m.common_delete() }}</ds-dropdown-menu-item>
+        </ds-dropdown-menu-content>
+      </ds-dropdown-menu-root>
+      <km-popup-confirm :visible="showDeleteDialog" :confirm-button-label="m.dialog_deleteModelProvider()" :cancel-button-label="m.common_cancel()" notification-icon="warning" @confirm="confirmDelete" @cancel="showDeleteDialog = false">
+        <div class="cluster km-heading-7" data-justify="center">{{ m.deleteConfirm_aboutToDelete({ entity: m.entity_modelProvider() }) }}</div>
+        <div class="cluster text-center" data-justify="center">{{ m.deleteConfirm_permanentDeleteDisable({ entity: m.entity_modelProvider() }) }}</div>
+      </km-popup-confirm>
+    </template>
+    <template #content>
+      <div class="stack full-height km-flex-min-0" data-gap="0">
+        <km-tabs v-model="tab" :items="tabs" class="bb-border full-width" narrow-indicator dense align="left" no-caps content-class="km-tabs" />
+        <template v-if="tab == &quot;models&quot;">
+          <div class="flex-1 km-flex-min-0" style="padding-block: 16px">
+            <model-providers-models :selected-model="selectedModel" @select-model="onSelectModel" />
+          </div>
+        </template>
+        <template v-if="tab == &quot;settings&quot;">
+          <div class="flex-1 km-flex-min-0 overflow-auto" style="padding-block: 16px">
+            <model-providers-settings />
+          </div>
+        </template>
+      </div>
+    </template>
+    <template #drawer>
+      <model-providers-model-drawer v-if="tab == &quot;models&quot; &amp;&amp; validSelectedModel" />
+      <model-providers-drawer v-else-if="tab == &quot;models&quot; &amp;&amp; availableModels.length &gt; 0 &amp;&amp; !validSelectedModel" />
+    </template>
+  </layouts-details-layout>
 </template>
 
 <script>
@@ -133,10 +88,9 @@ export default {
       showNewDialog: ref(false),
       tab: ref('models'),
       tabs: ref([
-        { name: 'models', label: 'Models' },
-        { name: 'settings', label: 'Settings' },
+        { value: 'models', label: 'Models' },
+        { value: 'settings', label: 'Settings' },
       ]),
-      showInfo: ref(false),
       allModels,
     }
   },
@@ -170,18 +124,6 @@ export default {
       set(value) {
         this.updateField('system_name', value)
       },
-    },
-    created_at() {
-      return this.provider?.created_at ? this.formatDate(this.provider.created_at) : ''
-    },
-    modified_at() {
-      return this.provider?.updated_at ? this.formatDate(this.provider.updated_at) : ''
-    },
-    created_by() {
-      return this.provider?.created_by || m.common_unknown()
-    },
-    updated_by() {
-      return this.provider?.updated_by || m.common_unknown()
     },
   },
   watch: {
@@ -228,10 +170,6 @@ export default {
         notify.success(m.notify_deletedSuccessfully({ entity: m.entity_modelProvider() }))
         this.$router.push('/model-providers')
       }
-    },
-    formatDate(date) {
-      const d = new Date(date)
-      return `${d.toLocaleDateString()} ${d.toLocaleTimeString()}`
     },
     onSelectModel(row) {
       this.selectedModel = row

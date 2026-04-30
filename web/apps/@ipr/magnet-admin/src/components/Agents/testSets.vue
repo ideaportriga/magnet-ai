@@ -1,9 +1,5 @@
-<template lang="pug">
-test-sets-table(
-  v-model:selectedTestSet='sampleTestSet',
-  :activeRowInput='testSetItem?.user_input',
-  @selectRecord='onSelectRecord'
-)
+<template>
+  <test-sets-table v-model:selected-test-set="sampleTestSet" :active-row-input="testSetItem?.user_input" @select-record="onSelectRecord" />
 </template>
 
 <script setup>

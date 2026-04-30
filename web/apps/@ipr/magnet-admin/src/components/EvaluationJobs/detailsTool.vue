@@ -1,58 +1,73 @@
-<template lang="pug">
-.row.no-wrap.overflow-hidden.full-height(v-if='loading', style='min-width: 1200px')
-  km-inner-loading(:showing='loading')
-.row.no-wrap.overflow-hidden.full-height(v-else, style='min-width: 1200px')
-  .col.row.no-wrap.full-height.justify-center.fit
-    .col(style='max-width: 1200px; min-width: 600px')
-      .full-height.q-pb-md.relative-position.q-px-md
-        .row.q-gap-12.no-wrap.full-width.q-mt-lg.q-mb-sm
-          .col
-            .row.items-center
-              .km-heading-7.full-width {{ evaluation_name }}
-              .row.items-center
-                .km-heading-2.text-secondary.full-width {{ formattedDate }}
-          .col-auto
-            .grid-container.ba-border.bg-white.border-radius-12.q-py-xs.q-pr-md
-              .grid-item
-                km-score(:score='averageScore || m.evaluation_notRated()')
-              .grid-item-left.km-label {{ m.evaluation_avgScore() }}
-              .grid-item.km-chip.text-text-gray {{ recordsRated }}
-              .grid-item-left.km-label {{ m.evaluation_recordsRated() }}
-              .grid-item(v-if='evaluationType == "prompt_eval"')
-                q-chip.km-chip(:color='color', :text-color='textColor', :label='totalCost')
-              .grid-item-left.km-label(v-if='evaluationType == "prompt_eval"') {{ m.evaluation_avgTotalCost() }}
-              .grid-item.km-chip.text-text-gray {{ latency }}
-              .grid-item-left.km-label {{ m.evaluation_avgLatency() }}
-
-        q-tabs(
-          v-model='tab',
-          narrow-indicator,
-          dense,
-          align='left',
-          active-color='primary',
-          indicator-color='primary',
-          no-caps,
-          content-class='km-tabs'
-        )
-          template(v-for='t in tabs')
-            q-tab(:name='t.name', :label='t.label')
-        .column.no-wrap.q-gap-16.full-height.full-width.overflow-hidden.q-my-md(style='height: calc(100vh - 256px) !important')
-          .row.q-gap-16.full-height.full-width
-            .col.full-height.full-width
-              .column.items-center.full-height.full-width.q-gap-16.overflow-auto
-                template(v-if='true')
-                  .col-auto.full-width
-                    template(v-if='tab == "records"')
-                      evaluation-jobs-records(@record:update='evaluationSetRecord')
-                    template(v-if='tab == "settings"')
-                      template(v-if='evaluationType == "prompt_eval"')
-                        evaluation-jobs-settings
-                      template(v-else)
-                        evaluation-jobs-settings-rag
-
-  .col-auto
-    evaluation-jobs-drawer(v-if='openDrawer', :open='openDrawer')
-  configuration-create-new(v-if='showNewDialog', :showNewDialog='showNewDialog', @cancel='showNewDialog = false', copy)
+<template>
+  <div v-if="loading" class="cluster overflow-hidden full-height" data-wrap="no" style="min-inline-size: 1200px">
+    <km-inner-loading :showing="loading" />
+  </div>
+  <div v-else class="cluster overflow-hidden full-height" data-wrap="no" style="min-inline-size: 1200px">
+    <div class="flex-1 flex full-height fit" style="justify-content: center; flex-wrap: nowrap">
+      <div class="flex-1" style="max-inline-size: 1200px; min-inline-size: 600px">
+        <div class="full-height pb-md relative-position px-md">
+          <div class="cluster full-width mt-lg mb-sm" data-gap="md" data-wrap="no">
+            <div class="flex-1">
+              <div class="cluster">
+                <div class="km-heading-7 full-width">{{ evaluation_name }}</div>
+                <div class="cluster">
+                  <div class="km-heading-2 text-secondary full-width">{{ formattedDate }}</div>
+                </div>
+              </div>
+            </div>
+            <div class="flex-none">
+              <div class="grid-container ba-border bg-white border-radius-12 py-xs pr-md">
+                <div class="grid-item">
+                  <km-score :score="averageScore || m.evaluation_notRated()" />
+                </div>
+                <div class="grid-item-left km-label">{{ m.evaluation_avgScore() }}</div>
+                <div class="grid-item km-chip text-text-gray">{{ recordsRated }}</div>
+                <div class="grid-item-left km-label">{{ m.evaluation_recordsRated() }}</div>
+                <div v-if="evaluationType == &quot;prompt_eval&quot;" class="grid-item">
+                  <km-chip class="km-chip" tone="neutral" :label="totalCost" />
+                </div>
+                <div v-if="evaluationType == &quot;prompt_eval&quot;" class="grid-item-left km-label">{{ m.evaluation_avgTotalCost() }}</div>
+                <div class="grid-item km-chip text-text-gray">{{ latency }}</div>
+                <div class="grid-item-left km-label">{{ m.evaluation_avgLatency() }}</div>
+              </div>
+            </div>
+          </div>
+          <km-tabs v-model="tab" narrow-indicator dense align="left" no-caps content-class="km-tabs">
+            <template v-for="t in tabs" :key="t">
+              <km-tab :name="t.name" :label="t.label" />
+            </template>
+          </km-tabs>
+          <div class="stack full-height full-width overflow-hidden my-md" data-gap="lg" style="block-size: calc(100vb - 256px) !important">
+            <div class="cluster full-height full-width" data-gap="lg">
+              <div class="flex-1 full-height full-width">
+                <div class="stack items-center full-height full-width overflow-auto" data-gap="lg">
+                  <template v-if="true">
+                    <div class="full-width">
+                      <template v-if="tab == &quot;records&quot;">
+                        <evaluation-jobs-records />
+                      </template>
+                      <template v-if="tab == &quot;settings&quot;">
+                        <template v-if="evaluationType == &quot;prompt_eval&quot;">
+                          <evaluation-jobs-settings />
+                        </template>
+                        <template v-else>
+                          <evaluation-jobs-settings-rag />
+                        </template>
+                      </template>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="flex-none">
+      <evaluation-jobs-drawer v-if="openDrawer" :open="openDrawer" />
+    </div>
+    <rag-create-new v-if="showNewDialog" :show-new-dialog="showNewDialog" copy @cancel="showNewDialog = false" />
+  </div>
 </template>
 
 <script>
@@ -209,15 +224,6 @@ export default {
     openDrawer() {
       return this.tab === 'records' && Object.keys(this.evalStore.evaluationJobRecord).length > 0
     },
-    color() {
-      return this.statusStyles?.color || ''
-    },
-    textColor() {
-      return this.statusStyles?.textColor || ''
-    },
-    statusStyles() {
-      return { color: 'in-progress', textColor: 'text-gray' }
-    },
   },
   watch: {},
   mounted() {
@@ -253,20 +259,9 @@ export default {
 </script>
 
 <style lang="scss">
-@keyframes wobble {
-  0% {
-    transform: rotate(-5deg);
-  }
-  50% {
-    transform: rotate(5deg);
-  }
-  100% {
-    transform: rotate(-5deg);
-  }
-}
 
 .wobble {
-  animation: wobble 2s infinite;
+  animation: ds-attention-wobble var(--ds-duration-attention) infinite;
 }
 
 .grid-container {

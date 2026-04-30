@@ -1,0 +1,598 @@
+/* =============================================================================
+ * COLOR TOKENS
+ * =============================================================================
+ * Source of truth for the `default` light/dark themes. The file is layered
+ * per the CUBE/DS roadmap (`CUBE_CSS_ARCHITECTURE_ROADMAP.md`, Phase 1):
+ *
+ *   1. Base palette        raw scales — `--ds-color-{primary,gray}-{50..950}`,
+ *                          status scales, never themed directly by feature CSS.
+ *   2. Semantic tokens     `--ds-color-fg-*`, `-surface-*`, `-border-*`,
+ *                          `-{success,warning,danger,info}-{solid,soft,on-soft}`.
+ *                          These are the names new components should reach for.
+ *   3. Component tokens    Per-component aliases (controls, buttons, tables,
+ *                          chat, …). Keep this list tight — most belong above.
+ *   4. Brand signature     `--ds-brand-accent*`, `-focus-ring`, `-selection-bg`.
+ *                          The narrow surface that future themes (`siebel`,
+ *                          `salesforce`, future modes) override to re-skin
+ *                          without editing component CSS.
+ *
+ * Legacy `--ds-color-*` names from the pre-Phase-1 palette are kept as aliases
+ * to the new semantic layer so existing in-app CSS keeps working. New code MUST
+ * use the semantic / brand-signature names. Brand and dark-mode variants
+ * override the same names below.
+ *
+ * Brand value `#6840c2` is the anchor: it lives at `primary-500` in light and
+ * the same scale resolves through `primary-400` (`#8b66e0`) for dark surfaces.
+ * Deprecated `--q-*` aliases live in `_compat-q-aliases.css`.
+ * ============================================================================= */
+
+:root,
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  /* =====================================================================
+   * 1. BASE PALETTE — raw tonal scales (theme-agnostic)
+   *
+   * Anchors:
+   *   primary-500 = #6840c2  (light brand)
+   *   primary-400 = #8b66e0  (dark brand — used by dark-mode primary alias)
+   *
+   * Hue stays in the 257°–260° band; lightness ramps in roughly even OKLCH
+   * steps so hover/active states from the same column stay harmonised.
+   * ===================================================================== */
+  --ds-color-primary-50:  #f5f1fb;
+  --ds-color-primary-100: #e7e0fa;
+  --ds-color-primary-200: #c9b9ec;
+  --ds-color-primary-300: #a589e0;
+  --ds-color-primary-400: #8b66e0;
+  --ds-color-primary-500: #6840c2;
+  --ds-color-primary-600: #5234a3;
+  --ds-color-primary-700: #3f2780;
+  --ds-color-primary-800: #2f1d5f;
+  --ds-color-primary-900: #221545;
+  --ds-color-primary-950: #170d2e;
+
+  /* Neutral / gray scale — drives fg, border and surface tokens. */
+  --ds-color-gray-50:  #f7f7fc;
+  --ds-color-gray-100: #eaeaf6;
+  --ds-color-gray-200: #d6d6e1;
+  --ds-color-gray-300: #c4c7cf;
+  --ds-color-gray-400: #959ea4;
+  --ds-color-gray-500: #7a7a86;
+  --ds-color-gray-600: #5c5c5c;
+  --ds-color-gray-700: #424242;
+  --ds-color-gray-800: #2a2a2a;
+  --ds-color-gray-900: #212121;
+  --ds-color-gray-950: #171717;
+
+  /* Status scales (only the steps actually consumed by semantic triplets). */
+  --ds-color-success-100: #e9fce9;
+  --ds-color-success-200: #bdf2d5;
+  --ds-color-success-500: #00a876;
+  --ds-color-success-700: #00714f;
+
+  --ds-color-warning-100: #fff9d4;
+  --ds-color-warning-200: #fcec87;
+  --ds-color-warning-500: #d99500;
+  --ds-color-warning-700: #6b4a00;
+
+  --ds-color-danger-100:  #ffecec;
+  --ds-color-danger-500:  #e62222;
+  --ds-color-danger-600:  #cc1d1d;
+  --ds-color-danger-700:  #a3171d;
+
+  --ds-color-info-100:    #e3f7fb;
+  --ds-color-info-500:    #1aa7c4;
+  --ds-color-info-700:    #0b6c80;
+
+  /* Static colors — never themed, used for things like icon backgrounds that
+   * must remain absolute regardless of mode. */
+  --ds-color-static-white: #ffffff;
+  --ds-color-static-black: #080a10;
+
+  /* =====================================================================
+   * 2. SEMANTIC TOKENS — what feature/DS code should reach for
+   * ===================================================================== */
+
+  /* Foreground / text — single ascending scale of de-emphasis. Contrast on
+   * `--ds-color-surface` (#fbfbfe):
+   *   strong   ~16:1  (display/hero copy)
+   *   default  ~14:1  (body, primary UI text)
+   *   muted    ~6.4:1 (secondary text, helper rows)
+   *   subtle   ~4.7:1 (placeholder, supportive labels)
+   *   disabled ~2.6:1 (informational only — not for interactive copy) */
+  --ds-color-fg-strong:    var(--ds-color-gray-950);
+  --ds-color-fg:           var(--ds-color-gray-900);
+  --ds-color-fg-muted:     var(--ds-color-gray-600);
+  --ds-color-fg-subtle:    #878797;
+  --ds-color-fg-disabled:  #b8b8c4;
+  --ds-color-fg-on-brand:  var(--ds-color-static-white);
+  --ds-color-fg-on-soft:   var(--ds-color-fg-strong);
+
+  /* Surfaces — opaque backgrounds for the page, panels and overlays. */
+  --ds-color-surface:         #fbfbfe;
+  --ds-color-surface-raised:  #ffffff;
+  --ds-color-surface-sunken:  #f4f2f8;
+  --ds-color-surface-overlay: rgba(8, 10, 16, 0.5);
+
+  /* Loading overlay — softer than `surface-overlay` (which fully obscures
+   * a modal). Pairs with `--ds-loader-overlay-blur` so every loader hosts
+   * the same frosted-glass affordance. Light mode: black 8% — a hint of
+   * dimming; dark mode (below): black 40% — keeps the spinner readable
+   * without lifting the surface to white. */
+  --ds-color-overlay-loading: color-mix(in srgb, var(--ds-color-static-black) 8%, transparent);
+
+  /* Borders — three strengths so dividers/cards/inputs can speak in roles
+   * instead of picking from "border" vs "border-2". */
+  --ds-color-border-subtle: var(--ds-color-gray-100);
+  --ds-color-border:        #d6d6e1;
+  --ds-color-border-strong: var(--ds-color-gray-300);
+
+  /* Brand intent — primary action language. */
+  --ds-color-primary:             var(--ds-color-primary-500);
+  --ds-color-primary-light:       var(--ds-color-primary-100);
+  --ds-color-primary-soft:        var(--ds-color-primary-100);
+  --ds-color-primary-bg:          rgba(104, 64, 194, 0.07);
+  --ds-color-primary-transparent: rgba(104, 64, 194, 0.23);
+  --ds-color-primary-text:        var(--ds-color-fg-strong);
+
+  /* Secondary intent — neutral controls / muted icons. */
+  --ds-color-secondary:      var(--ds-color-gray-400);
+  --ds-color-secondary-text: var(--ds-color-gray-700);
+  --ds-color-secondary-bg:   rgba(149, 158, 164, 0.2);
+
+  /* `--ds-color-accent` is the highlight/hover colour consumed by every
+   * shadcn-style menu primitive (DropdownMenu / ContextMenu / Menubar /
+   * NavigationMenu / SidebarMenu / Calendar). Aliased to the brand primary
+   * so the highlight cascade matches the rest of the Magnet UI; do NOT
+   * reintroduce a separate accent palette without updating every menu
+   * primitive's `[data-highlighted]` rule. */
+  --ds-color-accent:    var(--ds-color-primary);
+  --ds-color-accent-bg: var(--ds-color-primary-bg);
+
+  /* =====================================================================
+   * 3. STATUS TRIPLETS — every intent has the same {solid, soft, on-soft}
+   *    shape so chips/banners/toasts read consistently.
+   * ===================================================================== */
+  --ds-color-success-solid:   var(--ds-color-success-500);
+  --ds-color-success-soft:    var(--ds-color-success-100);
+  --ds-color-success-on-soft: var(--ds-color-success-700);
+
+  --ds-color-warning-solid:   var(--ds-color-warning-500);
+  --ds-color-warning-soft:    var(--ds-color-warning-100);
+  --ds-color-warning-on-soft: var(--ds-color-warning-700);
+
+  --ds-color-danger-solid:    var(--ds-color-danger-500);
+  --ds-color-danger-soft:     var(--ds-color-danger-100);
+  --ds-color-danger-on-soft:  var(--ds-color-danger-700);
+
+  --ds-color-info-solid:      var(--ds-color-info-500);
+  --ds-color-info-soft:       var(--ds-color-info-100);
+  --ds-color-info-on-soft:    var(--ds-color-info-700);
+
+  /* =====================================================================
+   * 3b. CONTROL STATE TOKENS — disabled / invalid / focus / read-only
+   *
+   * Form controls (Input, Select, Textarea, Checkbox, Radio, Switch,
+   * Field, NumberField, Combobox) consume these instead of mixing palette
+   * literals into their CSS. Each role has parity in dark mode below.
+   *
+   * Naming follows the pattern: <role>-{bg|fg|border|ring}.
+   *   - bg     surface fill
+   *   - fg     foreground / text inside the control
+   *   - border outer outline
+   *   - ring   :focus-visible halo (paired with `outline-offset`)
+   * ===================================================================== */
+  --ds-color-disabled-bg:        var(--ds-color-gray-100);
+  --ds-color-disabled-fg:        var(--ds-color-fg-disabled);
+  --ds-color-disabled-border:    var(--ds-color-border-subtle);
+
+  --ds-color-readonly-bg:        var(--ds-color-surface-sunken);
+  --ds-color-readonly-fg:        var(--ds-color-fg-muted);
+  --ds-color-readonly-border:    var(--ds-color-border-subtle);
+
+  --ds-color-placeholder-fg:     var(--ds-color-fg-subtle);
+
+  --ds-color-invalid-bg:         var(--ds-color-danger-soft);
+  --ds-color-invalid-fg:         var(--ds-color-danger-on-soft);
+  --ds-color-invalid-border:     var(--ds-color-danger-solid);
+  --ds-color-invalid-ring:       color-mix(in srgb, var(--ds-color-danger-solid) 32%, transparent);
+
+  --ds-color-focus-ring:         var(--ds-brand-focus-ring);
+  --ds-color-focus-bg:           var(--ds-color-primary-bg);
+  --ds-color-focus-border:       var(--ds-color-primary);
+
+  /* =====================================================================
+   * 4. BRAND SIGNATURE — narrow override surface for future themes.
+   *    Brand themes (siebel, salesforce, …) should override these four
+   *    values plus the primary scale; nothing else should be needed.
+   * ===================================================================== */
+  --ds-brand-accent:        var(--ds-color-primary-500);
+  --ds-brand-accent-soft:   var(--ds-color-primary-100);
+  --ds-brand-focus-ring:    rgba(104, 64, 194, 0.4);
+  --ds-brand-selection-bg:  var(--ds-color-primary-100);
+
+  /* =====================================================================
+   * 5. COMPONENT-LEVEL TOKENS
+   * ===================================================================== */
+
+  /* Backgrounds shared by panels / cards / inline highlights. */
+  --ds-color-background: var(--ds-color-surface);
+  --ds-color-light:      var(--ds-color-surface-sunken);
+  --ds-color-answer:     #fefcff;
+  --ds-color-active:     rgba(80, 47, 153, 0.1);
+
+  /* Controls. */
+  --ds-color-control-bg:            rgb(251, 251, 251);
+  --ds-color-control-border:        var(--ds-color-border-subtle);
+  --ds-color-control-hover-bg:      whitesmoke;
+  --ds-color-control-hover-border:  #cdcdd5;
+  --ds-color-control-active-bg:     var(--ds-color-primary-bg);
+  --ds-color-control-active-border: var(--ds-color-primary);
+
+  /* Buttons — primary hover/active now sit on the tonal scale so theme
+   * overrides automatically re-derive the interaction recipe. */
+  --ds-color-btn-primary-bg:           var(--ds-color-primary);
+  --ds-color-btn-primary-hover-bg:     var(--ds-color-primary-600);
+  --ds-color-btn-primary-active-bg:    var(--ds-color-primary-700);
+  --ds-color-btn-primary-text:         var(--ds-color-fg-on-brand);
+  --ds-color-btn-primary-hover-text:   var(--ds-color-fg-on-brand);
+  --ds-color-btn-primary-active-text:  var(--ds-color-fg-on-brand);
+
+  --ds-color-btn-simple-bg:            transparent;
+  --ds-color-btn-simple-hover-bg:      var(--ds-color-primary-bg);
+  --ds-color-btn-simple-active-bg:     rgba(80, 47, 153, 0.3);
+  --ds-color-btn-simple-text:          var(--ds-color-primary);
+  --ds-color-btn-simple-hover-text:    var(--ds-color-primary);
+  --ds-color-btn-simple-active-text:   var(--ds-color-primary);
+
+  --ds-color-btn-flat-bg:              transparent;
+  --ds-color-btn-flat-hover-bg:        rgba(32, 32, 32, 0.1);
+  --ds-color-btn-flat-active-bg:       #c9d4ee;
+  --ds-color-btn-flat-text:            var(--ds-color-secondary-text);
+  --ds-color-btn-flat-icon:            var(--ds-color-secondary);
+  --ds-color-btn-flat-hover-text:      var(--ds-color-secondary-text);
+  --ds-color-btn-flat-hover-icon:      var(--ds-color-primary);
+  --ds-color-btn-flat-active-text:     var(--ds-color-secondary-text);
+  --ds-color-btn-flat-active-icon:     #5b6f9e;
+
+  /* Tables. */
+  --ds-color-table-header: var(--ds-color-gray-50);
+  --ds-color-table-hover:  rgba(0, 0, 0, 0.03);
+  --ds-color-table-active: rgba(0, 0, 0, 0.06);
+
+  /* Chat / agent surfaces. */
+  --ds-color-tooltip-bg:        var(--ds-color-gray-400);
+  --ds-color-tooltip-text:      var(--ds-color-static-white);
+  --ds-color-user-input-bg:     var(--ds-color-surface-sunken);
+  --ds-color-message-bg:        var(--ds-color-surface-raised);
+  --ds-color-header-bg:         #d5d1ef;
+  --ds-color-panel-main-bg:     var(--ds-color-surface-raised);
+  --ds-color-agent-message:     #f1efed;
+  --ds-color-agent-user-message: var(--ds-color-primary-light);
+
+  /* Reactions. */
+  --ds-color-like-bg:    #dcfce7;
+  --ds-color-like-text:  #2d8240;
+  --ds-color-dislike-bg: #fef1ee;
+  --ds-color-neutral-bg: #f3f2f2;
+
+  /* Status labels. */
+  --ds-color-status-ready:         var(--ds-color-success-soft);
+  --ds-color-status-ready-text:    var(--ds-color-success-on-soft);
+  --ds-color-processing-ready:     #fff7d9;
+  --ds-color-processing-ready-text: #ff9518;
+  --ds-color-in-progress:          #f5f7fd;
+
+  /* Score chips. */
+  --ds-color-score-irrelevant:      var(--ds-color-background);
+  --ds-color-score-irrelevant-text: var(--ds-color-fg-muted);
+  --ds-color-score-relevant:        var(--ds-color-primary-bg);
+  --ds-color-score-relevant-text:   var(--ds-color-primary);
+
+  /* Misc product surfaces. */
+  --ds-color-light-grey:                #ededf8;
+  --ds-color-chip-accent-bg:            rgba(104, 64, 194, 0.15);
+  --ds-color-semi-transparent-primary:  rgba(104, 64, 194, 0.5);
+  --ds-color-gradient:                  linear-gradient(125.99deg, #5541d7 2.28%, #e30052 100.12%);
+  --ds-color-hover-background:          #edf2f9;
+  --ds-color-medium:                    #e2eef7;
+  --ds-color-dashboard-heading:         #706e6b;
+
+  --ds-color-question-answered:     var(--ds-color-like-bg);
+  --ds-color-question-not-answered: #dde8f4;
+  --ds-color-no-results:             #fee2e2;
+
+  --ds-color-system-message-bg: var(--ds-color-gray-50);
+
+  /* =====================================================================
+   * 6. LEGACY ALIASES — preserved for in-app CSS still using pre-Phase-1
+   *    names. New code SHOULD use the semantic tokens above instead.
+   * ===================================================================== */
+
+  /* Foreground / text. Names that lied (`text-weak` was actually the strongest
+   * non-primary text) are kept value-stable but pointed at the right semantic
+   * step so future cleanups can rename without visual diff. */
+  --ds-color-white:        var(--ds-color-surface-raised);
+  --ds-color-black:        var(--ds-color-fg);
+  --ds-color-text-primary: var(--ds-color-fg);
+  --ds-color-label:        var(--ds-color-gray-700);
+  --ds-color-text-weak:    #3e3e3c;            /* legacy name; do not consume in new code */
+  --ds-color-text-grey:    var(--ds-color-fg-muted);
+  --ds-color-placeholder:  rgba(0, 0, 0, 0.5);
+  --ds-color-seemless:     var(--ds-color-fg-subtle);
+  --ds-color-link-color:   var(--ds-color-secondary);
+  --ds-color-icon:         var(--ds-color-secondary);
+
+  /* Borders. */
+  --ds-color-border-2: var(--ds-color-border-strong);
+
+  /* Status — old single-value names map onto the new triplets. */
+  --ds-color-success:           var(--ds-color-success-200);
+  --ds-color-success-text:      var(--ds-color-success-solid);
+
+  --ds-color-warning:           var(--ds-color-warning-200);
+  --ds-color-warning-text:      #474641;
+  --ds-color-warning-secondary: #fedb00;
+  --ds-color-warning-bg:        var(--ds-color-warning-soft);
+  --ds-color-warning-low:       #fef9f2;
+
+  --ds-color-error:      var(--ds-color-danger-solid);
+  --ds-color-error-bg:   var(--ds-color-danger-soft);
+  --ds-color-error-text: #ff5660;
+
+  --ds-color-info: #31ccec;
+}
+
+/* =============================================================================
+ * Dark theme overrides
+ *
+ * Same layered structure as light. The tonal `primary-{50..950}` scale stays
+ * identical — only the role aliases shift (e.g. `--ds-color-primary` resolves
+ * to `primary-400` so brand sits on a dark surface with enough lift). Keep
+ * brand themes off this file: theme packages should override `--ds-brand-*`
+ * and `--ds-color-primary-{...}` only.
+ * ============================================================================= */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  /* ---- 1. Base palette — same hue ramp, neutrals re-derived for dark UI. */
+  --ds-color-primary-50:  #f5f1fb;
+  --ds-color-primary-100: #e7e0fa;
+  --ds-color-primary-200: #c9b9ec;
+  --ds-color-primary-300: #a589e0;
+  --ds-color-primary-400: #8b66e0;
+  --ds-color-primary-500: #6840c2;
+  --ds-color-primary-600: #5234a3;
+  --ds-color-primary-700: #3f2780;
+  --ds-color-primary-800: #2f1d5f;
+  --ds-color-primary-900: #221545;
+  --ds-color-primary-950: #170d2e;
+
+  --ds-color-gray-50:  #1a1c25;
+  --ds-color-gray-100: #232531;
+  --ds-color-gray-200: #2a2c38;
+  --ds-color-gray-300: #3a3d4a;
+  --ds-color-gray-400: #6f6f80;
+  --ds-color-gray-500: #8a939a;
+  --ds-color-gray-600: #b5b5be;
+  --ds-color-gray-700: #d6d6d6;
+  --ds-color-gray-800: #ececef;
+  --ds-color-gray-900: #f4f2f8;
+  --ds-color-gray-950: #ffffff;
+
+  --ds-color-success-100: rgba(99, 230, 170, 0.16);
+  --ds-color-success-200: #184f37;
+  --ds-color-success-500: #63e6aa;
+  --ds-color-success-700: #77e6ad;
+
+  --ds-color-warning-100: rgba(244, 220, 124, 0.14);
+  --ds-color-warning-200: #5c4c18;
+  --ds-color-warning-500: #f4dc7c;
+  --ds-color-warning-700: #ffba5c;
+
+  --ds-color-danger-100:  rgba(255, 102, 115, 0.16);
+  --ds-color-danger-500:  #ff6673;
+  --ds-color-danger-600:  #ff8a94;
+  --ds-color-danger-700:  #ff8a94;
+
+  --ds-color-info-100:    rgba(94, 216, 240, 0.14);
+  --ds-color-info-500:    #5ed8f0;
+  --ds-color-info-700:    #9ce4f4;
+
+  --ds-color-static-white: #ffffff;
+  --ds-color-static-black: #080a10;
+
+  /* ---- 2. Semantic tokens. */
+  --ds-color-fg-strong:    var(--ds-color-gray-950);
+  --ds-color-fg:           var(--ds-color-gray-900);
+  --ds-color-fg-muted:     var(--ds-color-gray-600);
+  --ds-color-fg-subtle:    var(--ds-color-gray-400);
+  --ds-color-fg-disabled:  #4a4a55;
+  --ds-color-fg-on-brand:  var(--ds-color-static-white);
+  --ds-color-fg-on-soft:   var(--ds-color-fg-strong);
+
+  --ds-color-surface:         #0e1018;
+  --ds-color-surface-raised:  #161821;
+  --ds-color-surface-sunken:  #1a1c25;
+  --ds-color-surface-overlay: rgba(0, 0, 0, 0.6);
+
+  /* Loading overlay — see light-theme note. In dark mode the surface is
+   * already dark, so the same 8% mix would be invisible; we step up to 40%
+   * black so the loader visibly steps the content back. */
+  --ds-color-overlay-loading: color-mix(in srgb, var(--ds-color-static-black) 40%, transparent);
+
+  --ds-color-border-subtle: var(--ds-color-gray-200);
+  --ds-color-border:        #2f3240;
+  --ds-color-border-strong: var(--ds-color-gray-300);
+
+  /* In dark mode the brand colour shifts up the scale so it stays visible
+   * on a dark surface. Tonal scale itself is unchanged. */
+  --ds-color-primary:             var(--ds-color-primary-400);
+  --ds-color-primary-light:       #2a224a;
+  --ds-color-primary-soft:        rgba(139, 102, 224, 0.18);
+  --ds-color-primary-bg:          rgba(139, 102, 224, 0.16);
+  --ds-color-primary-transparent: rgba(139, 102, 224, 0.28);
+  --ds-color-primary-text:        var(--ds-color-fg-strong);
+
+  --ds-color-secondary:      var(--ds-color-gray-500);
+  --ds-color-secondary-text: var(--ds-color-gray-700);
+  --ds-color-secondary-bg:   rgba(138, 147, 154, 0.18);
+
+  /* See light-theme note: accent tracks primary so the highlight cascade
+   * stays brand-coloured in both themes. */
+  --ds-color-accent:    var(--ds-color-primary);
+  --ds-color-accent-bg: var(--ds-color-primary-bg);
+
+  /* ---- 3. Status triplets. */
+  --ds-color-success-solid:   var(--ds-color-success-500);
+  --ds-color-success-soft:    var(--ds-color-success-100);
+  --ds-color-success-on-soft: var(--ds-color-success-700);
+
+  --ds-color-warning-solid:   var(--ds-color-warning-500);
+  --ds-color-warning-soft:    var(--ds-color-warning-100);
+  --ds-color-warning-on-soft: var(--ds-color-warning-700);
+
+  --ds-color-danger-solid:    var(--ds-color-danger-500);
+  --ds-color-danger-soft:     var(--ds-color-danger-100);
+  --ds-color-danger-on-soft:  var(--ds-color-danger-700);
+
+  --ds-color-info-solid:      var(--ds-color-info-500);
+  --ds-color-info-soft:       var(--ds-color-info-100);
+  --ds-color-info-on-soft:    var(--ds-color-info-700);
+
+  /* ---- 3b. Control state tokens — dark parity. */
+  --ds-color-disabled-bg:        var(--ds-color-gray-100);
+  --ds-color-disabled-fg:        var(--ds-color-fg-disabled);
+  --ds-color-disabled-border:    var(--ds-color-border-subtle);
+
+  --ds-color-readonly-bg:        var(--ds-color-surface-sunken);
+  --ds-color-readonly-fg:        var(--ds-color-fg-muted);
+  --ds-color-readonly-border:    var(--ds-color-border-subtle);
+
+  --ds-color-placeholder-fg:     var(--ds-color-fg-subtle);
+
+  --ds-color-invalid-bg:         var(--ds-color-danger-soft);
+  --ds-color-invalid-fg:         var(--ds-color-danger-on-soft);
+  --ds-color-invalid-border:     var(--ds-color-danger-solid);
+  --ds-color-invalid-ring:       color-mix(in srgb, var(--ds-color-danger-solid) 36%, transparent);
+
+  --ds-color-focus-ring:         var(--ds-brand-focus-ring);
+  --ds-color-focus-bg:           var(--ds-color-primary-bg);
+  --ds-color-focus-border:       var(--ds-color-primary);
+
+  /* ---- 4. Brand signature. */
+  --ds-brand-accent:        var(--ds-color-primary-400);
+  --ds-brand-accent-soft:   var(--ds-color-primary-light);
+  --ds-brand-focus-ring:    rgba(139, 102, 224, 0.5);
+  --ds-brand-selection-bg:  var(--ds-color-primary-light);
+
+  /* ---- 5. Component tokens. */
+  --ds-color-background: var(--ds-color-surface);
+  --ds-color-light:      var(--ds-color-surface-sunken);
+  --ds-color-answer:     #14161e;
+  --ds-color-active:     rgba(139, 102, 224, 0.22);
+
+  --ds-color-control-bg:            #16181f;
+  --ds-color-control-border:        var(--ds-color-border-subtle);
+  --ds-color-control-hover-bg:      #1d1f27;
+  --ds-color-control-hover-border:  var(--ds-color-gray-300);
+  --ds-color-control-active-bg:     var(--ds-color-primary-bg);
+  --ds-color-control-active-border: var(--ds-color-primary);
+
+  --ds-color-btn-primary-bg:           var(--ds-color-primary);
+  --ds-color-btn-primary-hover-bg:     var(--ds-color-primary-300);
+  --ds-color-btn-primary-active-bg:    var(--ds-color-primary-500);
+  --ds-color-btn-primary-text:         var(--ds-color-static-white);
+  --ds-color-btn-primary-hover-text:   var(--ds-color-static-white);
+  --ds-color-btn-primary-active-text:  var(--ds-color-static-white);
+
+  --ds-color-btn-simple-bg:            transparent;
+  --ds-color-btn-simple-hover-bg:      var(--ds-color-primary-bg);
+  --ds-color-btn-simple-active-bg:     rgba(139, 102, 224, 0.3);
+  --ds-color-btn-simple-text:          var(--ds-color-primary);
+  --ds-color-btn-simple-hover-text:    var(--ds-color-primary);
+  --ds-color-btn-simple-active-text:   var(--ds-color-primary);
+
+  --ds-color-btn-flat-bg:              transparent;
+  --ds-color-btn-flat-hover-bg:        rgba(255, 255, 255, 0.08);
+  --ds-color-btn-flat-active-bg:       rgba(139, 102, 224, 0.2);
+  --ds-color-btn-flat-text:            var(--ds-color-secondary-text);
+  --ds-color-btn-flat-icon:            var(--ds-color-secondary);
+  --ds-color-btn-flat-hover-text:      var(--ds-color-fg);
+  --ds-color-btn-flat-hover-icon:      var(--ds-color-primary);
+  --ds-color-btn-flat-active-text:     var(--ds-color-fg);
+  --ds-color-btn-flat-active-icon:     var(--ds-color-primary);
+
+  --ds-color-table-header: #191b24;
+  --ds-color-table-hover:  rgba(255, 255, 255, 0.05);
+  --ds-color-table-active: rgba(255, 255, 255, 0.08);
+
+  --ds-color-tooltip-bg:        #2c3040;
+  --ds-color-tooltip-text:      var(--ds-color-static-white);
+  --ds-color-user-input-bg:     var(--ds-color-surface-sunken);
+  --ds-color-message-bg:        var(--ds-color-surface-raised);
+  --ds-color-header-bg:         #211b36;
+  --ds-color-panel-main-bg:     #11131b;
+  --ds-color-agent-message:     #1b1d26;
+  --ds-color-agent-user-message: var(--ds-color-primary-light);
+
+  --ds-color-like-bg:    rgba(99, 230, 170, 0.16);
+  --ds-color-like-text:  #77e6ad;
+  --ds-color-dislike-bg: rgba(255, 102, 115, 0.14);
+  --ds-color-neutral-bg: #1b1d26;
+
+  --ds-color-status-ready:          var(--ds-color-success-soft);
+  --ds-color-status-ready-text:     var(--ds-color-success-on-soft);
+  --ds-color-processing-ready:      rgba(244, 220, 124, 0.16);
+  --ds-color-processing-ready-text: #ffba5c;
+  --ds-color-in-progress:           #191c27;
+
+  --ds-color-score-irrelevant:      var(--ds-color-background);
+  --ds-color-score-irrelevant-text: var(--ds-color-fg-muted);
+  --ds-color-score-relevant:        var(--ds-color-primary-bg);
+  --ds-color-score-relevant-text:   var(--ds-color-primary);
+
+  --ds-color-light-grey:                #242733;
+  --ds-color-chip-accent-bg:            rgba(139, 102, 224, 0.22);
+  --ds-color-semi-transparent-primary:  rgba(139, 102, 224, 0.5);
+  --ds-color-gradient:                  linear-gradient(125.99deg, #8b66e0 2.28%, #f05d8e 100.12%);
+  --ds-color-hover-background:          #202330;
+  --ds-color-medium:                    #232a38;
+  --ds-color-dashboard-heading:         var(--ds-color-gray-700);
+
+  --ds-color-question-answered:     var(--ds-color-like-bg);
+  --ds-color-question-not-answered: #202839;
+  --ds-color-no-results:             rgba(255, 102, 115, 0.16);
+
+  --ds-color-system-message-bg: #191b24;
+
+  /* ---- 6. Legacy aliases. */
+  --ds-color-white:        var(--ds-color-surface-raised);
+  --ds-color-black:        var(--ds-color-fg);
+  --ds-color-text-primary: var(--ds-color-fg);
+  --ds-color-label:        var(--ds-color-gray-700);
+  --ds-color-text-weak:    #9a9aa6;
+  --ds-color-text-grey:    var(--ds-color-fg-muted);
+  --ds-color-placeholder:  rgba(255, 255, 255, 0.45);
+  --ds-color-seemless:     var(--ds-color-fg-subtle);
+  --ds-color-link-color:   var(--ds-color-secondary);
+  --ds-color-icon:         var(--ds-color-secondary);
+
+  --ds-color-border-2: var(--ds-color-border-strong);
+
+  --ds-color-success:           var(--ds-color-success-200);
+  --ds-color-success-text:      var(--ds-color-success-solid);
+
+  --ds-color-warning:           var(--ds-color-warning-200);
+  --ds-color-warning-text:      var(--ds-color-warning-solid);
+  --ds-color-warning-secondary: #e8c94f;
+  --ds-color-warning-bg:        var(--ds-color-warning-soft);
+  --ds-color-warning-low:       rgba(244, 220, 124, 0.08);
+
+  --ds-color-error:      var(--ds-color-danger-solid);
+  --ds-color-error-bg:   var(--ds-color-danger-soft);
+  --ds-color-error-text: var(--ds-color-danger-on-soft);
+
+  --ds-color-info: var(--ds-color-info-solid);
+}

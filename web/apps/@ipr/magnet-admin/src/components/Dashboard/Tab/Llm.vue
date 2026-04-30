@@ -1,67 +1,77 @@
-<template lang="pug">
-.row
-  .col-auto.center-flex-y
-    q-tabs.full-width.q-mb-16(
-      v-model='tab',
-      narrow-indicator,
-      dense,
-      align='left',
-      active-color='primary',
-      indicator-color='primary',
-      active-bg-color='white',
-      no-caps,
-      content-class='km-tabs'
-    )
-      template(v-for='t in tabs')
-        q-tab(:name='t.name', :label='t.label')
-  .col-12.q-my-16
-    .row.items-center.q-gap-4.q-pb-4.justify-between
-      .col-auto.center-flex-y
-        km-filter-bar(v-model:config='currentFilter', v-model:filterObject='activeFilters', ref='filterRef')
-  .col-12
-    template(v-if='tab === "summary"')
-      .km-grid-2
-        dashboard-board-card(header='Usage & cost', theme='dark')
-          template(v-slot:body)
-            .column.q-gap-16
-              dashboard-board-label-value(:label='m.dashboard_totalRequests()', :value='data.totalRequests')
-              dashboard-board-label-value(:label='m.dashboard_avgRequestCost()', :value='data.avgRequestCost')
-              dashboard-board-label-value(:label='m.dashboard_totalCost()', :value='data.totalCost')
-        dashboard-board-card(header='Performance', theme='dark')
-          template(v-slot:body)
-            .column.q-gap-16
-              dashboard-board-label-value(:label='m.dashboard_avgRequestLatency()', :value='data.avgRequestLatency')
-              dashboard-board-label-value(:label='m.dashboard_errorRate()', :value='data.errorRate')
-      .km-grid-1.q-mt-16(v-if='activeFilters.model')
-        dashboard-board-card(header='Consumer Requests')
-          template(v-slot:body)
-            .column.q-gap-16
-              km-data-table(:table='topTable', hide-pagination)
-      .km-grid-1.q-mt-16(v-else)
-        dashboard-board-card(header='Top request consumers')
-          template(v-slot:body)
-            .column.q-gap-16
-              km-data-table(:table='topTable', hide-pagination, @row-click='topRowClick')
-    template(v-if='tab === "list"')
-      .column.q-gap-16.full-width
-        km-data-table(
-          :table='detailsTable',
-          row-key='_id',
-          :loading='detailsLoading',
-          hide-pagination,
-          @row-click='detailsRowClick'
-        )
-        .row.items-center.q-px-md.q-py-sm.text-grey.ba-border(v-if='pagination.rowsNumber')
-          .km-description {{ pagination.rowsNumber }} record{{ pagination.rowsNumber !== 1 ? 's' : '' }}
-          q-space
-          .row.items-center.q-gap-8
-            span.km-description Rows per page: {{ pagination.rowsPerPage }}
-          .row.items-center.q-ml-md.q-gap-4
-            q-btn(flat, dense, round, icon='first_page', size='sm', :disable='pagination.page <= 1', @click='goToPage(1)')
-            q-btn(flat, dense, round, icon='chevron_left', size='sm', :disable='pagination.page <= 1', @click='goToPage(pagination.page - 1)')
-            span.km-description {{ pagination.page }} / {{ totalPages }}
-            q-btn(flat, dense, round, icon='chevron_right', size='sm', :disable='pagination.page >= totalPages', @click='goToPage(pagination.page + 1)')
-            q-btn(flat, dense, round, icon='last_page', size='sm', :disable='pagination.page >= totalPages', @click='goToPage(totalPages)')
+<template>
+  <div>
+    <div class="flex-none center-flex-y">
+      <km-tabs v-model="tab" class="full-width mb-lg" narrow-indicator dense align="left" no-caps content-class="km-tabs">
+        <template v-for="t in tabs" :key="t">
+          <km-tab :name="t.name" :label="t.label" />
+        </template>
+      </km-tabs>
+    </div>
+    <div class="basis-12 my-lg">
+      <div class="cluster pb-xs" data-gap="xs" data-justify="between">
+        <div class="flex-none center-flex-y">
+          <km-filter-bar ref="filterRef" v-model:config="currentFilter" v-model:filter-object="activeFilters" />
+        </div>
+      </div>
+    </div>
+    <div class="basis-12">
+      <template v-if="tab === &quot;summary&quot;">
+        <div class="km-grid-2">
+          <dashboard-board-card header="Usage &amp; cost" theme="dark">
+            <template #body>
+              <div class="stack" data-gap="lg">
+                <dashboard-board-label-value :label="m.dashboard_totalRequests()" :value="data.totalRequests" />
+                <dashboard-board-label-value :label="m.dashboard_avgRequestCost()" :value="data.avgRequestCost" />
+                <dashboard-board-label-value :label="m.dashboard_totalCost()" :value="data.totalCost" />
+              </div>
+            </template>
+          </dashboard-board-card>
+          <dashboard-board-card header="Performance" theme="dark">
+            <template #body>
+              <div class="stack" data-gap="lg">
+                <dashboard-board-label-value :label="m.dashboard_avgRequestLatency()" :value="data.avgRequestLatency" />
+                <dashboard-board-label-value :label="m.dashboard_errorRate()" :value="data.errorRate" />
+              </div>
+            </template>
+          </dashboard-board-card>
+        </div>
+        <div v-if="activeFilters.model" class="km-grid-1 mt-lg">
+          <dashboard-board-card header="Consumer Requests">
+            <template #body>
+              <div class="stack" data-gap="lg">
+                <km-data-table :table="topTable" hide-pagination />
+              </div>
+            </template>
+          </dashboard-board-card>
+        </div>
+        <div v-else class="km-grid-1 mt-lg">
+          <dashboard-board-card header="Top request consumers">
+            <template #body>
+              <div class="stack" data-gap="lg">
+                <km-data-table :table="topTable" hide-pagination @row-click="topRowClick" />
+              </div>
+            </template>
+          </dashboard-board-card>
+        </div>
+      </template>
+      <template v-if="tab === &quot;list&quot;">
+        <div class="stack full-width" data-gap="lg">
+          <km-data-table :table="detailsTable" row-key="_id" :loading="detailsLoading" hide-pagination @row-click="detailsRowClick" />
+          <div v-if="pagination.rowsNumber" class="cluster px-md py-sm text-grey ba-border" data-justify="between">
+            <div class="km-description">{{ pagination.rowsNumber }} record{{ pagination.rowsNumber !== 1 ? 's' : '' }}</div>
+            <div class="km-space" />
+            <div class="cluster" data-gap="sm"><span class="km-description">Rows per page: {{ pagination.rowsPerPage }}</span></div>
+            <div class="cluster ml-md" data-gap="xs">
+              <km-btn flat dense round icon="first-page" size="sm" :disable="pagination.page &lt;= 1" @click="goToPage(1)" />
+              <km-btn flat dense round icon="chevron_left" size="sm" :disable="pagination.page &lt;= 1" @click="goToPage(pagination.page - 1)" /><span class="km-description">{{ pagination.page }} / {{ totalPages }}</span>
+              <km-btn flat dense round icon="chevron_right" size="sm" :disable="pagination.page &gt;= totalPages" @click="goToPage(pagination.page + 1)" />
+              <km-btn flat dense round icon="last-page" size="sm" :disable="pagination.page &gt;= totalPages" @click="goToPage(totalPages)" />
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
 </template>
 
 <script>

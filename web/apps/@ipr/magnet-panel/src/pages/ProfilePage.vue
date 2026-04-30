@@ -1,5 +1,8 @@
-<template lang="pug">
-user-profile-page(:user-info='auth.userInfo', @save='handleSave')
+<template>
+  <user-profile-page
+    :user-info="auth.userInfo"
+    @save="handleSave"
+  />
 </template>
 
 <script setup>

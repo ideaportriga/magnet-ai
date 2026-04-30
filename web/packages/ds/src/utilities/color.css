@@ -1,0 +1,55 @@
+/* =============================================================================
+ * Color utilities
+ * =============================================================================
+ * `bg-*`, `text-*`, `border-*` mapped to `--ds-color-*`. Only ship semantic
+ * names — raw hex utilities (`bg-red-500`) are intentionally omitted to keep
+ * design-token discipline.
+ * ============================================================================= */
+
+/* ---------- Background ---------- */
+.bg-transparent { background-color: transparent; }
+.bg-primary     { background-color: var(--ds-color-primary); }
+.bg-primary-bg  { background-color: var(--ds-color-primary-bg); }
+.bg-secondary   { background-color: var(--ds-color-secondary); }
+.bg-secondary-bg{ background-color: var(--ds-color-secondary-bg); }
+.bg-accent      { background-color: var(--ds-color-accent); }
+.bg-accent-bg   { background-color: var(--ds-color-accent-bg); }
+.bg-background  { background-color: var(--ds-color-background); }
+.bg-light       { background-color: var(--ds-color-light); }
+.bg-white       { background-color: var(--ds-color-white); }
+.bg-success     { background-color: var(--ds-color-success); }
+.bg-warning     { background-color: var(--ds-color-warning); }
+.bg-warning-bg  { background-color: var(--ds-color-warning-bg); }
+.bg-error       { background-color: var(--ds-color-error); }
+.bg-error-bg    { background-color: var(--ds-color-error-bg); }
+.bg-info        { background-color: var(--ds-color-info); }
+.bg-table-header{ background-color: var(--ds-color-table-header); }
+.bg-tooltip     { background-color: var(--ds-color-tooltip-bg); }
+
+/* ---------- Foreground / text ---------- */
+.text-primary    { color: var(--ds-color-primary); }
+.text-secondary  { color: var(--ds-color-secondary-text); }
+.text-accent     { color: var(--ds-color-accent); }
+.text-default    { color: var(--ds-color-black); }
+.text-label      { color: var(--ds-color-label); }
+.text-weak       { color: var(--ds-color-text-weak); }
+.text-grey       { color: var(--ds-color-text-grey); }
+.text-placeholder{ color: var(--ds-color-placeholder); }
+.text-icon       { color: var(--ds-color-icon); }
+.text-success    { color: var(--ds-color-success-text); }
+.text-warning    { color: var(--ds-color-warning-text); }
+.text-error      { color: var(--ds-color-error-text); }
+.text-info       { color: var(--ds-color-info); }
+.text-on-primary { color: var(--ds-color-btn-primary-text); }
+.text-on-tooltip { color: var(--ds-color-tooltip-text); }
+.text-white      { color: var(--ds-color-static-white, #fff); }
+.text-black      { color: var(--ds-color-black); }
+.text-link       { color: var(--ds-color-link-color); }
+
+/* ---------- Borders ---------- */
+.border-default  { border-color: var(--ds-color-border); }
+.border-strong   { border-color: var(--ds-color-border-2); }
+.border-primary  { border-color: var(--ds-color-primary); }
+.border-success  { border-color: var(--ds-color-success-text); }
+.border-warning  { border-color: var(--ds-color-warning-text); }
+.border-error    { border-color: var(--ds-color-error); }

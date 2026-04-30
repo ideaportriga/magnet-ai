@@ -1,10 +1,13 @@
-<template lang="pug">
-.column
-  .row.items-center.q-gap-8(v-if='prompt')
-    .km-paragraph {{ prompt.display_name }}
-    km-chip.text-secondary-text(:label='variant', color='in-progress', round)
-  .row.items-center.q-gap-8(v-else)
-    .km-paragraph -
+<template>
+  <div class="stack" data-gap="0">
+    <div v-if="prompt" class="cluster" data-gap="sm">
+      <div class="km-paragraph">{{ prompt.display_name }}</div>
+      <km-chip class="text-secondary-text" :label="variant" tone="neutral" round />
+    </div>
+    <div v-else class="cluster" data-gap="sm">
+      <div class="km-paragraph">-</div>
+    </div>
+  </div>
 </template>
 <script>
 export default {

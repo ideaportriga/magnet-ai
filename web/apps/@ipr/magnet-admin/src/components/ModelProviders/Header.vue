@@ -1,11 +1,14 @@
-<template lang="pug">
-.col-auto.q-py-auto
-  .km-body {{ server?.name }}
+<template>
+  <div class="flex-1 min-w-0 py-auto">
+    <KmBreadcrumbNav :items="crumbs" />
+  </div>
 </template>
+
 <script setup>
+import { computed } from 'vue'
 import { useEntityDetail } from '@/composables/useEntityDetail'
-import { m } from '@/paraglide/messages'
+import KmBreadcrumbNav from '@ds/components/domain/KmBreadcrumbNav.vue'
 
 const { draft } = useEntityDetail('provider')
-const server = draft
+const crumbs = computed(() => [{ label: draft.value?.name ?? '' }])
 </script>

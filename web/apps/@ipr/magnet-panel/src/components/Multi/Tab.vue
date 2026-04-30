@@ -1,30 +1,66 @@
-<template lang="pug">
-.bg-light.full-height.column.no-wrap
-  q-tabs(
-    dense,
-    active-color='primary',
-    active-bg-color='light',
-    outside-arrows,
-    :align='$theme === "default" ? "center" : "justify"',
-    no-caps,
-    :model-value='currentTab',
-    indicator-color='transparent',
-    breakpoint='450',
-    @update:modelValue='setActiveTab($event)'
-  )
-    template(v-for='(child, index) in panels')
-      q-tab.bg-light(:name='child.name')
-        template(v-if='$theme === "default" || $theme === "siebel"')
-          .secondary-text.km-title {{ child.name }}
-        template(v-else)
-          .km-tab-text {{ child.name }}
-  template(v-if='panels.length > 0')
-    q-tab-panels.fit.rounded-borders(v-model='currentTab')
-      template(v-for='panel in panels')
-        q-tab-panel.q-pa-none(:name='panel.name')
-          component(:is='panel.component.name', :key='panel.name', v-bind='panel.component.props')
-  template(v-else)
-    .bg-light.q-pt-xl.justify-center.flex.text-secondary-text.km-title {{ m.panel_noAvailableTabsMulti() }}
+<template>
+  <div
+    class="bg-light full-height stack"
+    data-gap="0"
+  >
+    <km-tabs
+      dense
+      outside-arrows
+      :align="$theme === &quot;default&quot; ? &quot;center&quot; : &quot;justify&quot;"
+      no-caps
+      :model-value="currentTab"
+      breakpoint="450"
+      @update:model-value="setActiveTab($event)"
+    >
+      <template
+        v-for="(child, index) in panels"
+        :key="index"
+      >
+        <km-tab
+          class="bg-light"
+          :name="child.name"
+        >
+          <template v-if="$theme === &quot;default&quot; || $theme === &quot;siebel&quot;">
+            <div class="secondary-text km-title">
+              {{ child.name }}
+            </div>
+          </template>
+          <template v-else>
+            <div class="km-tab-text">
+              {{ child.name }}
+            </div>
+          </template>
+        </km-tab>
+      </template>
+    </km-tabs>
+    <template v-if="panels.length &gt; 0">
+      <km-tab-panels
+        v-model="currentTab"
+        class="fit rounded-borders"
+      >
+        <template
+          v-for="panel in panels"
+          :key="panel.name"
+        >
+          <km-tab-panel
+            class="p-0"
+            :name="panel.name"
+          >
+            <component
+              :is="panel.component.name"
+              :key="panel.name"
+              v-bind="panel.component.props"
+            />
+          </km-tab-panel>
+        </template>
+      </km-tab-panels>
+    </template>
+    <template v-else>
+      <div class="bg-light pt-xl justify-center flex text-secondary-text km-title">
+        {{ m.panel_noAvailableTabsMulti() }}
+      </div>
+    </template>
+  </div>
 </template>
 
 <script>

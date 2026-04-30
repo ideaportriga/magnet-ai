@@ -1,32 +1,23 @@
-<template lang="pug">
-.column.no-wrap.full-height
-  .collection-container.q-mx-auto.full-width.column.full-height.q-px-md.q-pt-16
-    .col.ba-border.border-radius-12.bg-white.q-pa-16.column(style='min-height: 0')
-      .row.q-mb-12
-        .col-auto.center-flex-y
-          km-input(data-test='search-input', :placeholder='m.common_search()', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
-        q-space
-        .col-auto.center-flex-y
-          km-btn.q-mr-12(data-test='new-btn', :label='m.common_new()', @click='showNewDialog = true')
-      .col(style='min-height: 0')
-        km-data-table(
-          :table='table',
-          :loading='isLoading', :fetching='isFetching',
-          fill-height,
-          row-key='id',
-          @row-click='openDetails'
-        )
-  api-keys-create-new(:showNewDialog='showNewDialog', @cancel='showNewDialog = false')
-  km-popup-confirm(
-    :visible='showConfirmDialog',
-    confirmButtonLabel='Ok, delete',
-    :cancelButtonLabel='m.common_cancel()',
-    notificationIcon='fas fa-triangle-exclamation',
-    @confirm='deleteSelected',
-    @cancel='showConfirmDialog = false'
-  )
-    .row.item-center.justify-center.km-heading-7.q-mb-md {{ deleteTitle }}
-    .row.text-center.justify-center Access granted by this key will be immediately revoked, and any applications or services using it will no longer be able to connect. This action cannot be undone.
+<template>
+  <km-list-page>
+    <template #toolbar>
+      <div class="flex-none center-flex-y">
+        <km-input data-test="search-input" :placeholder="m.common_search()" icon-before="search" :model-value="globalFilter" clearable @input="globalFilter = $event" />
+      </div>
+      <div class="km-space" />
+      <div class="flex-none center-flex-y">
+        <km-btn class="mr-md" data-test="new-btn" :label="m.common_new()" @click="showNewDialog = true" />
+      </div>
+    </template>
+    <km-data-table :table="table" :loading="isLoading" :fetching="isFetching" fill-height row-key="id" @row-click="openDetails" />
+    <template #overlays>
+      <api-keys-create-new :show-new-dialog="showNewDialog" @cancel="showNewDialog = false" />
+      <km-popup-confirm :visible="showConfirmDialog" confirm-button-label="Ok, delete" :cancel-button-label="m.common_cancel()" notification-icon="warning" @confirm="deleteSelected" @cancel="showConfirmDialog = false">
+        <div class="cluster km-heading-7 mb-md" data-justify="center">{{ deleteTitle }}</div>
+        <div class="cluster text-center" data-justify="center">Access granted by this key will be immediately revoked, and any applications or services using it will no longer be able to connect. This action cannot be undone.</div>
+      </km-popup-confirm>
+    </template>
+  </km-list-page>
 </template>
 
 <script setup lang="ts">

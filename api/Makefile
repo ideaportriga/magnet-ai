@@ -3,7 +3,7 @@
 # Please use the root `package.json` scripts instead.
 # See README.md for details.
 
-.PHONY: run help docker-up docker-down docker-restart docker-logs docker-status docker-clean db-init db-migrate db-upgrade db-downgrade db-current db-history db-stamp db-merge db-reset db-create db-drop db-status db-docker-status fixtures-load fixtures-list fixtures-load-entity migration-check migration-dry-run migration-run migration-collection migration-collection-dry download-static
+.PHONY: run help docker-up docker-down docker-restart docker-logs docker-status docker-clean db-init db-migrate db-upgrade db-downgrade db-current db-history db-stamp db-merge db-reset db-create db-drop db-status db-docker-status fixtures-load fixtures-list fixtures-load-entity migration-check migration-dry-run migration-run migration-collection migration-collection-dry download-static bootstrap-superuser setup-fresh
 
 # PostgreSQL connection parameters from .env
 POSTGRES_HOST := $(or $(shell grep '^DATABASE_URL=' .env 2>/dev/null | sed -n 's|.*@\([^:]*\):.*|\1|p'),localhost)
@@ -48,6 +48,10 @@ help:
 	@echo "  db-stamp       - Mark database as up-to-date without running migrations"
 	@echo "  db-merge       - Merge multiple heads into one"
 	@echo "  db-reset       - DANGER: Reset all migrations and recreate database from scratch"
+	@echo ""
+	@echo "🔐 Bootstrap commands:"
+	@echo "  bootstrap-superuser - Create/promote a superuser from BOOTSTRAP_SUPERUSER_* env vars"
+	@echo "  setup-fresh         - Full clean-deploy: docker → db-create → db-upgrade → bootstrap-superuser"
 	@echo ""
 	@echo "🔧 Fixture commands:"
 	@echo "  fixtures-load       - Load all database fixtures"
@@ -214,6 +218,20 @@ db-reset:
 	@PYTHONPATH=src poetry run alembic -c src/core/db/migrations/alembic.ini upgrade head
 	@echo "✅ Database reset complete!"
 	@echo ""
+
+# Bootstrap (idempotent superuser for fresh deploys / dev login)
+bootstrap-superuser:
+	@echo "🔐 Bootstrapping superuser from BOOTSTRAP_SUPERUSER_* env vars..."
+	PYTHONPATH=src poetry run python scripts/bootstrap_superuser.py
+
+# Full fresh-deploy setup: db up + migrations + superuser
+setup-fresh:
+	@echo "🚀 Running clean-deploy setup: docker → migrations → superuser"
+	$(MAKE) docker-up
+	$(MAKE) db-create
+	$(MAKE) db-upgrade
+	$(MAKE) bootstrap-superuser
+	@echo "✅ Fresh setup complete. Login with the BOOTSTRAP_SUPERUSER_* credentials."
 
 # Fixture management commands
 fixtures-load:

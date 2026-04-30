@@ -34,6 +34,18 @@ function push(severity: string, message: string, extra?: Record<string, unknown>
   )
 }
 
+// Browser-emitted noise that has no actionable signal — suppress at the
+// shipper boundary so it doesn't drown out real errors in Loki.
+const NOISE_PATTERNS = [
+  // Chromium fires this when an observed element resizes during the same
+  // frame as a layout pass. Always benign, well-known false positive.
+  /^ResizeObserver loop /,
+]
+
+function isNoise(message: string): boolean {
+  return NOISE_PATTERNS.some((re) => re.test(message))
+}
+
 function safeString(value: unknown): string {
   try {
     if (value === null || value === undefined) return String(value)
@@ -55,16 +67,22 @@ export function initLokiLogger() {
 
   console.error = (...args: unknown[]) => {
     _error(...args)
-    push('error', args.map(safeString).join(' '))
+    const msg = args.map(safeString).join(' ')
+    if (isNoise(msg)) return
+    push('error', msg)
   }
 
   console.warn = (...args: unknown[]) => {
     _warn(...args)
-    push('warning', args.map(safeString).join(' '))
+    const msg = args.map(safeString).join(' ')
+    if (isNoise(msg)) return
+    push('warning', msg)
   }
 
   window.onerror = (message, source, lineno, colno, error) => {
-    push('error', String(message), {
+    const msg = String(message)
+    if (isNoise(msg)) return false
+    push('error', msg, {
       source,
       lineno,
       colno,

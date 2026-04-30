@@ -1,9 +1,11 @@
-<template lang="pug">
-div
-  .km-field.text-secondary-text.q-pb-sm.q-pl-8 {{ m.common_notes() }}
-    km-input(ref='input', rows='20', border-radius='8px', height='36px', type='textarea', v-model='notes')
-    .km-description.text-secondary-text.q-pl-8.q-pt-4
-      | {{ m.subtitle_storeSampleInput() }}
+<template>
+  <div>
+    <div class="km-field text-secondary-text pb-sm pl-sm">
+      {{ m.common_notes() }}
+      <km-input ref="input" v-model="notes" rows="20" border-radius="8px" height="36px" type="textarea" />
+      <div class="km-description text-secondary-text pl-sm pt-xs">{{ m.subtitle_storeSampleInput() }}</div>
+    </div>
+  </div>
 </template>
 
 <script>

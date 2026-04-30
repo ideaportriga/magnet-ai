@@ -88,27 +88,65 @@ async def _preserve_file_ids(
 
 
 def _inject_storage_into_store(store_obj: Any) -> None:
-    """Attach StorageService and a shared db_session to the DocumentStore so plugins can use it."""
-    if getattr(store_obj, "storage_service", None) is not None:
-        return
+    """Attach StorageService + DB session to the DocumentStore (idempotent).
+
+    In worker (TaskIQ) context, `PerTaskLifecycleMiddleware` has already
+    attached a fresh per-task `storage_db_session`, so this function only
+    needs to make sure `storage_service` is present. In HTTP-request context
+    (admin UI "sync now" button), the request's session is already bound to
+    the handler — we fall back to creating a managed one here and let
+    `_release_storage_from_store` clean it up in the `finally`.
+    """
     try:
         from storage import StorageService
 
-        store_obj.storage_service = StorageService()
+        if getattr(store_obj, "storage_service", None) is None:
+            store_obj.storage_service = StorageService()
     except Exception:
         pass
 
-    if getattr(store_obj, "storage_db_session", None) is None:
-        try:
-            from core.config.base import get_settings
-            from sqlalchemy.ext.asyncio import AsyncSession as _AS
+    # If something else (middleware, caller) already attached a session,
+    # respect it. Only create a fallback one when nothing is set.
+    if getattr(store_obj, "storage_db_session", None) is not None:
+        return
 
-            settings = get_settings()
-            store_obj.storage_db_session = _AS(
-                settings.db.get_engine(), expire_on_commit=False
-            )
-        except Exception:
-            pass
+    try:
+        from core.config.base import get_settings
+        from sqlalchemy.ext.asyncio import AsyncSession as _AS
+
+        settings = get_settings()
+        store_obj.storage_db_session = _AS(
+            settings.db.get_engine(), expire_on_commit=False
+        )
+        # Mark it ours so _release_storage_from_store knows it's safe to close.
+        store_obj._mai_storage_session_owned = True
+    except Exception:
+        pass
+
+
+async def _release_storage_from_store(store_obj: Any) -> None:
+    """Close the storage_db_session IF this function opened it.
+
+    Under TaskIQ, the middleware owns the session lifecycle — we must not
+    close a session we didn't create. `_mai_storage_session_owned=True` is
+    set by `_inject_storage_into_store` only for fallback-created sessions.
+    """
+    if not getattr(store_obj, "_mai_storage_session_owned", False):
+        return
+    session = getattr(store_obj, "storage_db_session", None)
+    if session is None:
+        return
+    try:
+        await session.rollback()
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        await session.close()
+    except Exception:  # noqa: BLE001
+        pass
+    finally:
+        store_obj.storage_db_session = None
+        store_obj._mai_storage_session_owned = False
 
 
 async def _claim_temp_files(
@@ -332,24 +370,29 @@ async def sync_collection_standalone(collection_id: str, **kwargs) -> None:
             f"Plugin '{source_type}' is not a valid KnowledgeSourcePlugin"
         )
 
-    # Inject StorageService + shared db_session into store so plugins can access it
+    # Inject StorageService + a FRESH db_session into store so plugins can
+    # access it. Session is released in the `finally` block below so it
+    # never leaks across syncs (see _release_storage_from_store).
     _inject_storage_into_store(store)
 
-    # Enrich uploaded_files from stored_files table (source of truth).
-    # Frontend may lose file_id from metadata, but the DB always has it.
-    merged_source_config = await _enrich_uploaded_files(
-        collection_id,
-        merged_source_config,
-        db_session=getattr(store, "storage_db_session", None),
-    )
+    try:
+        # Enrich uploaded_files from stored_files table (source of truth).
+        # Frontend may lose file_id from metadata, but the DB always has it.
+        merged_source_config = await _enrich_uploaded_files(
+            collection_id,
+            merged_source_config,
+            db_session=getattr(store, "storage_db_session", None),
+        )
 
-    # Create processor using the plugin with merged configuration
-    processor = await plugin.create_processor(
-        merged_source_config, collection_config, store
-    )
+        # Create processor using the plugin with merged configuration
+        processor = await plugin.create_processor(
+            merged_source_config, collection_config, store
+        )
 
-    # Sync using the processor
-    await Synchronizer(processor, store).sync(collection_id)
+        # Sync using the processor
+        await Synchronizer(processor, store).sync(collection_id)
+    finally:
+        await _release_storage_from_store(store)
 
 
 # TODO - complete naming change (Collection -> Knowledge Source, Document - Chunk(?))

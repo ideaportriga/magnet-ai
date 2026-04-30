@@ -1,38 +1,22 @@
-<template lang="pug">
-div
-  .column.items-center.full-height.full-width.q-gap-16.overflow-auto
-    .row.km-heading-4 {{ m.agents_configureYourAgent() }}
-    .row.km-paragraph {{ m.agents_agentEssentialParts() }}
-
-    .row.q-gap-16.full-width.items-center
-      .col
-        km-card(
-          icon='fas fa-tag',
-          :label='m.common_topics()',
-          :description='m.agents_topicsDescription()',
-          :actionLabel='m.agents_addTopic()',
-          @click='showNewTopicDialog = true',
-          :qty='topicsQty'
-        )
-      .col
-        km-card(
-          icon='fas fa-puzzle-piece',
-          :label='m.entity_action()',
-          :description='m.agents_actionsDescription()',
-          :qty='actionsQty',
-          :actionLabel='m.agents_reviewActions()',
-          @click='$emit("change-tab", "actions")'
-        )
-      .col
-        km-card(
-          icon='fas fa-wand-magic-sparkles',
-          :label='m.agents_agentPromptTemplates()',
-          :description='m.agents_agentPromptTemplatesDesc()',
-          :actionLabel='m.agents_reviewPromptTemplates()',
-          @click='$emit("change-tab", "prompts")'
-        )
-
-    agents-create-new-topic(:showNewDialog='showNewTopicDialog', @cancel='showNewTopicDialog = false', v-if='showNewTopicDialog')
+<template>
+  <div>
+    <div class="stack items-center full-height full-width overflow-auto" data-gap="lg">
+      <div class="cluster km-heading-4">{{ m.agents_configureYourAgent() }}</div>
+      <div class="cluster km-paragraph">{{ m.agents_agentEssentialParts() }}</div>
+      <div class="cluster full-width" data-gap="lg">
+        <div class="flex-1">
+          <km-card icon="tag" :label="m.common_topics()" :description="m.agents_topicsDescription()" :action-label="m.agents_addTopic()" :qty="topicsQty" @click="showNewTopicDialog = true" />
+        </div>
+        <div class="flex-1">
+          <km-card icon="puzzle" :label="m.entity_action()" :description="m.agents_actionsDescription()" :qty="actionsQty" :action-label="m.agents_reviewActions()" @click="$emit(&quot;change-tab&quot;, &quot;actions&quot;)" />
+        </div>
+        <div class="flex-1">
+          <km-card icon="magic" :label="m.agents_agentPromptTemplates()" :description="m.agents_agentPromptTemplatesDesc()" :action-label="m.agents_reviewPromptTemplates()" @click="$emit(&quot;change-tab&quot;, &quot;prompts&quot;)" />
+        </div>
+      </div>
+      <agents-create-new-topic v-if="showNewTopicDialog" :show-new-dialog="showNewTopicDialog" @cancel="showNewTopicDialog = false" />
+    </div>
+  </div>
 </template>
 
 <script>

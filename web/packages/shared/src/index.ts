@@ -16,7 +16,6 @@ export { default as useValidation, validationProps } from './lib/composables/use
 export { getComponentList } from './lib/boot/componentList'
 export { globalProperties } from './lib/boot/globalProperties'
 export { default as initDataSource } from './lib/boot/initDataSource'
-export { default as quasarConf } from './lib/boot/quasar'
 
 // utils
 

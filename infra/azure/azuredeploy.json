@@ -4,8 +4,8 @@
   "metadata": {
     "_generator": {
       "name": "bicep",
-      "version": "0.41.2.15936",
-      "templateHash": "15924507858784111483"
+      "version": "0.42.1.51946",
+      "templateHash": "4077108448668522711"
     }
   },
   "parameters": {
@@ -35,6 +35,13 @@
       "defaultValue": "ZmVybmV0LWRlZmF1bHQta2V5LWNoYW5nZW1l",
       "metadata": {
         "description": "Fernet encryption key for SECRET_ENCRYPTION_KEY"
+      }
+    },
+    "secretKey": {
+      "type": "securestring",
+      "defaultValue": "",
+      "metadata": {
+        "description": "SECRET_KEY for JWT auth. Leave empty to disable auth in non-prod; required when AUTH_ENABLED=true."
       }
     }
   },
@@ -73,8 +80,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.41.2.15936",
-              "templateHash": "1848688796096706583"
+              "version": "0.42.1.51946",
+              "templateHash": "6877242451576588585"
             }
           },
           "parameters": {
@@ -161,8 +168,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.41.2.15936",
-              "templateHash": "15254377621010111257"
+              "version": "0.42.1.51946",
+              "templateHash": "13247851584541062163"
             }
           },
           "parameters": {
@@ -337,8 +344,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.41.2.15936",
-              "templateHash": "10899668269615551112"
+              "version": "0.42.1.51946",
+              "templateHash": "11051226631219043228"
             }
           },
           "parameters": {
@@ -492,8 +499,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.41.2.15936",
-              "templateHash": "3445700738105478187"
+              "version": "0.42.1.51946",
+              "templateHash": "3691629617023894704"
             }
           },
           "parameters": {
@@ -602,6 +609,9 @@
           },
           "secretEncryptionKey": {
             "value": "[parameters('secretEncryptionKey')]"
+          },
+          "secretKey": {
+            "value": "[parameters('secretKey')]"
           }
         },
         "template": {
@@ -610,8 +620,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.41.2.15936",
-              "templateHash": "17534568290488842364"
+              "version": "0.42.1.51946",
+              "templateHash": "10262603939802860102"
             }
           },
           "parameters": {
@@ -656,6 +666,13 @@
               "metadata": {
                 "description": "Fernet encryption key"
               }
+            },
+            "secretKey": {
+              "type": "securestring",
+              "defaultValue": "",
+              "metadata": {
+                "description": "SECRET_KEY for JWT auth. Generate with `openssl rand -hex 32`."
+              }
             }
           },
           "variables": {
@@ -683,6 +700,10 @@
                     {
                       "name": "secret-encryption-key",
                       "value": "[parameters('secretEncryptionKey')]"
+                    },
+                    {
+                      "name": "secret-key",
+                      "value": "[parameters('secretKey')]"
                     }
                   ],
                   "activeRevisionsMode": "Single",
@@ -700,6 +721,7 @@
                   }
                 },
                 "template": {
+                  "terminationGracePeriodSeconds": 1900,
                   "containers": [
                     {
                       "image": "[parameters('containerImage')]",
@@ -728,6 +750,10 @@
                         {
                           "name": "SECRET_ENCRYPTION_KEY",
                           "secretRef": "secret-encryption-key"
+                        },
+                        {
+                          "name": "SECRET_KEY",
+                          "secretRef": "secret-key"
                         },
                         {
                           "name": "MICROSOFT_ENTRA_ID_REDIRECT_URI",
@@ -788,6 +814,30 @@
                         {
                           "name": "SCHEDULER_POOL_PRE_PING",
                           "value": "true"
+                        },
+                        {
+                          "name": "TASKIQ_INPROCESS_WORKER_ENABLED",
+                          "value": "true"
+                        },
+                        {
+                          "name": "TASKIQ_INPROCESS_SCHEDULER_ENABLED",
+                          "value": "true"
+                        },
+                        {
+                          "name": "TASKIQ_WORKER_CONCURRENCY",
+                          "value": "2"
+                        },
+                        {
+                          "name": "TASKIQ_DEFAULT_TIMEOUT_SECONDS",
+                          "value": "1800"
+                        },
+                        {
+                          "name": "TASKIQ_WAIT_TASKS_TIMEOUT",
+                          "value": "1860"
+                        },
+                        {
+                          "name": "TASKIQ_SCHEDULER_UPDATE_INTERVAL",
+                          "value": "10"
                         }
                       ],
                       "resources": {
@@ -800,8 +850,10 @@
                           "failureThreshold": 3,
                           "periodSeconds": 10,
                           "successThreshold": 1,
-                          "tcpSocket": {
-                            "port": 8000
+                          "httpGet": {
+                            "path": "/health/live",
+                            "port": 8000,
+                            "scheme": "HTTP"
                           },
                           "timeoutSeconds": 5
                         },
@@ -810,8 +862,10 @@
                           "failureThreshold": 48,
                           "periodSeconds": 5,
                           "successThreshold": 1,
-                          "tcpSocket": {
-                            "port": 8000
+                          "httpGet": {
+                            "path": "/health/ready",
+                            "port": 8000,
+                            "scheme": "HTTP"
                           },
                           "timeoutSeconds": 5
                         },

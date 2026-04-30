@@ -1,11 +1,16 @@
-<template lang="pug">
-.row.no-wrap.full-height(style='overflow: hidden; width: 100%')
-  .col.column.no-wrap.full-height(style='min-width: 0; overflow: hidden')
-    .column.full-height.q-px-md.q-pt-16
-      .col.ba-border.border-radius-12.bg-white.q-pa-16.column(style='min-height: 0')
-        component(:is='component', ref='componentRef', @selectRow='selectRow', :selectedRow='selectedRow')
-  .col-auto(v-if='selectedRow')
-    component(:is='drawer', :selectedRow='selectedRow', @close='selectedRow = null', @refresh='refresh')
+<template>
+  <div class="cluster full-height" data-wrap="no" style="overflow: hidden; inline-size: 100%">
+    <div class="flex-1 stack full-height" data-gap="0" style="min-inline-size: 0; overflow: hidden">
+      <div class="stack full-height px-md pt-lg" data-gap="0">
+        <div class="flex-1 ba-border border-radius-12 bg-white p-lg stack" data-gap="0" style="min-block-size: 0">
+          <component :is="component" ref="componentRef" :selected-row="selectedRow" @select-row="selectRow" />
+        </div>
+      </div>
+    </div>
+    <div v-if="selectedRow" class="flex-none">
+      <component :is="drawer" :selected-row="selectedRow" @close="selectedRow = null" @refresh="refresh" />
+    </div>
+  </div>
 </template>
 <script>
 import { ref } from 'vue'
@@ -52,5 +57,3 @@ export default {
   },
 }
 </script>
-
-<style lang="stylus" scoped></style>

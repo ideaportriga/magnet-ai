@@ -1,40 +1,37 @@
-<template lang="pug">
-km-inner-loading(:showing='!tool')
-layouts-details-layout(v-if='tool')
-  template(#header)
-    .col
-      .row.items-center
-        .km-heading-4.full-width.text-black {{ tool.name }}
-      .row.items-center.q-mt-12
-        .km-description.text-black.full-width {{ tool.description }}
-
-  template(#content)
-    q-tabs.bb-border.full-width(
-      v-model='tab',
-      narrow-indicator,
-      dense,
-      align='left',
-      active-color='primary',
-      indicator-color='primary',
-      active-bg-color='white',
-      no-caps,
-      content-class='km-tabs'
-    )
-      template(v-for='t in tabs')
-        q-tab(:name='t.name', :label='t.label')
-    .column.q-gap-16.overflow-auto.q-pt-lg.q-pb-lg
-      template(v-if='tab == "parameters"')
-        .row
-          km-data-table(
-            :table='table',
-            row-key='name',
-            :activeRowId='selectedRow?.name',
-            @row-click='handleRowClick'
-          )
-      template(v-if='tab == "definition"')
-        km-input.full-width(rows='18', border-radius='8px', height='36px', type='textarea', :model-value='JSON.stringify(tool, null, 2)', readonly)
-  template(#drawer)
-    mcp-tool-drawer(:selectedRow='selectedRow', ref='drawer')
+<template>
+  <km-inner-loading :showing="!tool" />
+  <layouts-details-layout v-if="tool">
+    <template #header>
+      <div class="flex-1">
+        <div class="cluster">
+          <div class="km-heading-4 full-width text-black">{{ tool.name }}</div>
+        </div>
+        <div class="cluster mt-md">
+          <div class="km-description text-black full-width">{{ tool.description }}</div>
+        </div>
+      </div>
+    </template>
+    <template #content>
+      <km-tabs v-model="tab" class="bb-border full-width" narrow-indicator dense align="left" no-caps content-class="km-tabs">
+        <template v-for="t in tabs" :key="t">
+          <km-tab :name="t.name" :label="t.label" />
+        </template>
+      </km-tabs>
+      <div class="stack overflow-auto pt-lg pb-lg" data-gap="lg">
+        <template v-if="tab == &quot;parameters&quot;">
+          <div class="cluster">
+            <km-data-table :table="table" row-key="name" :active-row-id="selectedRow?.name" @row-click="handleRowClick" />
+          </div>
+        </template>
+        <template v-if="tab == &quot;definition&quot;">
+          <km-input class="full-width" rows="18" border-radius="8px" height="36px" type="textarea" :model-value="JSON.stringify(tool, null, 2)" readonly />
+        </template>
+      </div>
+    </template>
+    <template #drawer>
+      <mcp-tool-drawer ref="drawer" :selected-row="selectedRow" />
+    </template>
+  </layouts-details-layout>
 </template>
 <script setup>
 import { m } from '@/paraglide/messages'

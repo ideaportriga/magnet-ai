@@ -1,80 +1,76 @@
 <template>
-  <div class="row items-center q-gutter-x-sm no-wrap">
+  <div class="cluster gap-x-sm" data-wrap="no">
     <!-- Variant selector -->
-    <div class="bg-grey-2 row items-center no-wrap" style="border-radius: var(--radius-sm)">
+    <div class="bg-grey-2 cluster" data-wrap="no" style="border-radius: var(--ds-radius-sm)">
       <!-- Inline validation indicator near the selected variant -->
-      <q-btn
+      <km-btn
         v-if="validationErrors.length > 0"
         flat
         dense
         no-caps
-        color="negative"
+        tone="danger"
         icon="error"
-        class="variant-group-btn q-px-8"
+        class="variant-group-btn px-sm"
         @click="showStructureGuide = true"
       >
-        <q-tooltip>{{ m.knowledgeGraph_promptTemplateInvalid() }}</q-tooltip>
-      </q-btn>
-      <q-btn-dropdown
+        <km-tooltip>{{ m.knowledgeGraph_promptTemplateInvalid() }}</km-tooltip>
+      </km-btn>
+      <km-btn-dropdown
         flat
         dense
         no-caps
-        class="variant-selector variant-group-btn q-pl-12"
+        class="variant-selector variant-group-btn pl-md"
         :label="currentVariantLabel"
-        dropdown-icon="expand_more"
+        dropdown-icon="chevron-down"
         content-class="variant-dropdown-menu"
       >
-        <q-list class="variant-dropdown-list">
+        <ul class="km-list variant-dropdown-list">
           <div class="variant-dropdown-header">
-            <q-icon name="tune" size="16px" class="q-mr-sm text-secondary-text" />
+            <km-glyph name="tune" size="16px" class="mr-sm text-secondary-text" />
             <span>{{ m.knowledgeGraph_promptVariants() }}</span>
           </div>
-          <q-separator class="q-my-xs" />
+          <km-separator class="my-xs" />
           <!-- Custom rendering to add separator after base variant -->
           <template v-for="(variant, idx) in availableVariants" :key="variant.name">
-            <q-item
-              v-close-popup
+            <li
+              class="km-item variant-dropdown-item"
               clickable
-              class="variant-dropdown-item"
               :class="{ 'variant-active': variant.name === currentVariant }"
               @click="$emit('switch-variant', variant.name)"
             >
-              <q-item-section avatar class="variant-icon-section">
+              <div class="km-item-section variant-icon-section" avatar>
                 <div class="variant-icon-wrapper" :class="{ 'variant-icon-active': variant.name === currentVariant }">
-                  <q-icon :name="variant.name === BASE_VARIANT_NAME ? 'home' : 'tune'" size="16px" />
+                  <km-glyph :name="variant.name === BASE_VARIANT_NAME ? 'home' : 'tune'" size="16px" />
                 </div>
-              </q-item-section>
-              <q-item-section>
-                <q-item-label class="variant-label">{{ variant.label }}</q-item-label>
-                <q-item-label class="variant-caption">{{ variant.description }}</q-item-label>
-              </q-item-section>
-              <q-item-section v-if="variant.name === currentVariant" side>
-                <q-icon name="check_circle" color="primary" size="18px" />
-              </q-item-section>
-            </q-item>
+              </div>
+              <div class="km-item-section">
+                <span class="km-item-label variant-label">{{ variant.label }}</span>
+                <span class="km-item-label variant-caption">{{ variant.description }}</span>
+              </div>
+              <div v-if="variant.name === currentVariant" class="km-item-section" side>
+                <km-glyph name="check" tone="brand" size="18px" />
+              </div>
+            </li>
             <!-- Insert separator after base variant if it is not the last element -->
-            <q-separator
+            <km-separator
               v-if="variant.name === BASE_VARIANT_NAME && availableVariants.length > 1 && idx !== availableVariants.length - 1"
-              class="q-my-xs"
+              class="my-xs"
             />
           </template>
-        </q-list>
-      </q-btn-dropdown>
-      <q-separator vertical color="grey-4" />
+        </ul>
+      </km-btn-dropdown>
+      <km-separator vertical tone="subtle" />
       <!-- Open prompt variant -->
-      <q-btn flat dense icon="open_in_new" class="open-variant-btn variant-group-btn q-px-8" @click="$emit('open-variant')">
-        <q-tooltip>{{ m.knowledgeGraph_openPromptVariant() }}</q-tooltip>
-      </q-btn>
+      <km-btn flat dense icon="external-link" class="open-variant-btn variant-group-btn px-sm" :tooltip="m.knowledgeGraph_openPromptVariant()" @click="$emit('open-variant')" />
     </div>
 
     <!-- Save button (Simple - only variant selection changed) -->
-    <q-btn
+    <km-btn
       v-if="!isModified"
       no-caps
       unelevated
-      color="primary"
-      class="q-px-12 km-body-sm"
-      style="height: 36px"
+      class="px-md km-body-sm"
+      style="block-size: 36px"
       :loading="saving"
       :label="m.common_save()"
       :disable="!hasUnsavedChanges"
@@ -82,73 +78,72 @@
     />
 
     <!-- Save dropdown (Configuration modified) -->
-    <q-btn-dropdown
+    <km-btn-dropdown
       v-else
       split
-      color="primary"
       :loading="saving"
       :label="isBaseVariant ? m.knowledgeGraph_saveAsNew() : m.common_save()"
       :disable="!hasUnsavedChanges"
       content-class="save-dropdown-menu"
       @click="handleSavePrimaryAction"
     >
-      <q-list class="save-dropdown-list">
+      <ul class="km-list save-dropdown-list">
         <div class="save-dropdown-header">
-          <q-icon name="save_alt" size="16px" class="q-mr-sm" />
+          <km-glyph name="save_alt" size="16px" class="mr-sm" />
           <span>{{ m.knowledgeGraph_saveOptions() }}</span>
         </div>
-        <q-separator class="q-my-xs" />
+        <km-separator class="my-xs" />
 
         <!-- Option 1: Save to Current / Base -->
-        <q-item v-close-popup clickable class="save-dropdown-item" :disable="!hasUnsavedChanges" @click="handleSaveToCurrent">
-          <q-item-section avatar class="save-icon-section">
+        <li class="km-item save-dropdown-item" clickable :disable="!hasUnsavedChanges" @click="handleSaveToCurrent">
+          <div class="km-item-section save-icon-section" avatar>
             <div class="save-icon-wrapper save-icon-current">
-              <q-icon :name="isBaseVariant ? 'warning' : 'save'" size="16px" />
-            </div>
-          </q-item-section>
-          <q-item-section>
-            <q-item-label class="save-label">{{ isBaseVariant ? m.knowledgeGraph_changeBaseVariant() : m.common_save() }}</q-item-label>
-            <q-item-label class="save-caption">
-              {{ isBaseVariant ? m.knowledgeGraph_updateBasePromptTemplate() : m.knowledgeGraph_saveChangesToVariant() }}
-            </q-item-label>
-          </q-item-section>
-        </q-item>
-
-        <!-- Option 2: Create New Variant -->
-        <q-item v-close-popup clickable class="save-dropdown-item" @click="showNewVariantDialog = true">
-          <q-item-section avatar class="save-icon-section">
-            <div class="save-icon-wrapper save-icon-new">
-              <q-icon name="add" size="16px" />
-            </div>
-          </q-item-section>
-          <q-item-section>
-            <q-item-label class="save-label">{{ m.knowledgeGraph_saveAsNew() }}</q-item-label>
-            <q-item-label class="save-caption">{{ m.knowledgeGraph_createNewVariantCaption() }}</q-item-label>
-          </q-item-section>
-        </q-item>
-      </q-list>
-    </q-btn-dropdown>
-
-    <!-- New Variant Dialog -->
-    <q-dialog v-model="showNewVariantDialog" @before-show="initializeNewVariantForm">
-      <q-card class="q-px-lg q-py-sm" style="min-width: 500px; max-width: 600px">
-        <q-card-section>
-          <div class="row items-center">
-            <div class="col">
-              <div class="km-heading-7">{{ m.knowledgeGraph_createNewVariant() }}</div>
-            </div>
-            <div class="col-auto">
-              <q-btn v-close-popup icon="close" flat dense />
+              <km-glyph :name="isBaseVariant ? 'warning' : 'save'" size="16px" />
             </div>
           </div>
-        </q-card-section>
+          <div class="km-item-section">
+            <span class="km-item-label save-label">{{ isBaseVariant ? m.knowledgeGraph_changeBaseVariant() : m.common_save() }}</span>
+            <span class="km-item-label save-caption">
+              {{ isBaseVariant ? m.knowledgeGraph_updateBasePromptTemplate() : m.knowledgeGraph_saveChangesToVariant() }}
+            </span>
+          </div>
+        </li>
 
-        <q-card-section>
-          <div class="text-caption text-grey-7 q-mb-lg">{{ m.knowledgeGraph_createNewVariantDesc() }}</div>
+        <!-- Option 2: Create New Variant -->
+        <li class="km-item save-dropdown-item" clickable @click="showNewVariantDialog = true">
+          <div class="km-item-section save-icon-section" avatar>
+            <div class="save-icon-wrapper save-icon-new">
+              <km-glyph name="add" size="16px" />
+            </div>
+          </div>
+          <div class="km-item-section">
+            <span class="km-item-label save-label">{{ m.knowledgeGraph_saveAsNew() }}</span>
+            <span class="km-item-label save-caption">{{ m.knowledgeGraph_createNewVariantCaption() }}</span>
+          </div>
+        </li>
+      </ul>
+    </km-btn-dropdown>
 
-          <div class="column q-gutter-y-lg">
+    <!-- New Variant Dialog -->
+    <km-dialog v-model="showNewVariantDialog" @before-show="initializeNewVariantForm">
+      <km-card class="px-lg py-sm" style="min-inline-size: 500px; max-inline-size: 600px">
+        <div class="km-card-section">
+          <div class="cluster">
+            <div class="flex-1">
+              <div class="km-heading-7">{{ m.knowledgeGraph_createNewVariant() }}</div>
+            </div>
+            <div class="flex-none">
+              <km-btn icon="close" flat dense @click="showNewVariantDialog = false" />
+            </div>
+          </div>
+        </div>
+
+        <div class="km-card-section">
+          <div class="text-caption text-grey-7 mb-lg">{{ m.knowledgeGraph_createNewVariantDesc() }}</div>
+
+          <div class="stack gap-y-lg">
             <div>
-              <div class="km-input-label q-pb-sm">{{ m.common_displayName() }}</div>
+              <div class="km-input-label pb-sm">{{ m.common_displayName() }}</div>
               <km-input
                 :placeholder="m.knowledgeGraph_variantNamePlaceholder()"
                 :model-value="newVariantDisplayName"
@@ -158,7 +153,7 @@
             </div>
 
             <div>
-              <div class="km-input-label q-pb-sm">{{ m.common_description() }}</div>
+              <div class="km-input-label pb-sm">{{ m.common_description() }}</div>
               <km-input
                 type="textarea"
                 :rows="3"
@@ -168,39 +163,39 @@
               />
             </div>
           </div>
-        </q-card-section>
+        </div>
 
-        <q-card-actions class="q-py-lg q-px-md" align="right">
-          <km-btn v-close-popup :label="m.common_cancel()" flat color="primary" />
-          <q-space />
+        <div class="km-card-actions py-lg px-md" align="right">
+          <km-btn :label="m.common_cancel()" flat tone="brand" @click="showNewVariantDialog = false" />
+          <div class="km-space" />
           <km-btn :label="m.knowledgeGraph_createAndSave()" :disable="!isValidVariantName" @click="saveAsNewVariant" />
-        </q-card-actions>
-      </q-card>
-    </q-dialog>
+        </div>
+      </km-card>
+    </km-dialog>
 
     <!-- Save to Base Confirmation Dialog -->
-    <q-dialog v-model="showSaveToBaseConfirm">
-      <q-card class="q-px-lg q-py-sm" style="min-width: 500px; max-width: 600px">
-        <q-card-section>
-          <div class="row items-center">
-            <div class="col row items-center q-gutter-x-sm">
+    <km-dialog v-model="showSaveToBaseConfirm">
+      <km-card class="px-lg py-sm" style="min-inline-size: 500px; max-inline-size: 600px">
+        <div class="km-card-section">
+          <div class="cluster">
+            <div class="flex-1 cluster gap-x-sm">
               <div class="km-heading-7">{{ m.knowledgeGraph_confirmProceed() }}</div>
             </div>
-            <div class="col-auto">
-              <q-btn v-close-popup icon="close" flat dense />
+            <div class="flex-none">
+              <km-btn icon="close" flat dense @click="showSaveToBaseConfirm = false" />
             </div>
           </div>
-        </q-card-section>
+        </div>
 
-        <q-card-section>
-          <div class="text-body2 q-mb-md">
+        <div class="km-card-section">
+          <div class="text-body2 mb-md">
             {{ m.knowledgeGraph_aboutToUpdateThe() }}
             <strong>{{ m.knowledgeGraph_baseVariantDot() }}</strong>
           </div>
 
-          <div class="bg-yellow-1 q-pa-md rounded-borders text-grey-9 q-mb-md" style="border: 1px solid var(--q-warning)">
-            <div class="row items-start no-wrap">
-              <q-icon name="warning" color="yellow-8" size="26px" class="q-mr-sm q-mt-xs" />
+          <div class="bg-yellow-1 p-md rounded-borders text-grey-9 mb-md" style="border: 1px solid var(--ds-color-warning)">
+            <div class="cluster" data-wrap="no" data-align="start">
+              <km-glyph name="warning" tone="warning" size="26px" class="mr-sm mt-xs" />
               <div class="km-body-sm" style="line-height: 1.4">
                 {{ m.knowledgeGraph_changeWillAffect() }}
                 <strong>{{ m.knowledgeGraph_allKnowledgeGraphsLabel() }}</strong>
@@ -208,15 +203,15 @@
               </div>
             </div>
           </div>
-        </q-card-section>
+        </div>
 
-        <q-card-actions class="q-py-lg q-px-md" align="right">
-          <km-btn v-close-popup :label="m.common_cancel()" flat color="primary" />
-          <q-space />
-          <km-btn v-close-popup :label="m.knowledgeGraph_updateBaseVariant()" @click="$emit('save-current')" />
-        </q-card-actions>
-      </q-card>
-    </q-dialog>
+        <div class="km-card-actions py-lg px-md" align="right">
+          <km-btn :label="m.common_cancel()" flat tone="brand" @click="showSaveToBaseConfirm = false" />
+          <div class="km-space" />
+          <km-btn :label="m.knowledgeGraph_updateBaseVariant()" @click="confirmSaveToBase" />
+        </div>
+      </km-card>
+    </km-dialog>
 
     <!-- Structure Guide Dialog -->
     <StructureGuideDialog v-model="showStructureGuide" :validation-errors="validationErrors" :prompt-text="currentPromptText" />
@@ -317,48 +312,40 @@ function saveAsNewVariant() {
     newVariantDescription.value = ''
   }
 }
+
+function confirmSaveToBase() {
+  showSaveToBaseConfirm.value = false
+  emit('save-current')
+}
 </script>
 
 <style scoped>
 /* Variant Group Button Height */
 .variant-group-btn {
-  height: 38px;
-  min-height: 38px;
+  block-size: 38px;
+  min-block-size: 38px;
 }
 
 /* Variant Dropdown Styles */
 .variant-selector {
-  font-size: var(--km-font-size-label);
+  font-size: var(--ds-font-size-label);
   font-weight: 500;
 }
 
-.variant-selector :deep(.q-btn-dropdown__arrow) {
-  transition: transform 0.2s ease;
-}
-
 /* Remove hover radius from the right side of variant selector */
-.variant-selector :deep(.q-focus-helper) {
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-}
-
 /* Remove hover radius from the left side of open variant button */
-.open-variant-btn :deep(.q-focus-helper) {
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
-}
 </style>
 
 <style>
 /* Variant Dropdown Menu - Global styles for portal-rendered content */
 .variant-dropdown-menu {
-  border-radius: var(--radius-lg);
+  border-radius: var(--ds-radius-lg);
   box-shadow:
     0 4px 20px rgba(0, 0, 0, 0.12),
     0 2px 8px rgba(0, 0, 0, 0.08);
-  border: 1px solid var(--q-border);
+  border: 1px solid var(--ds-color-border);
   overflow: hidden;
-  min-width: 240px;
+  min-inline-size: 240px;
 }
 
 .variant-dropdown-list {
@@ -373,80 +360,80 @@ function saveAsNewVariant() {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: var(--q-label);
+  color: var(--ds-color-label);
 }
 
 .variant-dropdown-item {
   padding: 10px 16px;
   margin: 2px 6px;
-  border-radius: var(--radius-md);
-  transition: all 0.15s ease;
+  border-radius: var(--ds-radius-md);
+  transition: var(--ds-transition-colors);
 }
 
 .variant-dropdown-item:hover {
-  background-color: var(--q-light);
+  background-color: var(--ds-color-light);
 }
 
 .variant-dropdown-item.variant-active {
-  background-color: var(--q-primary-bg);
+  background-color: var(--ds-color-primary-bg);
 }
 
 .variant-dropdown-item.variant-active:hover {
-  background-color: var(--q-primary-light);
+  background-color: var(--ds-color-primary-light);
 }
 
 .variant-icon-section {
-  min-width: 32px !important;
+  min-inline-size: 32px !important;
 }
 
 .variant-icon-wrapper {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-md);
-  background-color: var(--q-light);
-  color: var(--q-label);
-  transition: all 0.15s ease;
+  inline-size: 28px;
+  block-size: 28px;
+  border-radius: var(--ds-radius-md);
+  background-color: var(--ds-color-light);
+  color: var(--ds-color-label);
+  transition: var(--ds-transition-colors);
 }
 
 .variant-dropdown-item:hover .variant-icon-wrapper {
-  background-color: var(--q-border);
+  background-color: var(--ds-color-border);
 }
 
 .variant-icon-wrapper.variant-icon-active {
-  background-color: var(--q-primary-light);
-  color: var(--q-primary);
+  background-color: var(--ds-color-primary-light);
+  color: var(--ds-color-primary);
 }
 
 .variant-label {
   font-size: 13px;
   font-weight: 500;
-  color: var(--q-black);
+  color: var(--ds-color-black);
   line-height: 1.3;
 }
 
 .variant-caption {
   font-size: 11px;
-  color: var(--q-label);
-  margin-top: 2px;
+  color: var(--ds-color-label);
+  margin-block-start: 2px;
   line-height: 1.3;
 }
 
 .variant-active .variant-label {
-  color: var(--q-primary);
+  color: var(--ds-color-primary);
 }
 
 /* Save Dropdown Menu Styles */
 .save-dropdown-menu {
-  border-radius: var(--radius-lg);
+  border-radius: var(--ds-radius-lg);
   box-shadow:
     0 4px 20px rgba(0, 0, 0, 0.12),
     0 2px 8px rgba(0, 0, 0, 0.08);
-  border: 1px solid var(--q-border);
+  border: 1px solid var(--ds-color-border);
   overflow: hidden;
-  min-width: 240px;
+  min-inline-size: 240px;
 }
 
 .save-dropdown-list {
@@ -461,18 +448,18 @@ function saveAsNewVariant() {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: var(--q-label);
+  color: var(--ds-color-label);
 }
 
 .save-dropdown-item {
   padding: 10px 16px;
   margin: 2px 6px;
-  border-radius: var(--radius-md);
-  transition: all 0.15s ease;
+  border-radius: var(--ds-radius-md);
+  transition: var(--ds-transition-colors);
 }
 
 .save-dropdown-item:hover {
-  background-color: var(--q-light);
+  background-color: var(--ds-color-light);
 }
 
 .save-dropdown-item.disabled {
@@ -480,48 +467,48 @@ function saveAsNewVariant() {
 }
 
 .save-icon-section {
-  min-width: 32px !important;
+  min-inline-size: 32px !important;
 }
 
 .save-icon-wrapper {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-md);
-  transition: all 0.15s ease;
+  inline-size: 28px;
+  block-size: 28px;
+  border-radius: var(--ds-radius-md);
+  transition: var(--ds-transition-colors);
 }
 
 .save-icon-current {
-  background-color: var(--q-primary-light);
-  color: var(--q-primary);
+  background-color: var(--ds-color-primary-light);
+  color: var(--ds-color-primary);
 }
 
 .save-dropdown-item:hover .save-icon-current {
-  background-color: var(--q-primary-bg);
+  background-color: var(--ds-color-primary-bg);
 }
 
 .save-icon-new {
-  background-color: var(--q-success-text);
-  color: var(--q-success);
+  background-color: var(--ds-color-success-text);
+  color: var(--ds-color-success);
 }
 
 .save-dropdown-item:hover .save-icon-new {
-  background-color: var(--q-success-text);
+  background-color: var(--ds-color-success-text);
 }
 
 .save-label {
   font-size: 13px;
   font-weight: 500;
-  color: var(--q-black);
+  color: var(--ds-color-black);
   line-height: 1.3;
 }
 
 .save-caption {
   font-size: 11px;
-  color: var(--q-label);
-  margin-top: 2px;
+  color: var(--ds-color-label);
+  margin-block-start: 2px;
   line-height: 1.3;
 }
 </style>

@@ -1,5 +1,5 @@
-<template lang="pug">
-q-radio(:model-value='row?.is_default', :val='true', @click.stop='onRadioClick')
+<template>
+  <km-radio :model-value="row?.is_default" :val="true" @click.stop="onRadioClick" />
 </template>
 <script>
 import { defineComponent } from 'vue'

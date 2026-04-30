@@ -1,33 +1,26 @@
-<template lang="pug">
-div
-  km-section(title='Embed into Knowledge Graph', subTitle='Embed Note Taker output to a Knowledge Graph for further semantic search')
-    .row.items-center.justify-between
-      .km-field.text-secondary-text.q-pl-8 Embed into Knowledge Graph
-      q-toggle(v-model='createKnowledgeGraphEmbedding', color='primary')
-    template(v-if='createKnowledgeGraphEmbedding')
-      .q-mt-md
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Knowledge Graph
-        .row.items-center.q-gutter-sm
-          .col
-            km-select(
-              v-model='knowledgeGraphSystemName',
-              :options='knowledgeGraphs',
-              option-label='name',
-              option-value='system_name',
-              emit-value,
-              map-options,
-              hasDropdownSearch,
-              height='auto',
-              minHeight='36px'
-            )
-          .col-auto(v-if='selectedKnowledgeGraph?.id')
-            km-btn(
-              icon='open_in_new',
-              flat,
-              dense,
-              @click='router.push(`/knowledge-graph/${selectedKnowledgeGraph.id}`)'
-            )
-        .km-description.text-secondary-text.q-pt-xs.q-pl-8 Select the knowledge graph to embed when enabled.
+<template>
+  <div>
+    <km-section title="Embed into Knowledge Graph" sub-title="Embed Note Taker output to a Knowledge Graph for further semantic search">
+      <div class="cluster" data-justify="between">
+        <div class="km-field text-secondary-text pl-sm">Embed into Knowledge Graph</div>
+        <km-toggle v-model="createKnowledgeGraphEmbedding" />
+      </div>
+      <template v-if="createKnowledgeGraphEmbedding">
+        <div class="mt-md">
+          <div class="km-field text-secondary-text pb-xs pl-sm">Knowledge Graph</div>
+          <div class="cluster" data-gap="sm">
+            <div class="flex-1">
+              <km-select v-model="knowledgeGraphSystemName" :options="knowledgeGraphs" option-label="name" option-value="system_name" emit-value map-options has-dropdown-search height="auto" min-height="36px" />
+            </div>
+            <div v-if="selectedKnowledgeGraph?.id" class="flex-none">
+              <km-btn icon="external-link" flat dense @click="router.push(`/knowledge-graph/${selectedKnowledgeGraph.id}`)" />
+            </div>
+          </div>
+          <div class="km-description text-secondary-text pt-xs pl-sm">Select the knowledge graph to embed when enabled.</div>
+        </div>
+      </template>
+    </km-section>
+  </div>
 </template>
 
 <script setup lang="ts">

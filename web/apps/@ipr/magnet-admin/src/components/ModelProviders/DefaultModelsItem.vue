@@ -1,40 +1,47 @@
-<template lang="pug">
-.col
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ title }}
-  .row.ba-border.border-radius-12.q-pa-16(v-if='!editMode', @mouseenter='hover = true', @mouseleave='hover = false')
-    .col
-      .km-heading {{ defaultModel?.display_name || '-' }}
-      .row.items-center.q-gap-8
-        .km-description Model Providers
-        km-chip.bg-in-progress(size='19px', v-if='defaultModel?.provider_name')
-          .text-placeholder.km-small-chip.q-px-4 {{ defaultModel?.provider_name }}
-    .col-auto
-      km-btn(icon='fa fa-pen', flat, iconSize='14px', @click='editMode = !editMode', v-if='hover')
-  .row.ba-primary.border-radius-12.q-pa-16(v-if='editMode')
-    .col
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 Default Model
-      km-select(v-model='selectedModel', :options='modelOptions', option-value='system_name', option-label='display_name', emit-value, map-options)
-        template(v-slot:option='{ itemProps, opt, selected, toggleOption }')
-          q-item.ba-border(v-bind='itemProps', dense, @click='toggleOption(opt)')
-            q-item-section
-              q-item-label.km-label {{ opt.display_name }}
-              .row.q-mt-xs(v-if='opt.provider_system_name')
-                q-chip(color='primary-light', text-color='primary', size='sm', dense) {{ opt.provider_system_name }}
-      .row.q-pt-16.justify-between
-        km-btn(:label='m.common_cancel()', flat, @click='cancelEdit')
-        km-btn(:label='m.common_save()', @click='saveDefault')
-
-km-popup-confirm(
-  :visible='showDialog',
-  confirmButtonLabel='OK, change default',
-  notificationIcon='fas fa-circle-info',
-  :cancelButtonLabel='m.common_cancel()',
-  @cancel='showDialog = false',
-  @confirm='confirmChange'
-)
-  .row.item-center.justify-center.km-heading-7 You are about to change default model
-  .row.text-center.justify-center This will affect newly created Prompt Templates and any existing
-  .row.text-center.justify-center Prompt Templates that have no model selected.
+<template>
+  <div class="flex-1">
+    <div class="km-field text-secondary-text pb-xs pl-sm">{{ title }}</div>
+    <div v-if="!editMode" class="cluster ba-border border-radius-12 p-lg" @mouseenter="hover = true" @mouseleave="hover = false">
+      <div class="flex-1">
+        <div class="km-heading">{{ defaultModel?.display_name || '-' }}</div>
+        <div class="cluster" data-gap="sm">
+          <div class="km-description">Model Providers</div>
+          <km-chip v-if="defaultModel?.provider_name" class="bg-in-progress" size="19px">
+            <div class="text-placeholder km-small-chip px-xs">{{ defaultModel?.provider_name }}</div>
+          </km-chip>
+        </div>
+      </div>
+      <div class="flex-none">
+        <km-btn v-if="hover" icon="edit" flat icon-size="14px" @click="editMode = !editMode" />
+      </div>
+    </div>
+    <div v-if="editMode" class="cluster ba-primary border-radius-12 p-lg">
+      <div class="flex-1">
+        <div class="km-field text-secondary-text pb-xs pl-sm">Default Model</div>
+        <km-select v-model="selectedModel" :options="modelOptions" option-value="system_name" option-label="display_name" emit-value map-options>
+          <template #option="{ itemProps, opt, toggleOption }">
+            <li class="km-item ba-border" v-bind="itemProps" dense @click="toggleOption(opt)">
+              <div class="km-item-section">
+                <span class="km-item-label km-label">{{ opt.display_name }}</span>
+                <div v-if="opt.provider_system_name" class="cluster mt-xs">
+                  <km-chip tone="brand" size="sm" dense>{{ opt.provider_system_name }}</km-chip>
+                </div>
+              </div>
+            </li>
+          </template>
+        </km-select>
+        <div class="cluster pt-lg" data-justify="between">
+          <km-btn :label="m.common_cancel()" flat @click="cancelEdit" />
+          <km-btn :label="m.common_save()" @click="saveDefault" />
+        </div>
+      </div>
+    </div>
+  </div>
+  <km-popup-confirm :visible="showDialog" confirm-button-label="OK, change default" notification-icon="info" :cancel-button-label="m.common_cancel()" @cancel="showDialog = false" @confirm="confirmChange">
+    <div class="cluster km-heading-7" data-justify="center">You are about to change default model</div>
+    <div class="cluster text-center" data-justify="center">This will affect newly created Prompt Templates and any existing</div>
+    <div class="cluster text-center" data-justify="center">Prompt Templates that have no model selected.</div>
+  </km-popup-confirm>
 </template>
 <script setup>
 import { ref, computed, watch } from 'vue'

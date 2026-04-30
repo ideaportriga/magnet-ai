@@ -28,10 +28,10 @@ export const MetadataOriginTextColors: Record<MetadataOrigin, string> = {
 
 // Value type options for select
 export const ValueTypeOptions = [
-  { label: 'Text', value: 'string', icon: 'text_fields' },
+  { label: 'Text', value: 'string', icon: 'text' },
   { label: 'Number', value: 'number', icon: 'tag' },
-  { label: 'Boolean', value: 'boolean', icon: 'toggle_on' },
-  { label: 'Date', value: 'date', icon: 'calendar_today' },
+  { label: 'Boolean', value: 'boolean', icon: 'toggle-on' },
+  { label: 'Date', value: 'date', icon: 'calendar' },
 ]
 
 // Allowed value with optional LLM hint

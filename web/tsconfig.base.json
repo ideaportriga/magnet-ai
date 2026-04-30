@@ -20,7 +20,18 @@
       "@i18n": ["packages/shared/src/lib/i18n/index.ts"],
       "@themes": ["packages/themes/src/index.ts"],
       "@ui": ["packages/ui-comp/src/index.ts"],
-      "@ui/*": ["packages/ui-comp/src/*"]
+      "@ui/*": ["packages/ui-comp/src/*"],
+      "@ds": ["packages/ds/src/index.ts"],
+      "@ds/styles": ["packages/ds/src/styles.ts"],
+      "@ds/tokens": ["packages/ds/src/tokens/index.ts"],
+      "@ds/composition": ["packages/ds/src/composition/index.ts"],
+      "@ds/utilities": ["packages/ds/src/utilities/index.ts"],
+      "@ds/reset": ["packages/ds/src/reset/index.ts"],
+      "@ds/composables": ["packages/ds/src/composables/index.ts"],
+      "@ds/hosts": ["packages/ds/src/hosts/index.ts"],
+      "@ds/primitives": ["packages/ds/src/components/primitives/index.ts"],
+      "@ds/domain": ["packages/ds/src/components/domain/index.ts"],
+      "@ds/*": ["packages/ds/src/*"]
     }
   },
   "exclude": ["node_modules", "tmp"]

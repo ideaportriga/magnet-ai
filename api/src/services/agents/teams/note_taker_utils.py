@@ -1,5 +1,6 @@
 import datetime as dt
 import html as html_lib
+import json
 import re
 from html.parser import HTMLParser
 from pathlib import Path
@@ -210,13 +211,38 @@ def _format_mm_ss(seconds: float | int | None) -> str:
     return f"{minutes:02d}:{secs:02d}"
 
 
+def _coerce_jsonb_to_dict(value: Any) -> Any:
+    """Decode a JSONB column that may have come back as a raw string.
+
+    asyncpg returns JSONB as `dict` when the connection has the type codec
+    registered (via `PgVectorClient._setup_connection_types`) and as a raw
+    JSON string otherwise. The codec cache is keyed by `id(connection)`,
+    which Python can reuse after GC, so the same connection slot can read
+    JSONB inconsistently across requests. Coerce here so consumers never
+    have to care which side of that race they landed on.
+    """
+    if isinstance(value, (dict, list)):
+        return value
+    if isinstance(value, (bytes, bytearray)):
+        try:
+            value = value.decode("utf-8")
+        except UnicodeDecodeError:
+            return None
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except (json.JSONDecodeError, TypeError):
+            return None
+    return value
+
+
 def format_transcript_segments(transcription: dict) -> tuple[str, list[str]]:
     """Format transcription segments into text and extract speaker labels.
 
     Returns (full_text, sorted_speaker_labels).
     """
     transcript_payload = transcription
-    nested = transcription.get("transcription")
+    nested = _coerce_jsonb_to_dict(transcription.get("transcription"))
     if isinstance(nested, dict):
         transcript_payload = nested
 

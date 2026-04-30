@@ -1,39 +1,45 @@
-<template lang="pug">
-div
-  km-section(:title='m.section_welcomeMessage()', :subTitle='m.subtitle_configureGreeting()')
-    .km-field.text-secondary-text.q-pb-sm.q-pl-8 {{ m.section_welcomeMessage() }}
-      km-input(ref='input', rows='8', border-radius='8px', height='36px', type='textarea', v-model='settingsWelcomeMessage')
-  q-separator.q-my-lg
-  km-section(:title='m.section_userFeedback()', :subTitle='m.subtitle_allowFeedback()')
-    q-toggle(v-model='settingsUserFeedback', color='primary')
-  q-separator.q-my-lg
-  km-section(:title='m.section_sampleQuestions()', :subTitle='m.subtitle_sampleQuestions()')
-    q-toggle(v-model='settingsSampleQuestions', color='primary')
-    template(v-if='settingsSampleQuestions')
-      .q-mb-lg
-        .km-input-label {{ m.common_question1() }}
-        km-input(v-model='question1', :placeholder='m.agents_sampleQuestion1Default()')
-      .q-mb-lg
-        .km-input-label {{ m.common_question2() }}
-        km-input(v-model='question2', :placeholder='m.agents_sampleQuestion2Default()')
-      div
-        .km-input-label {{ m.common_question3() }}
-        km-input(v-model='question3', :placeholder='m.agents_sampleQuestion3Default()')
-  q-separator.q-my-lg
-  km-section(:title='m.section_memoryStrategy()', :subTitle='m.subtitle_controlMemory()')
-    q-btn-toggle(
-      v-model='memoryStrategy',
-      toggle-color='primary-light',
-      :options='memoryStrategyOptions',
-      dense,
-      text-color='text-weak',
-      toggle-text-color='primary'
-    )
-    template(v-if='memoryStrategy === "last_n"')
-      .q-mt-md
-        .km-input-label {{ m.agents_lastNMessages() }}
-        km-input(v-model='memoryLastNMessages', type='number', placeholder='10', height='36px')
-  q-separator.q-my-lg
+<template>
+  <div>
+    <km-section :title="m.section_welcomeMessage()" :sub-title="m.subtitle_configureGreeting()">
+      <div class="km-field text-secondary-text pb-sm pl-sm">
+        {{ m.section_welcomeMessage() }}
+        <km-input ref="input" v-model="settingsWelcomeMessage" rows="8" border-radius="8px" height="36px" type="textarea" />
+      </div>
+    </km-section>
+    <km-separator class="my-lg" />
+    <km-section :title="m.section_userFeedback()" :sub-title="m.subtitle_allowFeedback()">
+      <km-toggle v-model="settingsUserFeedback" />
+    </km-section>
+    <km-separator class="my-lg" />
+    <km-section :title="m.section_sampleQuestions()" :sub-title="m.subtitle_sampleQuestions()">
+      <km-toggle v-model="settingsSampleQuestions" />
+      <template v-if="settingsSampleQuestions">
+        <div class="mb-lg">
+          <div class="km-input-label">{{ m.common_question1() }}</div>
+          <km-input v-model="question1" :placeholder="m.agents_sampleQuestion1Default()" />
+        </div>
+        <div class="mb-lg">
+          <div class="km-input-label">{{ m.common_question2() }}</div>
+          <km-input v-model="question2" :placeholder="m.agents_sampleQuestion2Default()" />
+        </div>
+        <div>
+          <div class="km-input-label">{{ m.common_question3() }}</div>
+          <km-input v-model="question3" :placeholder="m.agents_sampleQuestion3Default()" />
+        </div>
+      </template>
+    </km-section>
+    <km-separator class="my-lg" />
+    <km-section :title="m.section_memoryStrategy()" :sub-title="m.subtitle_controlMemory()">
+      <km-btn-toggle v-model="memoryStrategy" :options="memoryStrategyOptions" dense />
+      <template v-if="memoryStrategy === &quot;last_n&quot;">
+        <div class="mt-md">
+          <div class="km-input-label">{{ m.agents_lastNMessages() }}</div>
+          <km-input v-model="memoryLastNMessages" type="number" placeholder="10" height="36px" />
+        </div>
+      </template>
+    </km-section>
+    <km-separator class="my-lg" />
+  </div>
 </template>
 
 <script>

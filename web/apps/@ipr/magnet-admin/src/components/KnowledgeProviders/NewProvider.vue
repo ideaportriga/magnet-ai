@@ -1,46 +1,34 @@
-<template lang="pug">
-km-popup-confirm(
-  :visible='showNewDialog',
-  :title='m.dialog_newKnowledgeSourceProvider()',
-  :confirmButtonLabel='m.common_save()',
-  :cancelButtonLabel='m.common_cancel()',
-  :notification='m.hint_addSecurityKsp()',
-  @confirm='createKnowledgeProvider',
-  @cancel='$emit("cancel")'
-)
-  .column.q-gap-16
-    .col
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_name() }}
-      .full-width
-        km-input(data-test='name-input', height='30px', v-model='name', ref='nameRef', :rules='[required()]')
-
-    .col
-      .km-field.text-secondary-text.q-pl-8 {{ m.common_systemName() }}
-      .full-width
-        km-input(data-test='system-name-input', height='30px', v-model='system_name', ref='system_nameRef', :rules='[required()]')
-      .km-description.text-secondary-text.q-pb-4.q-pl-8 {{ m.hint_systemNameUniqueId() }}
-
-    .col
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.label_sourceType() }}
-      .full-width
-        km-select(
-          data-test='select-type',
-          height='auto',
-          minHeight='36px',
-          :placeholder='m.modelProviders_selectSourceType()',
-          :options='typeOptions',
-          v-model='newRow.type',
-          ref='typeRef',
-          :rules='[required()]',
-          emit-value,
-          mapOptions
-        )
-
-    .col
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.label_endpoint() }}
-      .full-width
-        km-input(data-test='endpoint-input', height='30px', v-model='newRow.endpoint', :placeholder='m.placeholder_exampleApiEndpoint()')
-      .km-description.text-secondary-text.q-pb-4.q-pl-8 {{ m.hint_endpointWarning() }}
+<template>
+  <km-popup-confirm :visible="showNewDialog" :title="m.dialog_newKnowledgeSourceProvider()" :confirm-button-label="m.common_save()" :cancel-button-label="m.common_cancel()" :notification="m.hint_addSecurityKsp()" @confirm="createKnowledgeProvider" @cancel="$emit(&quot;cancel&quot;)">
+    <div class="stack" data-gap="lg">
+      <div class="flex-1">
+        <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.common_name() }}</div>
+        <div class="full-width">
+          <km-input ref="nameRef" v-model="name" data-test="name-input" height="30px" :rules="[required()]" />
+        </div>
+      </div>
+      <div class="flex-1">
+        <div class="km-field text-secondary-text pl-sm">{{ m.common_systemName() }}</div>
+        <div class="full-width">
+          <km-input ref="system_nameRef" v-model="system_name" data-test="system-name-input" height="30px" :rules="[required()]" />
+        </div>
+        <div class="km-description text-secondary-text pb-xs pl-sm">{{ m.hint_systemNameUniqueId() }}</div>
+      </div>
+      <div class="flex-1">
+        <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.label_sourceType() }}</div>
+        <div class="full-width">
+          <km-select ref="typeRef" v-model="newRow.type" data-test="select-type" height="auto" min-height="36px" :placeholder="m.modelProviders_selectSourceType()" :options="typeOptions" :rules="[required()]" emit-value map-options />
+        </div>
+      </div>
+      <div class="flex-1">
+        <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.label_endpoint() }}</div>
+        <div class="full-width">
+          <km-input v-model="newRow.endpoint" data-test="endpoint-input" height="30px" :placeholder="m.placeholder_exampleApiEndpoint()" />
+        </div>
+        <div class="km-description text-secondary-text pb-xs pl-sm">{{ m.hint_endpointWarning() }}</div>
+      </div>
+    </div>
+  </km-popup-confirm>
 </template>
 
 <script>
@@ -51,6 +39,7 @@ import { required } from '@/utils/validationRules'
 import { useEntityQueries } from '@/queries/entities'
 import { useRouter } from 'vue-router'
 import { useSafeMutation } from '@/composables/useSafeMutation'
+import { validateRef } from '@/utils/validateRef'
 
 export default {
   props: {
@@ -141,7 +130,7 @@ export default {
   },
   methods: {
     validateFields() {
-      const validStates = [this.$refs.nameRef?.validate(), this.$refs.system_nameRef?.validate(), this.$refs.typeRef?.validate()]
+      const validStates = [validateRef(this.$refs.nameRef), validateRef(this.$refs.system_nameRef), validateRef(this.$refs.typeRef)]
       return !validStates.includes(false)
     },
     async createKnowledgeProvider() {

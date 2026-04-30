@@ -1,70 +1,37 @@
-<template lang="pug">
-km-inner-loading(:showing='!apiTool')
-layouts-details-layout(v-if='apiTool')
-  template(#header)
-    layouts-details-header(v-model:name='name', v-model:description='description', v-model:systemName='system_name')
-    //- q-separator.q-mt-8
-    //- .row.items-end.q-pt-8.q-gap-4
-    //-   .km-input-label.q-pl-6.text-secondary-text.q-pb-4(style='line-height: 16px') API Provider
-      //- km-select-flat(placeholder='API Provider', :options='apiProviderOptions', v-model='apiProvider')
-  template(#header-actions)
-    km-btn(:label='m.common_recordInfo()', flat, icon='info', iconSize='16px')
-      q-tooltip.bg-white.block-shadow
-        .q-pa-sm
-          .q-mb-sm
-            .text-secondary-text.km-button-xs-text {{ m.common_createdLabel() }}
-            .text-secondary-text.km-description {{ metadata.created_at }}
-          .q-mb-sm
-            .text-secondary-text.km-button-xs-text {{ m.common_modified() }}
-            .text-secondary-text.km-description {{ metadata.modified_at }}
-          .q-mb-sm
-            .text-secondary-text.km-button-xs-text {{ m.common_createdBy() }}
-            .text-secondary-text.km-description {{ metadata.created_by }}
-          div
-            .text-secondary-text.km-button-xs-text {{ m.common_modifiedBy() }}
-            .text-secondary-text.km-description {{ metadata.updated_by }}
-    km-btn(:label='m.common_revert()', icon='fas fa-undo', iconSize='16px', flat, @click='revert()', v-if='isDirty')
-    km-btn(:label='m.common_save()', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving || !isDirty')
-    q-btn.q-px-xs(flat, :icon='"fas fa-ellipsis-v"', size='13px')
-      q-menu(anchor='bottom right', self='top right')
-        q-item(clickable, @click='clone', dense)
-          q-item-section
-            .km-heading-3 {{ m.common_clone() }}
-        q-item(clickable, @click='showDeleteDialog = true', dense)
-          q-item-section
-            .km-heading-3 {{ m.common_delete() }}
-    km-popup-confirm(
-      :visible='showDeleteDialog',
-      :confirmButtonLabel='m.dialog_deleteApiTool()',
-      :cancelButtonLabel='m.common_cancel()',
-      notificationIcon='fas fa-triangle-exclamation',
-      @confirm='confirmDelete',
-      @cancel='showDeleteDialog = false'
-    )
-      .row.item-center.justify-center.km-heading-7 {{ m.deleteConfirm_aboutToDelete({ entity: m.entity_apiTool() }) }}
-      .row.text-center.justify-center {{ m.deleteConfirm_permanentDeleteDisable({ entity: m.entity_apiTool() }) }}
-  template(#content)
-    .column.full-height(style='min-height: 0')
-      q-tabs.bb-border.full-width(
-        v-model='tab',
-        narrow-indicator,
-        dense,
-        align='left',
-        active-color='primary',
-        indicator-color='primary',
-        active-bg-color='white',
-        no-caps,
-        content-class='km-tabs'
-      )
-        template(v-for='t in tabs')
-          q-tab(:name='t.name', :label='t.label')
-      .col(style='min-height: 0; padding-top: 16px; padding-bottom: 16px')
-        api-tools-tabs-information(v-if='tab == "information"', :apiTool='apiTool')
-        api-tools-tabs-parameters(v-if='tab == "parameters"', :apiTool='apiTool', @select='selectedRow = $event', :selectedRow='selectedRow')
-
-  template(#drawer)
-    api-tools-drawer(v-model:open='openPropDetails', :selectedRow='selectedRow', ref='drawer')
-api-tools-clone-dialog(:show='showCloneDialog', :tool='clonedTool', @cancel='showCloneDialog = false')
+<template>
+  <km-inner-loading :showing="!apiTool" />
+  <layouts-details-layout v-if="apiTool" :name="name" :description="description" :system-name="system_name" :created-at="apiTool?.created_at" :updated-at="apiTool?.updated_at" :created-by="apiTool?.created_by" :updated-by="apiTool?.updated_by" show-record-info @update:name="name = $event" @update:description="description = $event" @update:system-name="system_name = $event">
+    <template #header-actions>
+      <km-btn v-if="isDirty" :label="m.common_revert()" icon="undo" icon-size="16px" flat @click="revert()" />
+      <km-btn :label="m.common_save()" flat icon="save" icon-size="16px" :loading="saving" :disable="saving || !isDirty" @click="save" />
+      <ds-dropdown-menu-root>
+        <ds-dropdown-menu-trigger as-child>
+          <km-btn class="px-xs" flat icon="more-vertical" size="13px" />
+        </ds-dropdown-menu-trigger>
+        <ds-dropdown-menu-content side="bottom" align="end" :side-offset="4">
+          <ds-dropdown-menu-item @select="clone">{{ m.common_clone() }}</ds-dropdown-menu-item>
+          <ds-dropdown-menu-item variant="destructive" @select="showDeleteDialog = true">{{ m.common_delete() }}</ds-dropdown-menu-item>
+        </ds-dropdown-menu-content>
+      </ds-dropdown-menu-root>
+      <km-popup-confirm :visible="showDeleteDialog" :confirm-button-label="m.dialog_deleteApiTool()" :cancel-button-label="m.common_cancel()" notification-icon="warning" @confirm="confirmDelete" @cancel="showDeleteDialog = false">
+        <div class="cluster" data-justify="center">{{ m.deleteConfirm_aboutToDelete({ entity: m.entity_apiTool() }) }}</div>
+        <div class="cluster text-center" data-justify="center">{{ m.deleteConfirm_permanentDeleteDisable({ entity: m.entity_apiTool() }) }}</div>
+      </km-popup-confirm>
+    </template>
+    <template #content>
+      <div class="stack full-height" data-gap="0" style="min-block-size: 0">
+        <km-tabs v-model="tab" :items="tabs" class="bb-border full-width" narrow-indicator dense align="left" no-caps content-class="km-tabs" />
+        <div class="flex-1" style="min-block-size: 0; padding-block: 16px">
+          <api-tools-tabs-information v-if="tab == &quot;information&quot;" :api-tool="apiTool" />
+          <api-tools-tabs-parameters v-if="tab == &quot;parameters&quot;" :api-tool="apiTool" :selected-row="selectedRow" @select="selectedRow = $event" />
+        </div>
+      </div>
+    </template>
+    <template #drawer>
+      <api-tools-drawer ref="drawer" :open="openPropDetails" :selected-row="selectedRow" @update:open="openPropDetails = $event" />
+    </template>
+  </layouts-details-layout>
+  <api-tools-clone-dialog :show="showCloneDialog" :tool="clonedTool" @cancel="showCloneDialog = false" />
 </template>
 
 <script>
@@ -83,8 +50,8 @@ export default {
       m,
       tab: ref('parameters'),
       tabs: ref([
-        { name: 'parameters', label: m.apiTools_parameters() },
-        { name: 'information', label: m.apiTools_apiInformation() },
+        { value: 'parameters', label: m.apiTools_parameters() },
+        { value: 'information', label: m.apiTools_apiInformation() },
       ]),
       openPropDetails: ref(false),
       selectedRow: ref(null),
@@ -102,14 +69,6 @@ export default {
   computed: {
     apiTool() {
       return this.draft?.tools?.find((tool) => tool.system_name === this.$route.params.name)
-    },
-    metadata() {
-      return {
-        created_at: this.formatDate(this.apiTool?.created_at),
-        modified_at: this.formatDate(this.apiTool?.updated_at),
-        created_by: this.apiTool?.created_by ? `${this.apiTool?.created_by}` : m.common_unknown(),
-        updated_by: this.apiTool?.updated_by ? `${this.apiTool?.updated_by}` : m.common_unknown(),
-      }
     },
     name: {
       get() {
@@ -160,13 +119,6 @@ export default {
     },
     navigate(path) {
       this.$router.push(path)
-    },
-    formatDate(date) {
-      if (!date) return ''
-      const dateObject = new Date(date)
-      const localeDateString = dateObject.toLocaleDateString()
-      const localeTimeString = dateObject.toLocaleTimeString()
-      return `${localeDateString} ${localeTimeString}`
     },
     async save() {
       this.saving = true

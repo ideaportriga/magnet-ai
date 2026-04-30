@@ -1,101 +1,17 @@
-<template lang="pug">
-.flex.flex-center.full-height
-  .column.items-center.auth-container(style='width: 360px')
-    .row.items-center.q-mb-lg
-      km-icon(name='magnet', width='23', height='25')
-      .km-heading-7.logo-text.q-ml-sm {{ t.magnetAi }}
+<script setup lang="ts">
+/**
+ * Login page — local password + SSO providers + MFA challenge. Rewritten on
+ * `@ds`. Public surface preserved: `authClient`, `providers`, `signupEnabled`,
+ * `t`. Emits `success`, `navigate`.
+ */
 
-    //- Local auth form
-    .full-width.q-mb-md(v-if='localEnabled && !mfaRequired')
-      q-form.q-gutter-sm(@submit.prevent='handleLogin')
-        q-input(
-          v-model='email',
-          :label='t.email',
-          type='email',
-          outlined,
-          dense,
-          :rules='[val => !!val || t.emailRequired]',
-          autocomplete='email'
-        )
-        q-input(
-          v-model='password',
-          :label='t.password',
-          :type='showPassword ? "text" : "password"',
-          outlined,
-          dense,
-          :rules='[val => !!val || t.passwordRequired]',
-          autocomplete='current-password'
-        )
-          template(v-slot:append)
-            q-icon(
-              :name='showPassword ? "visibility_off" : "visibility"',
-              class='cursor-pointer',
-              role='button',
-              tabindex='0',
-              :aria-label='showPassword ? t.hidePassword : t.showPassword',
-              @click='showPassword = !showPassword',
-              @keydown.enter='showPassword = !showPassword',
-              @keydown.space.prevent='showPassword = !showPassword'
-            )
+import { computed, ref } from 'vue'
+import KmBtn from '@ds/components/domain/KmBtn.vue'
+import KmGlyph from '@ds/components/domain/KmGlyph.vue'
+import KmIcon from '@ds/components/domain/KmIcon.vue'
+import KmInput from '@ds/components/domain/KmInput.vue'
+import KmSeparator from '@ds/components/domain/KmSeparator.vue'
 
-        .text-negative.text-caption.q-mt-xs(v-if='errorMessage') {{ errorMessage }}
-
-        q-btn.full-width.q-mt-sm(
-          type='submit',
-          color='primary',
-          :label='t.login',
-          :loading='loginInProgress',
-          no-caps
-        )
-
-      .row.justify-between.q-mt-sm
-        a.text-caption.cursor-pointer.text-primary(tabindex='0', role='button', @click='$emit("navigate", "forgot-password")', @keydown.enter='$emit("navigate", "forgot-password")') {{ t.forgotPassword }}
-        a.text-caption.cursor-pointer.text-primary(v-if='signupEnabled', tabindex='0', role='button', @click='$emit("navigate", "signup")', @keydown.enter='$emit("navigate", "signup")') {{ t.signup }}
-
-    //- MFA challenge
-    .full-width.q-mb-md(v-if='mfaRequired')
-      .text-subtitle2.q-mb-sm {{ t.enterMfaCode }}
-      q-form(@submit.prevent='handleMfa')
-        q-input(
-          v-model='mfaCode',
-          :label='t.authenticationCode',
-          outlined,
-          dense,
-          maxlength='8',
-          autocomplete='one-time-code'
-        )
-        .text-negative.text-caption.q-mt-xs(v-if='errorMessage') {{ errorMessage }}
-        q-btn.full-width.q-mt-sm(
-          type='submit',
-          color='primary',
-          :label='t.verify',
-          :loading='loginInProgress',
-          no-caps
-        )
-      a.text-caption.cursor-pointer.text-primary.q-mt-sm(tabindex='0', role='button', @click='mfaRequired = false; errorMessage = ""', @keydown.enter='mfaRequired = false; errorMessage = ""') {{ t.backToLogin }}
-
-    //- OAuth/OIDC providers divider
-    template(v-if='ssoProviders.length > 0 && !mfaRequired')
-      .row.items-center.full-width.q-my-md(v-if='localEnabled')
-        q-separator.col
-        .text-caption.q-mx-sm.text-grey {{ t.orContinueWith }}
-        q-separator.col
-
-      .column.q-gutter-sm.full-width
-        q-btn.full-width(
-          v-for='provider in ssoProviders',
-          :key='provider.name || provider',
-          outline,
-          no-caps,
-          @click='handleProvider(provider.name || provider)',
-          :loading='oauthInProgress === (provider.name || provider)'
-        )
-          .row.items-center.justify-center.q-gutter-sm
-            img(v-if='providerIcon(provider.name || provider)', :src='providerIcon(provider.name || provider)', width='18', height='18')
-            span {{ providerButtonLabel(provider) }}
-</template>
-
-<script lang="ts">
 const DEFAULT_T = {
   magnetAi: 'Magnet AI',
   email: 'Email',
@@ -119,11 +35,6 @@ const DEFAULT_T = {
   loginFailed: 'Login failed',
   invalidCode: 'Invalid code',
 }
-export default {}
-</script>
-
-<script setup lang="ts">
-import { ref, computed } from 'vue'
 
 interface AuthLoginClient {
   loginLocal(email: string, password: string): Promise<{ mfa_required?: boolean }>
@@ -131,31 +42,27 @@ interface AuthLoginClient {
   getSsoUrl(provider: string, returnTo?: string): string
 }
 
-const props = withDefaults(defineProps<{
-  authClient: AuthLoginClient
-  providers?: Array<string | { name: string; type: string; displayName?: string }>
-  signupEnabled?: boolean
-  /** i18n labels — pass translated strings to override English defaults */
-  t?: Record<string, string>
-}>(), {
-  providers: () => [],
-  signupEnabled: false,
-  t: () => ({ ...DEFAULT_T }),
-})
+interface OAuthProvider { name: string; type?: string; displayName?: string }
 
-const t = computed(() => ({ ...DEFAULT_T, ...props.t }))
-
-const localEnabled = computed(() =>
-  props.providers.some(p => (typeof p === 'string' ? p : p.name) === 'local')
-)
-const ssoProviders = computed(() =>
-  props.providers.filter(p => (typeof p === 'string' ? p : p.name) !== 'local')
+const props = withDefaults(
+  defineProps<{
+    authClient: AuthLoginClient
+    providers?: Array<string | OAuthProvider>
+    signupEnabled?: boolean
+    t?: Record<string, string>
+  }>(),
+  { providers: () => [], signupEnabled: false, t: () => ({}) },
 )
 
 const emit = defineEmits<{
   success: []
   navigate: [page: string]
 }>()
+
+const t = computed(() => ({ ...DEFAULT_T, ...props.t }))
+
+const localEnabled = computed(() => props.providers.some((p) => providerName(p) === 'local'))
+const ssoProviders = computed(() => props.providers.filter((p) => providerName(p) !== 'local'))
 
 const email = ref('')
 const password = ref('')
@@ -166,11 +73,13 @@ const loginInProgress = ref(false)
 const oauthInProgress = ref<string | null>(null)
 const errorMessage = ref('')
 
-function providerButtonLabel(provider: string | { name: string; displayName?: string }): string {
-  const name = typeof provider === 'string' ? provider : provider.name
-  const display = typeof provider === 'object' && provider.displayName
-    ? provider.displayName
-    : null
+function providerName(provider: string | OAuthProvider): string {
+  return typeof provider === 'string' ? provider : provider.name
+}
+
+function providerButtonLabel(provider: string | OAuthProvider): string {
+  const name = providerName(provider)
+  const display = typeof provider === 'object' ? provider.displayName : null
   const fallbackLabels: Record<string, string> = {
     microsoft: 'Microsoft',
     oracle: 'Oracle',
@@ -191,40 +100,27 @@ function providerIcon(provider: string): string | null {
   return icons[provider] || null
 }
 
-function handleProvider(provider: string) {
-  handleSsoRedirect(provider)
-}
-
-// --- SSO redirect flow ---
-
 function handleSsoRedirect(provider: string) {
   oauthInProgress.value = provider
   errorMessage.value = ''
-
   try {
     window.location.href = props.authClient.getSsoUrl(provider, window.location.pathname)
-  } catch (e: any) {
-    errorMessage.value = e.message || t.value.oauthFailed
+  } catch (e) {
+    errorMessage.value = (e as Error).message || t.value.oauthFailed
     oauthInProgress.value = null
   }
 }
-
-// --- Local auth ---
 
 async function handleLogin() {
   if (loginInProgress.value) return
   loginInProgress.value = true
   errorMessage.value = ''
-
   try {
     const result = await props.authClient.loginLocal(email.value, password.value)
-    if (result.mfa_required) {
-      mfaRequired.value = true
-    } else {
-      emit('success')
-    }
-  } catch (e: any) {
-    errorMessage.value = e.message || t.value.loginFailed
+    if (result.mfa_required) mfaRequired.value = true
+    else emit('success')
+  } catch (e) {
+    errorMessage.value = (e as Error).message || t.value.loginFailed
   } finally {
     loginInProgress.value = false
   }
@@ -234,14 +130,158 @@ async function handleMfa() {
   if (loginInProgress.value) return
   loginInProgress.value = true
   errorMessage.value = ''
-
   try {
     await props.authClient.verifyMfa(mfaCode.value)
     emit('success')
-  } catch (e: any) {
-    errorMessage.value = e.message || t.value.invalidCode
+  } catch (e) {
+    errorMessage.value = (e as Error).message || t.value.invalidCode
   } finally {
     loginInProgress.value = false
   }
 }
 </script>
+
+<template>
+  <div class="auth-login">
+    <div class="auth-login__panel stack" data-gap="lg">
+      <header class="cluster gap-sm" data-align="center" data-justify="center">
+        <KmIcon name="magnet" width="23" height="25" />
+        <span class="auth-login__brand">{{ t.magnetAi }}</span>
+      </header>
+
+      <form
+        v-if="localEnabled && !mfaRequired"
+        class="stack"
+        data-gap="sm"
+        @submit.prevent="handleLogin"
+      >
+        <KmInput
+          v-model="email"
+          :label="t.email"
+          type="email"
+          autocomplete="email"
+        />
+
+        <KmInput
+          v-model="password"
+          :label="t.password"
+          :type="showPassword ? 'text' : 'password'"
+          autocomplete="current-password"
+        >
+          <template #append>
+            <button
+              type="button"
+              class="auth-login__eye"
+              :aria-label="showPassword ? t.hidePassword : t.showPassword"
+              @click="showPassword = !showPassword"
+            >
+              <KmGlyph
+                :name="showPassword ? 'eye-off' : 'eye'"
+                size="20px"
+              />
+            </button>
+          </template>
+        </KmInput>
+
+        <p v-if="errorMessage" class="auth-login__error">{{ errorMessage }}</p>
+
+        <KmBtn
+          type="submit"
+          :label="t.login"
+          :loading="loginInProgress"
+          @click="handleLogin"
+        />
+
+        <div class="cluster" data-justify="between">
+          <a class="auth-login__link" tabindex="0" role="button" @click="$emit('navigate', 'forgot-password')">
+            {{ t.forgotPassword }}
+          </a>
+          <a v-if="signupEnabled" class="auth-login__link" tabindex="0" role="button" @click="$emit('navigate', 'signup')">
+            {{ t.signup }}
+          </a>
+        </div>
+      </form>
+
+      <div v-if="mfaRequired" class="stack" data-gap="sm">
+        <p class="auth-login__mfa-prompt">{{ t.enterMfaCode }}</p>
+        <form class="stack" data-gap="sm" @submit.prevent="handleMfa">
+          <KmInput
+            v-model="mfaCode"
+            :label="t.authenticationCode"
+            max-length="8"
+            autocomplete="one-time-code"
+          />
+          <p v-if="errorMessage" class="auth-login__error">{{ errorMessage }}</p>
+          <KmBtn type="submit" :label="t.verify" :loading="loginInProgress" @click="handleMfa" />
+        </form>
+        <a class="auth-login__link" tabindex="0" role="button" @click="(mfaRequired = false), (errorMessage = '')">
+          {{ t.backToLogin }}
+        </a>
+      </div>
+
+      <template v-if="ssoProviders.length && !mfaRequired">
+        <div v-if="localEnabled" class="cluster gap-sm" data-align="center">
+          <KmSeparator class="auth-login__divider" />
+          <span class="auth-login__divider-label">{{ t.orContinueWith }}</span>
+          <KmSeparator class="auth-login__divider" />
+        </div>
+
+        <div class="stack" data-gap="sm">
+          <KmBtn
+            v-for="provider in ssoProviders"
+            :key="providerName(provider)"
+            flat
+            input-like
+            :loading="oauthInProgress === providerName(provider)"
+            :label="providerButtonLabel(provider)"
+            @click="handleSsoRedirect(providerName(provider))"
+          >
+            <span class="cluster gap-sm" data-align="center" data-justify="center">
+              <img
+                v-if="providerIcon(providerName(provider))"
+                :src="providerIcon(providerName(provider))!"
+                width="18"
+                height="18"
+                :alt="providerName(provider)"
+              >
+              <span>{{ providerButtonLabel(provider) }}</span>
+            </span>
+          </KmBtn>
+        </div>
+      </template>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.auth-login { display: flex; align-items: center; justify-content: center; block-size: 100%; }
+.auth-login__panel { inline-size: 360px; padding: var(--ds-space-lg); }
+.auth-login__brand { font-size: var(--ds-font-size-h2); font-weight: var(--ds-font-weight-semibold); }
+.auth-login__error {
+  color: var(--ds-color-error-text);
+  font-size: var(--ds-font-size-caption);
+  margin: 0;
+}
+.auth-login__link {
+  font-size: var(--ds-font-size-caption);
+  cursor: pointer;
+  color: var(--ds-color-primary);
+  text-decoration: none;
+}
+.auth-login__link:hover { text-decoration: underline; }
+.auth-login__eye {
+  display: inline-flex;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  padding: 0;
+}
+.auth-login__mfa-prompt { font-size: var(--ds-font-size-label); margin: 0; }
+.auth-login__divider { flex: 1; }
+.auth-login__divider-label {
+  font-size: var(--ds-font-size-caption);
+  color: var(--ds-color-text-grey);
+  margin-inline: var(--ds-space-sm);
+  white-space: nowrap;
+}
+</style>

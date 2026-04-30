@@ -1,130 +1,142 @@
-<template lang="pug">
-km-drawer-layout(v-if='!!selectedRow', storageKey="drawer-dashboard-llm")
-  template(#tabs)
-    .q-pt-16.q-px-16
-      q-tabs.bb-border.full-width(
-        v-model='tab',
-        narrow-indicator,
-        dense,
-        align='left',
-        active-color='primary',
-        indicator-color='primary',
-        active-bg-color='white',
-        no-caps,
-        content-class='km-tabs'
-      )
-        template(v-for='t in tabs')
-          q-tab(:name='t.name', :label='t.label')
-        .fit
-        q-btn(icon='close', flat, dense, @click='$emit("close")')
-  template(v-if='tab == "details"')
-    .column.q-gap-16
-      .col-6
-        .km-description.text-secondary-text.q-pb-6 Request Type
-        .row
-          .km-label {{ requestType }}
-      .col-6
-        .km-description.text-secondary-text.q-pb-6 Consumer
-        .row
-          .km-label {{ selectedRow?.consumer_name }}
-      .col-6
-        .km-description.text-secondary-text.q-pb-6 Consumer type
-        .row
-          .km-label {{ selectedRow?.source }}
-      .col-6
-        .km-description.text-secondary-text.q-pb-6 Request time
-        .row
-          .km-label {{ time }}
-      .col-6
-        .km-description.text-secondary-text.q-pb-6 Status
-        .row
-          .km-label.text-capitalize {{ selectedRow?.status }}
-      .col-6
-        .km-description.text-secondary-text.q-pb-6 Model
-        .row
-          .km-label {{ selectedRow?.extra_data?.model_details?.display_name }}
-      .col-6
-        .km-description.text-secondary-text.q-pb-6 Prompt Template
-        .row
-          .km-label {{ selectedRow?.feature_name }}
-          km-chip.text-grey.q-ml-sm(:label='templateVariant', color='in-progress')
-
-  template(v-if='tab == "costs"')
-    .column
-      .row.q-pb-16
-        .col-6
-          .km-description.text-secondary-text.q-pb-6 Latency
-          .row
-            .km-label {{ latency }}
-        .col-6
-          .km-description.text-secondary-text.q-pb-6
-          .row
-            .km-label
-      .row
-        .col-6
-          template(
-            v-if='selectedRow?.feature_type === "prompt-template" || selectedRow?.feature_type === "chat-completion-api" || selectedRow?.feature_type === "embedding-api"'
-          )
-            .km-description.text-secondary-text.q-pb-6 Total tokens
-            .row
-              .km-label {{ selectedRow?.extra_data?.usage_details?.total }}
-          template(v-else)
-            .km-description.text-secondary-text.q-pb-6 Total usage
-            .row
-              .km-label {{ selectedRow?.extra_data?.usage_details?.total }} queries
-        .col-6
-          .km-description.text-secondary-text.q-pb-6 Total cost
-          .row
-            .km-label {{ formatCost(selectedRow?.extra_data?.cost_details?.total) }}
-      template(v-if='selectedRow?.feature_type === "prompt-template" || selectedRow?.feature_type === "chat-completion-api"')
-        .row
-          .col-6
-            .km-description.text-secondary-text.q-pb-6 Standard input
-            .row
-              .km-label {{ selectedRow?.extra_data?.usage_details?.input_details.standard }}
-          .col-6
-            .km-description.text-secondary-text.q-pb-6 Standard input cost
-            .row
-              .km-label {{ formatCost(selectedRow?.extra_data?.cost_details?.input_details.standard) }}
-        .row
-          .col-6
-            .km-description.text-secondary-text.q-pb-6 Cached input
-            .row
-              .km-label {{ selectedRow?.extra_data?.usage_details?.input_details.cached }}
-          .col-6
-            .km-description.text-secondary-text.q-pb-6 Cached input cost
-            .row
-              .km-label {{ formatCost(selectedRow?.extra_data?.cost_details?.input_details.cached) }}
-        .row
-          .col-6
-            .km-description.text-secondary-text.q-pb-6 Standard output
-            .row
-              .km-label {{ selectedRow?.extra_data?.usage_details?.output_details.standard }}
-          .col-6
-            .km-description.text-secondary-text.q-pb-6 Standard output cost
-            .row
-              .km-label {{ formatCost(selectedRow?.extra_data?.cost_details?.output_details.standard) }}
-        .row
-          .col-6
-            .km-description.text-secondary-text.q-pb-6 Reasoning output
-            .row
-              .km-label {{ selectedRow?.extra_data?.usage_details?.output_details?.reasoning }}
-          .col-6
-            .km-description.text-secondary-text.q-pb-6 Reasoning output cost
-            .row
-              .km-label {{ formatCost(selectedRow?.extra_data?.cost_details?.output_details?.reasoning) }}
-  template(v-if='tab === "input_output"')
-    template(v-if='selectedRow?.feature_type === "prompt-template" || selectedRow?.feature_type === "chat-completion-api"')
-      observability-traces-chat-completion-input-output(:span='selectedRow.extra_data')
-    template(v-else-if='selectedRow?.feature_type === "embedding-api"')
-      observability-traces-embed-input-output(:span='selectedRow.extra_data')
-    template(v-else-if='selectedRow?.feature_type === "reranking-api"')
-      observability-traces-rerank-input-output(:span='selectedRow.extra_data')
-
-  template(#footer)
-    .row.items-center.q-pa-16.justify-between.bt-border(v-if='selectedRow?.trace_id || isUpdated')
-      .row.items-center.q-gap-8.cursor-pointer(@click='openDetails', v-if='selectedRow?.trace_id')
-        km-btn(flat, label='View trace', icon='fa fa-external-link', color='secondary-text', labelClass='km-button-text', iconSize='16px')
+<template>
+  <km-drawer-layout v-if="!!selectedRow" storage-key="drawer-dashboard-llm">
+    <template #tabs>
+      <div class="pt-lg px-lg">
+        <km-tabs v-model="tab" class="bb-border full-width" narrow-indicator dense align="left" no-caps content-class="km-tabs">
+          <template v-for="t in tabs" :key="t">
+            <km-tab :name="t.name" :label="t.label" />
+          </template>
+          <div class="fit" />
+          <km-btn icon="close" flat dense @click="$emit(&quot;close&quot;)" />
+        </km-tabs>
+      </div>
+    </template>
+    <template v-if="tab == &quot;details&quot;">
+      <div class="dashboard-llm-drawer__grid">
+        <div>
+          <div class="km-description text-secondary-text pb-sm">Request Type</div>
+          <div class="km-label">{{ requestType }}</div>
+        </div>
+        <div>
+          <div class="km-description text-secondary-text pb-sm">Consumer</div>
+          <div class="km-label">{{ selectedRow?.consumer_name }}</div>
+        </div>
+        <div>
+          <div class="km-description text-secondary-text pb-sm">Consumer type</div>
+          <div class="km-label">{{ selectedRow?.source }}</div>
+        </div>
+        <div>
+          <div class="km-description text-secondary-text pb-sm">Request time</div>
+          <div class="km-label">{{ time }}</div>
+        </div>
+        <div>
+          <div class="km-description text-secondary-text pb-sm">Status</div>
+          <div class="km-label text-capitalize">{{ selectedRow?.status }}</div>
+        </div>
+        <div>
+          <div class="km-description text-secondary-text pb-sm">Model</div>
+          <div class="km-label">{{ selectedRow?.extra_data?.model_details?.display_name }}</div>
+        </div>
+        <div>
+          <div class="km-description text-secondary-text pb-sm">Prompt Template</div>
+          <div class="cluster">
+            <div class="km-label">{{ selectedRow?.feature_name }}</div>
+            <km-chip class="text-grey ml-sm" :label="templateVariant" tone="neutral" />
+          </div>
+        </div>
+      </div>
+    </template>
+    <template v-if="tab == &quot;costs&quot;">
+      <div>
+        <div class="dashboard-llm-drawer__grid dashboard-llm-drawer__grid--spaced">
+          <div>
+            <div class="km-description text-secondary-text pb-sm">Latency</div>
+            <div class="km-label">{{ latency }}</div>
+          </div>
+          <div>
+            <div class="km-description text-secondary-text pb-sm" />
+            <div class="km-label" />
+          </div>
+        </div>
+        <div class="dashboard-llm-drawer__grid">
+          <div>
+            <template v-if="selectedRow?.feature_type === 'prompt-template' || selectedRow?.feature_type === &quot;chat-completion-api&quot; || selectedRow?.feature_type === &quot;embedding-api&quot;">
+              <div class="km-description text-secondary-text pb-sm">Total tokens</div>
+              <div class="km-label">{{ selectedRow?.extra_data?.usage_details?.total }}</div>
+            </template>
+            <template v-else>
+              <div class="km-description text-secondary-text pb-sm">Total usage</div>
+              <div class="km-label">{{ selectedRow?.extra_data?.usage_details?.total }} queries</div>
+            </template>
+          </div>
+          <div>
+            <div class="km-description text-secondary-text pb-sm">Total cost</div>
+            <div class="km-label">{{ formatCost(selectedRow?.extra_data?.cost_details?.total) }}</div>
+          </div>
+        </div>
+        <template v-if="selectedRow?.feature_type === &quot;prompt-template&quot; || selectedRow?.feature_type === &quot;chat-completion-api&quot;">
+          <div class="dashboard-llm-drawer__grid">
+            <div>
+              <div class="km-description text-secondary-text pb-sm">Standard input</div>
+              <div class="km-label">{{ selectedRow?.extra_data?.usage_details?.input_details.standard }}</div>
+            </div>
+            <div>
+              <div class="km-description text-secondary-text pb-sm">Standard input cost</div>
+              <div class="km-label">{{ formatCost(selectedRow?.extra_data?.cost_details?.input_details.standard) }}</div>
+            </div>
+          </div>
+          <div class="dashboard-llm-drawer__grid">
+            <div>
+              <div class="km-description text-secondary-text pb-sm">Cached input</div>
+              <div class="km-label">{{ selectedRow?.extra_data?.usage_details?.input_details.cached }}</div>
+            </div>
+            <div>
+              <div class="km-description text-secondary-text pb-sm">Cached input cost</div>
+              <div class="km-label">{{ formatCost(selectedRow?.extra_data?.cost_details?.input_details.cached) }}</div>
+            </div>
+          </div>
+          <div class="dashboard-llm-drawer__grid">
+            <div>
+              <div class="km-description text-secondary-text pb-sm">Standard output</div>
+              <div class="km-label">{{ selectedRow?.extra_data?.usage_details?.output_details.standard }}</div>
+            </div>
+            <div>
+              <div class="km-description text-secondary-text pb-sm">Standard output cost</div>
+              <div class="km-label">{{ formatCost(selectedRow?.extra_data?.cost_details?.output_details.standard) }}</div>
+            </div>
+          </div>
+          <div class="dashboard-llm-drawer__grid">
+            <div>
+              <div class="km-description text-secondary-text pb-sm">Reasoning output</div>
+              <div class="km-label">{{ selectedRow?.extra_data?.usage_details?.output_details?.reasoning }}</div>
+            </div>
+            <div>
+              <div class="km-description text-secondary-text pb-sm">Reasoning output cost</div>
+              <div class="km-label">{{ formatCost(selectedRow?.extra_data?.cost_details?.output_details?.reasoning) }}</div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </template>
+    <template v-if="tab === &quot;input_output&quot;">
+      <template v-if="selectedRow?.feature_type === &quot;prompt-template&quot; || selectedRow?.feature_type === &quot;chat-completion-api&quot;">
+        <observability-traces-chat-completion-input-output :span="selectedRow.extra_data" />
+      </template>
+      <template v-else-if="selectedRow?.feature_type === &quot;embedding-api&quot;">
+        <observability-traces-embed-input-output :span="selectedRow.extra_data" />
+      </template>
+      <template v-else-if="selectedRow?.feature_type === &quot;reranking-api&quot;">
+        <observability-traces-rerank-input-output :span="selectedRow.extra_data" />
+      </template>
+    </template>
+    <template #footer>
+      <div v-if="selectedRow?.trace_id || isUpdated" class="cluster" data-justify="between">
+        <div v-if="selectedRow?.trace_id" class="cluster cursor-pointer" data-gap="sm" @click="openDetails">
+          <km-btn flat label="View trace" icon="external-link" tone="subtle" label-class="km-button-text" icon-size="16px" />
+        </div>
+      </div>
+    </template>
+  </km-drawer-layout>
 </template>
 <script>
 import _ from 'lodash'
@@ -188,3 +200,21 @@ export default {
   },
 }
 </script>
+
+<style scoped>
+.dashboard-llm-drawer__grid {
+  display: grid;
+  gap: var(--ds-space-lg);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.dashboard-llm-drawer__grid--spaced {
+  padding-block-end: var(--ds-space-lg);
+}
+
+@media (max-width: 767px) {
+  .dashboard-llm-drawer__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style>

@@ -1,9 +1,12 @@
-<template lang="pug">
-km-drawer-layout(storageKey="drawer-assistant-tools")
-  template(#header)
-    .km-heading-7(v-if='!showChunkInfo') {{ m.assistantTools_toolDefinition() }}
-  .column(v-if='!showChunkInfo')
-    km-codemirror(:modelValue='definition', :readonly='true', language='json')
+<template>
+  <km-drawer-layout storage-key="drawer-assistant-tools">
+    <template #header>
+      <div v-if="!showChunkInfo" class="km-heading-7">{{ m.assistantTools_toolDefinition() }}</div>
+    </template>
+    <div v-if="!showChunkInfo">
+      <km-codemirror :model-value="definition" :readonly="true" language="json" />
+    </div>
+  </km-drawer-layout>
 </template>
 
 <script>
@@ -70,10 +73,10 @@ export default {
 }
 </script>
 
-<style lang="stylus" scoped>
+<style scoped>
 .search-container {
-  min-width: 450px;
-  max-width: 800px;
-  width: 100%;
+  min-inline-size: 450px;
+  max-inline-size: 800px;
+  inline-size: 100%;
 }
 </style>

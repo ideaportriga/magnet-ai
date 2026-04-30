@@ -1,0 +1,30 @@
+/* =============================================================================
+ * .stack — vertical rhythm
+ * =============================================================================
+ * Inserts equal margins between direct children. Read more in Every Layout
+ * (https://every-layout.dev/layouts/stack/).
+ *
+ * Override per-instance with `--stack-gap`:
+ *   <div class="stack" style="--stack-gap: var(--ds-space-2xl)">
+ * ============================================================================= */
+
+.stack {
+  --stack-gap: var(--ds-space-md);
+
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+.stack > * + * {
+  margin-block-start: var(--stack-gap);
+}
+
+.stack[data-gap='2xs'] { --stack-gap: var(--ds-space-2xs); }
+.stack[data-gap='xs']  { --stack-gap: var(--ds-space-xs); }
+.stack[data-gap='sm']  { --stack-gap: var(--ds-space-sm); }
+.stack[data-gap='md']  { --stack-gap: var(--ds-space-md); }
+.stack[data-gap='lg']  { --stack-gap: var(--ds-space-lg); }
+.stack[data-gap='xl']  { --stack-gap: var(--ds-space-xl); }
+.stack[data-gap='2xl'] { --stack-gap: var(--ds-space-2xl); }
+.stack[data-gap='3xl'] { --stack-gap: var(--ds-space-3xl); }

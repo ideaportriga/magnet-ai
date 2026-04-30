@@ -1,222 +1,200 @@
-<template lang="pug">
-km-drawer-layout(storageKey="drawer-note-taker", noScroll)
-  template(#header)
-    .row.items-center.full-width
-      .col.km-heading-7 Preview
-      .col-auto(v-if='currentJob')
-        q-btn(
-          flat, dense, size='sm', color='grey-7',
-          icon='restart_alt', :label='m.common_startOver()',
-          @click='resetPreview', no-caps
-        )
-    .km-description.text-secondary-text.q-mb-sm(v-if='!currentJob') Test your note taker configuration with a recording.
+<template>
+  <km-drawer-layout storage-key="drawer-note-taker" no-scroll>
+    <template #header>
+      <div class="cluster full-width">
+        <div class="flex-1 km-heading-7">Preview</div>
+        <div v-if="currentJob" class="flex-none">
+          <km-btn flat dense size="sm" tone="weak" icon="restart_alt" :label="m.common_startOver()" no-caps @click="resetPreview" />
+        </div>
+      </div>
+      <div v-if="!currentJob" class="km-description text-secondary-text">Test your note taker configuration with a recording.</div>
+      <km-stepper v-else-if="!isFailed" :steps="stepperSteps" :stepper="stepperIndex" class="preview-stepper" />
+    </template>
 
-    //- Progress steps (only when job active)
-    template(v-if='currentJob')
-      .row.items-center.q-gap-8.q-py-sm
-        template(v-for='(step, i) in pipelineSteps', :key='step.key')
-          .row.items-center.q-gap-4(v-if='i > 0')
-            q-icon(name='chevron_right', size='16px', color='grey-4')
-          q-chip(
-            dense, size='sm', square,
-            :color='step.color', :text-color='step.textColor',
-            :icon='step.icon'
-          ) {{ step.label }}
-      q-separator
+    <div class="stack full-height full-width" data-gap="0">
+      <km-scroll-area class="flex-1 min-h-0">
+        <!-- Input form (no active job) -->
+        <template v-if="!currentJob">
+          <div class="stack preview-body" data-gap="lg">
+            <section class="stack" data-gap="sm">
+              <div class="cluster" data-gap="xs">
+                <km-glyph name="audio_file" size="18px" tone="weak" />
+                <div class="km-heading-8">Recording source</div>
+              </div>
+              <div v-if="selectedFile" class="cluster" data-gap="xs" data-wrap="no">
+                <km-chip removable tone="brand" icon="attach" @remove="clearFile">{{ selectedFile.name }}</km-chip>
+                <km-btn flat dense round size="sm" icon="swap_horiz" tone="weak" tooltip="Choose another file" @click="fileInput?.click()" />
+              </div>
+              <div v-else class="cluster" data-gap="xs" data-wrap="no">
+                <km-input v-model="sourceUrl" class="flex-1" :placeholder="m.noteTaker_pasteRecordingUrl()" height="32px" clearable />
+                <km-btn class="flex-none" flat dense round size="sm" icon="attach" tone="weak" tooltip="Attach file" @click="fileInput?.click()" />
+              </div>
+              <input ref="fileInput" type="file" hidden accept="audio/*,video/*,.mp4,.mp3,.wav,.m4a,.ogg,.webm,.mkv,.flac" @change="onFileSelected">
+            </section>
 
-  .column.full-height.full-width.no-wrap
+            <section class="stack" data-gap="sm">
+              <div class="cluster" data-gap="xs">
+                <km-glyph name="people" size="18px" tone="weak" />
+                <div class="km-heading-8">Participants</div>
+              </div>
+              <div class="km-description text-secondary-text">Optional. Helps with speaker identification.</div>
+              <div class="cluster" data-gap="sm">
+                <km-input v-model="newParticipant" class="flex-1" :placeholder="m.noteTaker_fullName()" height="32px" @keyup.enter="addParticipant" />
+                <km-btn class="flex-none" flat dense round size="sm" icon="add" tone="brand" :disable="!newParticipant.trim()" @click="addParticipant" />
+              </div>
+              <div v-if="participants.length" class="cluster" data-gap="xs">
+                <km-chip v-for="(p, i) in participants" :key="i" removable tone="brand" @remove="participants.splice(i, 1)">{{ p }}</km-chip>
+              </div>
+            </section>
+          </div>
+        </template>
 
-    //- ══ SCROLLABLE CONTENT ════════════════════════════════════════════
-    q-scroll-area.col(style='min-height: 0')
+        <!-- Job in progress / done -->
+        <template v-if="currentJob">
+          <div class="stack preview-body" data-gap="md">
+            <template v-if="['running', 'pending'].includes(currentJob.status)">
+              <div class="cluster preview-loading" data-gap="md">
+                <km-loader size="2em" />
+                <div class="stack" data-gap="xs">
+                  <div class="km-heading-8">Transcribing...</div>
+                  <div class="km-description text-secondary-text">This may take a few minutes depending on the recording length.</div>
+                </div>
+              </div>
+            </template>
 
-      //- ── No active job: input form ─────────────────────────────────
-      template(v-if='!currentJob')
-        .q-pt-md.q-pr-xs
+            <template v-else-if="currentJob.status === 'rerunning'">
+              <div class="cluster preview-loading" data-gap="md">
+                <km-loader size="2em" />
+                <div class="stack" data-gap="xs">
+                  <div class="km-heading-8">Generating summary and chapters...</div>
+                  <div class="km-description text-secondary-text">Running configured prompt templates.</div>
+                </div>
+              </div>
+            </template>
 
-          //- Source card
-          q-card.q-mb-md(flat, bordered)
-            q-card-section
-              .row.items-center.q-mb-xs
-                q-icon.q-mr-xs(name='audio_file', size='18px', color='grey-7')
-                .km-heading-8 Recording source
-              template(v-if='selectedFile')
-                .row.items-center.no-wrap.q-gap-4
-                  q-chip(
-                    removable, color='primary-light', text-color='primary', icon='attach_file',
-                    @remove='clearFile'
-                  ) {{ selectedFile.name }}
-                  q-btn(
-                    flat, dense, round, size='sm',
-                    icon='swap_horiz', color='grey-7',
-                    @click='fileInput?.click()'
-                  )
-                    q-tooltip Choose another file
-              template(v-else)
-                .row.items-center.no-wrap.q-gap-4
-                  km-input.col(
-                    v-model='sourceUrl',
-                    :placeholder='m.noteTaker_pasteRecordingUrl()',
-                    height='32px', clearable
-                  )
-                  q-btn.col-auto(
-                    flat, dense, round, size='sm',
-                    icon='attach_file', color='grey-7',
-                    @click='fileInput?.click()'
-                  )
-                    q-tooltip Attach file
-              input(ref='fileInput', type='file', accept='audio/*,video/*,.mp4,.mp3,.wav,.m4a,.ogg,.webm,.mkv,.flac', style='display:none', @change='onFileSelected')
+            <template v-else-if="isFailed">
+              <km-banner dense>
+                <template #avatar>
+                  <km-glyph name="error" tone="danger" />
+                </template>
+                <div class="stack" data-gap="xs">
+                  <div class="km-heading-8">Pipeline failed</div>
+                  <div class="km-description preview-error-message">{{ currentJob.result?.error || 'Unknown error' }}</div>
+                </div>
+              </km-banner>
+            </template>
 
-          //- Participants card
-          q-card.q-mb-md(flat, bordered)
-            q-card-section
-              .row.items-center.q-mb-xs
-                q-icon.q-mr-xs(name='people', size='18px', color='grey-7')
-                .km-heading-8 Participants
-              .km-description.text-secondary-text.q-mb-sm Optional. Helps with speaker identification.
-              .row.items-center.q-gap-8
-                km-input.col(
-                  v-model='newParticipant',
-                  :placeholder='m.noteTaker_fullName()',
-                  height='32px',
-                  @keyup.enter='addParticipant'
-                )
-                q-btn.col-auto(
-                  flat, dense, round, size='sm',
-                  icon='add', color='primary',
-                  @click='addParticipant', :disable='!newParticipant.trim()'
-                )
-              .row.q-gap-4.q-flex-wrap.q-mt-sm(v-if='participants.length')
-                q-chip(
-                  v-for='(p, i) in participants', :key='i',
-                  removable, color='primary-light', text-color='primary',
-                  @remove='participants.splice(i, 1)'
-                ) {{ p }}
+            <template v-else-if="currentJob.status === 'transcribed' && currentJob.result">
+              <section class="stack" data-gap="sm">
+                <div class="cluster" data-gap="xs">
+                  <km-glyph name="file-text" size="18px" tone="weak" />
+                  <div class="km-heading-8">Transcript</div>
+                </div>
+                <km-input
+                  :model-value="currentJob.result.full_text || ''"
+                  class="font-mono preview-transcript"
+                  type="textarea"
+                  outlined
+                  dense
+                  readonly
+                  autogrow
+                />
+              </section>
 
-      //- ── Active job content ────────────────────────────────────────
-      template(v-if='currentJob')
-        .q-py-md.q-pr-xs
+              <section v-if="speakerLabels.length" class="stack" data-gap="sm">
+                <div class="cluster" data-gap="xs">
+                  <km-glyph name="people" size="18px" tone="weak" />
+                  <div class="km-heading-8">Speaker mapping</div>
+                </div>
+                <div class="km-description text-secondary-text">Assign real names to detected speakers. Leave empty to keep the label.</div>
+                <div class="stack" data-gap="sm">
+                  <div v-for="label in speakerLabels" :key="label" class="cluster" data-gap="sm">
+                    <km-chip class="flex-none" dense size="sm" shape="square" tone="neutral">{{ label }}</km-chip>
+                    <div class="flex-1">
+                      <km-input v-model="speakerMapping[label]" :placeholder="m.noteTaker_nameForLabel({ label })" height="32px" />
+                    </div>
+                  </div>
+                </div>
+              </section>
 
-          //- Transcribing
-          template(v-if='["running","pending"].includes(currentJob.status)')
-            q-card.q-pa-md(flat, bordered)
-              .row.items-center.q-gap-12
-                q-spinner-dots(color='primary', size='2em')
-                .column
-                  .km-heading-8 Transcribing...
-                  .km-description.text-secondary-text This may take a few minutes depending on the recording length.
+              <section class="stack" data-gap="sm">
+                <div class="km-heading-8">Additional context</div>
+                <div class="stack" data-gap="xs">
+                  <div class="km-description text-secondary-text">Key terms (comma-separated)</div>
+                  <km-input v-model="extraKeytermsInput" :placeholder="m.noteTaker_productNamesAcronyms()" height="32px" />
+                </div>
+                <div class="stack" data-gap="xs">
+                  <div class="km-description text-secondary-text">Meeting notes (optional)</div>
+                  <km-input v-model="meetingNotesInput" :placeholder="m.noteTaker_actionItemsDecisions()" height="60px" />
+                </div>
+              </section>
+            </template>
 
-          //- Post-processing
-          template(v-else-if='currentJob.status === "rerunning"')
-            q-card.q-pa-md(flat, bordered)
-              .row.items-center.q-gap-12
-                q-spinner-dots(color='primary', size='2em')
-                .column
-                  .km-heading-8 Generating summary and chapters...
-                  .km-description.text-secondary-text Running configured prompt templates.
+            <template v-else-if="currentJob.status === 'completed' && currentJob.result">
+              <km-card v-if="currentJob.result.full_text" flat bordered>
+                <km-expansion-item dense header-class="p-sm" :default-opened="false">
+                  <template #header>
+                    <div class="cluster" data-gap="xs">
+                      <km-glyph name="file-text" size="18px" tone="weak" />
+                      <div class="km-heading-8">Transcript</div>
+                    </div>
+                  </template>
+                  <div class="km-card-section">
+                    <km-input
+                      :model-value="currentJob.result.full_text"
+                      class="font-mono preview-transcript"
+                      type="textarea"
+                      outlined
+                      dense
+                      readonly
+                      autogrow
+                    />
+                  </div>
+                </km-expansion-item>
+              </km-card>
 
-          //- Failed
-          template(v-else-if='currentJob.status === "failed"')
-            q-banner.bg-red-1.text-negative.border-radius-6(dense)
-              template(v-slot:avatar)
-                q-icon(name='error_outline', color='negative')
-              .km-heading-8 Pipeline failed
-              .km-description.q-mt-4(style='word-break: break-word') {{ currentJob.result?.error || 'Unknown error' }}
+              <template v-if="currentJob.result.postprocessing">
+                <km-card v-for="(content, key) in currentJob.result.postprocessing" v-show="content" :key="key" flat bordered>
+                  <km-expansion-item dense header-class="p-sm" :default-opened="true">
+                    <template #header>
+                      <div class="cluster" data-gap="xs">
+                        <km-glyph :name="resultIcon(String(key))" size="18px" tone="weak" />
+                        <div class="km-heading-8">{{ capitalize(String(key)) }}</div>
+                      </div>
+                    </template>
+                    <div class="km-card-section">
+                      <km-input
+                        :model-value="content"
+                        class="preview-postproc"
+                        type="textarea"
+                        outlined
+                        dense
+                        readonly
+                        autogrow
+                      />
+                    </div>
+                  </km-expansion-item>
+                </km-card>
+              </template>
+            </template>
+          </div>
+        </template>
+      </km-scroll-area>
 
-          //- Transcribed: review speakers
-          template(v-else-if='currentJob.status === "transcribed" && currentJob.result')
-            q-card.q-mb-md(flat, bordered)
-              q-card-section
-                .row.items-center.q-mb-xs
-                  q-icon.q-mr-xs(name='description', size='18px', color='grey-7')
-                  .km-heading-8 Transcript
-                q-input(
-                  :modelValue='currentJob.result.full_text || ""',
-                  type='textarea', outlined, dense, readonly, autogrow,
-                  input-style='font-size: 12px; font-family: var(--km-font-mono); line-height: 1.5',
-                  style='max-height: 250px; overflow-y: auto'
-                )
-
-            q-card.q-mb-md(flat, bordered, v-if='speakerLabels.length')
-              q-card-section
-                .row.items-center.q-mb-xs
-                  q-icon.q-mr-xs(name='people', size='18px', color='grey-7')
-                  .km-heading-8 Speaker Mapping
-                .km-description.text-secondary-text.q-mb-sm Assign real names to detected speakers. Leave empty to keep the label.
-                .q-gutter-sm
-                  .row.items-center.q-gap-8(v-for='label in speakerLabels', :key='label')
-                    q-chip.col-auto(dense, size='sm', square, color='blue-grey-1') {{ label }}
-                    .col
-                      km-input(v-model='speakerMapping[label]', :placeholder='m.noteTaker_nameForLabel({ label })', height='32px')
-
-            q-card.q-mb-md(flat, bordered)
-              q-card-section
-                .km-heading-8.q-mb-sm Additional context
-                .km-description.text-secondary-text.q-mb-xs Key terms (comma-separated)
-                km-input.q-mb-sm(v-model='extraKeytermsInput', :placeholder='m.noteTaker_productNamesAcronyms()', height='32px')
-                .km-description.text-secondary-text.q-mb-xs Meeting notes (optional)
-                km-input(v-model='meetingNotesInput', :placeholder='m.noteTaker_actionItemsDecisions()', height='60px')
-
-          //- Completed: results
-          template(v-else-if='currentJob.status === "completed" && currentJob.result')
-            q-card.q-mb-md(flat, bordered, v-if='currentJob.result.full_text')
-              q-expansion-item(dense, header-class='q-pa-sm', :default-opened='false')
-                template(v-slot:header)
-                  .row.items-center.q-gap-4
-                    q-icon(name='description', size='18px', color='grey-7')
-                    .km-heading-8 Transcript
-                q-card-section
-                  q-input(
-                    :modelValue='currentJob.result.full_text',
-                    type='textarea', outlined, dense, readonly, autogrow,
-                    input-style='font-size: 12px; font-family: var(--km-font-mono); line-height: 1.5',
-                    style='max-height: 250px; overflow-y: auto'
-                  )
-
-            template(v-if='currentJob.result.postprocessing')
-              template(v-for='(content, key) in currentJob.result.postprocessing', :key='key')
-                q-card.q-mb-md(flat, bordered, v-if='content')
-                  q-expansion-item(dense, header-class='q-pa-sm', :default-opened='true')
-                    template(v-slot:header)
-                      .row.items-center.q-gap-4
-                        q-icon(:name='resultIcon(String(key))', size='18px', color='grey-7')
-                        .km-heading-8 {{ capitalize(String(key)) }}
-                    q-card-section
-                      q-input(
-                        :modelValue='content', type='textarea', outlined, dense, readonly, autogrow,
-                        input-style='font-size: 12px; line-height: 1.6',
-                        style='max-height: 300px; overflow-y: auto'
-                      )
-
-    //- ══ FIXED FOOTER ══════════════════════════════════════════════════
-    .col-auto
-      q-separator
-
-      //- No job: Run button
-      template(v-if='!currentJob')
-        .q-pt-sm
-          q-btn.full-width(
-            color='primary', unelevated, dense, no-caps,
-            :disable='!canRun', @click='runPreview', :loading='running',
-            icon='play_arrow', :label='m.common_runPipeline()'
-          )
-
-      //- Transcribed: Continue button
-      template(v-else-if='currentJob?.status === "transcribed"')
-        .q-pt-sm
-          q-btn.full-width(
-            unelevated, dense, color='primary', no-caps,
-            :label='m.common_continue()', icon='play_arrow',
-            @click='continuePostprocessing', :loading='processingContinue'
-          )
-
-      //- Failed: Try again
-      template(v-else-if='currentJob?.status === "failed"')
-        .q-pt-sm
-          q-btn.full-width(
-            unelevated, dense, color='primary', no-caps,
-            :label='m.common_tryAgain()', icon='refresh',
-            @click='resetPreview'
-          )
+      <div class="flex-none preview-footer">
+        <km-separator />
+        <template v-if="!currentJob">
+          <km-btn class="full-width" unelevated dense no-caps :disable="!canRun" :loading="running" icon="play" :label="m.common_runPipeline()" @click="runPreview" />
+        </template>
+        <template v-else-if="currentJob?.status === 'transcribed'">
+          <km-btn class="full-width" unelevated dense no-caps :label="m.common_continue()" icon="play" :loading="processingContinue" @click="continuePostprocessing" />
+        </template>
+        <template v-else-if="isFailed">
+          <km-btn class="full-width" unelevated dense no-caps :label="m.common_tryAgain()" icon="refresh" @click="resetPreview" />
+        </template>
+      </div>
+    </div>
+  </km-drawer-layout>
 </template>
 
 <script setup lang="ts">
@@ -247,55 +225,31 @@ const extraKeytermsInput = ref('')
 const meetingNotesInput = ref('')
 const processingContinue = ref(false)
 
-// pollingTimer is declared alongside the polling loop below (§B.1).
-
 const previewJobs = computed<PreviewJob[]>(() => ntStore.previewJobs || [])
 const currentJob = computed(() => currentJobId.value ? previewJobs.value.find((j) => j.id === currentJobId.value) || null : null)
 const canRun = computed(() => Boolean(selectedFile.value) || Boolean(sourceUrl.value.trim()))
+const isFailed = computed(() => currentJob.value?.status === 'failed')
 
 const speakerLabels = computed(() => {
   return (currentJob.value?.result?.speaker_labels as string[]) || []
 })
 
-// ── Pipeline steps indicator ──
-const pipelineSteps = computed(() => {
+// ── Pipeline stepper ──
+// `KmStepper` auto-picks edit/check/circle indicator icons by comparing each
+// step index against the active `stepper` index (done/active/todo).
+const stepperSteps: Array<{ label: string }> = [
+  { label: 'Transcribe' },
+  { label: 'Review speakers' },
+  { label: 'Generate' },
+]
+
+const stepperIndex = computed(() => {
   const status = currentJob.value?.status || 'pending'
-  const hasPostprocessing = Boolean(currentJob.value?.result?.postprocessing)
-
-  const done = 'grey-3'
-  const doneText = 'grey-8'
-  const active = 'primary'
-  const activeText = 'white'
-  const pending = 'grey-2'
-  const pendingText = 'grey-5'
-
-  const steps = [
-    {
-      key: 'transcribe',
-      label: 'Transcribe',
-      icon: ['running', 'pending'].includes(status) ? 'hourglass_top' : 'check_circle',
-      color: ['running', 'pending'].includes(status) ? active : done,
-      textColor: ['running', 'pending'].includes(status) ? activeText : doneText,
-    },
-    {
-      key: 'review',
-      label: 'Review speakers',
-      icon: status === 'transcribed' ? 'edit' : (['running', 'pending'].includes(status) ? 'radio_button_unchecked' : 'check_circle'),
-      color: status === 'transcribed' ? 'orange' : (hasPostprocessing || status === 'rerunning' ? done : pending),
-      textColor: status === 'transcribed' ? 'white' : (hasPostprocessing || status === 'rerunning' ? doneText : pendingText),
-    },
-    {
-      key: 'generate',
-      label: 'Generate',
-      icon: status === 'rerunning' ? 'hourglass_top' : (status === 'completed' && hasPostprocessing ? 'check_circle' : 'radio_button_unchecked'),
-      color: status === 'rerunning' ? active : (status === 'completed' && hasPostprocessing ? done : pending),
-      textColor: status === 'rerunning' ? activeText : (status === 'completed' && hasPostprocessing ? doneText : pendingText),
-    },
-  ]
-  if (status === 'failed') {
-    return [{ key: 'failed', label: 'Failed', icon: 'error', color: 'negative', textColor: 'white' }]
-  }
-  return steps
+  if (['running', 'pending'].includes(status)) return 0
+  if (status === 'transcribed') return 1
+  if (status === 'rerunning') return 2
+  if (status === 'completed') return stepperSteps.length // all done
+  return 0
 })
 
 const onFileSelected = (e: Event) => {
@@ -389,7 +343,7 @@ const pollJob = async () => {
     }
   } catch (err) {
     pollErrorCount += 1
-     
+
     console.warn('[NoteTaker] poll failed', err)
     if (pollErrorCount >= POLL_MAX_CONSECUTIVE_ERRORS) {
       stopPolling()
@@ -445,3 +399,41 @@ onDeactivated(() => stopPolling())
 // Clean up fully when destroyed
 onUnmounted(() => stopPolling())
 </script>
+
+<style scoped>
+.preview-stepper {
+  padding-block-start: var(--ds-space-sm);
+}
+
+.preview-body {
+  padding-block: var(--ds-space-md);
+  padding-inline-end: var(--ds-space-xs);
+}
+
+.preview-loading {
+  padding-block: var(--ds-space-xl);
+  padding-inline: var(--ds-space-md);
+}
+
+.preview-footer {
+  padding-block-start: var(--ds-space-sm);
+}
+
+.preview-error-message {
+  overflow-wrap: break-word;
+}
+
+.preview-transcript :deep(textarea) {
+  font-size: 12px;
+  line-height: 1.5;
+  max-block-size: 250px;
+  overflow-block: auto;
+}
+
+.preview-postproc :deep(textarea) {
+  font-size: 12px;
+  line-height: 1.6;
+  max-block-size: 300px;
+  overflow-block: auto;
+}
+</style>

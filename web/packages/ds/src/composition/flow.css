@@ -1,0 +1,23 @@
+/* =============================================================================
+ * .flow — long-form vertical rhythm (typographic flow)
+ * =============================================================================
+ * Differs from .stack in intent: `.stack` arranges semantically distinct
+ * blocks; `.flow` arranges typographic content where each child wants the
+ * same vertical breathing room (paragraphs, headings, lists).
+ * ============================================================================= */
+
+.flow {
+  --flow-space: 1em;
+}
+
+.flow > * + * {
+  margin-block-start: var(--flow-space);
+}
+
+.flow[data-space='2xs'] { --flow-space: var(--ds-space-2xs); }
+.flow[data-space='xs']  { --flow-space: var(--ds-space-xs); }
+.flow[data-space='sm']  { --flow-space: var(--ds-space-sm); }
+.flow[data-space='md']  { --flow-space: var(--ds-space-md); }
+.flow[data-space='lg']  { --flow-space: var(--ds-space-lg); }
+.flow[data-space='xl']  { --flow-space: var(--ds-space-xl); }
+.flow[data-space='2xl'] { --flow-space: var(--ds-space-2xl); }

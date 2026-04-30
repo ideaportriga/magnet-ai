@@ -1,118 +1,116 @@
 <template>
-  <kg-inline-field interactive @click.stop>
-    <span class="source-dropdown-label">{{ displayLabel }}</span>
-    <q-icon name="arrow_drop_down" size="16px" />
-    <q-menu
-      ref="menuRef"
-      anchor="bottom left"
-      self="top left"
-      class="source-dropdown-menu"
-      :offset="[0, 4]"
-    >
-      <div class="source-dropdown-content">
-        <!-- Level 1: Any Source -->
-        <div
-          v-if="allowAllSources"
-          class="source-item source-item--root"
-          :class="{ 'source-item--selected': isAllSourcesSelected, 'source-item--clickable': true }"
-          @click="toggleAllSources"
-        >
-          <div class="source-item-checkbox" :class="{ 'source-item-checkbox--active': isAllSourcesSelected }">
-            <q-icon v-if="isAllSourcesSelected" name="check" size="10px" class="source-item-checkbox-icon" />
-          </div>
-          <span class="source-item-label">{{ m.knowledgeGraph_anySource() }}</span>
+  <ds-popover placement="bottom" align="start" :side-offset="4">
+    <template #trigger>
+      <kg-inline-field interactive>
+        <span class="source-dropdown-label">{{ displayLabel }}</span>
+        <km-glyph name="chevron-down" size="16px" />
+      </kg-inline-field>
+    </template>
+
+    <div class="source-dropdown-content">
+      <!-- Level 1: Any Source -->
+      <div
+        v-if="allowAllSources"
+        class="source-item source-item--root"
+        :class="{ 'source-item--selected': isAllSourcesSelected, 'source-item--clickable': true }"
+        @click="toggleAllSources"
+      >
+        <div class="source-item-checkbox" :class="{ 'source-item-checkbox--active': isAllSourcesSelected }">
+          <km-glyph v-if="isAllSourcesSelected" name="check" size="10px" class="source-item-checkbox-icon" />
         </div>
+        <span class="source-item-label">{{ m.knowledgeGraph_anySource() }}</span>
+      </div>
 
-        <!-- Level 2: Source type groups -->
-        <template v-for="group in visibleSourceGroups" :key="group.type">
-          <!-- Manual Upload: flat entry -->
-          <template v-if="group.type === 'upload'">
+      <!-- Level 2: Source type groups -->
+      <template v-for="group in visibleSourceGroups" :key="group.type">
+        <!-- Manual Upload: flat entry -->
+        <template v-if="group.type === 'upload'">
+          <div
+            class="source-item source-item--type"
+            :class="{
+              'source-item--selected': isGroupSelected(group.type),
+              'source-item--disabled': isAllSourcesSelected,
+              'source-item--clickable': !isAllSourcesSelected,
+            }"
+            @click="!isAllSourcesSelected && toggleGroup(group.type)"
+          >
             <div
-              class="source-item source-item--type"
+              class="source-item-checkbox"
+              :class="{ 'source-item-checkbox--active': isGroupSelected(group.type) || isAllSourcesSelected }"
+            >
+              <km-glyph
+                v-if="isGroupSelected(group.type) || isAllSourcesSelected"
+                name="check"
+                size="10px"
+                class="source-item-checkbox-icon"
+              />
+            </div>
+            <span class="source-item-label">{{ group.label }}</span>
+          </div>
+        </template>
+
+        <!-- Other types: group with children -->
+        <template v-else>
+          <div
+            class="source-item source-item--type"
+            :class="{
+              'source-item--selected': isGroupSelected(group.type),
+              'source-item--disabled': isAllSourcesSelected,
+              'source-item--clickable': !isAllSourcesSelected,
+            }"
+            @click="!isAllSourcesSelected && toggleGroup(group.type)"
+          >
+            <div
+              class="source-item-checkbox"
+              :class="{ 'source-item-checkbox--active': isGroupSelected(group.type) || isAllSourcesSelected }"
+            >
+              <km-glyph
+                v-if="isGroupSelected(group.type) || isAllSourcesSelected"
+                name="check"
+                size="10px"
+                class="source-item-checkbox-icon"
+              />
+            </div>
+            <span class="source-item-label">{{ m.knowledgeGraph_anyNamedSource({ name: group.label }) }}</span>
+          </div>
+
+          <!-- Level 3: Individual sources -->
+          <template v-if="allowIndividualSources">
+            <div
+              v-for="source in group.sources"
+              :key="source.id"
+              class="source-item source-item--source"
               :class="{
-                'source-item--selected': isGroupSelected(group.type),
-                'source-item--disabled': isAllSourcesSelected,
-                'source-item--clickable': !isAllSourcesSelected,
+                'source-item--selected': isSourceSelected(source.id),
+                'source-item--disabled': isAllSourcesSelected || isGroupSelected(group.type),
+                'source-item--clickable': !isAllSourcesSelected && !isGroupSelected(group.type),
               }"
-              @click="!isAllSourcesSelected && toggleGroup(group.type)"
+              @click="!isAllSourcesSelected && !isGroupSelected(group.type) && toggleSource(source.id)"
             >
               <div
                 class="source-item-checkbox"
-                :class="{ 'source-item-checkbox--active': isGroupSelected(group.type) || isAllSourcesSelected }"
+                :class="{ 'source-item-checkbox--active': isSourceSelected(source.id) || isGroupSelected(group.type) || isAllSourcesSelected }"
               >
-                <q-icon
-                  v-if="isGroupSelected(group.type) || isAllSourcesSelected"
+                <km-glyph
+                  v-if="isSourceSelected(source.id) || isGroupSelected(group.type) || isAllSourcesSelected"
                   name="check"
                   size="10px"
                   class="source-item-checkbox-icon"
                 />
               </div>
-              <span class="source-item-label">{{ group.label }}</span>
+              <span class="source-item-label">{{ source.name }}</span>
             </div>
-          </template>
-
-          <!-- Other types: group with children -->
-          <template v-else>
-            <div
-              class="source-item source-item--type"
-              :class="{
-                'source-item--selected': isGroupSelected(group.type),
-                'source-item--disabled': isAllSourcesSelected,
-                'source-item--clickable': !isAllSourcesSelected,
-              }"
-              @click="!isAllSourcesSelected && toggleGroup(group.type)"
-            >
-              <div
-                class="source-item-checkbox"
-                :class="{ 'source-item-checkbox--active': isGroupSelected(group.type) || isAllSourcesSelected }"
-              >
-                <q-icon
-                  v-if="isGroupSelected(group.type) || isAllSourcesSelected"
-                  name="check"
-                  size="10px"
-                  class="source-item-checkbox-icon"
-                />
-              </div>
-              <span class="source-item-label">{{ m.knowledgeGraph_anyNamedSource({ name: group.label }) }}</span>
-            </div>
-
-            <!-- Level 3: Individual sources -->
-            <template v-if="allowIndividualSources">
-              <div
-                v-for="source in group.sources"
-                :key="source.id"
-                class="source-item source-item--source"
-                :class="{
-                  'source-item--selected': isSourceSelected(source.id),
-                  'source-item--disabled': isAllSourcesSelected || isGroupSelected(group.type),
-                  'source-item--clickable': !isAllSourcesSelected && !isGroupSelected(group.type),
-                }"
-                @click="!isAllSourcesSelected && !isGroupSelected(group.type) && toggleSource(source.id)"
-              >
-                <div
-                  class="source-item-checkbox"
-                  :class="{ 'source-item-checkbox--active': isSourceSelected(source.id) || isGroupSelected(group.type) || isAllSourcesSelected }"
-                >
-                  <q-icon
-                    v-if="isSourceSelected(source.id) || isGroupSelected(group.type) || isAllSourcesSelected"
-                    name="check"
-                    size="10px"
-                    class="source-item-checkbox-icon"
-                  />
-                </div>
-                <span class="source-item-label">{{ source.name }}</span>
-              </div>
-            </template>
           </template>
         </template>
-      </div>
-    </q-menu>
-  </kg-inline-field>
+      </template>
+    </div>
+  </ds-popover>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 import { m } from '@/paraglide/messages'
+import { DsPopover } from '@ds/primitives'
 import KgInlineField from '../common/KgInlineField.vue'
 import type { SourceRow } from '../Sources/models'
 import { sourceRegistry, type SourceTypeKey } from '../Sources/SourceTypes/registry'
@@ -251,17 +249,16 @@ const toggleSource = (id: string) => {
 <style scoped>
 .source-dropdown-label {
   font-family: inherit;
-  min-width: 0;
+  min-inline-size: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .source-dropdown-content {
-  min-width: 280px;
-  max-height: 380px;
-  overflow-y: auto;
-  padding: 8px 6px;
+  min-inline-size: 280px;
+  max-block-size: 380px;
+  overflow-block: auto;
 }
 
 .source-item {
@@ -269,7 +266,7 @@ const toggleSource = (id: string) => {
   align-items: center;
   gap: 10px;
   padding: 7px 10px;
-  border-radius: var(--radius-md);
+  border-radius: var(--ds-radius-md);
   transition: background 0.12s ease;
 }
 
@@ -278,7 +275,7 @@ const toggleSource = (id: string) => {
 }
 
 .source-item--clickable:hover {
-  background: var(--q-primary-bg);
+  background: var(--ds-color-primary-bg);
 }
 
 .source-item--disabled {
@@ -287,88 +284,77 @@ const toggleSource = (id: string) => {
 }
 
 .source-item--root {
-  margin-bottom: 4px;
+  margin-block-end: 4px;
 }
 
 .source-item--root .source-item-label {
-  font-size: var(--km-font-size-label);
+  font-size: var(--ds-font-size-label);
   font-weight: 600;
-  color: var(--q-black);
+  color: var(--ds-color-black);
 }
 
 .source-item--type {
-  padding-left: 22px;
+  padding-inline-start: 22px;
 }
 
 .source-item--type .source-item-label {
-  font-size: var(--km-font-size-caption);
+  font-size: var(--ds-font-size-caption);
   font-weight: 500;
-  color: var(--q-secondary-text);
+  color: var(--ds-color-secondary-text);
 }
 
 .source-item--source {
-  padding-left: 44px;
+  padding-inline-start: 44px;
 }
 
 .source-item--source .source-item-label {
-  font-size: var(--km-font-size-caption);
+  font-size: var(--ds-font-size-caption);
   font-weight: 400;
-  color: var(--q-label);
+  color: var(--ds-color-label);
 }
 
 .source-item-checkbox {
-  width: 14px;
-  height: 14px;
-  border-radius: var(--radius-xs);
-  border: 1.5px solid var(--q-border-2);
+  inline-size: 14px;
+  block-size: 14px;
+  border-radius: var(--ds-radius-xs);
+  border: 1.5px solid var(--ds-color-border-2);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  background: var(--q-white);
+  background: var(--ds-color-white);
   transition:
     border-color 0.15s ease,
     background 0.15s ease;
 }
 
 .source-item--clickable:hover .source-item-checkbox {
-  border-color: var(--q-secondary);
+  border-color: var(--ds-color-secondary);
 }
 
 .source-item-checkbox--active {
-  border-color: var(--q-primary);
-  background: var(--q-primary);
+  border-color: var(--ds-color-primary);
+  background: var(--ds-color-primary);
 }
 
 .source-item-checkbox-icon {
-  color: var(--q-white);
+  color: var(--ds-color-static-white);
 }
 
 .source-item--disabled .source-item-checkbox {
-  border-color: var(--q-border);
+  border-color: var(--ds-color-border);
 }
 
 .source-item--disabled .source-item-checkbox--active {
-  background: var(--q-secondary-bg);
-  border-color: var(--q-secondary-bg);
+  background: var(--ds-color-secondary-bg);
+  border-color: var(--ds-color-secondary-bg);
 }
 
 .source-item-label {
   flex: 1;
-  min-width: 0;
+  min-inline-size: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-</style>
-
-<style>
-.source-dropdown-menu {
-  border-radius: var(--radius-xl);
-  box-shadow:
-    0 4px 20px var(--q-primary-transparent),
-    0 8px 40px rgba(45, 36, 56, 0.12);
-  border: 1px solid var(--q-border);
-  background: var(--q-white);
 }
 </style>

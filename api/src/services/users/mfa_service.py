@@ -26,8 +26,9 @@ logger = getLogger(__name__)
 
 # Number of backup codes to generate
 BACKUP_CODES_COUNT = 8
-# Length of each backup code (hex chars)
-BACKUP_CODE_LENGTH = 8
+# Length of each backup code (hex chars). 12 hex chars = 48 bits of entropy,
+# sufficient even when MFA verify rate-limit is bypassed (per-user lockout).
+BACKUP_CODE_LENGTH = 12
 # App name shown in authenticator apps
 TOTP_ISSUER = "Magnet AI"
 

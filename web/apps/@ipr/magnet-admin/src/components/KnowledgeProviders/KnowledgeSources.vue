@@ -1,25 +1,19 @@
-<template lang="pug">
-.column.full-height(style='min-height: 0')
-  .row.q-mb-12
-    .col-auto.center-flex-y
-      km-input(:placeholder='m.common_search()', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
-    q-space
-    .col-auto.center-flex-y
-      km-btn.q-mr-12(:label='m.common_new()', @click='showNewDialog = true')
-  .col(style='min-height: 0')
-    km-data-table(
-      :table='table',
-      :loading='isLoading', :fetching='isFetching',
-      fill-height,
-      row-key='id',
-      @row-click='openDetails'
-    )
-collections-create-new(
-  v-if='showNewDialog',
-  :showNewDialog='showNewDialog',
-  @cancel='showNewDialog = false',
-  :providerSystemName='providerSystemName'
-)
+<template>
+  <div class="stack full-height" data-gap="0" style="min-block-size: 0">
+    <div class="cluster mb-md">
+      <div class="flex-none center-flex-y">
+        <km-input :placeholder="m.common_search()" icon-before="search" :model-value="globalFilter" clearable @input="globalFilter = $event" />
+      </div>
+      <div class="km-space" />
+      <div class="flex-none center-flex-y">
+        <km-btn class="mr-md" :label="m.common_new()" @click="showNewDialog = true" />
+      </div>
+    </div>
+    <div class="flex-1" style="min-block-size: 0">
+      <km-data-table :table="table" :loading="isLoading" :fetching="isFetching" fill-height row-key="id" @row-click="openDetails" />
+    </div>
+  </div>
+  <collections-create-new v-if="showNewDialog" :show-new-dialog="showNewDialog" :provider-system-name="providerSystemName" @cancel="showNewDialog = false" />
 </template>
 
 <script setup lang="ts">

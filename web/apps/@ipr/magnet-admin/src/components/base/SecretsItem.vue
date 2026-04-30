@@ -1,26 +1,25 @@
-<template lang="pug">
-.row.items-center.q-gap-8.no-wrap.q-mt-md
-  .col
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 Key
-    km-input(:label='m.common_key()', :model-value='itemKey', @update:model-value='update(itemKey, $event, value)', :readonly='!isNew')
-
-  .col
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 Value
-    .row.items-center.q-gap-8.no-wrap.relative-position
-      km-input.full-width(
-        :label='m.common_value()',
-        :model-value='getSecretDisplayValue(itemKey, value)',
-        @update:model-value='updateSecret(itemKey, itemKey, $event)',
-        :readonly='!editMode',
-        :placeholder='!isNew ? m.common_enterNewValue() : ""'
-      )
-      .controls.full-height.row.items-center
-        km-btn(icon='fa fa-pen', flat, iconSize='12px', @click='editMode = !editMode', size='xs', v-if='!editMode')
-        km-btn(icon='fa fa-xmark', flat, iconSize='12px', @click='cancelEditMode', size='xs', v-if='editMode && !isNew')
-        //km-btn(icon='fa fa-check' flat iconSize='12px' @click='editMode = false' size='xs' v-if='editMode && !isNew')
-  .col-auto
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 &nbsp;
-    km-btn(@click='removeSecret(itemKey)', icon='o_delete', size='sm', flat, color='negative')
+<template>
+  <div class="cluster mt-md" data-gap="sm" data-wrap="no">
+    <div class="flex-1">
+      <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.common_key() }}</div>
+      <km-input :model-value="itemKey" :readonly="!isNew" @update:model-value="update(itemKey, $event, value)" />
+    </div>
+    <div class="flex-1">
+      <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.common_value() }}</div>
+      <div class="cluster gap-sm relative-position" data-wrap="no">
+        <km-input class="full-width" :model-value="getSecretDisplayValue(itemKey, value)" :readonly="!editMode" :placeholder="!isNew ? m.common_enterNewValue() : &quot;&quot;" @update:model-value="updateSecret(itemKey, itemKey, $event)" />
+        <div class="controls full-height cluster">
+          <km-btn v-if="!editMode" icon="edit" flat icon-size="12px" size="xs" @click="editMode = !editMode" />
+          <km-btn v-if="editMode &amp;&amp; !isNew" icon="close" flat icon-size="12px" size="xs" @click="cancelEditMode" />
+          <!--km-btn(icon='check' flat iconSize='12px' @click='editMode = false' size='xs' v-if='editMode && !isNew')-->
+        </div>
+      </div>
+    </div>
+    <div class="flex-none">
+      <div class="km-field text-secondary-text pb-xs pl-sm">&nbsp;</div>
+      <km-btn icon="delete" size="sm" flat tone="danger" @click="removeSecret(itemKey)" />
+    </div>
+  </div>
 </template>
 <script setup>
 import { ref } from 'vue'
@@ -71,9 +70,10 @@ const removeSecret = (key) => {
   emit('delete', key)
 }
 </script>
-<style lang="stylus" scoped>
-.controls
-  position: absolute
-  right: 5px
-  top:0
+<style scoped>
+.controls {
+  position: absolute;
+  inset-inline-end: 5px;
+  inset-block-start: 0;
+}
 </style>

@@ -35,7 +35,7 @@ from .note_taker_utils import (
     _get_meeting_id_part,
     _get_meeting_title_part,
 )
-from .note_taker_confluence import maybe_publish_confluence_notes
+from services.integrations.confluence.note_taker import maybe_publish_confluence_notes
 from .note_taker_people import (
     get_invited_people,
     invited_people_to_first_names,

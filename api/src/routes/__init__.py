@@ -1,8 +1,10 @@
 import os
 from typing import Any
 
-from litestar import Router, get
+from litestar import Request, Router, get
+from litestar.exceptions import HTTPException
 from litestar.static_files import create_static_files_router
+from litestar.status_codes import HTTP_503_SERVICE_UNAVAILABLE
 from litestar.types import ControllerRouterHandler
 
 from core.domain.ai_apps import AiAppsController
@@ -63,8 +65,6 @@ def get_route_handlers(
         import os
         import resource
 
-        from core.server.background_tasks import active_task_count
-
         rusage = resource.getrusage(resource.RUSAGE_SELF)
         rss_bytes = rusage.ru_maxrss
         # macOS reports in bytes, Linux in kilobytes
@@ -76,7 +76,6 @@ def get_route_handlers(
         return {
             "status": "ok",
             "memory_rss_mb": round(rss_mb, 1),
-            "background_tasks_active": active_task_count(),
         }
 
     @get("/health/db", exclude_from_auth=True, tags=["health"])
@@ -86,31 +85,35 @@ def get_route_handlers(
 
         return await get_db_pool_status()
 
-    @get("/health/scheduler", exclude_from_auth=True, tags=["health"])
-    async def scheduler_health_route_handler() -> dict[str, Any]:
-        """Scheduler connection pool health check (see §B.6).
+    def _check_taskiq_runtime_tasks(request: Request) -> dict[str, Any]:
+        """Inspect the in-process TaskIQ worker / scheduler asyncio tasks.
 
-        Returns 'degraded' when the scheduler pool is fully checked out —
-        an early signal of the APScheduler-hang scenario analysed in
-        docs/scheduler-hang-analysis.md.
+        Returns a per-task status dict. A task counts as healthy when:
+        - it isn't on `app.state` (in-process runtime disabled by env), OR
+        - it exists and `task.done()` is False.
+
+        A task that has died (`done() == True` without being cancelled) is
+        unhealthy: Container Apps liveness probe should hit 503 and force a
+        replica restart so the runtime gets re-spawned cleanly.
         """
-        from scheduler.manager import get_scheduler_pool_info
-
-        info = get_scheduler_pool_info()
-        if "error" in info:
-            return {"status": "unknown", "detail": info}
-
-        checked_out = info.get("checked_out", 0) or 0
-        pool_size = info.get("pool_size", 0) or 0
-        overflow = info.get("overflow", 0) or 0
-        exhausted = pool_size > 0 and checked_out >= (pool_size + max(overflow, 0))
-        return {
-            "status": "degraded" if exhausted else "ok",
-            "detail": info,
-        }
+        results: dict[str, Any] = {}
+        for attr in ("taskiq_worker_task", "taskiq_scheduler_task"):
+            task = getattr(request.app.state, attr, None)
+            if task is None:
+                results[attr] = "disabled"
+                continue
+            if task.done():
+                if task.cancelled():
+                    results[attr] = "cancelled"
+                else:
+                    exc = task.exception()
+                    results[attr] = f"dead: {exc!r}" if exc else "dead"
+            else:
+                results[attr] = "running"
+        return results
 
     @get("/health/ready", exclude_from_auth=True, tags=["health"])
-    async def readiness_handler() -> dict[str, Any]:
+    async def readiness_handler(request: Request) -> dict[str, Any]:
         """Readiness probe — checks that critical subsystems are operational."""
         from core.db.monitoring import get_db_pool_status
 
@@ -137,18 +140,33 @@ def get_route_handlers(
             checks["api_key_cache"] = f"error: {e}"
             all_ok = False
 
-        # 3. Scheduler running
-        try:
-            from litestar import Request as _Request  # noqa: F401
-
-            # Scheduler is on app.state — not accessible here without request.
-            # Just verify import works; actual scheduler check in /health with app state.
-            checks["scheduler"] = "ok"
-        except Exception as e:
-            checks["scheduler"] = f"error: {e}"
+        # 3. TaskIQ worker / scheduler runtime tasks (in-process layout)
+        runtime = _check_taskiq_runtime_tasks(request)
+        checks["taskiq_runtime"] = runtime
+        if any(v not in ("running", "disabled") for v in runtime.values()):
             all_ok = False
 
         return {"status": "ok" if all_ok else "degraded", "checks": checks}
+
+    @get("/health/live", exclude_from_auth=True, tags=["health"])
+    async def liveness_handler(request: Request) -> dict[str, Any]:
+        """Liveness probe — fails when an in-process TaskIQ runtime task died.
+
+        Container Apps will restart the replica on consecutive 503s, which
+        is what we want: a dead worker / scheduler asyncio task is not
+        recoverable from inside the same process. We deliberately do NOT
+        check the database here — a transient PG hiccup must not kill the
+        whole replica."""
+        runtime = _check_taskiq_runtime_tasks(request)
+        unhealthy = {
+            k: v for k, v in runtime.items() if v not in ("running", "disabled")
+        }
+        if unhealthy:
+            raise HTTPException(
+                status_code=HTTP_503_SERVICE_UNAVAILABLE,
+                detail={"status": "unhealthy", "taskiq_runtime": runtime},
+            )
+        return {"status": "ok", "taskiq_runtime": runtime}
 
     route_handlers_admin: list[ControllerRouterHandler] = [
         # Admin routes (alphabetically sorted)
@@ -222,7 +240,8 @@ def get_route_handlers(
     route_handlers_public: list[ControllerRouterHandler] = [
         health_route_handler,
         db_health_route_handler,
-        scheduler_health_route_handler,
+        readiness_handler,
+        liveness_handler,
         serve_static_file,
     ]
 

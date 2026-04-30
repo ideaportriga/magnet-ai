@@ -1,18 +1,10 @@
-<template lang="pug">
-div
-  km-section(:title='m.common_type()', :subTitle='m.evaluationSets_typeDescription()')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_type() }}
-    km-select(
-      height='auto',
-      minHeight='36px',
-      :placeholder='m.common_type()',
-      :options='typeOptions',
-      v-model='type',
-      ref='typeRef',
-      option-value='value',
-      emit-value,
-      map-options
-    )
+<template>
+  <div>
+    <km-section :title="m.common_type()" :sub-title="m.evaluationSets_typeDescription()">
+      <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.common_type() }}</div>
+      <km-select ref="typeRef" v-model="type" height="auto" min-height="36px" :placeholder="m.common_type()" :options="typeOptions" option-value="value" emit-value map-options />
+    </km-section>
+  </div>
 </template>
 
 <script setup>

@@ -1,5 +1,5 @@
-<template lang="pug">
-km-chip(:label='label', :color='color', :class='`text-${textColor}`', rounded)
+<template>
+  <km-chip :label="label" :tone="tone" rounded />
 </template>
 
 <script>
@@ -15,15 +15,10 @@ export default {
       if (!this.row.status) return '-'
       return this.row.status.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
     },
-    color() {
-      if (this.row.status === 'error') return 'error-bg'
-      if (this.row.status === 'completed') return 'like-bg'
-      return 'in-progress'
-    },
-    textColor() {
-      if (this.row.status === 'error') return 'error-text'
-      if (this.row.status === 'completed') return 'like-text'
-      return 'text-grey'
+    tone() {
+      if (this.row.status === 'error') return 'danger'
+      if (this.row.status === 'completed') return 'success'
+      return 'neutral'
     },
   },
 }

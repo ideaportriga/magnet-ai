@@ -6,10 +6,10 @@ import { createApp } from 'vue'
 // Import shared styles and configurations
 import { loadTheme } from '@themes'
 import 'animate.css/animate.min.css'
-import 'quasar/src/css/index.sass'
+// @ds (Reka + CUBE CSS): tokens + composition + utilities + reset.
+import '@ds/styles'
+import '@ds/reset'
 import '@/assets/layout.css'
-import { quasarConf } from '@shared'
-import { Quasar } from 'quasar'
 
 // Import i18n (Paraglide JS)
 import * as runtime from '@/paraglide/runtime'
@@ -33,8 +33,9 @@ const theme = urlParams.get('km_panel_theme') || 'default'
 // §C.5 — app components are lazy. getComponentList detects lazy factories
 // and wraps each with defineAsyncComponent, so Vite produces per-component
 // async chunks instead of stuffing everything into the initial bundle.
-// Keep the glob pattern matching legal `.vue` files (same as before).
-const components = import.meta.glob('@/components/**/*.vue')
+// Keep the glob pattern matching legal `.vue` files, but keep dev-only pages
+// out of production async component chunks.
+const components = import.meta.glob(['@/components/**/*.vue', '!@/components/Dev/**/*.vue'])
 
 const componentList = getComponentList(components)
 let appInstance = {}
@@ -60,7 +61,6 @@ const app = {
 
     // Install plugins (router must come AFTER Pinia)
     appInstance.use(router)
-    appInstance.use(Quasar, quasarConf)
     appInstance.use(uiComps)
 
     // Register components, properties and directives
@@ -84,7 +84,12 @@ const app = {
       }
     }
     appInstance.config.globalProperties.$setTheme = (newTheme) => setTheme(newTheme, theme, false, router, appInstance, appId)
-    appInstance.config.globalProperties.$appPublicPath = window.SiebelApp?.S_App ? window.kmPanelPublicPath : ''
+    // `$appPublicPath` is the URL prefix for static assets (images, etc.).
+    //   - In Siebel-hosted mode, the bridge sets `window.kmPanelPublicPath`.
+    //   - Standalone / dev: honour Vite's `base` (e.g. `/admin/`) so
+    //     `<km-image src="x.png">` resolves to the URL the server serves.
+    const viteBase = (import.meta.env?.BASE_URL ?? '/').replace(/\/$/, '')
+    appInstance.config.globalProperties.$appPublicPath = window.SiebelApp?.S_App ? window.kmPanelPublicPath : viteBase
     appInstance.config.globalProperties.$appImagePath = appInstance.config.globalProperties.$appPublicPath + '/images/'
 
     // Set initial theme

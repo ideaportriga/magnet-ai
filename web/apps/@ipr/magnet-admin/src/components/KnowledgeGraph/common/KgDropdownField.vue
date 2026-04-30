@@ -1,5 +1,5 @@
 <template>
-  <q-select
+  <km-select
     ref="selectRef"
     :model-value="computedModelValue"
     :display-value="selectDisplayValue"
@@ -24,9 +24,9 @@
       <span v-if="hasValue && clearable" class="styled-select__clear" @click.stop="handleClear">{{ m.common_clear() }}</span>
     </template>
     <template v-if="searchable" #before-options>
-      <q-item class="styled-select__search-item">
-        <q-item-section>
-          <q-input
+      <div class="km-item styled-select__search-item">
+        <div class="km-item-section">
+          <km-input
             ref="searchInputRef"
             v-model="searchQuery"
             dense
@@ -36,75 +36,74 @@
             @keydown.stop
           >
             <template #prepend>
-              <q-icon name="search" size="18px" color="grey-6" />
+              <km-glyph name="search" size="18px" tone="muted" />
             </template>
             <template v-if="searchQuery" #append>
-              <q-icon name="close" size="16px" color="grey-5" class="cursor-pointer" @click.stop="searchQuery = ''" />
+              <km-glyph name="close" size="16px" tone="muted" class="cursor-pointer" @click.stop="searchQuery = ''" />
             </template>
-          </q-input>
-        </q-item-section>
-      </q-item>
-      <q-separator />
+          </km-input>
+        </div>
+      </div>
+      <km-separator />
     </template>
     <template #option="{ itemProps, opt, selected }">
       <!-- No results sentinel - render as non-clickable message -->
-      <q-item v-if="opt.__noResults" disable class="styled-select__option--empty styled-select__no-results">
-        <q-item-section class="text-center">
-          <q-item-label class="text-grey-5">{{ m.common_noMatchingOptions() }}</q-item-label>
-        </q-item-section>
-      </q-item>
+      <div v-if="opt.__noResults" class="km-item styled-select__option--empty styled-select__no-results">
+        <div class="km-item-section text-center">
+          <span class="km-item-label text-grey-5">{{ m.common_noMatchingOptions() }}</span>
+        </div>
+      </div>
       <!-- Select all option -->
-      <q-item v-else-if="opt.__selectAll" v-bind="itemProps" :class="optionClasses(selected)">
-        <q-item-section>
+      <div v-else-if="opt.__selectAll" class="km-item" v-bind="itemProps" :class="optionClasses(selected)">
+        <div class="km-item-section">
           <div class="styled-select__option-row">
             <span class="styled-select__option-name">{{ opt[optionLabel] }}</span>
           </div>
-        </q-item-section>
-        <q-item-section side class="styled-select__side">
+        </div>
+        <div class="km-item-section styled-select__side" side>
           <div
             :class="[
               'styled-select__check-wrapper',
               { 'styled-select__check-wrapper--dense': dense, 'styled-select__check-wrapper--visible': selected },
             ]"
           >
-            <q-icon name="check" color="white" :size="dense ? '10px' : '12px'" />
+            <km-glyph name="check" tone="inverse" :size="dense ? '10px' : '12px'" />
           </div>
-        </q-item-section>
-      </q-item>
+        </div>
+      </div>
       <!-- Regular option -->
-      <q-item v-else v-bind="itemProps" :class="optionClasses(selected)">
-        <q-item-section>
+      <div v-else class="km-item" v-bind="itemProps" :class="optionClasses(selected)">
+        <div class="km-item-section">
           <div class="styled-select__option-row">
             <span class="styled-select__option-name">{{ opt[optionLabel] || opt.label || opt }}</span>
             <span v-if="getOptionMeta(opt)" class="styled-select__option-meta">{{ getOptionMeta(opt) }}</span>
           </div>
-        </q-item-section>
-        <q-item-section side class="styled-select__side">
+        </div>
+        <div class="km-item-section styled-select__side" side>
           <div
             :class="[
               'styled-select__check-wrapper',
               { 'styled-select__check-wrapper--dense': dense, 'styled-select__check-wrapper--visible': selected },
             ]"
           >
-            <q-icon name="check" color="white" :size="dense ? '10px' : '12px'" />
+            <km-glyph name="check" tone="inverse" :size="dense ? '10px' : '12px'" />
           </div>
-        </q-item-section>
-      </q-item>
+        </div>
+      </div>
     </template>
     <template #no-option>
-      <q-item :class="['styled-select__option--empty', { 'styled-select__option--empty--dense': dense }]">
-        <q-item-section class="text-center">
-          <q-item-label class="text-grey-5">{{ noOptionsLabel }}</q-item-label>
-        </q-item-section>
-      </q-item>
+      <div class="km-item" :class="['styled-select__option--empty', { 'styled-select__option--empty--dense': dense }]">
+        <div class="km-item-section text-center">
+          <span class="km-item-label text-grey-5">{{ noOptionsLabel }}</span>
+        </div>
+      </div>
     </template>
-  </q-select>
+  </km-select>
 </template>
 
 <script setup lang="ts">
-import type { QInput, QSelect } from 'quasar'
 import { m } from '@/paraglide/messages'
-import { computed, nextTick, ref } from 'vue'
+import { computed, nextTick, ref, type ComponentPublicInstance } from 'vue'
 
 interface Props {
   modelValue: string | string[] | undefined
@@ -146,8 +145,10 @@ const $emit = defineEmits<{
   'update:modelValue': [value: string | string[] | undefined]
 }>()
 
-const selectRef = ref<QSelect | null>(null)
-const searchInputRef = ref<QInput | null>(null)
+type FocusableComponent = ComponentPublicInstance & { focus: () => void }
+
+const selectRef = ref<ComponentPublicInstance | null>(null)
+const searchInputRef = ref<FocusableComponent | null>(null)
 const searchQuery = ref('')
 
 // Sentinel object to show "no results" message while keeping #before-options visible
@@ -324,141 +325,143 @@ const optionClasses = (selected: boolean) => [
 ]
 </script>
 
-<style scoped>
+<style>
 .styled-select-dense {
-  height: 36px !important;
+  block-size: 36px !important;
 }
 
-.styled-select :deep(.q-field__control) {
-  border-radius: var(--radius-sm);
-  background: var(--q-white);
+.styled-select .km-select__trigger,
+.styled-select .ds-select__trigger {
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-color-white);
+  border-color: var(--ds-color-control-border);
 }
 
-.styled-select--dense :deep(.q-field__control) {
-  height: 36px !important;
-  min-height: 36px !important;
-  max-height: 36px !important;
+.styled-select--dense .km-select__trigger,
+.styled-select--dense .ds-select__trigger {
+  block-size: 36px !important;
+  min-block-size: 36px !important;
+  max-block-size: 36px !important;
 }
 
-.styled-select--dense :deep(.q-field__native) {
-  min-height: 36px !important;
+.styled-select--dense .km-select__value {
+  min-block-size: 36px !important;
 }
 
-.styled-select--dense :deep(.q-field__marginal) {
-  height: 36px !important;
+.styled-select--dense .km-select__chevron,
+.styled-select--dense .km-select__append {
+  block-size: 36px !important;
 }
 
-.styled-select :deep(.q-field__control:before) {
-  border-color: var(--q-control-border) !important;
-  border-radius: var(--radius-sm);
+.styled-select .km-select__trigger:hover,
+.styled-select .ds-select__trigger:hover {
+  border-color: var(--ds-color-primary-light);
 }
 
-.styled-select :deep(.q-field__control:hover:before) {
-  border-color: var(--q-primary-light);
-}
-
-.styled-select :deep(.q-field--focused .q-field__control) {
-  background: var(--q-white);
-}
-
-.styled-select :deep(.q-field--focused .q-field__control:after) {
-  border-color: var(--q-primary);
+.styled-select[data-state='open'] .km-select__trigger,
+.styled-select .ds-select__trigger[data-state='open'] {
+  background: var(--ds-color-white);
+  border-color: var(--ds-color-primary);
   border-width: 2px;
-  border-radius: var(--radius-md);
+  border-radius: var(--ds-radius-md);
 }
 
-.styled-select :deep(.q-field__native) {
-  color: var(--q-black);
+.styled-select .km-select__value,
+.styled-select .ds-select__trigger {
+  color: var(--ds-color-black);
   font-weight: 500;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
-.styled-select :deep(.q-field__append) {
-  padding-right: 4px;
+.styled-select .km-select__append {
+  padding-inline-end: 4px;
 }
 
-.styled-select--error :deep(.q-field__control:before) {
-  border-color: var(--q-error);
+.styled-select--error .km-select__trigger,
+.styled-select--error .ds-select__trigger {
+  border-color: var(--ds-color-error);
 }
 
-.styled-select--error :deep(.q-field__control:hover:before) {
-  border-color: var(--q-error-text);
+.styled-select--error .km-select__trigger:hover,
+.styled-select--error .ds-select__trigger:hover {
+  border-color: var(--ds-color-error-text);
 }
 
 .styled-select__clear {
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.06em;
-  color: var(--q-icon);
+  color: var(--ds-color-icon);
   cursor: pointer;
   padding: 4px 8px;
-  border-radius: var(--radius-sm);
-  transition: all 0.12s ease;
+  border-radius: var(--ds-radius-sm);
+  transition: var(--ds-transition-colors);
   user-select: none;
 }
 
 .styled-select__clear:hover {
-  color: var(--q-primary);
-  background-color: var(--q-primary-bg);
+  color: var(--ds-color-primary);
+  background-color: var(--ds-color-primary-bg);
 }
 
 .styled-select__clear:active {
-  background-color: var(--q-primary-transparent);
+  background-color: var(--ds-color-primary-transparent);
 }
 </style>
 
 <style>
 /* Dropdown popup container */
 .styled-select-popup {
-  border-radius: var(--radius-lg);
+  border-radius: var(--ds-radius-lg);
   box-shadow:
-    0 4px 16px var(--q-primary-transparent),
+    0 4px 16px var(--ds-color-primary-transparent),
     0 12px 32px rgba(0, 0, 0, 0.12);
   padding: 5px;
-  background: var(--q-white);
-  border: 1px solid var(--q-border);
+  background: var(--ds-color-white);
+  border: 1px solid var(--ds-color-border);
   overflow: hidden;
 }
 
-.styled-select-popup .q-virtual-scroll__content {
+.styled-select-popup .km-select__viewport,
+.styled-select-popup .ds-select__viewport {
   padding: 0;
 }
 
 /* Dense popup - tighter, lighter */
 .styled-select-popup--dense {
-  border-radius: var(--radius-md);
+  border-radius: var(--ds-radius-md);
   padding: 4px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-  border: 1px solid var(--q-border);
+  border: 1px solid var(--ds-color-border);
 }
 
 /* Option item base */
 .styled-select__option {
   position: relative;
-  border-radius: var(--radius-md);
+  border-radius: var(--ds-radius-md);
   margin: 2px 0;
-  min-height: 40px;
+  min-block-size: 40px;
   padding: 10px 12px;
-  transition: all 0.12s ease;
+  transition: var(--ds-transition-colors), var(--ds-transition-transform);
   cursor: pointer;
 }
 
 /* Dense option - compact */
 .styled-select__option--dense {
-  min-height: 30px;
+  min-block-size: 38px !important;
   padding: 6px 10px;
   margin: 1px 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--ds-radius-sm);
 }
 
 /* Hover state */
 .styled-select__option:hover {
-  background-color: var(--q-primary-bg);
+  background-color: var(--ds-color-primary-bg);
 }
 
 /* Active/pressed state */
 .styled-select__option:active {
-  background-color: var(--q-primary-transparent);
+  background-color: var(--ds-color-primary-transparent);
   transform: scale(0.995);
 }
 
@@ -468,7 +471,7 @@ const optionClasses = (selected: boolean) => [
 }
 
 .styled-select__option--selected:hover {
-  background-color: var(--q-primary-bg);
+  background-color: var(--ds-color-primary-bg);
 }
 
 /* Option row layout */
@@ -476,7 +479,7 @@ const optionClasses = (selected: boolean) => [
   display: flex;
   align-items: center;
   gap: 10px;
-  width: 100%;
+  inline-size: 100%;
   overflow: hidden;
 }
 
@@ -488,13 +491,13 @@ const optionClasses = (selected: boolean) => [
 .styled-select__option-name {
   font-size: 13px;
   font-weight: 500;
-  color: var(--q-secondary);
+  color: var(--ds-color-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   flex: 1;
-  min-width: 0;
-  letter-spacing: -0.01em;
+  min-inline-size: 0;
+  letter-spacing: 0;
   transition: color 0.12s ease;
 }
 
@@ -504,11 +507,11 @@ const optionClasses = (selected: boolean) => [
 }
 
 .styled-select__option:hover .styled-select__option-name {
-  color: var(--q-black);
+  color: var(--ds-color-black);
 }
 
 .styled-select__option--selected .styled-select__option-name {
-  color: var(--q-primary);
+  color: var(--ds-color-primary);
   font-weight: 550;
 }
 
@@ -516,56 +519,56 @@ const optionClasses = (selected: boolean) => [
 .styled-select__option-meta {
   font-size: 10px;
   font-weight: 600;
-  color: var(--q-icon);
-  background-color: var(--q-primary-bg);
+  color: var(--ds-color-icon);
+  background-color: var(--ds-color-primary-bg);
   padding: 3px 7px;
-  border-radius: var(--radius-sm);
-  font-family: var(--km-font-mono);
+  border-radius: var(--ds-radius-sm);
+  font-family: var(--ds-font-mono);
   letter-spacing: 0.01em;
   flex-shrink: 0;
   text-transform: uppercase;
-  border: 1px solid var(--q-border);
-  transition: all 0.12s ease;
+  border: 1px solid var(--ds-color-border);
+  transition: var(--ds-transition-colors);
 }
 
 .styled-select__option--dense .styled-select__option-meta {
   font-size: 9px;
   padding: 2px 5px;
-  border-radius: var(--radius-xs);
+  border-radius: var(--ds-radius-xs);
 }
 
 .styled-select__option:hover .styled-select__option-meta {
-  background-color: var(--q-primary-transparent);
-  border-color: var(--q-primary-light);
-  color: var(--q-primary);
+  background-color: var(--ds-color-primary-transparent);
+  border-color: var(--ds-color-primary-light);
+  color: var(--ds-color-primary);
 }
 
 .styled-select__option--selected .styled-select__option-meta {
-  color: var(--q-primary);
-  background-color: var(--q-primary-bg);
-  border-color: var(--q-primary-light);
+  color: var(--ds-color-primary);
+  background-color: var(--ds-color-primary-bg);
+  border-color: var(--ds-color-primary-light);
 }
 
 /* Side section with checkmark */
 .styled-select__side {
-  padding-left: 6px !important;
-  min-width: 26px;
+  padding-inline-start: 6px !important;
+  min-inline-size: 26px;
 }
 
 .styled-select__option--dense .styled-select__side {
-  padding-left: 4px !important;
-  min-width: 18px;
+  padding-inline-start: 4px !important;
+  min-inline-size: 18px;
 }
 
 /* Checkmark wrapper */
 .styled-select__check-wrapper {
-  width: 20px;
-  height: 20px;
+  inline-size: 20px;
+  block-size: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-full);
-  background-color: var(--q-primary);
+  border-radius: var(--ds-radius-full);
+  background-color: var(--ds-color-primary);
   opacity: 0;
   transform: scale(0.5);
   transition:
@@ -579,8 +582,8 @@ const optionClasses = (selected: boolean) => [
 }
 
 .styled-select__check-wrapper--dense {
-  width: 16px;
-  height: 16px;
+  inline-size: 16px;
+  block-size: 16px;
 }
 
 /* Empty state */
@@ -592,61 +595,52 @@ const optionClasses = (selected: boolean) => [
   padding: 14px 12px;
 }
 
-.styled-select__option--empty .q-item-label {
+.styled-select__option--empty .km-item-label {
   font-size: 12px;
   font-weight: 500;
-  color: var(--q-icon);
+  color: var(--ds-color-icon);
   letter-spacing: 0.01em;
 }
 
-.styled-select__option--empty--dense .q-item-label {
+.styled-select__option--empty--dense .km-item-label {
   font-size: 11px;
-}
-
-.styled-select__option--dense {
-  min-height: 38px !important;
 }
 
 /* Search input styling */
 .styled-select__search-item {
-  padding: 8px 8px 4px 8px !important;
-  min-height: auto !important;
+  padding: 8px 8px 4px !important;
+  min-block-size: auto !important;
 }
 
 .styled-select__search-input {
   font-size: 13px;
 }
 
-.styled-select__search-input .q-field__control {
-  height: 36px !important;
-  min-height: 36px !important;
+.styled-select__search-input .km-input__control,
+.styled-select__search-input .ds-input {
+  block-size: 36px !important;
+  min-block-size: 36px !important;
 }
 
-.styled-select__search-input .q-field__control:before {
+.styled-select__search-input .ds-input:hover {
+  border-color: var(--ds-color-border) !important;
+}
+
+.styled-select__search-input[data-state='focused'] .ds-input {
+  background: var(--ds-color-white);
+  border-color: var(--ds-color-primary);
+  border-width: 2px;
+  border-radius: var(--ds-radius-md);
+}
+
+.styled-select__search-input .ds-input {
+  padding-inline-start: 4px;
+  color: var(--ds-color-black);
   border-color: transparent !important;
 }
 
-.styled-select__search-input .q-field__control:hover:before {
-  border-color: var(--q-border) !important;
-}
-
-.styled-select__search-input.q-field--focused .q-field__control {
-  background: var(--q-white);
-}
-
-.styled-select__search-input.q-field--focused .q-field__control:after {
-  border-color: var(--q-primary);
-  border-width: 2px;
-  border-radius: var(--radius-md);
-}
-
-.styled-select__search-input .q-field__native {
-  padding-left: 4px;
-  color: var(--q-black);
-}
-
-.styled-select__search-input .q-field__native::placeholder {
-  color: var(--q-icon);
+.styled-select__search-input .ds-input::placeholder {
+  color: var(--ds-color-icon);
 }
 
 /* No results state (when search yields no matches) */

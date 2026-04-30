@@ -1,0 +1,398 @@
+/* =============================================================================
+ * Layout utilities
+ * =============================================================================
+ * Atomic display, flex and grid helpers. They are intentionally minimal: most
+ * layout work goes through the composition primitives (`stack`, `cluster`,
+ * `sidebar`, `switcher`). These utilities cover the leftovers.
+ * ============================================================================= */
+
+/* ---------- Display ---------- */
+.block         { display: block; }
+.inline        { display: inline; }
+.inline-block  { display: inline-block; }
+.flex          { display: flex; }
+.inline-flex   { display: inline-flex; }
+.grid          { display: grid; }
+.inline-grid   { display: inline-grid; }
+.contents      { display: contents; }
+.hidden        { display: none; }
+
+/* ---------- Quasar flex/grid compatibility ---------- */
+.row,
+.column {
+	display: flex;
+	flex-wrap: wrap;
+}
+
+.row {
+	flex-direction: row;
+}
+
+.column {
+	flex-direction: column;
+}
+
+.row.inline,
+.column.inline,
+.flex.inline {
+	display: inline-flex;
+}
+
+.row.reverse {
+	flex-direction: row-reverse;
+}
+
+.column.reverse {
+	flex-direction: column-reverse;
+}
+
+.wrap          { flex-wrap: wrap; }
+.no-wrap,
+.nowrap        { flex-wrap: nowrap; }
+.reverse-wrap  { flex-wrap: wrap-reverse; }
+
+.col,
+.col-xs {
+	flex: 10000 1 0%;
+	min-inline-size: 0;
+	max-inline-size: 100%;
+}
+
+.col-auto {
+	flex: 0 0 auto;
+	inline-size: auto;
+	max-inline-size: 100%;
+}
+
+.col-grow   { flex: 1 0 auto; }
+.col-shrink { flex: 0 1 auto; }
+
+.km-space {
+	flex: 1 1 0%;
+	min-inline-size: 0;
+}
+
+/* `center-flex-y` is referenced by 30+ admin templates without a definition
+ * (silent no-op). Without `display: flex`, child buttons / inputs align by
+ * their inline baseline, which differs between text-only and icon+text
+ * siblings — visible as the "Import next to New misalignment" bug.
+ * Wire it up to the same semantics it implies: flex row, vertical centering. */
+.center-flex-y {
+	display: flex;
+	align-items: center;
+}
+
+/* `center-flex-x` is the horizontal counterpart (used in a few empty-state
+ * containers). Same rationale: silent no-op without this rule. */
+.center-flex-x {
+	display: flex;
+	justify-content: center;
+}
+
+.col-1  { flex: 0 0 8.3333%;  max-inline-size: 8.3333%; }
+.col-2  { flex: 0 0 16.6667%; max-inline-size: 16.6667%; }
+.col-3  { flex: 0 0 25%;      max-inline-size: 25%; }
+.col-4  { flex: 0 0 33.3333%; max-inline-size: 33.3333%; }
+.col-5  { flex: 0 0 41.6667%; max-inline-size: 41.6667%; }
+.col-6  { flex: 0 0 50%;      max-inline-size: 50%; }
+.col-7  { flex: 0 0 58.3333%; max-inline-size: 58.3333%; }
+.col-8  { flex: 0 0 66.6667%; max-inline-size: 66.6667%; }
+.col-9  { flex: 0 0 75%;      max-inline-size: 75%; }
+.col-10 { flex: 0 0 83.3333%; max-inline-size: 83.3333%; }
+.col-11 { flex: 0 0 91.6667%; max-inline-size: 91.6667%; }
+.col-12 { flex: 0 0 100%;     max-inline-size: 100%; }
+
+.col-xs-1  { flex: 0 0 8.3333%;  max-inline-size: 8.3333%; }
+.col-xs-2  { flex: 0 0 16.6667%; max-inline-size: 16.6667%; }
+.col-xs-3  { flex: 0 0 25%;      max-inline-size: 25%; }
+.col-xs-4  { flex: 0 0 33.3333%; max-inline-size: 33.3333%; }
+.col-xs-5  { flex: 0 0 41.6667%; max-inline-size: 41.6667%; }
+.col-xs-6  { flex: 0 0 50%;      max-inline-size: 50%; }
+.col-xs-7  { flex: 0 0 58.3333%; max-inline-size: 58.3333%; }
+.col-xs-8  { flex: 0 0 66.6667%; max-inline-size: 66.6667%; }
+.col-xs-9  { flex: 0 0 75%;      max-inline-size: 75%; }
+.col-xs-10 { flex: 0 0 83.3333%; max-inline-size: 83.3333%; }
+.col-xs-11 { flex: 0 0 91.6667%; max-inline-size: 91.6667%; }
+.col-xs-12 { flex: 0 0 100%;     max-inline-size: 100%; }
+.col-xs-auto { flex: 0 0 auto; inline-size: auto; max-inline-size: 100%; }
+
+.offset-1  { margin-inline-start: 8.3333%; }
+.offset-2  { margin-inline-start: 16.6667%; }
+.offset-3  { margin-inline-start: 25%; }
+.offset-4  { margin-inline-start: 33.3333%; }
+.offset-5  { margin-inline-start: 41.6667%; }
+.offset-6  { margin-inline-start: 50%; }
+.offset-7  { margin-inline-start: 58.3333%; }
+.offset-8  { margin-inline-start: 66.6667%; }
+.offset-9  { margin-inline-start: 75%; }
+.offset-10 { margin-inline-start: 83.3333%; }
+.offset-11 { margin-inline-start: 91.6667%; }
+
+@media (min-width: 600px) {
+	.col-sm-1  { flex: 0 0 8.3333%;  max-inline-size: 8.3333%; }
+	.col-sm-2  { flex: 0 0 16.6667%; max-inline-size: 16.6667%; }
+	.col-sm-3  { flex: 0 0 25%;      max-inline-size: 25%; }
+	.col-sm-4  { flex: 0 0 33.3333%; max-inline-size: 33.3333%; }
+	.col-sm-5  { flex: 0 0 41.6667%; max-inline-size: 41.6667%; }
+	.col-sm-6  { flex: 0 0 50%;      max-inline-size: 50%; }
+	.col-sm-7  { flex: 0 0 58.3333%; max-inline-size: 58.3333%; }
+	.col-sm-8  { flex: 0 0 66.6667%; max-inline-size: 66.6667%; }
+	.col-sm-9  { flex: 0 0 75%;      max-inline-size: 75%; }
+	.col-sm-10 { flex: 0 0 83.3333%; max-inline-size: 83.3333%; }
+	.col-sm-11 { flex: 0 0 91.6667%; max-inline-size: 91.6667%; }
+	.col-sm-12 { flex: 0 0 100%;     max-inline-size: 100%; }
+	.col-sm-auto { flex: 0 0 auto; inline-size: auto; max-inline-size: 100%; }
+}
+
+@media (min-width: 1024px) {
+	.col-md-1  { flex: 0 0 8.3333%;  max-inline-size: 8.3333%; }
+	.col-md-2  { flex: 0 0 16.6667%; max-inline-size: 16.6667%; }
+	.col-md-3  { flex: 0 0 25%;      max-inline-size: 25%; }
+	.col-md-4  { flex: 0 0 33.3333%; max-inline-size: 33.3333%; }
+	.col-md-5  { flex: 0 0 41.6667%; max-inline-size: 41.6667%; }
+	.col-md-6  { flex: 0 0 50%;      max-inline-size: 50%; }
+	.col-md-7  { flex: 0 0 58.3333%; max-inline-size: 58.3333%; }
+	.col-md-8  { flex: 0 0 66.6667%; max-inline-size: 66.6667%; }
+	.col-md-9  { flex: 0 0 75%;      max-inline-size: 75%; }
+	.col-md-10 { flex: 0 0 83.3333%; max-inline-size: 83.3333%; }
+	.col-md-11 { flex: 0 0 91.6667%; max-inline-size: 91.6667%; }
+	.col-md-12 { flex: 0 0 100%;     max-inline-size: 100%; }
+	.col-md-auto { flex: 0 0 auto; inline-size: auto; max-inline-size: 100%; }
+}
+
+@media (min-width: 1440px) {
+	.col-lg-1  { flex: 0 0 8.3333%;  max-inline-size: 8.3333%; }
+	.col-lg-2  { flex: 0 0 16.6667%; max-inline-size: 16.6667%; }
+	.col-lg-3  { flex: 0 0 25%;      max-inline-size: 25%; }
+	.col-lg-4  { flex: 0 0 33.3333%; max-inline-size: 33.3333%; }
+	.col-lg-5  { flex: 0 0 41.6667%; max-inline-size: 41.6667%; }
+	.col-lg-6  { flex: 0 0 50%;      max-inline-size: 50%; }
+	.col-lg-7  { flex: 0 0 58.3333%; max-inline-size: 58.3333%; }
+	.col-lg-8  { flex: 0 0 66.6667%; max-inline-size: 66.6667%; }
+	.col-lg-9  { flex: 0 0 75%;      max-inline-size: 75%; }
+	.col-lg-10 { flex: 0 0 83.3333%; max-inline-size: 83.3333%; }
+	.col-lg-11 { flex: 0 0 91.6667%; max-inline-size: 91.6667%; }
+	.col-lg-12 { flex: 0 0 100%;     max-inline-size: 100%; }
+	.col-lg-auto { flex: 0 0 auto; inline-size: auto; max-inline-size: 100%; }
+}
+
+@media (min-width: 1920px) {
+	.col-xl-1  { flex: 0 0 8.3333%;  max-inline-size: 8.3333%; }
+	.col-xl-2  { flex: 0 0 16.6667%; max-inline-size: 16.6667%; }
+	.col-xl-3  { flex: 0 0 25%;      max-inline-size: 25%; }
+	.col-xl-4  { flex: 0 0 33.3333%; max-inline-size: 33.3333%; }
+	.col-xl-5  { flex: 0 0 41.6667%; max-inline-size: 41.6667%; }
+	.col-xl-6  { flex: 0 0 50%;      max-inline-size: 50%; }
+	.col-xl-7  { flex: 0 0 58.3333%; max-inline-size: 58.3333%; }
+	.col-xl-8  { flex: 0 0 66.6667%; max-inline-size: 66.6667%; }
+	.col-xl-9  { flex: 0 0 75%;      max-inline-size: 75%; }
+	.col-xl-10 { flex: 0 0 83.3333%; max-inline-size: 83.3333%; }
+	.col-xl-11 { flex: 0 0 91.6667%; max-inline-size: 91.6667%; }
+	.col-xl-12 { flex: 0 0 100%;     max-inline-size: 100%; }
+	.col-xl-auto { flex: 0 0 auto; inline-size: auto; max-inline-size: 100%; }
+}
+
+.flex-center {
+	align-items: center;
+	justify-content: center;
+}
+
+/* ---------- Flex direction ---------- */
+.flex-row         { flex-direction: row; }
+.flex-row-reverse { flex-direction: row-reverse; }
+.flex-col         { flex-direction: column; }
+.flex-col-reverse { flex-direction: column-reverse; }
+
+/* ---------- Flex wrap / grow / shrink ---------- */
+.flex-wrap        { flex-wrap: wrap; }
+.flex-nowrap      { flex-wrap: nowrap; }
+.flex-wrap-reverse{ flex-wrap: wrap-reverse; }
+
+.flex-1     { flex: 1 1 0%; min-inline-size: 0; }
+.flex-auto  { flex: 1 1 auto; }
+.flex-none  { flex: none; max-inline-size: 100%; }
+.grow       { flex-grow: 1; }
+.grow-0     { flex-grow: 0; }
+.shrink     { flex-shrink: 1; }
+.shrink-0   { flex-shrink: 0; }
+.basis-0    { flex-basis: 0; }
+.basis-auto { flex-basis: auto; }
+.basis-1    { flex: 0 0 8.3333%;  max-inline-size: 8.3333%; }
+.basis-2    { flex: 0 0 16.6667%; max-inline-size: 16.6667%; }
+.basis-3    { flex: 0 0 25%;      max-inline-size: 25%; }
+.basis-4    { flex: 0 0 33.3333%; max-inline-size: 33.3333%; }
+.basis-5    { flex: 0 0 41.6667%; max-inline-size: 41.6667%; }
+.basis-6    { flex: 0 0 50%;      max-inline-size: 50%; }
+.basis-7    { flex: 0 0 58.3333%; max-inline-size: 58.3333%; }
+.basis-8    { flex: 0 0 66.6667%; max-inline-size: 66.6667%; }
+.basis-9    { flex: 0 0 75%;      max-inline-size: 75%; }
+.basis-10   { flex: 0 0 83.3333%; max-inline-size: 83.3333%; }
+.basis-11   { flex: 0 0 91.6667%; max-inline-size: 91.6667%; }
+.basis-12   { flex: 0 0 100%;     max-inline-size: 100%; }
+
+@media (min-width: 1024px) {
+	.basis-md-5 { flex: 0 0 41.6667%; max-inline-size: 41.6667%; }
+	.basis-md-6 { flex: 0 0 50%;      max-inline-size: 50%; }
+	.basis-md-7 { flex: 0 0 58.3333%; max-inline-size: 58.3333%; }
+}
+
+/* ---------- Alignment ---------- */
+.items-start    { align-items: flex-start; }
+.items-center   { align-items: center; }
+.items-end      { align-items: flex-end; }
+.items-baseline { align-items: baseline; }
+.items-stretch  { align-items: stretch; }
+
+.justify-start   { justify-content: flex-start; }
+.justify-center  { justify-content: center; }
+.justify-end     { justify-content: flex-end; }
+.justify-between { justify-content: space-between; }
+.justify-around  { justify-content: space-around; }
+.justify-evenly  { justify-content: space-evenly; }
+
+.self-start    { align-self: flex-start; }
+.self-center   { align-self: center; }
+.self-end      { align-self: flex-end; }
+.self-stretch  { align-self: stretch; }
+.self-auto     { align-self: auto; }
+
+.content-start   { align-content: flex-start; }
+.content-center  { align-content: center; }
+.content-end     { align-content: flex-end; }
+.content-between { align-content: space-between; }
+.content-around  { align-content: space-around; }
+.content-stretch { align-content: stretch; }
+
+/* ---------- Position ---------- */
+.relative { position: relative; }
+.absolute { position: absolute; }
+.fixed    { position: fixed; }
+.sticky   { position: sticky; }
+.static   { position: static; }
+
+.relative-position { position: relative; }
+.absolute-full,
+.fixed-full,
+.fullscreen {
+	inset: 0;
+}
+.absolute-full { position: absolute; }
+.fixed-full,
+.fullscreen { position: fixed; }
+
+.absolute-top,
+.fixed-top {
+	inset-block-start: 0;
+	inset-inline: 0;
+}
+.absolute-top { position: absolute; }
+.fixed-top { position: fixed; }
+
+.absolute-right,
+.fixed-right {
+	inset-block: 0;
+	inset-inline-end: 0;
+}
+.absolute-right { position: absolute; }
+.fixed-right { position: fixed; }
+
+.absolute-bottom,
+.fixed-bottom {
+	inset-block-end: 0;
+	inset-inline: 0;
+}
+.absolute-bottom { position: absolute; }
+.fixed-bottom { position: fixed; }
+
+.absolute-left,
+.fixed-left {
+	inset-block: 0;
+	inset-inline-start: 0;
+}
+.absolute-left { position: absolute; }
+.fixed-left { position: fixed; }
+
+.absolute-center,
+.fixed-center {
+	inset-block-start: 50%;
+	inset-inline-start: 50%;
+	transform: translate(-50%, -50%);
+}
+.absolute-center { position: absolute; }
+.fixed-center { position: fixed; }
+
+/* ---------- Sizing helpers ---------- */
+.w-full       { inline-size: 100%; }
+.w-auto       { inline-size: auto; }
+.w-fit        { inline-size: fit-content; }
+.h-full       { block-size: 100%; }
+.h-auto       { block-size: auto; }
+.h-fit        { block-size: fit-content; }
+.min-h-0      { min-block-size: 0; }
+.min-w-0      { min-inline-size: 0; }
+.max-w-full   { max-inline-size: 100%; }
+
+.fit {
+	inline-size: 100%;
+	block-size: 100%;
+}
+
+.full-width    { inline-size: 100%; }
+.full-height   { block-size: 100%; }
+.window-width  { inline-size: 100vw; }
+.window-height { block-size: 100vh; }
+
+.min-w-full { min-inline-size: 100%; }
+.min-h-full { min-block-size: 100%; }
+
+/* ---------- Gap/gutter helpers ----------
+ * CUBE CSS cluster composition handles most gutter needs via the `gap`
+ * property. These gap-* utilities cover one-off cases. The legacy
+ * q-col-gutter-* aliases have been removed since no templates use them. */
+.gap-xs { gap: 4px; }
+.gap-sm { gap: 8px; }
+.gap-md { gap: 16px; }
+.gap-lg { gap: 24px; }
+.gap-xl { gap: 48px; }
+
+/* ---------- Overflow ----------
+ * Scrollable utilities default to `overscroll-behavior: contain` so that
+ * inner scroll panels (drawers, dialogs, popover bodies, scroll-areas) don't
+ * chain to the page scroll when they reach their boundary. This prevents the
+ * common "I scrolled the modal and the page jumped" UX bug.
+ */
+.overflow-auto    { overflow: auto;    overscroll-behavior: contain; }
+.overflow-hidden  { overflow: hidden; }
+.overflow-visible { overflow: visible; }
+.overflow-scroll  { overflow: scroll;  overscroll-behavior: contain; }
+
+/* ---------- Cursor / pointer-events ---------- */
+.cursor-pointer  { cursor: pointer; }
+.cursor-default  { cursor: default; }
+.cursor-not-allowed { cursor: not-allowed; }
+.pointer-none    { pointer-events: none; }
+.pointer-auto    { pointer-events: auto; }
+
+/* ---------- Visibility ---------- */
+.visible    { visibility: visible; }
+.invisible  { visibility: hidden; }
+
+/* ---------- Z-index ---------- */
+.z-base    { z-index: var(--ds-z-base); }
+.z-raised  { z-index: var(--ds-z-raised); }
+.z-sticky  { z-index: var(--ds-z-sticky); }
+.z-overlay { z-index: var(--ds-z-overlay); }
+.z-popover { z-index: var(--ds-z-popover); }
+.z-modal   { z-index: var(--ds-z-modal); }
+.z-toast   { z-index: var(--ds-z-toast); }
+.z-tooltip { z-index: var(--ds-z-tooltip); }
+
+/* ---------- Page container ----------
+ * Provides fill-height flex column layout for page root elements.
+ * Use `km-page` on page root divs. */
+.km-page {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  display: flex;
+  flex-direction: column;
+}

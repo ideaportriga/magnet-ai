@@ -1,15 +1,15 @@
-<template lang="pug">
-div
-  template(v-if='isAnswered')
-    .col
-      km-chip.q-my-4(
-        :label='row?.extra_data?.is_answered ? "Yes" : "No"',
-        :color='row?.extra_data?.is_answered ? "like-bg" : "error-bg"',
-        :class='row?.extra_data?.is_answered ? "text-like-text" : "text-error-text"'
-      )
-      .km-field {{ reason }}
-  template(v-else)
-    .km-title.text-text-weak -
+<template>
+  <div>
+    <template v-if="isAnswered">
+      <div class="flex-1">
+        <km-chip class="my-xs" :label="row?.extra_data?.is_answered ? &quot;Yes&quot; : &quot;No&quot;" :tone="row?.extra_data?.is_answered ? &quot;success&quot; : &quot;danger&quot;" />
+        <div class="km-field">{{ reason }}</div>
+      </div>
+    </template>
+    <template v-else>
+      <div class="km-title text-text-weak">-</div>
+    </template>
+  </div>
 </template>
 <script>
 export default {

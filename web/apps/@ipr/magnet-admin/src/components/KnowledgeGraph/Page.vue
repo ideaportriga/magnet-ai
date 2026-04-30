@@ -1,23 +1,23 @@
 <template>
-  <div class="column no-wrap full-height q-page">
-    <div class="collection-container kg-page-container q-mx-auto full-width column full-height q-px-md q-pt-16">
+  <div class="stack full-height km-page" data-gap="0">
+    <div class="collection-container kg-page-container mx-auto full-width stack full-height px-md pt-lg" data-gap="0">
       <template v-if="isLoading && rows.length === 0">
         <div class="flex flex-center full-height">
-          <q-spinner size="40px" color="primary" />
+          <km-loader size="40px" />
         </div>
       </template>
       <template v-else-if="rows.length">
-        <div class="col ba-border border-radius-12 bg-white q-pa-16 column kg-table-wrapper">
-          <div class="row q-mb-12">
-            <div class="col-auto center-flex-y">
+        <div class="flex-1 ba-border border-radius-12 bg-white p-lg stack kg-table-wrapper" data-gap="0">
+          <div class="cluster mb-md">
+            <div class="flex-none center-flex-y">
               <km-input data-test="search-input" :model-value="globalFilter" :placeholder="m.common_search()" icon-before="search" clearable @input="globalFilter = $event" />
             </div>
-            <q-space />
-            <div class="col-auto center-flex-y">
-              <km-btn class="q-mr-12" data-test="new-btn" :label="m.common_new()" @click="showCreateDialog = true" />
+            <div class="km-space" />
+            <div class="flex-none center-flex-y">
+              <km-btn class="mr-md" data-test="new-btn" :label="m.common_new()" @click="showCreateDialog = true" />
             </div>
           </div>
-          <div class="col kg-table-inner">
+          <div class="flex-1 kg-table-inner">
             <km-data-table
               :table="table"
               :loading="isLoading"
@@ -30,14 +30,14 @@
         </div>
       </template>
       <template v-else>
-        <div class="row items-center justify-center">
-          <div class="col-auto q-pa-xl bg-light border-radius-12">
-            <div class="row items-center justify-center q-mb-md">
-              <q-icon name="o_hub" size="48px" color="primary" />
+        <div class="cluster" data-justify="center">
+          <div class="flex-none p-xl bg-light border-radius-12">
+            <div class="cluster mb-md" data-justify="center">
+              <km-glyph name="graph" size="48px" tone="brand" />
             </div>
             <div class="km-heading-7 text-black">{{ m.knowledgeGraph_noGraphsYet() }}</div>
             <div class="km-description text-black">{{ m.knowledgeGraph_noGraphsYetDesc() }}</div>
-            <div class="row items-center justify-center q-mt-lg">
+            <div class="cluster mt-lg" data-justify="center">
               <km-btn data-test="new-btn" :label="m.knowledgeGraph_createKnowledgeGraph()" @click="showCreateDialog = true" />
             </div>
           </div>
@@ -91,10 +91,10 @@ const handleGraphCreated = (result: KnowledgeGraph) => {
 
 <style scoped>
 .kg-page-container {
-  max-width: 1200px;
+  max-inline-size: 1200px;
 }
 .kg-table-wrapper,
 .kg-table-inner {
-  min-height: 0;
+  min-block-size: 0;
 }
 </style>

@@ -20,7 +20,7 @@ runCrudContract({
     cy.get('body').then(($body) => {
       if ($body.find('[data-test="select-type"]').length) {
         cy.g('select-type').click()
-        cy.get('[data-test="options"]').first().click()
+        cy.get('[data-test="km-select-item"], [data-test="ds-select-item"]').first().click({ force: true })
       }
     })
   },

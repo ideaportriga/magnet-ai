@@ -1,131 +1,120 @@
-<template lang="pug">
-.column.search-prompt-container.border-radius-12.q-mb-16.full-width.q-gap-8
-  .row
-    km-input.full-width(
-      data-test='search-input',
-      ref='input',
-      autogrow,
-      :placeholder='mergedT.placeholder',
-      :model-value='prompt',
-      @input='prompt = $event',
-      @keydown.enter='submit',
-      border-radius='8px',
-      height='var(--prompt-input-height)'
-    )
-      template(#append='{ height }')
-        .self-end.center-flex(:style='{ height }')
-          q-btn.border-radius-6(
-            data-test='search-btn',
-            color='primary',
-            @click='getAnswer',
-            unelevated,
-            :padding='$theme != "salesforce" ? "6px 7px" : "9px 17px 9px 17px"'
-          )
-            template(v-slot:default)
-              q-icon(name='fas fa-search', size='var(--prompt-input-icon-size)')
-</template>
+<script setup lang="ts">
+/**
+ * Search prompt input — RAG variant. Same shape as `Retrieval/Prompt.vue`
+ * but emits the RAG event family. Rewritten on `@ds`.
+ */
 
-<script>
+import { computed, useTemplateRef, watch } from 'vue'
 import useState from '@shared/composables/useState'
+import KmBtn from '@ds/components/domain/KmBtn.vue'
+import KmInput from '@ds/components/domain/KmInput.vue'
 
-const DEFAULT_T = {
-  placeholder: 'Type your question here',
+const DEFAULT_T = { placeholder: 'Type your question here' }
+
+const props = withDefaults(
+  defineProps<{
+    hideCollectionPicker?: boolean
+    rag?: boolean
+    /** Underscore name kept for backwards compatibility with existing callers. */
+    rag_code?: string
+    searchString?: string
+    t?: Record<string, string>
+  }>(),
+  {
+    hideCollectionPicker: false,
+    rag: false,
+    rag_code: '',
+    searchString: '',
+    t: () => ({}),
+  },
+)
+
+const emit = defineEmits<{
+  onLoad: []
+  search: []
+  searchRag: []
+  searchRagExecute: [rag_code: string]
+}>()
+
+const prompt = useState('searchPrompt')
+const inputRef = useTemplateRef<{ focus: () => void; blur: () => void }>('input')
+
+const mergedT = computed(() => ({ ...DEFAULT_T, ...props.t }))
+
+watch(
+  () => props.searchString,
+  (next, prev) => {
+    if (prev !== next) prompt.value = next || ''
+  },
+)
+
+function refine(question: string) {
+  prompt.value = question
+  inputRef.value?.focus()
 }
 
-export default {
-  expose: ['refine'],
-  props: {
-    hideCollectionPicker: {
-      default: false,
-      type: Boolean,
-    },
-    rag: {
-      default: false,
-      type: Boolean,
-    },
-    // eslint-disable-next-line vue/prop-name-casing
-    rag_code: {
-      type: String,
-      default: '',
-    },
-    searchString: {
-      type: String,
-      default: '',
-    },
-    t: {
-      type: Object,
-      default: () => ({}),
-    },
-  },
-  emits: ['onLoad', 'search', 'searchRag', 'searchRagExecute'],
-  setup() {
-    const prompt = useState('searchPrompt')
-    const loading = useState('answersLoading')
-    return {
-      prompt,
-      loading,
-    }
-  },
-  computed: {
-    mergedT() {
-      return { ...DEFAULT_T, ...this.t }
-    },
-  },
-  watch: {
-    searchString: {
-      deep: true,
-      handler(next, prev) {
-        if (prev !== next) {
-          this.prompt = next || ''
-        }
-      },
-    },
-  },
-  created() {},
-  mounted() {},
-  methods: {
-    refine(question) {
-      this.prompt = question
-      this.$refs?.input.focus()
-    },
-    submit(event) {
-      if (!event.shiftKey) {
-        event.preventDefault()
-        this.getAnswer()
-      }
-    },
-    async getAnswer() {
-      if (this.rag) {
-        this.$emit('searchRag')
-      } else {
-        this.$emit('searchRagExecute', this.rag_code)
-      }
-
-      this.prompt = ''
-      this.$refs?.input.blur()
-      this.$emit('onLoad')
-    },
-  },
+function updatePrompt(value: string) {
+  prompt.value = value
 }
+
+function submit(event: KeyboardEvent) {
+  if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return
+  event.preventDefault()
+  void getAnswer()
+}
+
+async function getAnswer() {
+  if (props.rag) emit('searchRag')
+  else emit('searchRagExecute', props.rag_code)
+
+  prompt.value = ''
+  inputRef.value?.blur()
+  emit('onLoad')
+}
+
+defineExpose({ refine })
 </script>
 
-<style lang="stylus">
-.search-btn
-  min-height: 30px;
-  padding: 5px 8px;
-  // opacity: 0.5;
+<template>
+  <div class="search-prompt stack" data-gap="sm">
+    <KmInput
+      ref="input"
+      autogrow
+      :min-rows="1"
+      :max-rows="10"
+      data-test="search-input"
+      :placeholder="mergedT.placeholder"
+      :model-value="prompt"
+      class="search-prompt__input"
+      @input="updatePrompt"
+      @keydown="submit"
+    >
+      <template #append>
+        <KmBtn
+          type="button"
+          size="icon-xs"
+          icon="search"
+          icon-size="16px"
+          icon-tone="inverse"
+          data-test="search-btn"
+          aria-label="Search"
+          @click="getAnswer"
+        />
+      </template>
+    </KmInput>
+  </div>
+</template>
 
-  .q-icon
-    font-size: var(--km-font-size-body-lg);
-</style>
+<style scoped>
+.search-prompt {
+  border-radius: var(--ds-radius-xl);
+  margin-block-end: var(--ds-space-lg);
+  inline-size: 100%;
+  min-inline-size: 450px;
+  max-inline-size: 800px;
+}
+@media (max-width: 500px) {
+  .search-prompt { min-inline-size: unset; max-inline-size: unset; }
+}
 
-<style lang="stylus" scoped>
-.search-prompt-container
-  min-width: 450px;
-  max-width: 800px;
-  width: 100%;
-@media (max-width: 500px)
-  .search-prompt-container
-    min-width: unset
-    max-width: unset
 </style>

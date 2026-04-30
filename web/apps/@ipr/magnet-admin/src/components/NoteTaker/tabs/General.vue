@@ -1,68 +1,49 @@
-<template lang="pug">
-.q-gutter-md
-  .km-field
-    .row.items-center.justify-between
-      .text-secondary-text.q-pb-xs.km-title Set the subscription for recordings ready
-      q-toggle(v-model='subscriptionRecordingsReady', color='primary')
-    .km-description.text-secondary-text.q-pt-2 Automatically create recordings-ready subscriptions for meetings.
-
-  .km-field
-    .text-secondary-text.q-pb-xs.km-title Transcription model
-    km-select(
-      v-model='pipelineId',
-      :options='pipelineOptions',
-      option-label='label',
-      option-value='value',
-      emit-value,
-      map-options,
-      height='30px'
-    )
-    .km-description.text-secondary-text.q-pt-2 STT model system name. Empty = transcription service default.
-
-  .km-field
-    .row.items-center.justify-between
-      .text-secondary-text.q-pb-xs.km-title Send number of speakers
-      q-toggle(v-model='sendNumberOfSpeakers', color='primary')
-    .km-description.text-secondary-text.q-pt-2 When enabled, Note Taker sends the invited participants count to the transcription backend (e.g. ElevenLabs num_speakers).
-
-  .km-field
-    .text-secondary-text.q-pb-xs.km-title Keyterms
-    km-input.full-width(
-      type='textarea',
-      autogrow,
-      :placeholder='m.noteTaker_exampleProjectNames()',
-      v-model='keyterms'
-    )
-    .km-description.text-secondary-text.q-pt-2 Optional keyterms to improve the transcription accuracy (one per line).
-
-  q-separator
-
-  .km-heading-8 Knowledge Graph
-  .km-field
-    .row.items-center.justify-between
-      .text-secondary-text.q-pb-xs.km-title Create Knowledge Graph Embedding
-      q-toggle(v-model='createKnowledgeGraphEmbedding', color='primary')
-    .q-gutter-sm(v-if='createKnowledgeGraphEmbedding')
-      .row.items-center.q-gutter-sm
-        .col
-          km-select(
-            v-model='knowledgeGraphSystemName',
-            :options='knowledgeGraphs',
-            option-label='name',
-            option-value='system_name',
-            emit-value,
-            map-options,
-            hasDropdownSearch,
-            height='30px'
-          )
-        .col-auto(v-if='selectedKnowledgeGraph?.id')
-          km-btn(
-            icon='open_in_new',
-            flat,
-            dense,
-            @click='router.push(`/knowledge-graph/${selectedKnowledgeGraph.id}`)'
-          )
-    .km-description.text-secondary-text.q-pt-2(v-if='createKnowledgeGraphEmbedding') Select the knowledge graph to embed when enabled.
+<template>
+  <div class="gap-md">
+    <div class="km-field">
+      <div class="cluster" data-justify="between">
+        <div class="text-secondary-text pb-xs km-title">Set the subscription for recordings ready</div>
+        <km-toggle v-model="subscriptionRecordingsReady" />
+      </div>
+      <div class="km-description text-secondary-text pt-2xs">Automatically create recordings-ready subscriptions for meetings.</div>
+    </div>
+    <div class="km-field">
+      <div class="text-secondary-text pb-xs km-title">Transcription model</div>
+      <km-select v-model="pipelineId" :options="pipelineOptions" option-label="label" option-value="value" emit-value map-options height="30px" />
+      <div class="km-description text-secondary-text pt-2xs">STT model system name. Empty = transcription service default.</div>
+    </div>
+    <div class="km-field">
+      <div class="cluster" data-justify="between">
+        <div class="text-secondary-text pb-xs km-title">Send number of speakers</div>
+        <km-toggle v-model="sendNumberOfSpeakers" />
+      </div>
+      <div class="km-description text-secondary-text pt-2xs">When enabled, Note Taker sends the invited participants count to the transcription backend (e.g. ElevenLabs num_speakers).</div>
+    </div>
+    <div class="km-field">
+      <div class="text-secondary-text pb-xs km-title">Keyterms</div>
+      <km-input v-model="keyterms" class="full-width" type="textarea" autogrow :placeholder="m.noteTaker_exampleProjectNames()" />
+      <div class="km-description text-secondary-text pt-2xs">Optional keyterms to improve the transcription accuracy (one per line).</div>
+    </div>
+    <km-separator />
+    <div class="km-heading-8">Knowledge Graph</div>
+    <div class="km-field">
+      <div class="cluster" data-justify="between">
+        <div class="text-secondary-text pb-xs km-title">Create Knowledge Graph Embedding</div>
+        <km-toggle v-model="createKnowledgeGraphEmbedding" />
+      </div>
+      <div v-if="createKnowledgeGraphEmbedding" class="gap-sm">
+        <div class="cluster" data-gap="sm">
+          <div class="flex-1">
+            <km-select v-model="knowledgeGraphSystemName" :options="knowledgeGraphs" option-label="name" option-value="system_name" emit-value map-options has-dropdown-search height="30px" />
+          </div>
+          <div v-if="selectedKnowledgeGraph?.id" class="flex-none">
+            <km-btn icon="external-link" flat dense @click="router.push(`/knowledge-graph/${selectedKnowledgeGraph.id}`)" />
+          </div>
+        </div>
+      </div>
+      <div v-if="createKnowledgeGraphEmbedding" class="km-description text-secondary-text pt-2xs">Select the knowledge graph to embed when enabled.</div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -78,7 +59,7 @@ const appStore = useAppStore()
 const router = useRouter()
 
 const pipelineOptions = ref<{ label: string; value: string }[]>([
-  { label: 'Default (auto)', value: '' },
+  { label: 'Default (auto)', value: '__auto__' },
 ])
 
 const knowledgeGraphs = ref<any[]>([])
@@ -88,8 +69,8 @@ const subscriptionRecordingsReady = computed({
   set: (v: boolean) => ntStore.updateSetting( { path: 'subscription_recordings_ready', value: v }),
 })
 const pipelineId = computed({
-  get: () => ntStore.settings?.pipeline_id ?? '',
-  set: (v: string) => ntStore.updateSetting( { path: 'pipeline_id', value: v }),
+  get: () => ntStore.settings?.pipeline_id || '__auto__',
+  set: (v: string) => ntStore.updateSetting({ path: 'pipeline_id', value: v === '__auto__' ? '' : v }),
 })
 const sendNumberOfSpeakers = computed({
   get: () => ntStore.settings?.send_number_of_speakers ?? false,
@@ -140,7 +121,7 @@ const fetchSttModels = async () => {
     const items: any[] = Array.isArray(data) ? data : (data?.items || data?.data || [])
     if (items.length > 0) {
       pipelineOptions.value = [
-        { label: 'Default (auto)', value: '' },
+        { label: 'Default (auto)', value: '__auto__' },
         ...items.map((m: any) => ({ label: m.name || m.system_name, value: m.system_name })),
       ]
     }

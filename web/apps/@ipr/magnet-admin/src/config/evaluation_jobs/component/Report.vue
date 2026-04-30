@@ -1,5 +1,5 @@
-<template lang="pug">
-km-icon-btn(icon='fas fa-download', iconSize='16px', @click.stop='getEvalutionReport')
+<template>
+  <km-icon-btn icon="download" icon-size="16px" @click.stop="getEvalutionReport" />
 </template>
 
 <script>

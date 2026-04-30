@@ -1,30 +1,30 @@
 <template>
-  <q-dialog :model-value="modelValue" @update:model-value="$emit('update:modelValue', $event)">
-    <q-card class="kg-dialog" :class="dialogClass" :style="dialogStyle">
+  <km-dialog :model-value="modelValue" @update:model-value="$emit('update:modelValue', $event)">
+    <km-card class="kg-dialog" :class="dialogClass" :style="dialogStyle">
       <!-- Header -->
-      <q-card-section class="kg-dialog__header">
-        <div class="row items-center">
-          <div class="col">
+      <div class="km-card-section kg-dialog__header">
+        <div class="cluster">
+          <div class="flex-1">
             <div class="km-heading-7">{{ title }}</div>
             <div v-if="subtitle" class="kg-dialog__subtitle">{{ subtitle }}</div>
           </div>
-          <div class="col-auto self-start">
-            <q-btn icon="close" flat round dense @click="onClose" />
+          <div class="flex-none self-start">
+            <km-btn icon="close" flat round dense @click="onClose" />
           </div>
         </div>
-      </q-card-section>
+      </div>
 
       <!-- Content -->
-      <q-card-section class="kg-dialog__content">
-        <div class="column q-gap-16">
+      <div class="km-card-section kg-dialog__content">
+        <div class="stack" data-gap="lg">
           <slot />
         </div>
 
         <!-- Error Banner -->
-        <q-banner v-if="error" class="q-mt-md bg-negative text-white" rounded dense>
+        <km-banner v-if="error" class="mt-md bg-negative text-white" rounded dense>
           {{ error }}
-        </q-banner>
-      </q-card-section>
+        </km-banner>
+      </div>
 
       <!-- Footer slot (fixed, above actions) -->
       <div v-if="$slots.footer" class="kg-dialog__footer">
@@ -32,34 +32,32 @@
       </div>
 
       <!-- Actions -->
-      <q-card-actions class="kg-dialog__actions">
-        <km-btn v-if="showConfirm" :label="cancelLabel" flat color="primary" @click="onCancel" />
-        <q-space />
-        <q-btn
+      <div class="km-card-actions kg-dialog__actions">
+        <km-btn v-if="showConfirm" :label="cancelLabel" flat tone="brand" @click="onCancel" />
+        <div class="km-space" />
+        <km-btn
           v-if="showConfirm"
           no-caps
           unelevated
-          color="primary"
           class="kg-dialog__action__button"
           :label="confirmLabel"
           :disable="disableConfirm || loading"
           :loading="loading"
           @click="$emit('confirm')"
         />
-        <q-btn
+        <km-btn
           v-if="!showConfirm"
           no-caps
           unelevated
-          color="primary"
           class="kg-dialog__action__button"
           :label="cancelLabel"
           @click="onCancel"
         />
-      </q-card-actions>
+      </div>
 
-      <q-inner-loading :showing="innerLoading" />
-    </q-card>
-  </q-dialog>
+      <km-inner-loading :showing="innerLoading" />
+    </km-card>
+  </km-dialog>
 </template>
 
 <script setup lang="ts">
@@ -147,24 +145,23 @@ const onClose = () => {
 }
 
 .kg-dialog__header {
-  padding-bottom: 16px;
+  padding-block-end: 16px;
   flex-shrink: 0;
 }
 
 .kg-dialog__subtitle {
-  font-size: var(--km-font-size-body);
-  color: var(--q-label);
+  font-size: var(--ds-font-size-body);
+  color: var(--ds-color-label);
   font-weight: 400;
   line-height: 1.4;
-  margin-top: 4px;
-  margin-bottom: 4px;
+  margin-block: 4px;
 }
 
 .kg-dialog__content {
   padding: 0 16px;
   flex: 1 1 auto;
-  overflow-y: auto;
-  min-height: 0;
+  overflow-block: auto;
+  min-block-size: 0;
 }
 
 .kg-dialog__footer {
@@ -179,9 +176,8 @@ const onClose = () => {
 
 .kg-dialog__action__button {
   font-family: var(--font-default) !important;
-  height: 34px !important;
-  min-height: 34px !important;
-  padding-left: 12px;
-  padding-right: 12px;
+  block-size: 34px !important;
+  min-block-size: 34px !important;
+  padding-inline: 12px;
 }
 </style>

@@ -1,38 +1,21 @@
-<template lang="pug">
-km-popup-confirm(
-  :visible='showNewDialog',
-  :title='m.dialog_newPromptQueueConfig()',
-  :confirmButtonLabel='m.common_save()',
-  :cancelButtonLabel='m.common_cancel()',
-  :notification='m.hint_addStepsAfterSaving()',
-  @confirm='createConfig',
-  @cancel='emit("cancel")'
-)
-  .column.q-gap-16
-    .col
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_name() }}
-      .full-width
-        km-input(
-          v-if='showNewDialog',
-          height='30px',
-          :placeholder='m.promptQueue_myQueue()',
-          v-model='name',
-          ref='nameRef',
-          :rules='[required()]'
-        )
-
-    .col
-      .km-field.text-secondary-text.q-pl-8 {{ m.common_systemName() }}
-      .full-width
-        km-input(
-          v-if='showNewDialog',
-          height='30px',
-          placeholder='',
-          v-model='system_name',
-          ref='system_nameRef',
-          :rules='[required()]'
-        )
-      .km-description.text-secondary-text.q-pb-4.q-pl-8 {{ m.hint_systemNameUniqueId() }}
+<template>
+  <km-popup-confirm :visible="showNewDialog" :title="m.dialog_newPromptQueueConfig()" :confirm-button-label="m.common_save()" :cancel-button-label="m.common_cancel()" :notification="m.hint_addStepsAfterSaving()" @confirm="createConfig" @cancel="emit(&quot;cancel&quot;)">
+    <div class="stack" data-gap="lg">
+      <div class="flex-1">
+        <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.common_name() }}</div>
+        <div class="full-width">
+          <km-input v-if="showNewDialog" ref="nameRef" v-model="name" height="30px" :placeholder="m.promptQueue_myQueue()" :rules="[required()]" />
+        </div>
+      </div>
+      <div class="flex-1">
+        <div class="km-field text-secondary-text pl-sm">{{ m.common_systemName() }}</div>
+        <div class="full-width">
+          <km-input v-if="showNewDialog" ref="system_nameRef" v-model="system_name" height="30px" placeholder="" :rules="[required()]" />
+        </div>
+        <div class="km-description text-secondary-text pb-xs pl-sm">{{ m.hint_systemNameUniqueId() }}</div>
+      </div>
+    </div>
+  </km-popup-confirm>
 </template>
 
 <script setup>

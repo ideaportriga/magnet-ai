@@ -1,11 +1,13 @@
-<template lang="pug">
-div(v-show='showPreview')
-  agents-drawer-preview
-
-div(v-if='showTopic')
-  agents-drawer-topic
-div(v-if='showAction')
-  agents-drawer-action
+<template>
+  <div v-show="showPreview">
+    <agents-drawer-preview />
+  </div>
+  <div v-if="showTopic">
+    <agents-drawer-topic />
+  </div>
+  <div v-if="showAction">
+    <agents-drawer-action />
+  </div>
 </template>
 <script>
 import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'

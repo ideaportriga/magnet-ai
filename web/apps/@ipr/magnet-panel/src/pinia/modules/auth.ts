@@ -58,10 +58,12 @@ const useAuth = defineStore('auth', {
       this.authConfig = config.auth
       this.client = createAuthClient(this.baseUrl || '')
 
-      if (this.authEnabled) {
-        await this.getAuthData()
-        await this.loadProviders()
-      }
+      if (!this.authEnabled) return
+      // Run independently so a transient failure in one endpoint doesn't
+      // leave the app stuck on the spinner. `getAuthData` already swallows
+      // its own errors via try/finally; `loadProviders` has its own catch.
+      await this.getAuthData()
+      await this.loadProviders()
     },
 
     async loadProviders() {
@@ -75,12 +77,17 @@ const useAuth = defineStore('auth', {
     async getAuthData() {
       if (!this.client) return
       this.authCheckInProgress = true
-      const userInfo = await this.client.me()
-      if (userInfo) {
-        this.authenticated = true
-        this.userInfo = userInfo
+      try {
+        const userInfo = await this.client.me()
+        if (userInfo) {
+          this.authenticated = true
+          this.userInfo = userInfo
+        }
+      } finally {
+        // Guarantee the spinner clears even if `me()` throws — otherwise
+        // App.vue would render `<km-loader>` forever.
+        this.authCheckInProgress = false
       }
-      this.authCheckInProgress = false
     },
 
     async loginLocal(email: string, password: string) {

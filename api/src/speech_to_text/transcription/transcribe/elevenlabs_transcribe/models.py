@@ -5,6 +5,7 @@ import os
 from io import BytesIO
 from typing import Any, Dict
 
+from cachetools import TTLCache
 from openai_model.utils import get_model_by_system_name
 from services.ai_services.factory import get_ai_provider
 
@@ -14,7 +15,7 @@ from ...storage.postgres_storage import PgDataStorage
 from ..base import BaseTranscriber
 
 
-_ELEVEN_CACHE: dict[str, Dict[str, Any]] = {}
+_ELEVEN_CACHE: TTLCache[str, Dict[str, Any]] = TTLCache(maxsize=256, ttl=3600)
 
 
 def _read_bytes(path: str) -> bytes:
@@ -43,24 +44,6 @@ def _to_dict(obj):
     return obj
 
 
-def _sanitize_keyterms(keyterms: list[str]) -> list[str]:
-    if not keyterms:
-        return []
-
-    cleaned: list[str] = []
-    for term in keyterms:
-        if not isinstance(term, str):
-            continue
-        t = term.strip()
-        if not t or len(t) > 50:
-            continue
-        if len(t.split()) > 5:
-            t = " ".join(t.split()[:5])
-        cleaned.append(t)
-
-    return cleaned[:100]
-
-
 def _is_provided(x: Any) -> bool:
     if x is None:
         return False
@@ -71,6 +54,10 @@ def _is_provided(x: Any) -> bool:
 
 
 class ElevenLabsTranscriber(BaseTranscriber):
+    # ElevenLabs Scribe tops out at 5 words per keyterm and 100 keyterms total.
+    MAX_KEYTERM_WORDS = 5
+    MAX_KEYTERMS = 100
+
     def __init__(self, storage: PgDataStorage, cfg: TranscriptionCfg):
         super().__init__(storage, cfg)
 
@@ -159,7 +146,7 @@ class ElevenLabsTranscriber(BaseTranscriber):
 
             provider = await get_ai_provider(provider_system_name)
 
-            safe_terms = _sanitize_keyterms(self._cfg.keyterms or [])
+            safe_terms = self._sanitize_keyterms(self._cfg.keyterms)
             file_bytes = await asyncio.to_thread(_read_bytes, tmp_wav)
 
             stt_opts: dict[str, Any] = {

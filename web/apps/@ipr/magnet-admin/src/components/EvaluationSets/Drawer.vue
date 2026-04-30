@@ -1,38 +1,22 @@
-<template lang="pug">
-km-drawer-layout(v-if='open && currentRecord', storageKey="drawer-evaluation-sets", noScroll)
-  template(#header)
-    .km-heading-7 {{ m.dialog_testSetItemDetails() }}
-  .column.q-gap-12
-    .col-auto(v-if='selectedEvaluationSet?.type === "rag_tool"')
-      retrieval-metadata-filter(
-        v-model='currentRecord.metadata_filter',
-        :label='m.evaluationJobs_metadataFilter()',
-        labelClass='km-input-label text-text-grey q-mr-xs'
-      )
-    .col-auto
-      .km-input-label.text-text-grey {{ m.evaluation_input() }}
-      km-input(
-        ref='input',
-        rows='16',
-        :placeholder='m.placeholder_typeYourTextHere()',
-        :model-value='evaluationInput',
-        @input='evaluationInput = $event',
-        border-radius='8px',
-        height='36px',
-        type='textarea'
-      )
-    .col-auto
-      .km-input-label.text-text-grey {{ m.evaluation_expectedOutput() }}
-      km-input(
-        ref='input',
-        rows='16',
-        :placeholder='m.placeholder_typeYourTextHere()',
-        :model-value='expectedOutput',
-        @input='expectedOutput = $event',
-        border-radius='8px',
-        height='36px',
-        type='textarea'
-      )
+<template>
+  <km-drawer-layout v-if="open &amp;&amp; currentRecord" storage-key="drawer-evaluation-sets" no-scroll>
+    <template #header>
+      <div class="km-heading-7">{{ m.dialog_testSetItemDetails() }}</div>
+    </template>
+    <div class="stack" data-gap="md">
+      <div v-if="selectedEvaluationSet?.type === &quot;rag_tool&quot;" class="flex-none">
+        <retrieval-metadata-filter v-model="currentRecord.metadata_filter" :label="m.evaluationJobs_metadataFilter()" label-class="km-input-label text-text-grey mr-xs" />
+      </div>
+      <div class="flex-none">
+        <div class="km-input-label text-text-grey">{{ m.evaluation_input() }}</div>
+        <km-input ref="input" rows="16" :placeholder="m.placeholder_typeYourTextHere()" :model-value="evaluationInput" border-radius="8px" height="36px" type="textarea" @input="evaluationInput = $event" />
+      </div>
+      <div class="flex-none">
+        <div class="km-input-label text-text-grey">{{ m.evaluation_expectedOutput() }}</div>
+        <km-input ref="input" rows="16" :placeholder="m.placeholder_typeYourTextHere()" :model-value="expectedOutput" border-radius="8px" height="36px" type="textarea" @input="expectedOutput = $event" />
+      </div>
+    </div>
+  </km-drawer-layout>
 </template>
 <script>
 import { defineComponent, ref, computed } from 'vue'

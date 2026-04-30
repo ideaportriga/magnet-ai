@@ -1,26 +1,14 @@
-<template lang="pug">
-.col(v-bind='$attrs')
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ label }}
-  .row.items-center.q-gap-8.no-wrap.relative-position
-    km-input.full-width(
-      :model-value='localValue',
-      @update:model-value='emit("update:value", $event)',
-      :readonly='!editMode',
-      :placeholder='localPlaceholder'
-    )
-    .controls.full-height.row.items-center
-      km-btn(icon='fa fa-pen', flat, iconSize='12px', @click='enterEditMode', size='xs', v-if='!editMode')
-      km-btn(icon='fa fa-xmark', flat, iconSize='12px', @click='cancelEditMode', size='xs', v-if='editMode && !isNew')
-      //- km-input(
-      //- :label='m.common_value()', 
-      //- :model-value='getSecretDisplayValue(itemKey, value)', 
-      //- @update:model-value='updateSecret(itemKey, itemKey, $event)', 
-      //- :readonly='!editMode',
-      //- :placeholder='!isNew ? "Enter new value" : ""'
-      //- ).full-width
-      //- .controls.full-height.row.items-center
-      //-     km-btn(icon='fa fa-pen' flat iconSize='12px' @click='editMode = !editMode' size='xs' v-if='!editMode')
-      //-     km-btn(icon='fa fa-xmark' flat iconSize='12px' @click='cancelEditMode' size='xs' v-if='editMode && !isNew')
+<template>
+  <div class="flex-1" v-bind="$attrs">
+    <div class="km-field text-secondary-text pb-xs pl-sm">{{ label }}</div>
+    <div class="cluster gap-sm relative-position" data-wrap="no">
+      <km-input class="full-width" :model-value="localValue" :readonly="!editMode" :placeholder="localPlaceholder" @update:model-value="emit(&quot;update:value&quot;, $event)" />
+      <div class="controls full-height cluster">
+        <km-btn v-if="!editMode" icon="edit" flat icon-size="12px" size="xs" @click="enterEditMode" />
+        <km-btn v-if="editMode &amp;&amp; !isNew" icon="close" flat icon-size="12px" size="xs" @click="cancelEditMode" />
+      </div>
+    </div>
+  </div>
 </template>
 <script setup>
 import { ref, computed, watch } from 'vue'
@@ -91,9 +79,10 @@ watch(
   }
 )
 </script>
-<style lang="stylus" scoped>
-.controls
-  position: absolute
-  right: 5px
-  top:0
+<style scoped>
+.controls {
+  position: absolute;
+  inset-inline-end: 5px;
+  inset-block-start: 0;
+}
 </style>

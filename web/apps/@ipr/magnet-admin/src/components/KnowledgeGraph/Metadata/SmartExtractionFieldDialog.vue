@@ -9,7 +9,7 @@
     @cancel="emit('cancel')"
     @confirm="onConfirm"
   >
-    <div class="column q-gap-16">
+    <div class="stack" data-gap="lg">
       <!-- Field Name Section -->
       <kg-dialog-section :title="m.knowledgeGraph_fieldIdentity()" :description="m.knowledgeGraph_fieldIdentitySmartDesc()" icon="badge">
         <kg-field-row gap="16px">
@@ -35,7 +35,7 @@
         :description="m.knowledgeGraph_typeConstraintsDesc()"
         icon="rule"
       >
-        <kg-field-row :cols="4" gap="12px" class="q-mb-md constraints-row">
+        <kg-field-row :cols="4" gap="12px" class="mb-md constraints-row">
           <kg-field-row :label="m.knowledgeGraph_valueType()">
             <kg-dropdown-field v-model="valueTypeModel" :options="valueTypeOptions" :placeholder="m.knowledgeGraph_selectType_smart()" dense />
           </kg-field-row>
@@ -60,7 +60,7 @@
             <div class="value-options-list">
               <div v-for="(av, idx) in allowedValues" :key="idx" class="value-option-chip">
                 <span class="value-option-text">{{ av.value }}</span>
-                <q-icon name="close" size="14px" class="value-option-remove" @click.stop="removeAllowedValue(idx)" />
+                <km-glyph name="close" size="14px" class="value-option-remove" @click.stop="removeAllowedValue(idx)" />
               </div>
 
               <div class="value-options-input-row">
@@ -68,7 +68,7 @@
                   v-model="newAllowedValue"
                   height="32px"
                   :placeholder="m.knowledgeGraph_enterOptionPress()"
-                  class="col"
+                  class="flex-1"
                   @keyup.enter="addAllowedValue"
                 />
                 <km-btn flat :label="m.common_add()" @click="addAllowedValue" />
@@ -222,29 +222,17 @@ const onConfirm = () => {
 
 <style scoped>
 /* Normalize control height across the constraints row */
-.constraints-row :deep(.q-field__control) {
-  height: 40px !important;
-  min-height: 40px !important;
-  max-height: 40px !important;
-}
-
-.constraints-row :deep(.q-field__native),
-.constraints-row :deep(.q-field__input),
-.constraints-row :deep(.q-field__marginal) {
-  min-height: 40px !important;
-}
-
 .constraints-row :deep(.kg-toggle-field) {
-  min-height: 40px;
-  height: 40px;
+  min-block-size: 40px;
+  block-size: 40px;
   padding: 0 16px;
 }
 
 /* Value Options Section */
 .value-options-container {
-  border: 1px solid var(--q-control-border);
-  border-radius: var(--radius-md);
-  background: var(--q-white);
+  border: 1px solid var(--ds-color-control-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-white);
   overflow: hidden;
 }
 
@@ -261,30 +249,30 @@ const onConfirm = () => {
   align-items: center;
   gap: 5px;
   padding: 5px 9px 5px 7px;
-  background: var(--q-white);
-  border: 1px solid var(--q-control-border);
-  border-radius: var(--radius-md);
-  font-size: var(--km-font-size-label);
+  background: var(--ds-color-white);
+  border: 1px solid var(--ds-color-control-border);
+  border-radius: var(--ds-radius-md);
+  font-size: var(--ds-font-size-label);
   cursor: default;
-  transition: all 0.2s ease;
+  transition: var(--ds-transition-colors);
   user-select: none;
 }
 
 .value-option-chip:hover {
-  border-color: var(--q-primary);
-  background: rgba(var(--q-primary-rgb), 0.03);
+  border-color: var(--ds-color-primary);
+  background: var(--ds-color-primary-bg);
 }
 
 .value-option-text {
   font-weight: 500;
-  color: var(--q-label);
+  color: var(--ds-color-label);
 }
 
 .value-option-remove {
-  color: var(--q-icon);
+  color: var(--ds-color-icon);
   opacity: 0;
-  transition: all 0.15s ease;
-  margin-left: 2px;
+  transition: var(--ds-transition-colors), var(--ds-transition-opacity);
+  margin-inline-start: 2px;
 }
 
 .value-option-chip:hover .value-option-remove {
@@ -292,15 +280,15 @@ const onConfirm = () => {
 }
 
 .value-option-remove:hover {
-  color: var(--q-error);
+  color: var(--ds-color-error);
 }
 
 .value-options-input-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 100%;
+  inline-size: 100%;
   flex-basis: 100%;
-  margin-top: 4px;
+  margin-block-start: 4px;
 }
 </style>

@@ -1,15 +1,8 @@
-<template lang="pug">
-km-secrets-item(
-  :item-key='key',
-  :value='value',
-  @update='updateSecret',
-  @delete='deleteSecret',
-  v-for='[key, value] in Object.entries(secrets || {})',
-  :is-new='!originalSecrets.includes(key)',
-  :key='`${key}-${remountValue}`'
-)
-.row.q-pt-16
-  km-btn(:label='m.common_addSecret()', @click='addSecret', size='sm', icon='o_add', flat)
+<template>
+  <km-secrets-item v-for="[key, value] in Object.entries(secrets || {})" :key="`${key}-${remountValue}`" :item-key="key" :value="value" :is-new="!originalSecrets.includes(key)" @update="updateSecret" @delete="deleteSecret" />
+  <div class="cluster pt-lg">
+    <km-btn :label="m.common_addSecret()" size="sm" icon="add" flat @click="addSecret" />
+  </div>
 </template>
 <script setup>
 import { ref, computed, watch } from 'vue'

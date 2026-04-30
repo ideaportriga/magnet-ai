@@ -1,53 +1,50 @@
-<template lang="pug">
-.column.bg-white.ba-border.q-px-lg.q-pt-4.q-pb-24.q-gap-16.border-radius-12(:class='{ "no-pointer-events prevent-select opaque": readonly }')
-  .km-heading-4.q-pt-24 {{ m.common_testPromptTemplate() }}
-
-  .row.items-center.q-gap-8.q-mt-sm
-    .col-auto.q-pl-xs
-      .circle-accent
-    .col
-      //- .km-description.text-secondary-text Test your prompt with text in input below. Prompt will be applied to it automatically.
-      .km-description.text-secondary-text {{ m.common_enterTextToTest() }}
-
-  //- QUESTION
-
-  km-input.full-width(
-    ref='input',
-    autogrow,
-    :placeholder='m.common_typeTextToTest()',
-    :model-value='inputText',
-    @input='inputText = $event',
-    @keydown.enter='submit',
-    border-radius='8px'
-  )
-    template(v-slot:append)
-      .fit.bottom-flex
-        q-btn.q-my-6.border-radius-6(color='primary', :disabled='disabled', @click='submit', unelevated, padding='7px 8px')
-          template(v-slot:default)
-            q-icon(name='fas fa-paper-plane', size='16px')
-
-  //- ANSWER
-  template(v-if='loading')
-    .row.justify-center
-      q-spinner-dots(size='62px', color='primary')
-  template(v-else-if='text !== undefined')
-    .row.q-gap-16.no-wrap.q-pt-18
-      .col-auto
-        q-avatar(color='primary-bg', text-color='white', size='36px')
-          km-icon(:name='"magnet"', width='20', height='22')
-
-      .col.border-radius-12.bg-light.q-pb-md
-        //- .col-auto
-        //-   .row.q-gap-16(style='height: 40px').q-pr-md.full-height
-        //-     .col
-        //-     .col-auto
-
-        .q-py-16.q-px-24
-          .km-paragraph.text-pre-wrap {{ text }}
-
-        .row.justify-end.q-pr-md
-          .col-auto
-            km-btn(icon='fas fa-copy', iconColor='icon', iconSize='16px', size='sm', flat, contentClass='text-label', :label='m.common_copy()', @click='copy')
+<template>
+  <div class="stack bg-white ba-border px-lg pt-xs pb-2xl border-radius-12" data-gap="lg" :class="{ &quot;no-pointer-events prevent-select opaque&quot;: readonly }">
+    <div class="km-heading-4 pt-2xl">{{ m.common_testPromptTemplate() }}</div>
+    <div class="cluster mt-sm" data-gap="sm">
+      <div class="flex-none pl-xs">
+        <div class="circle-accent" />
+      </div>
+      <div class="flex-1">
+        <div class="km-description text-secondary-text">{{ m.common_enterTextToTest() }}</div>
+      </div>
+    </div>
+    <km-input ref="input" class="full-width" autogrow :placeholder="m.common_typeTextToTest()" :model-value="inputText" border-radius="8px" @input="inputText = $event" @keydown.enter="submit">
+      <template #append>
+        <div class="fit bottom-flex">
+          <km-btn class="my-sm border-radius-6" :disabled="disabled" unelevated padding="7px 8px" @click="submit">
+            <template #default>
+              <km-glyph name="send" size="16px" />
+            </template>
+          </km-btn>
+        </div>
+      </template>
+    </km-input>
+    <template v-if="loading">
+      <div class="cluster" data-justify="center">
+        <km-loader size="62px" />
+      </div>
+    </template>
+    <template v-else-if="text !== undefined">
+      <div class="cluster pt-18" data-gap="lg" data-wrap="no">
+        <div class="flex-none">
+          <km-avatar tone="brand" size="36px">
+            <km-icon :name="&quot;magnet&quot;" width="20" height="22" />
+          </km-avatar>
+        </div>
+        <div class="flex-1 border-radius-12 bg-light pb-md">
+          <div class="py-lg px-2xl">
+            <div class="km-paragraph text-pre-wrap">{{ text }}</div>
+          </div>
+          <div class="cluster pr-md" data-justify="end">
+            <div class="flex-none">
+              <km-btn icon="copy" icon-size="16px" size="sm" flat content-class="text-label" :label="m.common_copy()" @click="copy" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
 </template>
 
 <script>
@@ -87,14 +84,15 @@ export default {
 }
 </script>
 
-<style lang="stylus" scoped>
-.circle-accent
-  height: 16px
-  width: 16px
-  border-radius: 50%
-  background: var(--q-primary)
-  opacity: 0.5
-
-.opaque
-  opacity: 0.5
+<style scoped>
+.circle-accent {
+  block-size: 16px;
+  inline-size: 16px;
+  border-radius: 50%;
+  background: var(--ds-color-primary);
+  opacity: 0.5;
+}
+.opaque {
+  opacity: 0.5;
+}
 </style>

@@ -1,52 +1,38 @@
-<template lang="pug">
-div
-  km-section(
-    :title='m.retrieval_detectQuestionLanguage()',
-    :subTitle='m.subtitle_detectLanguageRetrieval()'
-  )
-    q-toggle.q-mb-lg(v-model='isDetectLanguage', dense)
-      km-notification-text(
-        v-if='isMultiLingualRAG',
-        :notification='m.retrieval_detectLanguageDisableWarning()',
-        tooltip
-      )
-    template(v-if='isDetectLanguage')
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.retrieval_detectionPromptTemplate() }}
-      km-select(height='30px', :placeholder='m.retrieval_detectQaLanguage()', :options='prompts', v-model='detectLanguagePromptTemplate', hasDropdownSearch)
-      .row.q-mt-sm
-        .col-auto
-          km-btn(
-            flat,
-            simple,
-            :label='detectLanguagePromptTemplate ? m.common_openPromptTemplate() : m.common_openPromptTemplatesLibrary()',
-            iconSize='16px',
-            icon='fas fa-comment-dots',
-            @click='detectLanguagePromptTemplate ? navigate(`prompt-templates/${detectLanguagePromptTemplateId}`) : navigate("prompt-templates")'
-          )
-
-  q-separator.q-my-lg
-  km-section(
-    :title='m.retrieval_enableMultiLingualRetrieval()',
-    :subTitle='m.subtitle_optimizeRetrieval()'
-  )
-    q-toggle.q-mb-lg(v-model='isMultiLingualRAG', dense, :disable='!isDetectLanguage')
-      km-notification-text(v-if='!isDetectLanguage', :notification='m.retrieval_detectLanguageDisableNote()', tooltip)
-    template(v-if='isMultiLingualRAG')
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.retrieval_ragToolSourceLanguage() }}
-      km-select(height='30px', :placeholder='m.retrieval_ragToolSourceLanguage()', :options='languages', v-model='RetrievalToolSourceLangualge')
-      q-separator.q-my-lg
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.retrieval_translationPromptTemplate() }}
-      km-select(height='30px', :placeholder='m.retrieval_translationPromptTemplate()', :options='prompts', v-model='translatePromptTemplate', hasDropdownSearch)
-      .row.q-mt-sm
-        .col-auto
-          km-btn(
-            flat,
-            simple,
-            :label='translatePromptTemplate ? m.common_openPromptTemplate() : m.common_openPromptTemplatesLibrary()',
-            iconSize='16px',
-            icon='fas fa-comment-dots',
-            @click='translatePromptTemplate ? navigate(`prompt-templates/${TranslatePromptTemplateId}`) : navigate("prompt-templates")'
-          )
+<template>
+  <div>
+    <km-section :title="m.retrieval_detectQuestionLanguage()" :sub-title="m.subtitle_detectLanguageRetrieval()">
+      <km-toggle v-model="isDetectLanguage" class="mb-lg" dense>
+        <km-notification-text v-if="isMultiLingualRAG" :notification="m.retrieval_detectLanguageDisableWarning()" tooltip />
+      </km-toggle>
+      <template v-if="isDetectLanguage">
+        <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.retrieval_detectionPromptTemplate() }}</div>
+        <km-select v-model="detectLanguagePromptTemplate" height="30px" :placeholder="m.retrieval_detectQaLanguage()" :options="prompts" has-dropdown-search />
+        <div class="cluster mt-sm">
+          <div class="flex-none">
+            <km-btn flat simple :label="detectLanguagePromptTemplate ? m.common_openPromptTemplate() : m.common_openPromptTemplatesLibrary()" icon-size="16px" icon="chat" @click="detectLanguagePromptTemplate ? navigate(`prompt-templates/${detectLanguagePromptTemplateId}`) : navigate(&quot;prompt-templates&quot;)" />
+          </div>
+        </div>
+      </template>
+    </km-section>
+    <km-separator class="my-lg" />
+    <km-section :title="m.retrieval_enableMultiLingualRetrieval()" :sub-title="m.subtitle_optimizeRetrieval()">
+      <km-toggle v-model="isMultiLingualRAG" class="mb-lg" dense :disable="!isDetectLanguage">
+        <km-notification-text v-if="!isDetectLanguage" :notification="m.retrieval_detectLanguageDisableNote()" tooltip />
+      </km-toggle>
+      <template v-if="isMultiLingualRAG">
+        <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.retrieval_ragToolSourceLanguage() }}</div>
+        <km-select v-model="RetrievalToolSourceLangualge" height="30px" :placeholder="m.retrieval_ragToolSourceLanguage()" :options="languages" />
+        <km-separator class="my-lg" />
+        <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.retrieval_translationPromptTemplate() }}</div>
+        <km-select v-model="translatePromptTemplate" height="30px" :placeholder="m.retrieval_translationPromptTemplate()" :options="prompts" has-dropdown-search />
+        <div class="cluster mt-sm">
+          <div class="flex-none">
+            <km-btn flat simple :label="translatePromptTemplate ? m.common_openPromptTemplate() : m.common_openPromptTemplatesLibrary()" icon-size="16px" icon="chat" @click="translatePromptTemplate ? navigate(`prompt-templates/${TranslatePromptTemplateId}`) : navigate(&quot;prompt-templates&quot;)" />
+          </div>
+        </div>
+      </template>
+    </km-section>
+  </div>
 </template>
 
 <script>

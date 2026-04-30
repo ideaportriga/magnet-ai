@@ -37,7 +37,7 @@ Cypress.Commands.add('km_type', { prevSubject: 'element' }, (subject) => {
 Cypress.Commands.add('km_select', (selector, value) => {
   return cy.get(`[data-test="${selector}"]`).then(($el) => {
     cy.wrap($el).click()
-    cy.get('[data-test="options"]').each(($el) => {
+    cy.get('[data-test="km-select-item"], [data-test="ds-select-item"]').each(($el) => {
       if (Array.isArray(value)) {
         if (value.includes($el.text().trim())) {
           cy.wrap($el).click()
@@ -52,7 +52,7 @@ Cypress.Commands.add('km_select', (selector, value) => {
 })
 
 // Dismiss the km-error-dialog if visible.
-// The dialog has class .error-dialog and an OK button (q-btn with v-close-popup).
+// The dialog has class .error-dialog and an OK button.
 Cypress.Commands.add('dismissErrors', () => {
   cy.get('body').then(($body) => {
     const errorDialog = $body.find('.error-dialog')

@@ -1,9 +1,10 @@
-<template lang="pug">
-.row.q-gap-4.no-wrap
-  q-chip.text-uppercase.q-ma-none(v-if='row?.json_mode', size='sm') JSON Model
-  q-chip.text-uppercase.q-ma-none(v-if='row?.structured_output', size='sm') Structured Outputs
-  q-chip.text-uppercase.q-ma-none(v-if='row?.tool_calling', size='sm') Tool Calling
-  q-chip.text-uppercase.q-ma-none(v-if='row?.reasoning', size='sm') Reasoning
+<template>
+  <div class="cluster" data-gap="xs" data-wrap="no">
+    <km-chip v-if="row?.json_mode" class="text-uppercase m-0" size="sm">JSON Model</km-chip>
+    <km-chip v-if="row?.structured_output" class="text-uppercase m-0" size="sm">Structured Outputs</km-chip>
+    <km-chip v-if="row?.tool_calling" class="text-uppercase m-0" size="sm">Tool Calling</km-chip>
+    <km-chip v-if="row?.reasoning" class="text-uppercase m-0" size="sm">Reasoning</km-chip>
+  </div>
 </template>
 <script>
 import { defineComponent } from 'vue'

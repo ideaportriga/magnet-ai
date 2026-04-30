@@ -1,6 +1,7 @@
-<template lang="pug">
-.column.q-gap-4
-  div(v-for='(topic, index) in topics', :key='topic') {{ topic + `${index < topics.length - 1 ? ', ' : ''}` }}
+<template>
+  <div class="stack" data-gap="xs">
+    <div v-for="(topic, index) in topics" :key="topic">{{ topic + `${index < topics.length - 1 ? ', ' : ''}` }}</div>
+  </div>
 </template>
 
 <script setup>

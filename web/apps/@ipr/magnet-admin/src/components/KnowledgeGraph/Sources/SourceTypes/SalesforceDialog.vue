@@ -19,7 +19,7 @@
       :description="m.knowledgeGraph_sf_sectionProviderDesc()"
       icon="key"
     >
-      <q-select
+      <km-select
         v-model="selectedProvider"
         :options="providerOptions"
         option-label="name"
@@ -33,7 +33,7 @@
         :no-options-label="loadingProviders ? m.knowledgeGraph_sf_loadingProviders() : m.knowledgeGraph_sf_noProvidersFound()"
         @update:model-value="clearError"
       />
-      <div v-if="!loadingProviders && providerOptions.length === 0" class="text-caption text-negative q-mt-xs">
+      <div v-if="!loadingProviders && providerOptions.length === 0" class="text-caption text-negative mt-xs">
         {{ m.knowledgeGraph_sf_noProvidersFoundMsg() }}
       </div>
     </kg-dialog-section>
@@ -93,16 +93,16 @@
     <kg-dialog-section
       :title="m.knowledgeGraph_sf_sectionOutputConfigTitle()"
       :description="m.knowledgeGraph_sf_sectionOutputConfigDesc()"
-      icon="article"
+      icon="file-text"
     >
-      <q-input
+      <km-input
         v-model="outputConfig"
         outlined
         dense
         autogrow
         type="textarea"
         :placeholder="m.knowledgeGraph_sf_outputConfigPlaceholder()"
-        :input-style="{ 'min-height': '80px', 'font-family': 'var(--km-font-mono)' }"
+        :input-style="{ 'min-height': '80px', 'font-family': 'var(--ds-font-mono)' }"
         @update:model-value="clearError"
       />
     </kg-dialog-section>
@@ -118,7 +118,7 @@
         :placeholder="m.knowledgeGraph_sf_externalUrlPlaceholder()"
         @update:model-value="clearError"
       />
-      <div class="text-caption text-grey-7 q-mt-xs">
+      <div class="text-caption text-grey-7 mt-xs">
         {{ m.knowledgeGraph_sf_externalUrlExample() }}
       </div>
     </kg-dialog-section>

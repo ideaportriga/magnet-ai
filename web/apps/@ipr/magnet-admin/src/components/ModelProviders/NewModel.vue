@@ -1,81 +1,66 @@
-<template lang="pug">
-km-popup-confirm(
-  :visible='showNewDialog',
-  :title='popupTitle',
-  :confirmButtonLabel='confirmLabel',
-  :cancelButtonLabel='cancelLabel',
-  notification='You will be able to edit these and other settings after saving.',
-  @confirm='confirm',
-  @cancel='cancel'
-)
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Provider model name
-    .full-width
-      km-input(height='30px', :placeholder='m.placeholder_exampleModelId()', v-model='model', ref='modelRef', :rules='config?.model?.rules || []')
-      .km-description.text-secondary-text The exact model name/deployment name used by the provider (case-sensitive)
-
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md System name
-    .full-width
-      km-input(height='30px', :placeholder='m.placeholder_exampleModelSystemName()', v-model='system_name', ref='system_nameRef', :rules='config?.system_name?.rules || []')
-      .km-description.text-secondary-text System name serves as a unique ID (auto-generated)
-
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Display name
-    .full-width
-      km-input(
-        height='30px',
-        :placeholder='m.placeholder_exampleModelName()',
-        v-model='display_name',
-        ref='display_nameRef',
-        :rules='config?.display_name?.rules || []'
-      )
-      .km-description.text-secondary-text How the model name is displayed in the UI
-
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Type
-    .full-width
-      km-select(
-        height='auto',
-        minHeight='30px',
-        :placeholder='m.common_type()',
-        v-model='newRow.type',
-        ref='typeRef',
-        :options='categoryOptions',
-        :rules='config?.type?.rules || []',
-        emit-value,
-        map-options
-      )
-      .km-description.text-secondary-text {{ typeDescription }}
-
-  //- Features (Chat models)
-  template(v-if='newRow.type === "prompts"')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-sm Features
-    .row.q-col-gutter-md.q-px-8.q-mb-md
-      .col-6
-        km-checkbox(:label='m.common_jsonMode()', v-model='newRow.json_mode', dense)
-      .col-6
-        km-checkbox(:label='m.common_structuredOutput()', v-model='newRow.json_schema', dense)
-      .col-6
-        km-checkbox(:label='m.common_toolCalling()', v-model='newRow.tool_calling', dense)
-      .col-6
-        km-checkbox(:label='m.common_reasoning()', v-model='newRow.reasoning', dense)
-
-  //- Vector Config (Embeddings)
-  template(v-if='newRow.type === "embeddings"')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Vector Size
-    .full-width
-      km-input(
-        height='30px',
-        type='number',
-        :placeholder='m.placeholder_exampleVectorSize()',
-        v-model='vectorSize',
-        ref='vectorSizeRef'
-      )
-      .km-description.text-secondary-text Dimension of the embedding vector
-
-  //- Diarization (STT models)
-  template(v-if='newRow.type === "stt"')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-sm Features
-    .row.q-col-gutter-md.q-px-8.q-mb-md
-      .col-6
-        km-checkbox(:label='m.noteTaker_diarization()', v-model='newRow.diarization', dense)
+<template>
+  <km-popup-confirm :visible="showNewDialog" :title="popupTitle" :confirm-button-label="confirmLabel" :cancel-button-label="cancelLabel" notification="You will be able to edit these and other settings after saving." @confirm="confirm" @cancel="cancel">
+    <div class="km-field text-secondary-text pb-xs pl-sm mb-md">
+      Provider model name
+      <div class="full-width">
+        <km-input ref="modelRef" v-model="model" height="30px" :placeholder="m.placeholder_exampleModelId()" :rules="config?.model?.rules || []" />
+        <div class="km-description text-secondary-text">The exact model name/deployment name used by the provider (case-sensitive)</div>
+      </div>
+    </div>
+    <div class="km-field text-secondary-text pb-xs pl-sm mb-md">
+      System name
+      <div class="full-width">
+        <km-input ref="system_nameRef" v-model="system_name" height="30px" :placeholder="m.placeholder_exampleModelSystemName()" :rules="config?.system_name?.rules || []" />
+        <div class="km-description text-secondary-text">System name serves as a unique ID (auto-generated)</div>
+      </div>
+    </div>
+    <div class="km-field text-secondary-text pb-xs pl-sm mb-md">
+      Display name
+      <div class="full-width">
+        <km-input ref="display_nameRef" v-model="display_name" height="30px" :placeholder="m.placeholder_exampleModelName()" :rules="config?.display_name?.rules || []" />
+        <div class="km-description text-secondary-text">How the model name is displayed in the UI</div>
+      </div>
+    </div>
+    <div class="km-field text-secondary-text pb-xs pl-sm mb-md">
+      Type
+      <div class="full-width">
+        <km-select ref="typeRef" v-model="newRow.type" height="auto" min-height="30px" :placeholder="m.common_type()" :options="categoryOptions" :rules="config?.type?.rules || []" emit-value map-options />
+        <div class="km-description text-secondary-text">{{ typeDescription }}</div>
+      </div>
+    </div>
+    <template v-if="newRow.type === &quot;prompts&quot;">
+      <div class="km-field text-secondary-text pb-xs pl-sm mb-sm">Features</div>
+      <div class="cluster px-sm mb-md" data-gap="md">
+        <div class="basis-6">
+          <km-checkbox v-model="newRow.json_mode" :label="m.common_jsonMode()" dense />
+        </div>
+        <div class="basis-6">
+          <km-checkbox v-model="newRow.json_schema" :label="m.common_structuredOutput()" dense />
+        </div>
+        <div class="basis-6">
+          <km-checkbox v-model="newRow.tool_calling" :label="m.common_toolCalling()" dense />
+        </div>
+        <div class="basis-6">
+          <km-checkbox v-model="newRow.reasoning" :label="m.common_reasoning()" dense />
+        </div>
+      </div>
+    </template>
+    <template v-if="newRow.type === &quot;embeddings&quot;">
+      <div class="km-field text-secondary-text pb-xs pl-sm mb-md">Vector Size</div>
+      <div class="full-width">
+        <km-input ref="vectorSizeRef" v-model="vectorSize" height="30px" type="number" :placeholder="m.placeholder_exampleVectorSize()" />
+        <div class="km-description text-secondary-text">Dimension of the embedding vector</div>
+      </div>
+    </template>
+    <template v-if="newRow.type === &quot;stt&quot;">
+      <div class="km-field text-secondary-text pb-xs pl-sm mb-sm">Features</div>
+      <div class="cluster px-sm mb-md" data-gap="md">
+        <div class="basis-6">
+          <km-checkbox v-model="newRow.diarization" :label="m.noteTaker_diarization()" dense />
+        </div>
+      </div>
+    </template>
+  </km-popup-confirm>
 </template>
 
 <script>
@@ -83,6 +68,7 @@ import { ref, reactive } from 'vue'
 import { m } from '@/paraglide/messages'
 import { toUpperCaseWithUnderscores } from '@shared'
 import { useEntityConfig } from '@/composables/useEntityConfig'
+import { validateRef } from '@/utils/validateRef'
 import { useEntityQueries } from '@/queries/entities'
 import { getEntityApis } from '@/api'
 import { categoryOptions } from '../../config/model/model.js'
@@ -267,7 +253,7 @@ export default {
       if (!this.requiredFields || !Array.isArray(this.requiredFields)) {
         return true
       }
-      const validStates = this.requiredFields.map((field) => this.$refs[`${field}Ref`]?.validate())
+      const validStates = this.requiredFields.map((field) => validateRef(this.$refs[`${field}Ref`]))
       return !validStates.includes(false)
     },
     async createModel() {
@@ -313,7 +299,3 @@ export default {
 }
 </script>
 
-<style lang="stylus" scoped>
-.km-input:not(.q-field--readonly) .q-field__control::before
-  background: var(--q-white) !important;
-</style>

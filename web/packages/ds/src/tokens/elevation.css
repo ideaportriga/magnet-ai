@@ -1,0 +1,12 @@
+/* =============================================================================
+ * ELEVATION / SHADOW TOKENS
+ * ============================================================================= */
+
+:root {
+  --ds-shadow-none: none;
+  --ds-shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.06);
+  --ds-shadow-md: 0 2px 10px rgba(0, 0, 0, 0.08);
+  --ds-shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --ds-shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --ds-shadow-primary: 0 2px 8px rgba(104, 64, 194, 0.25);
+}

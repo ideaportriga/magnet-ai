@@ -1,40 +1,66 @@
-<template lang="pug">
-km-drawer-layout(storageKey="drawer-collections", noScroll)
-  template(#header)
-    .km-heading-7(v-if='!showChunkInfo') {{ m.common_preview() }}
-  .column.full-height(v-if='!showChunkInfo')
-    .col.column.no-wrap.q-pb-md.relative-position.q-px-16
-      retrieval-metadata-filter(v-model='metadataFilter', :sources='[knowledgeSystemName]')
-      q-separator.q-mt-md.q-mb-md
-      .column.search-prompt-container.border-radius-12.q-mb-16.full-width.q-gap-8
-        .row
-          km-input.full-width(
-            ref='input',
-            autogrow,
-            border-radius='8px',
-            height='36px',
-            :model-value='prompt',
-            @input='prompt = $event',
-            @keydown.enter='submit'
-          )
-            template(#append='{ height }')
-              .self-end.center-flex(:style='{ height }')
-                q-btn.border-radius-6(color='primary', @click='getAnswer', unelevated, padding='6px 7px')
-                  template(v-slot:default)
-                    q-icon(name='fas fa-search', size='16px')
-          .km-description.text-secondary-text.q-mt-xs {{ m.collections_searchHint() }}
-
-      template(v-if='answers.length || loading')
-        q-scroll-area.full-height.col(ref='scroll')
-          .column.q-gap-16
-            template(v-if='loading')
-              .row.justify-center.ba-border.border-radius-12.bg-white.q-pa-16.q-gap-16
-                q-spinner-dots(size='62px', color='primary')
-            template(v-for='answer in answers')
-              collections-answer(:answer='answer', @refine='refine', @selectAnswer='setDetailInfo')
-
-  template(v-if='showChunkInfo')
-    collections-drawer-chunk(:selectedRow='selectedAnswer', @close='showChunkInfo = false')
+<template>
+  <km-drawer-layout storage-key="drawer-collections" no-scroll>
+    <template #header>
+      <div v-if="!showChunkInfo" class="km-heading-7">{{ m.common_preview() }}</div>
+    </template>
+    <div v-if="!showChunkInfo" class="stack full-height" data-gap="0">
+      <div class="flex-1 stack pb-md relative-position px-lg" data-gap="0">
+        <retrieval-metadata-filter v-model="metadataFilter" :sources="[knowledgeSystemName]" />
+        <km-separator class="mt-md mb-md" />
+        <div class="stack search-prompt-container border-radius-12 mb-lg full-width" data-gap="sm">
+          <div>
+            <km-input
+              ref="input"
+              class="full-width"
+              data-test="preview-input"
+              autogrow
+              :rows="1"
+              :min-rows="1"
+              :max-rows="10"
+              :placeholder="m.collections_searchHint()"
+              :model-value="prompt"
+              border-radius="8px"
+              height="36px"
+              type="textarea"
+              @input="prompt = $event"
+              @keydown.enter="submit"
+            >
+              <template #append>
+                <km-btn
+                  data-test="preview-btn"
+                  type="button"
+                  size="icon-xs"
+                  icon="search"
+                  icon-size="16px"
+                  icon-tone="inverse"
+                  :disable="!prompt?.length"
+                  @click="getAnswer"
+                />
+              </template>
+            </km-input>
+            <div class="km-description text-secondary-text mt-xs">{{ m.collections_searchHint() }}</div>
+          </div>
+        </div>
+        <template v-if="answers.length || loading">
+          <km-scroll-area ref="scroll" class="full-height flex-1">
+            <div class="stack" data-gap="lg">
+              <template v-if="loading">
+                <div class="cluster ba-border border-radius-12 bg-white p-lg" data-gap="lg" data-justify="center">
+                  <km-loader size="62px" />
+                </div>
+              </template>
+              <template v-for="answer in answers" :key="answer">
+                <collections-answer :answer="answer" @refine="refine" @select-answer="setDetailInfo" />
+              </template>
+            </div>
+          </km-scroll-area>
+        </template>
+      </div>
+    </div>
+    <template v-if="showChunkInfo">
+      <collections-drawer-chunk :selected-row="selectedAnswer" @close="showChunkInfo = false" />
+    </template>
+  </km-drawer-layout>
 </template>
 
 <script setup>
@@ -146,10 +172,10 @@ async function getAnswer() {
 }
 </script>
 
-<style lang="stylus" scoped>
+<style scoped>
 .search-container {
-  min-width: 450px;
-  max-width: 800px;
-  width: 100%;
+  min-inline-size: 450px;
+  max-inline-size: 800px;
+  inline-size: 100%;
 }
 </style>

@@ -1,4 +1,3 @@
-import { uid } from 'quasar'
 import type { ConversionResult, PromptTemplate, PromptTemplateVariant, RetrievalConfig, RetrievalExample, ValidationError } from './models'
 
 // ================================
@@ -72,7 +71,7 @@ function parseExamplesSection(examplesText: string): RetrievalExample[] {
 
     if (titleMatch && userMatch && agentMatch) {
       examples.push({
-        id: uid(),
+        id: crypto.randomUUID(),
         title: titleMatch[1].trim(),
         input: userMatch[1].trim(),
         output: agentMatch[1].trim(),

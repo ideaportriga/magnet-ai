@@ -3,7 +3,7 @@ const mapRoutesChildrenParent = {
   EvaluationSetDetails: 'EvaluationSets',
   PromptTemplatesItem: 'PromptTemplates',
   AIAppDetail: 'AIApp',
-  ConfigurationItems: 'Configuration',
+  RAGItems: 'RAG',
   RetrievalItems: 'Retrieval',
   ModelItems: 'Model',
   CollectionDetail: 'Collections',

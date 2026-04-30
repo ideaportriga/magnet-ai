@@ -1,6 +1,6 @@
 <template>
-  <div class="column full-width">
-    <div v-for="(toolCall, toolIdx) in toolCalls" :key="toolIdx" class="row no-wrap tool-call-row km-body-sm">
+  <div class="stack full-width" data-gap="0">
+    <div v-for="(toolCall, toolIdx) in toolCalls" :key="toolIdx" class="cluster no-wrap tool-call-row km-body-sm">
       <div class="tool-call-index km-caption">
         {{ toolIdx + 1 }}
       </div>
@@ -101,30 +101,30 @@ function highlightJson(json: string): string {
 <style>
 /* Syntax Highlighting Colors - Vibrant Theme */
 .tool-call-row .key {
-  color: var(--q-error);
+  color: var(--ds-color-error);
   font-weight: 500;
 }
 .tool-call-row .string {
-  color: var(--q-success-text);
+  color: var(--ds-color-success-text);
 }
 .tool-call-row .number {
-  color: var(--q-primary);
+  color: var(--ds-color-primary);
   font-weight: 500;
 }
 .tool-call-row .boolean {
-  color: var(--q-warning);
+  color: var(--ds-color-warning);
   font-weight: 600;
 }
 .tool-call-row .null {
-  color: var(--q-warning);
+  color: var(--ds-color-warning);
   font-style: italic;
   font-weight: 600;
 }
 .tool-call-row .punctuation {
-  color: var(--q-icon);
+  color: var(--ds-color-icon);
 }
 .tool-call-row .function-name {
-  color: var(--q-primary);
+  color: var(--ds-color-primary);
   font-weight: 700;
 }
 </style>
@@ -133,12 +133,12 @@ function highlightJson(json: string): string {
 .tool-call-row {
   font-family:
     'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Cascadia Mono', 'Segoe UI Mono', 'Liberation Mono', Menlo, Monaco, Consolas, monospace;
-  border-bottom: 1px solid var(--q-border);
-  background-color: var(--q-white);
+  border-block-end: 1px solid var(--ds-color-border);
+  background-color: var(--ds-color-white);
 }
 
 .tool-call-row:last-child {
-  border-bottom: none;
+  border-block-end: none;
 }
 
 .tool-call-index {
@@ -146,10 +146,10 @@ function highlightJson(json: string): string {
   align-items: flex-start;
   justify-content: center;
   padding: 12px 8px;
-  min-width: 36px;
-  background-color: var(--q-light);
-  color: var(--q-icon);
-  border-right: 1px solid var(--q-border);
+  min-inline-size: 36px;
+  background-color: var(--ds-color-light);
+  color: var(--ds-color-icon);
+  border-inline-end: 1px solid var(--ds-color-border);
   user-select: none;
 }
 
@@ -157,10 +157,10 @@ function highlightJson(json: string): string {
   flex: 1;
   padding: 12px;
   line-height: 1.5;
-  color: var(--q-black);
+  color: var(--ds-color-black);
 }
 
 .tool-call-line {
-  word-break: break-word;
+  overflow-wrap: break-word;
 }
 </style>

@@ -1,61 +1,28 @@
-<template lang="pug">
-.row.no-wrap.overflow-hidden.full-height(v-if='loading')
-  km-inner-loading(:showing='loading')
-.row.no-wrap.overflow-hidden.full-height(v-else)
-  .col.row.no-wrap.full-height.justify-center.fit
-    .col(style='max-width: 1200px; min-width: 600px')
-      .full-height.q-pb-md.relative-position.q-px-md
-        .q-my-lg
-        .ba-border.bg-white.border-radius-12.q-pa-16(style='min-width: 300px')
-          .column.no-wrap.q-gap-16.full-height.full-width.overflow-auto.q-mb-md(style='max-height: calc(100vh - 210px) !important')
-            .row.q-gap-16.full-height.full-width
-              .col.full-height.full-width
-                .column.items-center.full-height.full-width.q-gap-16.overflow-auto
-                  .col-auto.full-width
-                    agents-topic-details-prompts
-                    q-separator.q-my-lg
-                    agents-topic-details-actions
+<template>
+  <km-inner-loading :showing="loading" />
+  <layouts-details-layout v-if="!loading" :name="name" :description="description" :system-name="system_name" @update:name="name = $event" @update:description="description = $event" @update:system-name="system_name = $event">
+    <template #content>
+      <div class="stack full-height full-width overflow-auto km-flex-min-0" data-gap="lg">
+        <agents-topic-details-prompts />
+        <km-separator class="my-lg" />
+        <agents-topic-details-actions />
+      </div>
+    </template>
+  </layouts-details-layout>
 </template>
 
 <script>
-import { ref, computed, onActivated } from 'vue'
-import { m } from '@/paraglide/messages'
-import { useRoute } from 'vue-router'
-import { useEntityQueries } from '@/queries/entities'
-import { useCatalogOptions } from '@/queries/useCatalogOptions'
 import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
-import { notify } from '@shared/utils/notify'
 
 export default {
   emits: ['update:closeDrawer'],
   setup() {
-    const route = useRoute()
-    const queries = useEntityQueries()
-    const id = ref(route.params.id)
-    onActivated(() => { id.value = route.params.id })
-    const { data: selectedRow } = queries.agents.useDetail(id)
-    const { options: items } = useCatalogOptions('agents')
-    const removeMutation = queries.agents.useRemove()
     const { draft, isLoading, activeVariant, updateNestedListItemBySystemName } = useAgentEntityDetail()
     return {
-      m,
       draft,
       isLoading,
       activeVariant,
       updateNestedListItemBySystemName,
-      tab: ref('prompts'),
-      tabs: ref([
-        { name: 'actions', label: m.agents_actions() },
-        { name: 'prompts', label: m.agents_topicInstructions() },
-      ]),
-      showNewDialog: ref(false),
-      activeAgentDetail: ref({}),
-      prompt: ref(null),
-      openTest: ref(true),
-      showInfo: ref(false),
-      selectedRow,
-      items,
-      removeMutation,
     }
   },
   computed: {
@@ -64,12 +31,6 @@ export default {
     },
     topic() {
       return (this.activeVariant?.value?.topics || [])?.find((topic) => topic?.system_name === this.routeParams?.topicId)
-    },
-    agentName() {
-      return this.draft?.name
-    },
-    agentId() {
-      return this.draft?.id
     },
     name: {
       get() {
@@ -113,61 +74,16 @@ export default {
         })
       },
     },
-    activeAgentDetailId() {
-      return this.$route.params.id
-    },
-    activeAgentDetailName() {
-      return this.items?.find((item) => item.id == this.activeAgentDetailId)?.name
-    },
-    options() {
-      return this.items?.map((item) => item.name)
-    },
     loading() {
       return this.isLoading || !this.draft?.id
     },
   },
 
-  methods: {
-    navigate(path = '') {
-      if (this.$route.path !== `/${path}`) {
-        this.$router.push(`${path}`)
-      }
-    },
-    deleteAgentDetail() {
-      notify.confirm({
-        message: `Are you sure you want to delete ${this.selectedRow?.name}?`,
-        confirmLabel: 'Delete',
-        cancelLabel: 'Cancel',
-        onConfirm: () => {
-          this.loadingDelelete = true
-          this.removeMutation.mutate(this.selectedRow?.id)
-          this.$emit('update:closeDrawer', null)
-          notify.success(m.agents_promptDeleted())
-          this.navigate('/prompt-templates')
-        },
-      })
-    },
-  },
 }
 </script>
 
-<style lang="stylus">
-
-@keyframes wobble {
-    0% { transform: rotate(-5deg); }
-    50% { transform: rotate(5deg); }
-    100% { transform: rotate(-5deg); }
-}
-
+<style>
 .wobble {
-    animation: wobble 2s infinite;
-}
-
-.breadcrumb-link {
-  cursor: pointer;
-}
-
-.breadcrumb-link:hover {
-  text-decoration: underline;
+  animation: ds-attention-wobble var(--ds-duration-attention) infinite;
 }
 </style>

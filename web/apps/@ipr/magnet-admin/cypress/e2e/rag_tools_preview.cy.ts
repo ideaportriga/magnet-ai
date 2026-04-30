@@ -2,7 +2,7 @@
  * RAG Tools — Preview contract.
  *
  * The RAG tool detail page hosts the `search-prompt` component inside
- * Configuration/Drawer.vue, which already carries `data-test="search-input"`
+ * RAG/Drawer.vue, which already carries `data-test="search-input"`
  * and `data-test="search-btn"` (ui-comp/Search/Prompt.vue).
  *
  * Requires a seeded RAG tool (real test needs at least one e2e-test-* or

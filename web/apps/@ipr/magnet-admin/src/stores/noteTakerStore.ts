@@ -3,35 +3,23 @@ import { ref, computed } from 'vue'
 import { fetchData } from '@shared'
 import { useAppStore } from './appStore'
 
-interface PromptSetting {
-  enabled: boolean
-  prompt_template: string
-}
+import type {
+  IntegrationConfluenceSchema,
+  IntegrationSalesforceSchema,
+  NoteTakerSettings as GeneratedNoteTakerSettings,
+  PromptSettingSchema,
+} from './types/noteTakerSettings.generated'
 
-interface SalesforceIntegrationSettings {
-  send_transcript_to_salesforce: boolean
-  salesforce_api_server: string
-  salesforce_stt_recording_tool: string
-}
-
-interface ConfluenceIntegrationSettings {
-  enabled: boolean
-  confluence_api_server: string
-  confluence_create_page_tool: string
-  space_key: string
-  parent_id: string
-  title_template: string
+// Aliases keep the existing local names while pinning their shape to the
+// auto-generated types from `core/domain/note_taker_settings/schemas.py`.
+// Re-run `api/scripts/dump_note_taker_settings_ts.py` after backend schema
+// changes.
+type PromptSetting = Required<PromptSettingSchema>
+type SalesforceIntegrationSettings = Required<IntegrationSalesforceSchema>
+type ConfluenceIntegrationSettings = Required<IntegrationConfluenceSchema> & {
   tool_system_name?: string
 }
-
-interface NoteTakerSettings {
-  subscription_recordings_ready: boolean
-  pipeline_id: string
-  send_number_of_speakers: boolean
-  accept_commands_from_non_organizer: boolean
-  create_knowledge_graph_embedding: boolean
-  knowledge_graph_system_name: string
-  keyterms: string
+type NoteTakerSettings = Required<Omit<GeneratedNoteTakerSettings, 'integration' | 'chapters' | 'summary' | 'insights' | 'post_transcription'>> & {
   integration: {
     confluence: ConfluenceIntegrationSettings
     salesforce: SalesforceIntegrationSettings
@@ -493,7 +481,7 @@ export const useNoteTakerStore = defineStore('noteTaker', () => {
     sttModelSystemName?: string
   }) {
     const endpoint = appStore.config?.api?.aiBridge?.urlAdmin?.replace(/\/$/, '')
-    const baseUrl = `${endpoint}/note-taker/jobs/${encodeURIComponent(payload.settingsId)}`
+    const previewService = `note-taker/jobs/${encodeURIComponent(payload.settingsId)}`
 
     if (payload.file) {
       const formData = new FormData()
@@ -504,14 +492,21 @@ export const useNoteTakerStore = defineStore('noteTaker', () => {
       if (payload.sttModelSystemName) {
         formData.append('stt_model_system_name', payload.sttModelSystemName)
       }
-      const response = await fetch(`${baseUrl}/run-upload`, { method: 'POST', body: formData, credentials: 'include' })
+      const response = await fetchData({
+        method: 'POST',
+        endpoint,
+        service: `${previewService}/run-upload`,
+        body: formData,
+        credentials: 'include',
+      })
       if (!response.ok) throw new Error('Failed to start preview job')
       return response.json()
     }
 
-    const url = `${baseUrl}/run`
-    const response = await fetch(url, {
+    const response = await fetchData({
       method: 'POST',
+      endpoint,
+      service: `${previewService}/run`,
       credentials: 'include',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({

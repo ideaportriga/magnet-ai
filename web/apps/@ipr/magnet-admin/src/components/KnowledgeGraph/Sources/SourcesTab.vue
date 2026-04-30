@@ -1,22 +1,22 @@
 <template>
-  <div class="q-px-md">
-    <div class="row items-start q-col-gutter-md q-mb-md">
-      <div class="col">
+  <div class="px-md">
+    <div class="cluster mb-md" data-gap="md" data-align="start">
+      <div class="flex-1">
         <div class="km-heading-7">{{ m.knowledgeGraph_dataSources() }}</div>
         <div class="km-description text-secondary-text">{{ m.knowledgeGraph_dataSourcesDesc() }}</div>
       </div>
     </div>
 
-    <q-separator class="q-my-md" />
+    <km-separator class="my-md" />
 
-    <q-linear-progress v-if="loading" indeterminate color="primary" />
+    <km-linear-progress v-if="loading" indeterminate />
 
-    <div v-else-if="displayRows.length === 0" class="q-mt-md">
-      <div class="text-center q-pa-lg">
-        <q-icon name="folder_open" size="64px" color="grey-5" />
-        <div class="km-heading-7 text-grey-7 q-mt-md">{{ m.knowledgeGraph_noSourcesAdded() }}</div>
+    <div v-else-if="displayRows.length === 0" class="mt-md">
+      <div class="text-center p-lg">
+        <km-glyph name="folder-open" size="64px" tone="muted" />
+        <div class="km-heading-7 text-grey-7 mt-md">{{ m.knowledgeGraph_noSourcesAdded() }}</div>
         <div class="km-description text-grey-6">{{ m.knowledgeGraph_addFirstSourceHint() }}</div>
-        <q-btn no-caps unelevated color="primary" :label="m.knowledgeGraph_addFirstSource()" class="q-mt-lg" @click="showSourceTypeDialog = true" />
+        <km-btn no-caps unelevated :label="m.knowledgeGraph_addFirstSource()" class="mt-lg" @click="showSourceTypeDialog = true" />
       </div>
     </div>
 
@@ -27,7 +27,7 @@
         </template>
 
         <template #trailing>
-          <km-btn flat icon="o_add_circle" :label="m.knowledgeGraph_newSource()" size="sm" @click="showSourceTypeDialog = true" />
+          <km-btn flat icon="add-circle" :label="m.knowledgeGraph_newSource()" size="sm" @click="showSourceTypeDialog = true" />
           <km-btn flat icon="refresh" :label="m.common_refresh()" size="sm" :disable="loading" @click="fetchSources(true)" />
         </template>
       </kg-table-toolbar>
@@ -51,16 +51,16 @@
         </template>
 
         <template #cell-last_sync_at="{ row }">
-          <div class="kg-sync-cell row items-center no-wrap">
-            <div class="column items-start justify-center q-gap-6">
+          <div class="kg-sync-cell cluster" data-wrap="no">
+            <div class="flex gap-sm" style="flex-direction: column; align-items: flex-start; justify-content: center">
               <kg-status-badge :status="effectiveStatus(row)" />
-              <div class="kg-sync-meta row items-center no-wrap q-gutter-x-xs q-ml-4">
+              <div class="kg-sync-meta cluster ml-xs gap-x-xs" data-wrap="no">
                 <span class="kg-sync-meta-label">{{ m.knowledgeGraph_lastSync() }}</span>
                 <span class="kg-sync-meta-value">
                   {{ formatRelative(row?.last_sync_at) }}
-                  <q-tooltip anchor="top middle" self="bottom middle">
+                  <km-tooltip anchor="top middle" self="bottom middle">
                     {{ formatFull(row?.last_sync_at) }}
-                  </q-tooltip>
+                  </km-tooltip>
                 </span>
               </div>
             </div>
@@ -68,9 +68,9 @@
         </template>
 
         <template #cell-schedule="{ row }">
-          <div v-if="hasSchedule(row)" class="column items-start justify-center q-gap-6">
-            <div class="row items-center no-wrap q-gutter-x-xs">
-              <q-icon name="schedule" color="primary" size="16px" />
+          <div v-if="hasSchedule(row)" class="flex gap-sm" style="flex-direction: column; align-items: flex-start; justify-content: center">
+            <div class="cluster gap-x-xs" data-wrap="no">
+              <km-glyph name="clock" tone="brand" size="16px" />
               <span class="kg-sync-schedule-interval">{{ row.schedule?.interval }}</span>
             </div>
             <div class="kg-sync-schedule-time">
@@ -81,39 +81,23 @@
         </template>
 
         <template #cell-menu="{ row }">
-          <q-btn dense flat color="dark" icon="more_vert" :disable="deletingIds.has(row.id)" @click.stop>
-            <q-menu class="kg-source-menu" anchor="bottom right" self="top right" auto-close>
-              <q-list dense>
-                <q-item
-                  v-ripple="false"
-                  :disable="!isSyncable(row.type) || syncingIds.has(row.id)"
-                  clickable
-                  @click="handleSync(row)"
-                >
-                  <q-item-section thumbnail>
-                    <q-icon name="sync" color="primary" size="20px" class="q-ml-sm" />
-                  </q-item-section>
-                  <q-item-section>{{ m.knowledgeGraph_syncNow() }}</q-item-section>
-                </q-item>
-
-                <q-separator />
-
-                <q-item v-ripple="false" clickable @click="confirmPurge(row)">
-                  <q-item-section thumbnail>
-                    <q-icon name="delete" color="negative" size="20px" class="q-ml-sm" />
-                  </q-item-section>
-                  <q-item-section>{{ m.knowledgeGraph_deleteData() }}</q-item-section>
-                </q-item>
-
-                <q-item v-ripple="false" clickable @click="confirmDelete(row)">
-                  <q-item-section thumbnail>
-                    <q-icon name="delete" color="negative" size="20px" class="q-ml-sm" />
-                  </q-item-section>
-                  <q-item-section>{{ m.knowledgeGraph_deleteSourceAndData() }}</q-item-section>
-                </q-item>
-              </q-list>
-            </q-menu>
-          </q-btn>
+          <ds-dropdown-menu-root>
+            <ds-dropdown-menu-trigger as-child>
+              <km-btn dense flat tone="neutral" icon="more-vertical" :disable="deletingIds.has(row.id)" @click.stop />
+            </ds-dropdown-menu-trigger>
+            <ds-dropdown-menu-content side="bottom" align="end" :side-offset="4">
+              <ds-dropdown-menu-item :disabled="!isSyncable(row.type) || syncingIds.has(row.id)" @select="handleSync(row)">
+                <km-glyph name="refresh" size="18px" /><span>{{ m.knowledgeGraph_syncNow() }}</span>
+              </ds-dropdown-menu-item>
+              <ds-dropdown-menu-separator />
+              <ds-dropdown-menu-item variant="destructive" @select="confirmPurge(row)">
+                <km-glyph name="delete" size="18px" /><span>{{ m.knowledgeGraph_deleteData() }}</span>
+              </ds-dropdown-menu-item>
+              <ds-dropdown-menu-item variant="destructive" @select="confirmDelete(row)">
+                <km-glyph name="delete" size="18px" /><span>{{ m.knowledgeGraph_deleteSourceAndData() }}</span>
+              </ds-dropdown-menu-item>
+            </ds-dropdown-menu-content>
+          </ds-dropdown-menu-root>
         </template>
       </km-data-table>
     </div>
@@ -141,7 +125,7 @@
     <kg-confirm-dialog
       v-model="showDeleteDialog"
       :title="m.knowledgeGraph_deleteSourceTitle()"
-      icon="delete_outline"
+      icon="delete"
       :description="m.knowledgeGraph_deleteSourceDesc({ name: selectedRow?.name || '' })"
       :confirm-label="m.common_delete()"
       destructive
@@ -170,7 +154,7 @@
     <kg-confirm-dialog
       v-model="showSyncAllConfirmDialog"
       :title="m.knowledgeGraph_syncAllTitle()"
-      icon="sync"
+      icon="refresh"
       icon-variant="info"
       :description="m.knowledgeGraph_syncAllDesc()"
       :confirm-label="m.knowledgeGraph_syncAll()"
@@ -185,7 +169,8 @@
 import { fetchData } from '@shared'
 import { m } from '@/paraglide/messages'
 import { formatRelative } from '@shared/utils'
-import { useQuasar } from 'quasar'
+import { notify } from '@ds/composables/useNotify'
+import { useLoading } from '@ds/composables/useLoading'
 import type { ColumnDef } from '@tanstack/vue-table'
 import { computed, inject, onMounted, ref, type Ref } from 'vue'
 import { useAppStore } from '@/stores/appStore'
@@ -208,7 +193,6 @@ const emit = defineEmits<{
 }>()
 
 const appStore = useAppStore()
-const $q = useQuasar()
 const { notifySuccess, notifyError, notifyWarning, notifyInfo } = useNotify()
 
 const loading = ref(false)
@@ -350,7 +334,6 @@ function pad2(n: number): string {
 function normalizeDayOfWeek(value: unknown): number | null {
   const n = toInt(value)
   if (n !== null && n >= 0 && n <= 6) return n
-
   const s = String(value || '')
     .toLowerCase()
     .trim()
@@ -436,7 +419,7 @@ const syncSource = async (source: SourceRow, showNotification = true): Promise<b
     }
     return false
   } finally {
-    $q.loading.hide()
+    useLoading().clear()
   }
 }
 
@@ -587,56 +570,30 @@ onMounted(() => {
 </script>
 
 <style scoped>
-:deep(.q-table thead th) {
-  font-size: var(--km-body-sm-size, 14px);
-  font-weight: 600;
-}
-
 .kg-sync-meta {
-  margin-top: 2px;
+  margin-block-start: 2px;
 }
 
 .kg-sync-meta-label {
   font-size: var(--km-caption-size, 12px);
-  color: var(--q-secondary-text);
+  color: var(--ds-color-secondary-text);
 }
 
 .kg-sync-meta-value {
   font-size: var(--km-caption-size, 12px);
-  color: var(--q-secondary-text);
+  color: var(--ds-color-secondary-text);
 }
 
 .kg-sync-schedule-interval {
   font-size: var(--km-body-sm-size, 13px);
   font-weight: 600;
-  color: var(--q-primary);
+  color: var(--ds-color-primary);
   text-transform: capitalize;
 }
 
 .kg-sync-schedule-time {
   font-size: var(--km-caption-size, 12px);
-  color: var(--q-secondary-text);
+  color: var(--ds-color-secondary-text);
 }
 
-/* Row menu: keep compact/default, without hover highlighting */
-:deep(.kg-source-menu .q-focus-helper) {
-  opacity: 0 !important;
-}
-
-:deep(.kg-source-menu .q-item.q-focusable:hover) {
-  background: transparent !important;
-}
-
-@keyframes chip-rotate {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
-:deep(.chip-rotating .q-chip__icon) {
-  animation: chip-rotate 1s linear infinite;
-}
 </style>

@@ -1,22 +1,19 @@
-<template lang="pug">
-.column.no-wrap.full-height
-  .collection-container.q-mx-auto.full-width.column.full-height.q-px-md.q-pt-16
-    q-tabs.bb-border.full-width.q-mb-lg(
-      v-model='tab',
-      align='left',
-      active-color='primary',
-      indicator-color='primary',
-      active-bg-color='white',
-      no-caps,
-      content-class='km-tabs'
-    )
-      template(v-for='t in tabs')
-        q-tab(:name='t.name', :label='t.label')
-    .col.ba-border.border-radius-12.bg-white.q-pa-16.column(style='min-height: 0')
-      template(v-if='tab == "ModelProviders"')
-        model-providers-table
-      template(v-if='tab == "DefaultModels"')
-        model-providers-default-models
+<template>
+  <km-list-page>
+    <template #tabs>
+      <km-tabs v-model="tab" class="bb-border full-width mb-lg" align="left" no-caps content-class="km-tabs">
+        <template v-for="t in tabs" :key="t">
+          <km-tab :name="t.name" :label="t.label" />
+        </template>
+      </km-tabs>
+    </template>
+    <template v-if="tab == 'ModelProviders'">
+      <model-providers-table />
+    </template>
+    <template v-if="tab == 'DefaultModels'">
+      <model-providers-default-models />
+    </template>
+  </km-list-page>
 </template>
 <script setup>
 import { ref, onMounted, watch } from 'vue'

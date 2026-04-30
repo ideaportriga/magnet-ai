@@ -9,19 +9,19 @@
     @confirm="createGraph"
     @cancel="$emit('cancel')"
   >
-    <div class="km-field text-secondary-text q-pb-xs q-pl-8 q-mb-md">
+    <div class="km-field text-secondary-text pb-xs pl-sm mb-md">
       {{ m.knowledgeGraph_graphNameLabel() }}
       <km-input v-model="graphName" height="36px" :placeholder="m.knowledgeGraph_graphNamePlaceholder()" border-radius="8px" @keyup.enter="createGraph" />
-      <div class="km-description text-secondary-text q-py-8">{{ m.knowledgeGraph_graphNameHint() }}</div>
+      <div class="km-description text-secondary-text py-sm">{{ m.knowledgeGraph_graphNameHint() }}</div>
     </div>
 
-    <div class="km-field text-secondary-text q-pb-xs q-pl-8">
+    <div class="km-field text-secondary-text pb-xs pl-sm">
       {{ m.knowledgeGraph_descriptionOptional() }}
-      <q-input v-model="description" outlined dense type="textarea" :placeholder="m.knowledgeGraph_graphDescPlaceholder()" rows="3" />
-      <div class="km-description text-secondary-text q-py-8">{{ m.knowledgeGraph_graphDescHint() }}</div>
+      <km-input v-model="description" outlined dense type="textarea" :placeholder="m.knowledgeGraph_graphDescPlaceholder()" rows="3" />
+      <div class="km-description text-secondary-text py-sm">{{ m.knowledgeGraph_graphDescHint() }}</div>
     </div>
 
-    <div v-if="error" class="q-mt-md text-negative">{{ error }}</div>
+    <div v-if="error" class="mt-md text-negative">{{ error }}</div>
   </km-popup-confirm>
 </template>
 

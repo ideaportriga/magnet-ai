@@ -4,11 +4,10 @@
     <div class="doc-nav-panel">
       <!-- Tab Switcher -->
       <div class="nav-tabs-wrapper">
-        <q-btn-toggle
+        <km-btn-toggle
           v-model="activeNavTab"
           no-caps
           unelevated
-          toggle-color="primary"
           :options="[
             { label: m.dataExplorer_tocTab(), value: 'toc' },
             { label: m.dataExplorer_chunksTab({ count: document?.chunks_count || chunks.length }), value: 'chunks' },
@@ -26,13 +25,13 @@
       <div class="nav-list">
         <template v-if="activeNavTab === 'toc'">
           <div v-if="loading" class="nav-loading">
-            <q-spinner size="24px" color="primary" />
+            <km-loader size="24px" />
           </div>
           <template v-else-if="hasToc">
             <div class="nav-list-actions">
-              <km-btn flat size="sm" color="primary" :label="isAllExpanded ? m.dataExplorer_collapseAll() : m.dataExplorer_expandAll()" @click="toggleExpandCollapseAll" />
+              <km-btn flat size="sm" tone="brand" :label="isAllExpanded ? m.dataExplorer_collapseAll() : m.dataExplorer_expandAll()" @click="toggleExpandCollapseAll" />
             </div>
-            <q-tree
+            <km-tree
               v-model:expanded="expandedKeys"
               v-model:selected="selectedKey"
               :nodes="treeNodes"
@@ -52,24 +51,24 @@
                   :class="{ 'tree-node-item--chunk': prop.node.type === 'chunk' }"
                   @click.stop="onTreeNodeClick(prop.node.id)"
                 >
-                  <q-icon :name="getIconForNode(prop.node)" size="16px" class="tree-node-icon" />
+                  <km-glyph :name="getIconForNode(prop.node)" size="16px" class="tree-node-icon" />
                   <span class="tree-node-text">{{ prop.node.label }}</span>
                 </div>
               </template>
-            </q-tree>
+            </km-tree>
           </template>
           <div v-else class="nav-empty">
-            <q-icon name="folder_off" size="28px" color="grey-5" />
+            <km-glyph name="folder_off" size="28px" tone="muted" />
             <span class="text-grey-6 km-description">{{ m.dataExplorer_noToc() }}</span>
           </div>
         </template>
 
         <template v-else-if="activeNavTab === 'chunks'">
           <div v-if="loading" class="nav-loading">
-            <q-spinner size="24px" color="primary" />
+            <km-loader size="24px" />
           </div>
           <div v-else-if="filteredChunks.length === 0" class="nav-empty">
-            <q-icon name="layers" size="28px" color="grey-5" />
+            <km-glyph name="layers" size="28px" tone="muted" />
             <span class="text-grey-6 km-description">{{ chunks.length === 0 ? m.dataExplorer_noChunks() : m.dataExplorer_noMatches() }}</span>
           </div>
           <div v-else class="chunks-nav-list">
@@ -82,9 +81,9 @@
               @click="onChunkNavClick(ch)"
             >
               <span class="chunk-nav-index">{{ idx + 1 }}</span>
-              <q-icon :name="getIconForChunk(ch)" size="16px" class="chunk-nav-icon" />
+              <km-glyph :name="getIconForChunk(ch)" size="16px" class="chunk-nav-icon" />
               <span class="chunk-nav-title">{{ ch.title || ch.name || m.dataExplorer_chunkDefault() }}</span>
-              <q-badge v-if="ch.page" color="grey-4" text-color="grey-8" class="chunk-nav-badge">{{ ch.page }}</q-badge>
+              <km-badge v-if="ch.page" tone="neutral" class="chunk-nav-badge">{{ ch.page }}</km-badge>
             </div>
           </div>
         </template>
@@ -103,8 +102,8 @@
                 <km-btn
                   v-if="document?.external_link"
                   flat
-                  icon="fa fa-external-link"
-                  color="secondary-text"
+                  icon="external-link"
+                  tone="subtle"
                   label-class="km-button-text"
                   icon-size="16px"
                   @click="openExternalLink(document?.external_link)"
@@ -114,17 +113,15 @@
             </div>
           </div>
           <div class="doc-header-right">
-            <q-btn
+            <km-btn
               flat
               round
               dense
               icon="info"
-              :color="metadataPanelOpen ? 'primary' : 'grey-7'"
+              :tone="metadataPanelOpen ? 'brand' : 'weak'"
               class="metadata-toggle-btn"
-              @click="metadataPanelOpen = !metadataPanelOpen"
-            >
-              <q-tooltip>{{ m.dataExplorer_documentInfo() }}</q-tooltip>
-            </q-btn>
+              :tooltip="m.dataExplorer_documentInfo()" @click="metadataPanelOpen = !metadataPanelOpen"
+            />
           </div>
         </div>
       </div>
@@ -144,8 +141,8 @@
             <div class="section-header section-header--chunk" @click="onChunkHeaderClick(chunk)">
               <span class="chunk-index-badge">{{ index + 1 }}</span>
               <span class="section-title">{{ chunk.title || chunk.name || m.dataExplorer_chunkContent() }}</span>
-              <q-space />
-              <q-badge v-if="chunk.page" color="secondary" text-color="white" class="chunk-page-badge">{{ m.dataExplorer_page() }} {{ chunk.page }}</q-badge>
+              <div class="km-space" />
+              <km-badge v-if="chunk.page" tone="neutral-strong" class="chunk-page-badge">{{ m.dataExplorer_page() }} {{ chunk.page }}</km-badge>
             </div>
             <div class="section-body section-body--chunk">
               <div class="chunk-content-wrapper">
@@ -158,8 +155,8 @@
         <!-- Empty State -->
         <div v-else-if="!loading" class="doc-section doc-section--empty">
           <div class="empty-placeholder">
-            <q-icon name="layers" size="40px" color="grey-4" />
-            <div class="km-heading-7 text-grey-6 q-mt-md">{{ m.dataExplorer_noChunksAvailable() }}</div>
+            <km-glyph name="layers" size="40px" tone="muted" />
+            <div class="km-heading-7 text-grey-6 mt-md">{{ m.dataExplorer_noChunksAvailable() }}</div>
             <div class="km-description text-grey-5">{{ m.dataExplorer_noChunksDesc() }}</div>
           </div>
         </div>
@@ -167,8 +164,8 @@
         <!-- Loading State -->
         <div v-else class="doc-section doc-section--empty">
           <div class="empty-placeholder">
-            <q-spinner size="40px" color="primary" />
-            <div class="km-heading-7 text-grey-6 q-mt-md">{{ m.dataExplorer_loadingChunks() }}</div>
+            <km-loader size="40px" />
+            <div class="km-heading-7 text-grey-6 mt-md">{{ m.dataExplorer_loadingChunks() }}</div>
           </div>
         </div>
       </div>
@@ -378,9 +375,9 @@ function formatMetadataValue(val: unknown): { kind: MetadataValueKind; value: an
     const validItems = val
       .filter((x) => x !== null && x !== undefined && x !== '')
       .map((x) => (typeof x === 'string' ? x : JSON.stringify(x)))
-    
+
     if (validItems.length === 0) return { kind: 'string', value: '' }
-    
+
     return { kind: 'list', value: validItems }
   }
 
@@ -539,12 +536,10 @@ const fetchAllChunks = async () => {
     } while (all.length < total)
     chunks.value = all
   } catch (error) {
-
   } finally {
     loading.value = false
   }
 }
-
 const toggleNodeExpanded = (id: string) => {
   const idx = expandedKeys.value.indexOf(id)
   if (idx >= 0) {
@@ -848,9 +843,7 @@ const updateActiveChunkFromScroll = () => {
       }
     }
   }
-
   if (!nextId || nextId === activeChunkId.value) return
-
   const chunk = sortedChunks.value.find((c) => c.id === nextId)
   if (!chunk) return
   setChunkSelection(chunk, { source: 'scroll', scrollTo: false, navScrollBehavior: 'auto' })
@@ -923,8 +916,8 @@ onBeforeUnmount(() => {
    ============================================ */
 .doc-details {
   display: flex;
-  height: 100%;
-  background: var(--q-background);
+  block-size: 100%;
+  background: var(--ds-color-background);
   gap: 16px;
   padding: 16px;
 }
@@ -939,11 +932,11 @@ onBeforeUnmount(() => {
    Navigation Panel
    ============================================ */
 .doc-nav-panel {
-  width: 280px;
-  min-width: 280px;
-  background: var(--q-white);
-  border: 1px solid var(--q-border);
-  border-radius: var(--radius-xl);
+  inline-size: 280px;
+  min-inline-size: 280px;
+  background: var(--ds-color-white);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-xl);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -954,15 +947,9 @@ onBeforeUnmount(() => {
 }
 
 .nav-tabs-toggle {
-  width: 100%;
-  border-radius: var(--radius-sm);
-  background: var(--q-light);
-}
-
-.nav-tabs-toggle :deep(.q-btn) {
-  flex: 1;
-  font-size: var(--km-font-size-caption);
-  font-weight: 500;
+  inline-size: 100%;
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-color-light);
 }
 
 .nav-search {
@@ -971,7 +958,7 @@ onBeforeUnmount(() => {
 
 .nav-list {
   flex: 1;
-  overflow-y: auto;
+  overflow-block: auto;
   padding: 0 8px 12px;
 }
 
@@ -997,11 +984,7 @@ onBeforeUnmount(() => {
 
 /* Tree Styling */
 .nav-tree {
-  font-size: var(--km-font-size-label);
-}
-
-.nav-tree :deep(.q-tree__node-header) {
-  padding: 0;
+  font-size: var(--ds-font-size-label);
 }
 
 .tree-node-item {
@@ -1009,35 +992,22 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 8px;
   padding: 6px 8px;
-  border-radius: var(--radius-md);
+  border-radius: var(--ds-radius-md);
   cursor: pointer;
-  width: 100%;
+  inline-size: 100%;
 }
 
 .tree-node-item:hover {
-  background: var(--q-light);
-}
-
-.nav-tree :deep(.q-tree__node--selected .tree-node-item) {
-  background: var(--q-primary-bg);
-}
-
-.nav-tree :deep(.q-tree__node--selected .tree-node-text) {
-  color: var(--q-primary);
-  font-weight: 600;
-}
-
-.nav-tree :deep(.q-tree__node--selected .tree-node-icon) {
-  color: var(--q-primary);
+  background: var(--ds-color-light);
 }
 
 .tree-node-icon {
-  color: var(--q-icon);
+  color: var(--ds-color-icon);
   flex-shrink: 0;
 }
 
 .tree-node-item--chunk .tree-node-icon {
-  color: var(--q-primary);
+  color: var(--ds-color-primary);
 }
 
 .tree-node-text {
@@ -1045,8 +1015,8 @@ onBeforeUnmount(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--q-black);
-  font-size: var(--km-font-size-label);
+  color: var(--ds-color-black);
+  font-size: var(--ds-font-size-label);
 }
 
 /* Chunks Nav List */
@@ -1061,20 +1031,20 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 8px;
   padding: 8px 10px;
-  border-radius: var(--radius-md);
+  border-radius: var(--ds-radius-md);
   cursor: pointer;
 }
 
 .chunk-nav-item:hover {
-  background: var(--q-light);
+  background: var(--ds-color-light);
 }
 
 .chunk-nav-item--active {
-  background: var(--q-primary-bg);
+  background: var(--ds-color-primary-bg);
 }
 
 .chunk-nav-icon {
-  color: var(--q-primary);
+  color: var(--ds-color-primary);
   flex-shrink: 0;
 }
 
@@ -1083,12 +1053,12 @@ onBeforeUnmount(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: var(--km-font-size-label);
-  color: var(--q-black);
+  font-size: var(--ds-font-size-label);
+  color: var(--ds-color-black);
 }
 
 .chunk-nav-badge {
-  font-size: var(--km-font-size-xs);
+  font-size: var(--ds-font-size-xs);
   padding: 2px 6px;
 }
 
@@ -1096,19 +1066,19 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 20px;
-  height: 20px;
-  font-size: var(--km-font-size-xs);
+  min-inline-size: 20px;
+  block-size: 20px;
+  font-size: var(--ds-font-size-xs);
   font-weight: 600;
-  color: var(--q-icon);
-  background: var(--q-light);
-  border-radius: var(--radius-sm);
+  color: var(--ds-color-icon);
+  background: var(--ds-color-light);
+  border-radius: var(--ds-radius-sm);
   flex-shrink: 0;
 }
 
 .chunk-nav-item--active .chunk-nav-index {
-  background: var(--q-primary);
-  color: var(--q-white);
+  background: var(--ds-color-primary);
+  color: var(--ds-color-static-white);
 }
 
 /* ============================================
@@ -1118,15 +1088,15 @@ onBeforeUnmount(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  min-width: 0;
+  min-inline-size: 0;
   gap: 16px;
 }
 
 /* Header Card */
 .doc-header-card {
-  background: linear-gradient(135deg, var(--q-white) 0%, var(--q-background) 100%);
-  border: 1px solid var(--q-border);
-  border-radius: var(--radius-xl);
+  background: linear-gradient(135deg, var(--ds-color-white) 0%, var(--ds-color-background) 100%);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-xl);
   padding: 16px 20px;
 }
 
@@ -1141,11 +1111,11 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 14px;
-  min-width: 0;
+  min-inline-size: 0;
 }
 
 .doc-header-info {
-  min-width: 0;
+  min-inline-size: 0;
 }
 
 .doc-header-title-row {
@@ -1162,7 +1132,7 @@ onBeforeUnmount(() => {
 }
 
 .doc-header-subtitle {
-  margin-top: 4px;
+  margin-block-start: 4px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1176,29 +1146,29 @@ onBeforeUnmount(() => {
 }
 
 .metadata-toggle-btn {
-  font-size: var(--km-font-size-label);
+  font-size: var(--ds-font-size-label);
   font-weight: 500;
   padding: 6px 14px;
-  border-radius: var(--radius-lg);
-  transition: all 0.15s ease;
+  border-radius: var(--ds-radius-lg);
+  transition: var(--ds-transition-colors), var(--ds-transition-shadow);
 }
 
 /* Scroll Area */
 .doc-scroll-area {
   flex: 1;
-  overflow-y: auto;
+  overflow-block: auto;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding-bottom: 32px;
-  padding-right: 8px;
+  padding-block-end: 32px;
+  padding-inline-end: 8px;
 }
 
 /* Section Cards */
 .doc-section {
-  background: var(--q-white);
-  border: 1px solid var(--q-border);
-  border-radius: var(--radius-lg);
+  background: var(--ds-color-white);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-lg);
   overflow: hidden;
 }
 
@@ -1211,13 +1181,13 @@ onBeforeUnmount(() => {
 }
 
 .section-header:hover {
-  background: var(--q-background);
+  background: var(--ds-color-background);
 }
 
 .section-title {
-  font-size: var(--km-font-size-label);
+  font-size: var(--ds-font-size-label);
   font-weight: 600;
-  color: var(--q-black);
+  color: var(--ds-color-black);
 }
 
 /* Continuous Chunks Container */
@@ -1231,42 +1201,42 @@ onBeforeUnmount(() => {
 .doc-section--chunk {
   display: flex;
   flex-direction: column;
-  min-height: 200px;
-  scroll-margin-top: 8px;
+  min-block-size: 200px;
+  scroll-margin-block-start: 8px;
   transition:
     box-shadow 0.2s ease,
     border-color 0.2s ease;
-  border: 1px solid var(--q-border-2);
+  border: 1px solid var(--ds-color-border-2);
 }
 
 .chunk-index-badge {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 24px;
-  height: 24px;
-  font-size: var(--km-font-size-sm);
+  min-inline-size: 24px;
+  block-size: 24px;
+  font-size: var(--ds-font-size-sm);
   font-weight: 600;
-  color: var(--q-label);
-  background: var(--q-light);
-  border-radius: var(--radius-md);
-  margin-right: 8px;
+  color: var(--ds-color-label);
+  background: var(--ds-color-light);
+  border-radius: var(--ds-radius-md);
+  margin-inline-end: 8px;
   flex-shrink: 0;
 }
 
 .chunk-page-badge {
-  font-size: var(--km-font-size-sm);
+  font-size: var(--ds-font-size-sm);
   padding: 3px 8px;
-  border-radius: var(--radius-md);
+  border-radius: var(--ds-radius-md);
 }
 
 .doc-section--chunk-active .chunk-index-badge {
-  background: var(--q-primary);
-  color: var(--q-white);
+  background: var(--ds-color-primary);
+  color: var(--ds-color-static-white);
 }
 
 .section-header--chunk {
-  border-bottom: 1px solid var(--q-border);
+  border-block-end: 1px solid var(--ds-color-border);
   cursor: default;
 }
 
@@ -1275,7 +1245,7 @@ onBeforeUnmount(() => {
 }
 
 .doc-section--chunk-active .section-header {
-  background: var(--q-primary-bg);
+  background: var(--ds-color-primary-bg);
 }
 
 .section-body--chunk {
@@ -1285,11 +1255,11 @@ onBeforeUnmount(() => {
 
 .chunk-content-wrapper {
   padding: 20px;
-  min-height: 100%;
+  min-block-size: 100%;
 }
 
 .chunk-content {
-  max-width: 100%;
+  max-inline-size: 100%;
 }
 
 /* Empty State */
@@ -1299,7 +1269,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   border-style: dashed;
-  min-height: 200px;
+  min-block-size: 200px;
 }
 
 .empty-placeholder {
@@ -1312,90 +1282,90 @@ onBeforeUnmount(() => {
    ============================================ */
 .markdown-content {
   line-height: 1.7;
-  color: var(--q-black);
-  font-size: var(--km-font-size-body);
+  color: var(--ds-color-black);
+  font-size: var(--ds-font-size-body);
 }
 
 .markdown-content :deep(h1) {
-  font-size: var(--km-font-size-h1);
+  font-size: var(--ds-font-size-h1);
   font-weight: 600;
-  margin: 20px 0 12px 0;
-  color: var(--q-black);
-  border-bottom: 1px solid var(--q-border);
-  padding-bottom: 8px;
+  margin: 20px 0 12px;
+  color: var(--ds-color-black);
+  border-block-end: 1px solid var(--ds-color-border);
+  padding-block-end: 8px;
 }
 
 .markdown-content :deep(h2) {
   font-size: 17px;
   font-weight: 600;
-  margin: 18px 0 10px 0;
-  color: var(--q-black);
+  margin: 18px 0 10px;
+  color: var(--ds-color-black);
 }
 
 .markdown-content :deep(h3) {
   font-size: 15px;
   font-weight: 600;
-  margin: 14px 0 8px 0;
-  color: var(--q-black);
+  margin: 14px 0 8px;
+  color: var(--ds-color-black);
 }
 
 .markdown-content :deep(h4),
 .markdown-content :deep(h5),
 .markdown-content :deep(h6) {
-  font-size: var(--km-font-size-body);
+  font-size: var(--ds-font-size-body);
   font-weight: 600;
-  margin: 12px 0 6px 0;
-  color: var(--q-label);
+  margin: 12px 0 6px;
+  color: var(--ds-color-label);
 }
 
 .markdown-content :deep(p) {
-  margin: 0 0 12px 0;
+  margin: 0 0 12px;
 }
 
 .markdown-content :deep(ul),
 .markdown-content :deep(ol) {
-  margin: 8px 0 12px 0;
-  padding-left: 24px;
+  margin: 8px 0 12px;
+  padding-inline-start: 24px;
 }
 
 .markdown-content :deep(li) {
-  margin-bottom: 4px;
+  margin-block-end: 4px;
 }
 
 .markdown-content :deep(code) {
-  background: var(--q-light);
+  background: var(--ds-color-light);
   padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  font-family: var(--km-font-mono);
-  font-size: var(--km-font-size-label);
-  color: var(--q-error);
+  border-radius: var(--ds-radius-sm);
+  font-family: var(--ds-font-mono);
+  font-size: var(--ds-font-size-label);
+  color: var(--ds-color-error);
 }
 
 .markdown-content :deep(pre) {
-  background: var(--q-black);
-  border-radius: var(--radius-lg);
+  background: var(--ds-color-black);
+  border-radius: var(--ds-radius-lg);
   padding: 16px;
-  overflow-x: auto;
+  overflow-inline: auto;
   margin: 12px 0;
 }
 
 .markdown-content :deep(pre code) {
   background: transparent;
-  color: var(--q-border);
+  color: var(--ds-color-border);
   padding: 0;
-  font-size: var(--km-font-size-label);
+  font-size: var(--ds-font-size-label);
 }
 
 .markdown-content :deep(blockquote) {
-  border-left: 3px solid var(--q-primary);
+  border-inline-start: 3px solid var(--ds-color-primary);
   padding: 8px 16px;
   margin: 12px 0;
-  background: var(--q-background);
-  color: var(--q-label);
+  background: var(--ds-color-background);
+  color: var(--ds-color-label);
 }
 
 .markdown-content :deep(a) {
-  color: var(--q-primary);
+  color: var(--ds-color-primary);
   text-decoration: none;
 }
 
@@ -1405,33 +1375,33 @@ onBeforeUnmount(() => {
 
 .markdown-content :deep(hr) {
   border: none;
-  border-top: 1px solid var(--q-border);
+  border-block-start: 1px solid var(--ds-color-border);
   margin: 20px 0;
 }
 
 .markdown-content :deep(table) {
   border-collapse: collapse;
-  width: 100%;
+  inline-size: 100%;
   margin: 12px 0;
-  font-size: var(--km-font-size-label);
+  font-size: var(--ds-font-size-label);
 }
 
 .markdown-content :deep(th) {
-  background: var(--q-background);
+  background: var(--ds-color-background);
   padding: 10px 12px;
-  border: 1px solid var(--q-border);
+  border: 1px solid var(--ds-color-border);
   font-weight: 600;
-  text-align: left;
+  text-align: start;
 }
 
 .markdown-content :deep(td) {
   padding: 10px 12px;
-  border: 1px solid var(--q-border);
+  border: 1px solid var(--ds-color-border);
 }
 
 .markdown-content :deep(img) {
-  max-width: 100%;
-  height: auto;
-  border-radius: var(--radius-md);
+  max-inline-size: 100%;
+  block-size: auto;
+  border-radius: var(--ds-radius-md);
 }
 </style>

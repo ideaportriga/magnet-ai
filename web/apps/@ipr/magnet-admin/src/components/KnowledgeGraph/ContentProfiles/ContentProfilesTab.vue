@@ -1,29 +1,29 @@
 <template>
-  <div class="q-px-md">
-    <div class="row items-start q-col-gutter-md q-mb-md">
-      <div class="col">
+  <div class="px-md">
+    <div class="cluster mb-md" data-gap="md" data-align="start">
+      <div class="flex-1">
         <div class="km-heading-7">{{ m.knowledgeGraph_contentProfiles() }}</div>
         <div class="km-description text-secondary-text">{{ m.knowledgeGraph_contentProfilesDescription() }}</div>
       </div>
     </div>
 
-    <q-separator class="q-my-md" />
+    <km-separator class="my-md" />
 
-    <div v-if="displayContentConfigs.length === 0" class="q-mt-md">
-      <div class="text-center q-pa-lg">
-        <q-icon name="folder_open" size="64px" color="grey-5" />
-        <div class="km-heading-7 text-grey-7 q-mt-md">{{ m.knowledgeGraph_noContentProfilesYet() }}</div>
+    <div v-if="displayContentConfigs.length === 0" class="mt-md">
+      <div class="text-center p-lg">
+        <km-glyph name="folder-open" size="64px" tone="muted" />
+        <div class="km-heading-7 text-grey-7 mt-md">{{ m.knowledgeGraph_noContentProfilesYet() }}</div>
         <div class="km-description text-grey-6">{{ m.knowledgeGraph_startByCreatingProfile() }}</div>
-        <div class="q-mt-md">
+        <div class="mt-md">
           <km-btn :label="m.knowledgeGraph_createProfile()" @click="openContentConfigDialog()" />
         </div>
       </div>
     </div>
 
-    <div v-else class="q-mt-md">
+    <div v-else class="mt-md">
       <kg-table-toolbar>
         <template #trailing>
-          <km-btn flat icon="o_add_circle" :label="m.knowledgeGraph_newProfile()" size="sm" :disable="saving" @click="openContentConfigDialog()" />
+          <km-btn flat icon="add-circle" :label="m.knowledgeGraph_newProfile()" size="sm" :disable="saving" @click="openContentConfigDialog()" />
           <km-btn flat icon="refresh" :label="m.common_refresh()" size="sm" :disable="saving" @click="emit('refresh')" />
         </template>
       </kg-table-toolbar>
@@ -40,22 +40,22 @@
       >
         <template #cell-order="{ row }">
           <div class="reorder-buttons" @click.stop>
-            <q-btn
+            <km-btn
               flat
               dense
               round
               size="sm"
-              icon="expand_less"
+              icon="chevron-up"
               class="reorder-btn"
               :disable="!canMoveUp(row)"
               @click.stop="moveUp(row)"
             />
-            <q-btn
+            <km-btn
               flat
               dense
               round
               size="sm"
-              icon="expand_more"
+              icon="chevron-down"
               class="reorder-btn"
               :disable="!canMoveDown(row)"
               @click.stop="moveDown(row)"
@@ -72,7 +72,7 @@
         </template>
 
         <template #cell-enabled="{ row }">
-          <q-toggle
+          <km-toggle
             :model-value="row.enabled"
             dense
             :disable="saving || isProtectedProfile(row)"
@@ -83,18 +83,16 @@
 
         <template #cell-menu="{ row }">
           <div v-if="!isProtectedProfile(row)" class="flex items-center justify-end no-wrap">
-            <q-btn dense flat color="dark" icon="more_vert" @click.stop>
-              <q-menu anchor="bottom right" self="top right" auto-close>
-                <q-list dense>
-                  <q-item clickable :disable="saving" @click="confirmDelete(row)">
-                    <q-item-section thumbnail>
-                      <q-icon name="delete" color="negative" size="20px" class="q-ml-sm" />
-                    </q-item-section>
-                    <q-item-section>{{ m.common_delete() }}</q-item-section>
-                  </q-item>
-                </q-list>
-              </q-menu>
-            </q-btn>
+            <ds-dropdown-menu-root>
+              <ds-dropdown-menu-trigger as-child>
+                <km-btn dense flat tone="neutral" icon="more-vertical" @click.stop />
+              </ds-dropdown-menu-trigger>
+              <ds-dropdown-menu-content side="bottom" align="end" :side-offset="4">
+                <ds-dropdown-menu-item variant="destructive" :disabled="saving" @select="confirmDelete(row)">
+                  <km-glyph name="delete" size="18px" /><span>{{ m.common_delete() }}</span>
+                </ds-dropdown-menu-item>
+              </ds-dropdown-menu-content>
+            </ds-dropdown-menu-root>
           </div>
         </template>
       </km-data-table>
@@ -104,7 +102,7 @@
     <kg-confirm-dialog
       v-model="showDeleteDialog"
       :title="m.knowledgeGraph_deleteContentConfig()"
-      icon="delete_outline"
+      icon="delete"
       :description="m.knowledgeGraph_deleteContentConfigConfirm({ name: deletingProfile?.name ?? '' })"
       :confirm-label="m.common_delete()"
       destructive
@@ -449,30 +447,20 @@ watch(
 </script>
 
 <style scoped>
-:deep(.q-table thead th) {
-  font-size: var(--km-body-sm-size, 14px);
-  font-weight: 600;
-}
-
-:deep(.q-table tbody td) {
-  height: 40px;
-  padding: 2px 16px;
-}
-
 :deep(.sticky-col) {
   position: sticky;
-  right: 0;
+  inset-inline-end: 0;
   z-index: 1;
-  background: var(--q-white);
+  background: var(--ds-color-white);
 }
 
 :deep(tr:hover .sticky-col) {
-  background: var(--q-white);
+  background: var(--ds-color-white);
 }
 
 :deep(thead th:last-child) {
   position: sticky;
-  right: 0;
+  inset-inline-end: 0;
   z-index: 2;
   background: inherit;
 }
@@ -494,8 +482,8 @@ watch(
     opacity 0.15s ease,
     color 0.15s ease,
     background-color 0.15s ease;
-  width: 28px;
-  height: 28px;
+  inline-size: 28px;
+  block-size: 28px;
 }
 
 :deep(tr:hover) .reorder-btn {
@@ -504,7 +492,7 @@ watch(
 
 .reorder-btn:hover:not([disabled]) {
   opacity: 1 !important;
-  color: var(--q-primary) !important;
+  color: var(--ds-color-primary) !important;
 }
 
 .reorder-btn[disabled] {

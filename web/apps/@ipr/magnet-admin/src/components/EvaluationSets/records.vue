@@ -1,47 +1,29 @@
-<template lang="pug">
-.column.full-height(style='min-height: 0')
-  .row.q-mb-12
-    .col-auto.center-flex-y
-      km-input(:placeholder='m.common_search()', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
-    q-space
-    .col-auto.center-flex-y
-      km-btn.q-mr-12(
-        v-if='selectedRows.length > 0',
-        icon='delete',
-        :label='m.common_delete()',
-        @click='showDeleteDialog = true',
-        iconColor='icon',
-        hoverColor='primary',
-        labelClass='km-title',
-        flat,
-        iconSize='16px',
-        hoverBg='primary-bg'
-      )
-    .col-auto.center-flex-y
-      km-btn.q-mr-12(:label='m.common_import()', disabled)
-
-    .col-auto.center-flex-y
-      km-btn.q-mr-12(:label='m.common_addRecord()', @click='openNewDetails')
-  .col(style='min-height: 0')
-    km-data-table(
-      fill-height,
-      :table='table',
-      row-key='index',
-      :activeRowId='selectedRow?.index',
-      @row-click='selectRecord'
-    )
-
-evaluation-sets-create-new-record(:showNewDialog='showNewDialog', @cancel='showNewDialog = false', @addRecord='addRecord', v-if='showNewDialog')
-km-popup-confirm(
-  :visible='showDeleteDialog',
-  :confirmButtonLabel='m.common_delete()',
-  :cancelButtonLabel='m.common_cancel()',
-  notificationIcon='fas fa-triangle-exclamation',
-  @confirm='deleteSelected',
-  @cancel='showDeleteDialog = false'
-)
-  .row.item-center.justify-center.km-heading-7 {{ m.deleteConfirm_deleteEntity({ entity: m.common_testSetItems() }) }}
-  .row.text-center.justify-center {{ m.agents_deleteConfirmMessage({ count: selectedRows?.length ?? 0 }) }}
+<template>
+  <div class="stack full-height" data-gap="0" style="min-block-size: 0">
+    <div class="cluster mb-md">
+      <div class="flex-none center-flex-y">
+        <km-input :placeholder="m.common_search()" icon-before="search" :model-value="globalFilter" clearable @input="globalFilter = $event" />
+      </div>
+      <div class="km-space" />
+      <div class="flex-none center-flex-y">
+        <km-btn v-if="selectedRows.length &gt; 0" class="mr-md" icon="delete" :label="m.common_delete()" interaction-tone="brand" label-class="km-title" flat icon-size="16px" @click="showDeleteDialog = true" />
+      </div>
+      <div class="flex-none center-flex-y">
+        <km-btn class="mr-md" :label="m.common_import()" disabled />
+      </div>
+      <div class="flex-none center-flex-y">
+        <km-btn class="mr-md" :label="m.common_addRecord()" @click="openNewDetails" />
+      </div>
+    </div>
+    <div class="flex-1" style="min-block-size: 0">
+      <km-data-table fill-height :table="table" row-key="index" :active-row-id="selectedRow?.index" @row-click="selectRecord" />
+    </div>
+  </div>
+  <evaluation-sets-create-new-record v-if="showNewDialog" :show-new-dialog="showNewDialog" @cancel="showNewDialog = false" @add-record="addRecord" />
+  <km-popup-confirm :visible="showDeleteDialog" :confirm-button-label="m.common_delete()" :cancel-button-label="m.common_cancel()" notification-icon="warning" @confirm="deleteSelected" @cancel="showDeleteDialog = false">
+    <div class="cluster km-heading-7" data-justify="center">{{ m.deleteConfirm_deleteEntity({ entity: m.common_testSetItems() }) }}</div>
+    <div class="cluster text-center" data-justify="center">{{ m.agents_deleteConfirmMessage({ count: selectedRows?.length ?? 0 }) }}</div>
+  </km-popup-confirm>
 </template>
 
 <script setup>
@@ -54,7 +36,7 @@ import { useEvaluationSetRecordStore } from '@/stores/entityDetailStores'
 import { useLocalDataTable } from '@/composables/useLocalDataTable'
 import { selectionColumn, textColumn, componentColumn } from '@/utils/columnHelpers'
 import TextWrap from '@/config/evaluation_sets/component/TextWrap.vue'
-import RetrievalMetadataFilterChipList from '@ui/components/Retrieval/MetadataFilterChipList.vue'
+import RetrievalMetadataFilterChipList from '@/components/Retrieval/MetadataFilterChipList.vue'
 
 const emit = defineEmits(['openTest', 'record:update'])
 

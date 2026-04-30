@@ -1,66 +1,146 @@
-<template lang="pug">
-.column.q-pa-md
-  .km-heading-3.text-center.q-pb-md.text-li Upload 2 invoices (PDF) to get difference explanation
-  .q-px-16.q-pt-16.bg-user-input-bg
-    .row.justify-between.items-center.q-gap-16.flex-
-      q-file.km-control.km-input.rounded-borders(
-        :multiple='true',
-        max-files='2',
-        style='height: var(--prompt-input-height); flex: 1; border-radius: var(--chip-radius)',
-        outlined,
-        label='Upload Files',
-        v-model='files',
-        accept='.pdf,.docx,.doc,.pptx,.xlsx,.xls,.html,.htm,.txt,.md,.eml,.png,.jpg,.jpeg,.gif,.webp,.bmp,.tiff',
-        dense,
-        labelClass='km-heading-2'
-      )
-        //template(v-slot:append)
-          //q-icon(name='attach_file')
+<template>
+  <div
+    class="stack p-md"
+    data-gap="0"
+  >
+    <div class="km-heading-3 text-center pb-md text-li">
+      Upload 2 invoices (PDF) to get difference explanation
+    </div>
+    <div class="px-lg pt-lg bg-user-input-bg">
+      <div
+        class="cluster flex-"
+        data-justify="between"
+        data-gap="lg"
+      >
+        <km-file-picker
+          v-model="files"
+          class="km-control km-input rounded-borders"
+          :multiple="true"
+          max-files="2"
+          style="block-size: var(--prompt-input-height); flex: 1; border-radius: var(--chip-radius)"
+          outlined
+          label="Upload Files"
+          accept=".pdf,.docx,.doc,.pptx,.xlsx,.xls,.html,.htm,.txt,.md,.eml,.png,.jpg,.jpeg,.gif,.webp,.bmp,.tiff"
+          dense
+          label-class="km-heading-2"
+        >
+          <!--template(v-slot:append)
+          //q-icon(name='attach')
           //km-btn(label='Run', @click='run', :disable='inProgress')
-        template(#prepend)
-          template(v-if='$theme === "default"')
-            q-icon.q-mr-8(name='attach_file')
-          template(v-else)
-            km-icon.q-mr-8(name='attach_file', :width='$theme === "salesforce" ? "16" : "24"', :height='$theme === "salesforce" ? "16" : "24"')
-        template(#append)
-          .self-center.center-flex
-            q-btn.border-radius-6(
-              color='primary',
-              @click='run',
-              :disable='inProgress',
-              unelevated,
-              :padding='$theme != "salesforce" ? "6px 7px" : "9px 17px 9px 17px"'
-            )
-              template(v-slot:default)
-                q-icon(name='fas fa-search', size='var(--prompt-input-icon-size)')
-    .row.justify-end.full-width
-      .km-field(style='line-height: 18px') File format: pdf
-  template(v-if='debugInfo')
-    .row.justify-end.full-width.q-mt-sm
-      km-btn.rounded-borders(
-        size='sm',
-        flat,
-        :label='showDebugInfo ? "Hide debug info" : "Show debug info"',
-        :icon='showDebugInfo ? "arrow_drop_up" : "arrow_drop_down"',
-        @click='showDebugInfo = !showDebugInfo'
-      )
-    template(v-if='showDebugInfo')
-      .q-mt-sm.border.border-radius-12.bg-white.q-pa-lg.q-pa-lg
-        .km-heading-2.q-mt-md Text to JSON prompt template params:
-          km-codemirror(v-model='debugInfo.promptTemplateTextToJson', :readonly='true', language='json')
-        .km-heading-2.q-mt-md Explanation prompt template params:
-          km-codemirror(v-model='debugInfo.promptTemplateExplain', :readonly='true', language='json')
-        .km-heading-2.q-mt-md Invoices parsed content:
-          km-codemirror(v-model='debugInfo.filesContent', :readonly='true', language='json')
-        .km-heading-2.q-mt-md Invoices JSON content:
-          km-codemirror(v-model='debugInfo.filesContentJson', :readonly='true', language='json')
-
-  template(v-if='inProgress')
-    .row.full-width.justify-center.q-mt-sm
-      q-spinner-dots(size='31px', color='primary')
-  template(v-if='answer')
-    .q-mt-sm.border.border-radius-12.bg-white.q-pa-lg
-      km-markdown(:source='answer')
+          -->
+          <template #prepend>
+            <template v-if="$theme === &quot;default&quot;">
+              <km-glyph
+                class="mr-sm"
+                name="attach"
+              />
+            </template>
+            <template v-else>
+              <km-glyph
+                name="attach"
+                size="16px"
+              />
+            </template>
+          </template>
+          <template #append>
+            <div class="self-center center-flex">
+              <km-btn
+                class="border-radius-6"
+                :disable="inProgress"
+                unelevated
+                :padding="$theme != &quot;salesforce&quot; ? &quot;6px 7px&quot; : &quot;9px 17px 9px 17px&quot;"
+                @click="run"
+              >
+                <template #default>
+                  <km-glyph
+                    name="search"
+                    size="var(--prompt-input-icon-size)"
+                  />
+                </template>
+              </km-btn>
+            </div>
+          </template>
+        </km-file-picker>
+      </div>
+      <div
+        class="cluster full-width"
+        data-justify="end"
+      >
+        <div
+          class="km-field"
+          style="line-height: 18px"
+        >
+          File format: pdf
+        </div>
+      </div>
+    </div>
+    <template v-if="debugInfo">
+      <div
+        class="cluster full-width mt-sm"
+        data-justify="end"
+      >
+        <km-btn
+          class="rounded-borders"
+          size="sm"
+          flat
+          :label="showDebugInfo ? &quot;Hide debug info&quot; : &quot;Show debug info&quot;"
+          :icon="showDebugInfo ? &quot;chevron-up&quot; : &quot;chevron-down&quot;"
+          @click="showDebugInfo = !showDebugInfo"
+        />
+      </div>
+      <template v-if="showDebugInfo">
+        <div class="mt-sm border border-radius-12 bg-white p-lg p-lg">
+          <div class="km-heading-2 mt-md">
+            Text to JSON prompt template params:
+            <km-codemirror
+              v-model="debugInfo.promptTemplateTextToJson"
+              :readonly="true"
+              language="json"
+            />
+          </div>
+          <div class="km-heading-2 mt-md">
+            Explanation prompt template params:
+            <km-codemirror
+              v-model="debugInfo.promptTemplateExplain"
+              :readonly="true"
+              language="json"
+            />
+          </div>
+          <div class="km-heading-2 mt-md">
+            Invoices parsed content:
+            <km-codemirror
+              v-model="debugInfo.filesContent"
+              :readonly="true"
+              language="json"
+            />
+          </div>
+          <div class="km-heading-2 mt-md">
+            Invoices JSON content:
+            <km-codemirror
+              v-model="debugInfo.filesContentJson"
+              :readonly="true"
+              language="json"
+            />
+          </div>
+        </div>
+      </template>
+    </template>
+    <template v-if="inProgress">
+      <div
+        class="cluster full-width mt-sm"
+        data-justify="center"
+      >
+        <km-loader
+          size="31px"
+        />
+      </div>
+    </template>
+    <template v-if="answer">
+      <div class="mt-sm border border-radius-12 bg-white p-lg">
+        <km-markdown :source="answer" />
+      </div>
+    </template>
+  </div>
 </template>
 
 <script>

@@ -1,8 +1,9 @@
-<template lang="pug">
-div
-  .km-title.text-lef.ellipsis {{ row?.name }}
-  .km-field.text-left.ellipsis {{ row?.description }}
-  .km-field.text-left.ellipsis {{ row?.system_name }}
+<template>
+  <div>
+    <div class="km-title text-lef ellipsis">{{ row?.name }}</div>
+    <div class="km-field text-left ellipsis">{{ row?.description }}</div>
+    <div class="km-field text-left ellipsis">{{ row?.system_name }}</div>
+  </div>
 </template>
 
 <script>

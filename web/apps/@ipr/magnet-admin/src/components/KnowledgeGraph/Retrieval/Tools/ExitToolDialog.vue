@@ -21,16 +21,16 @@
     <kg-dialog-section
       :title="m.retrieval_exitInstructions()"
       :description="m.retrieval_exitInstructionsDesc()"
-      icon="logout"
-      icon-color="deep-orange-7"
+      icon="sign-out"
+      tone="warning"
     >
       <kg-tile-select v-model="localTool.strategy" :options="strategyOptions" :cols="3" />
-      <div class="q-mt-32 q-mx-sm">
-        <div class="km-input-label row justify-between q-pb-8">
+      <div class="mt-3xl mx-sm">
+        <div class="km-input-label cluster" data-justify="between" style="padding-block-end: 8px">
           <span>{{ m.retrieval_maxIterationsLabel() }}</span>
           <span class="text-primary text-weight-bold">{{ localTool.maxIterations }}</span>
         </div>
-        <q-slider v-model="localTool.maxIterations" :min="1" :max="15" :step="1" markers :marker-labels-class="'text-caption'" />
+        <km-slider v-model="localTool.maxIterations" :min="1" :max="15" :step="1" markers :marker-labels-class="'text-caption'" />
       </div>
     </kg-dialog-section>
 
@@ -38,23 +38,23 @@
       :title="m.retrieval_outputInstructions()"
       :description="m.retrieval_outputInstructionsDesc()"
       icon="output"
-      icon-color="green-7"
+      tone="success"
     >
-      <div class="column q-gap-16">
+      <div class="stack" data-gap="lg">
         <!-- Output Format, Answer Mode & Source Attribution - Horizontal -->
         <kg-field-row :cols="3">
           <div>
-            <div class="km-input-label q-pb-sm">{{ m.retrieval_outputFormat() }}</div>
+            <div class="km-input-label pb-sm">{{ m.retrieval_outputFormat() }}</div>
             <km-select v-model="localTool.outputFormat" :options="outputFormatOptions" emit-value map-options />
           </div>
           <div>
-            <div class="km-input-label q-pb-sm">{{ m.retrieval_answerMode() }}</div>
+            <div class="km-input-label pb-sm">{{ m.retrieval_answerMode() }}</div>
             <km-select v-model="localTool.answerMode" :options="answerModeOptions" emit-value map-options />
           </div>
           <div>
-            <div class="q-pb-sm row items-center q-gutter-x-sm">
+            <div class="pb-sm cluster gap-x-sm">
               <span class="km-input-label text-grey-6">{{ m.retrieval_sourceAttribution() }}</span>
-              <q-badge color="orange-1" text-color="orange-9" :label="m.common_comingSoon()" class="text-weight-medium" />
+              <km-badge tone="warning" :label="m.common_comingSoon()" class="text-weight-medium" />
             </div>
             <km-select
               :model-value="isAnswerOnly ? 'none' : localTool.sourceAttribution"
@@ -111,7 +111,7 @@ const strategyOptions: TileOption[] = [
   {
     value: 'confidence',
     label: m.retrieval_confidenceBased(),
-    icon: 'psychology',
+    icon: 'brain',
     description: m.retrieval_confidenceBasedDesc(),
   },
   {

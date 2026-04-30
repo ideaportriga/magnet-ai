@@ -1,92 +1,46 @@
-<template lang="pug">
-km-inner-loading(:showing='loading')
-layouts-details-layout(v-if='!loading', :noHeader='$route?.name !== "AgentDetail"', :noContentWrapper='$route?.name !== "AgentDetail"')
-  template(#header)
-    template(v-if='$route?.name === "AgentDetail"')
-      km-input-flat.km-heading-4.full-width.text-black(data-test='name-input', :placeholder='m.common_name()', :modelValue='name', @change='name = $event')
-      km-input-flat.km-description.full-width.text-black(data-test='description-input', :placeholder='m.common_description()', :modelValue='description', @change='description = $event')
-      .row.items-center.q-pl-6
-        q-icon.col-auto(name='o_info', color='text-secondary')
-          q-tooltip.bg-white.block-shadow.km-description(self='top middle', :offset='[-50, -50]') {{ m.tooltip_systemNameUniqueId() }}
-        km-input-flat.col.km-description.full-width.text-black(
-          data-test='system-name-input',
-          :placeholder='m.placeholder_enterSystemNameReadable()',
-          :modelValue='system_name',
-          @change='system_name = $event',
-          @focus='showInfo = true',
-          @blur='showInfo = false',
-          :rules='[validSystemName()]'
-        )
-        .km-description.text-secondary.q-pl-6(v-if='showInfo') {{ m.hint_systemNameRecommendation() }}
-  template(#subheader)
-    agents-sub-header
-  template(#header-actions)
-    km-btn(:label='m.common_recordInfo()', flat, icon='info', iconSize='16px')
-      q-tooltip.bg-white.block-shadow
-        .q-pa-sm
-          .q-mb-sm
-            .text-secondary-text.km-button-xs-text {{ m.common_createdLabel() }}
-            .text-secondary-text.km-description {{ created_at }}
-          .q-mb-sm
-            .text-secondary-text.km-button-xs-text {{ m.common_modified() }}
-            .text-secondary-text.km-description {{ modified_at }}
-          .q-mb-sm
-            .text-secondary-text.km-button-xs-text {{ m.common_createdBy() }}
-            .text-secondary-text.km-description {{ created_by }}
-          div
-            .text-secondary-text.km-button-xs-text {{ m.common_modifiedBy() }}
-            .text-secondary-text.km-description {{ updated_by }}
-    km-btn(data-test='revert-btn', :label='m.common_revert()', icon='fas fa-undo', iconSize='16px', flat, @click='revert()', v-if='isDirty')
-    km-btn(data-test='save-btn', :label='m.common_save()', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving || !isDirty')
-    q-btn.q-px-xs(data-test='show-more-btn', flat, :icon='"fas fa-ellipsis-v"', size='13px')
-      q-menu(anchor='bottom right', self='top right')
-        q-item(data-test='clone-btn', clickable, @click='showNewDialog = true', dense)
-          q-item-section
-            .km-heading-3 {{ m.common_clone() }}
-        q-item(data-test='delete-btn', clickable, @click='showDeleteDialog = true', dense)
-          q-item-section
-            .km-heading-3 {{ m.common_delete() }}
-    km-popup-confirm(
-      :visible='showDeleteDialog',
-      :confirmButtonLabel='m.deleteConfirm_deleteEntity({ entity: m.entity_agent() })',
-      :cancelButtonLabel='m.common_cancel()',
-      notificationIcon='fas fa-triangle-exclamation',
-      @confirm='confirmDelete',
-      @cancel='showDeleteDialog = false'
-    )
-      .row.item-center.justify-center.km-heading-7 {{ m.deleteConfirm_aboutToDelete({ entity: m.entity_agent() }) }}
-      .row.text-center.justify-center {{ m.deleteConfirm_agentBody() }}
-  template(#content)
-    //- Child routes (topic/action) render their own content
-    router-view(v-if='$route?.name !== "AgentDetail"')
-    //- Agent detail tabs (only on AgentDetail route)
-    template(v-if='$route?.name === "AgentDetail"')
-      km-tabs(v-model='tab')
-        template(v-for='t in tabs')
-          q-tab(:name='t.name', :label='t.label')
-      .column.no-wrap.q-gap-16.full-height.full-width.overflow-auto.q-mb-md.q-mt-lg(style='min-height: 0')
-        .row.q-gap-16.full-height.full-width
-          .col.full-height.full-width
-            .column.items-center.full-height.full-width.q-gap-16.overflow-auto
-              template(v-if='true')
-                .col-auto.full-width
-                  template(v-if='tab == "topics"')
-                    agents-topics
-                  template(v-if='tab == "post-processing"')
-                    agents-post-processing
-                  template(v-if='tab == "settings"')
-                    agents-settings
-                  template(v-if='tab == "conversations"')
-                    agents-conversations
-                  template(v-if='tab == "notes"')
-                    agents-notes
-                  template(v-if='tab == "testSets"')
-                    agents-test-sets
-                  template(v-if='tab == "channels"')
-                    agents-channels
-  template(#drawer)
-    agents-drawer
-agents-create-new(v-if='showNewDialog', :showNewDialog='showNewDialog', @cancel='showNewDialog = false', copy)
+<template>
+  <km-inner-loading :showing="loading" />
+  <layouts-details-layout v-if="!loading" :name="name" :description="description" :system-name="system_name" :system-name-rules="[validSystemName()]" :created-at="entity?.created_at" :updated-at="entity?.updated_at" :created-by="entity?.created_by" :updated-by="entity?.updated_by" show-record-info :no-header="$route?.name !== &quot;AgentDetail&quot;" :no-content-wrapper="$route?.name !== &quot;AgentDetail&quot;" @update:name="name = $event" @update:description="description = $event" @update:system-name="system_name = $event">
+    <template #subheader>
+      <agents-sub-header />
+    </template>
+    <template #header-actions>
+      <km-btn v-if="isDirty" data-test="revert-btn" :label="m.common_revert()" icon="undo" icon-size="16px" flat @click="revert()" />
+      <km-btn data-test="save-btn" :label="m.common_save()" flat icon="save" icon-size="16px" :loading="saving" :disable="saving || !isDirty" @click="save" />
+      <ds-dropdown-menu-root>
+        <ds-dropdown-menu-trigger as-child>
+          <km-btn class="px-xs" data-test="show-more-btn" flat icon="more-vertical" size="13px" />
+        </ds-dropdown-menu-trigger>
+        <ds-dropdown-menu-content side="bottom" align="end" :side-offset="4">
+          <ds-dropdown-menu-item data-test="clone-btn" @select="showNewDialog = true">{{ m.common_clone() }}</ds-dropdown-menu-item>
+          <ds-dropdown-menu-item data-test="delete-btn" variant="destructive" @select="showDeleteDialog = true">{{ m.common_delete() }}</ds-dropdown-menu-item>
+        </ds-dropdown-menu-content>
+      </ds-dropdown-menu-root>
+      <km-popup-confirm :visible="showDeleteDialog" :confirm-button-label="m.deleteConfirm_deleteEntity({ entity: m.entity_agent() })" :cancel-button-label="m.common_cancel()" notification-icon="warning" @confirm="confirmDelete" @cancel="showDeleteDialog = false">
+        <div class="cluster km-heading-7" data-justify="center">{{ m.deleteConfirm_aboutToDelete({ entity: m.entity_agent() }) }}</div>
+        <div class="cluster text-center" data-justify="center">{{ m.deleteConfirm_agentBody() }}</div>
+      </km-popup-confirm>
+    </template>
+    <template #content>
+      <router-view v-if="$route?.name !== &quot;AgentDetail&quot;" />
+      <template v-if="$route?.name === &quot;AgentDetail&quot;">
+        <km-tabs v-model="tab" :items="tabs" />
+        <div class="stack full-height full-width overflow-auto mb-md mt-lg km-flex-min-0" data-gap="lg">
+          <agents-topics v-if="tab == &quot;topics&quot;" />
+          <agents-post-processing v-if="tab == &quot;post-processing&quot;" />
+          <agents-settings v-if="tab == &quot;settings&quot;" />
+          <agents-conversations v-if="tab == &quot;conversations&quot;" />
+          <agents-notes v-if="tab == &quot;notes&quot;" />
+          <agents-test-sets v-if="tab == &quot;testSets&quot;" />
+          <agents-channels v-if="tab == &quot;channels&quot;" />
+        </div>
+      </template>
+    </template>
+    <template #drawer>
+      <agents-drawer />
+    </template>
+  </layouts-details-layout>
+  <agents-create-new v-if="showNewDialog" :show-new-dialog="showNewDialog" copy @cancel="showNewDialog = false" />
 </template>
 
 <script>
@@ -120,21 +74,17 @@ export default {
       setSelectedVariant,
       tab: ref('topics'),
       tabs: ref([
-        // { name: 'overview', label: 'Overview' },
-        { name: 'topics', label: m.common_topics() },
-        { name: 'post-processing', label: m.common_postProcessing() },
-        // { name: 'prompts', label: 'Prompt Templates' },
-        // { name: 'actions', label: 'Actions' },
-        { name: 'settings', label: m.common_settings() },
-        { name: 'channels', label: m.common_channels() },
-        { name: 'conversations', label: m.common_conversations() },
-        { name: 'notes', label: m.common_notes() },
-        { name: 'testSets', label: m.common_testSets() },
+        { value: 'topics', label: m.common_topics() },
+        { value: 'post-processing', label: m.common_postProcessing() },
+        { value: 'settings', label: m.common_settings() },
+        { value: 'channels', label: m.common_channels() },
+        { value: 'conversations', label: m.common_conversations() },
+        { value: 'notes', label: m.common_notes() },
+        { value: 'testSets', label: m.common_testSets() },
       ]),
       showNewDialog: ref(false),
       showDeleteDialog: ref(false),
       saving: ref(false),
-      showInfo: ref(false),
       validSystemName,
     }
   },
@@ -168,18 +118,6 @@ export default {
     },
     entity() {
       return this.draft
-    },
-    created_at() {
-      return this.entity?.created_at ? this.formatDate(this.entity.created_at) : ''
-    },
-    modified_at() {
-      return this.entity?.updated_at ? this.formatDate(this.entity.updated_at) : ''
-    },
-    created_by() {
-      return this.entity?.created_by || 'Unknown'
-    },
-    updated_by() {
-      return this.entity?.updated_by || 'Unknown'
     },
   },
 
@@ -219,23 +157,12 @@ export default {
       notify.success(m.agents_agentDeleted())
       this.navigate('/agents')
     },
-    formatDate(date) {
-      const d = new Date(date)
-      return `${d.toLocaleDateString()} ${d.toLocaleTimeString()}`
-    },
   },
 }
 </script>
 
-<style lang="stylus">
-
-@keyframes wobble {
-    0% { transform: rotate(-5deg); }
-    50% { transform: rotate(5deg); }
-    100% { transform: rotate(-5deg); }
-}
-
+<style>
 .wobble {
-    animation: wobble 2s infinite;
+  animation: ds-attention-wobble var(--ds-duration-attention) infinite;
 }
 </style>

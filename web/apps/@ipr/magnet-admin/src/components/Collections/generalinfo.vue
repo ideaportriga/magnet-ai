@@ -1,130 +1,111 @@
-<template lang="pug">
-.q-pr-md
-  km-section(:title='m.collections_sourceSettings()', :subTitle='m.collections_sourceSettingsSubtitle()')
-    .col.q-pt-8
-      .km-input-label.q-pb-xs.q-pl-8 {{ m.collections_sourceType() }}
-      km-select(
-        :options='dynamicSourceTypeOptions',
-        v-model='source_type',
-        ref='source_typeRef',
-        :rules='config.source_type.rules',
-        :disabled='isDisable'
-      )
-    template(v-for='item in dynamicSourceTypeChildren[source_type]')
-      .col.q-pt-8
-        .km-input-label.q-pb-xs.q-pl-8 {{ item.label }}
-          .km-description.text-secondary-text(v-if='item?.description') {{ item?.description }}
-        component(:is='item.component', v-model='source_fields[item.field]', :readonly='isDisable', :disable='isDisable')
-  <!-- CHUNKING -->
-  q-separator.q-my-lg
-  km-section(:title='m.section_chunking()', :subTitle='m.collections_chunkingSubtitle()')
-    .column.q-gap-16
-      .col
-        .km-input-label.q-pb-xs {{ m.collections_chunkingStrategy() }}
-        km-select(
-          v-model='chunkingStrategy',
-          :options='config.chunking_strategy.options',
-          emit-value,
-          map-options,
-          option-value='value',
-          option-label='label',
-          :disabled='isDisable'
-        )
-        .km-description.text-secondary-text.q-mt-xs.q-ml-xs {{ m.collections_chunkingStrategyHint() }}
-      .row.q-gap-16(v-if='chunkingStrategy === "recursive_character_text_splitting"')
-        .col
-          .km-input-label.q-pb-xs {{ m.collections_chunkSize() }}
-          km-input(v-model='chunkSize', type='number', :readonly='isDisable')
-          .km-description.text-secondary-text.q-mt-xs.q-ml-xs {{ m.collections_chunkSizeHint() }}
-        .col
-          .km-input-label.q-pb-xs {{ m.collections_chunkOverlap() }}
-          km-input(v-model='chunkOverlap', type='number', :readonly='isDisable')
-          .km-description.text-secondary-text.q-mt-xs.q-ml-xs {{ m.collections_chunkOverlapHint() }}
-      .col.q-mt-sm
-        .row.items-baseline
-          .col-auto.q-mr-sm
-            q-toggle(v-model='chunkTransformationEnabled', dense, :disable='isDisable')
-          .col {{ m.collections_enableChunkLlmTransformation() }}
-      .column.q-gap-16(v-if='chunkTransformationEnabled')
-        .col
-          km-select(
-            v-model='chunkTransformationPromptTemplate',
-            :options='chunkTransformationPromptTemplateOptions',
-            hasDropdownSearch,
-            emit-value,
-            map-options,
-            option-value='system_name',
-            :disabled='isDisable'
-          )
-          .km-description.text-secondary-text.q-mt-xs.q-ml-xs {{ m.collections_chunkTransformationPromptHint() }}
-          .row.q-mt-sm
-            .col-auto
-              km-btn(
-                :label='chunkTransformationPromptTemplate ? m.common_openPromptTemplate() : m.common_openPromptTemplatesLibrary()',
-                iconSize='16px',
-                icon='fas fa-comment-dots',
-                @click='chunkTransformationPromptTemplate ? navigate(`prompt-templates/${chunkTransformationPromptTemplateId}`) : navigate("prompt-templates")'
-              )
-        .col
-          .km-input-label.q-pb-xs {{ m.collections_howToApplyTransformation() }}
-          km-select(
-            v-model='chunkTransformationMethod',
-            :options='config.chunk_transformation_method.options',
-            emit-value,
-            map-options,
-            option-value='value',
-            option-label='label',
-            :disabled='isDisable'
-          )
-          .km-description.text-secondary-text.q-mt-xs.q-ml-xs {{ m.collections_howToApplyTransformationHint() }}
-        .col
-          .km-input-label.q-pb-xs {{ m.collections_howToUseChunks() }}
-          km-select(
-            v-model='chunkUsageMethod',
-            :options='config.chunk_usage_method.options',
-            emit-value,
-            map-options,
-            option-value='value',
-            option-label='label',
-            :disabled='isDisable'
-          )
-          .km-description.text-secondary-text.q-mt-xs.q-ml-xs {{ m.collections_howToUseChunksHint() }}
-
-  <!-- INDEXING -->
-  q-separator.q-my-lg
-  km-section(:title='m.section_indexing()', :subTitle='m.collections_indexingSubtitle()')
-    .column.q-gap-16
-      .km-description.q-mt-sm {{ m.collections_hybridSearchHint() }}
-      .col
-        .row.items-baseline
-          .col-auto.q-mr-sm
-            q-toggle(v-model='supportSemanticSearch', dense, :disable='true')
-          .col {{ m.collections_supportSemanticSearch() }}
-        .km-description.text-secondary-text.q-mt-sm {{ m.collections_semanticSearchHint() }}
-      .col(v-if='supportSemanticSearch')
-        .km-input-label.q-pb-xs {{ m.collections_embeddingModel() }}
-        km-select(
-          v-model='embeddingModel',
-          :placeholder='m.collections_embeddingModel()',
-          :options='embeddingModelOptions',
-          optionValue='system_name',
-          optionLabel='display_name',
-          emit-value,
-          mapOptions,
-          :disabled='isDisable'
-        )
-          template(#option='{ itemProps, opt, selected, toggleOption }')
-            q-item.ba-border(v-bind='itemProps', dense, @click='toggleOption(opt)')
-              q-item-section
-                q-item-label.km-label {{ opt.display_name }}
-                .row.q-mt-xs(v-if='opt.provider_system_name')
-                  q-chip(color='primary-light', text-color='primary', size='sm', dense) {{ opt.provider_system_name }}
-      .col.q-mt-sm
-        .row.items-baseline
-          .col-auto.q-mr-sm
-            q-toggle(v-model='supportKeywordSearch', dense)
-          .col {{ m.collections_supportKeywordSearch() }}
-        .km-description.text-secondary-text.q-mt-sm {{ m.collections_keywordSearchHint() }}
+<template>
+  <div class="pr-md">
+    <km-section :title="m.collections_sourceSettings()" :sub-title="m.collections_sourceSettingsSubtitle()">
+      <div class="flex-1 pt-sm">
+        <div class="km-input-label pb-xs pl-sm">{{ m.collections_sourceType() }}</div>
+        <km-select ref="source_typeRef" v-model="source_type" :options="dynamicSourceTypeOptions" :rules="config.source_type.rules" :disabled="isDisable" />
+      </div>
+      <template v-for="item in dynamicSourceTypeChildren[source_type]" :key="item">
+        <div class="flex-1 pt-sm">
+          <div class="km-input-label pb-xs pl-sm">
+            {{ item.label }}
+            <div v-if="item?.description" class="km-description text-secondary-text">{{ item?.description }}</div>
+          </div>
+          <component :is="item.component" v-model="source_fields[item.field]" :readonly="isDisable" :disable="isDisable" />
+        </div>
+      </template>
+    </km-section><!-- CHUNKING -->
+    <km-separator class="my-lg" />
+    <km-section :title="m.section_chunking()" :sub-title="m.collections_chunkingSubtitle()">
+      <div class="stack" data-gap="lg">
+        <div class="flex-1">
+          <div class="km-input-label pb-xs">{{ m.collections_chunkingStrategy() }}</div>
+          <km-select v-model="chunkingStrategy" :options="config.chunking_strategy.options" emit-value map-options option-value="value" option-label="label" :disabled="isDisable" />
+          <div class="km-description text-secondary-text mt-xs ml-xs">{{ m.collections_chunkingStrategyHint() }}</div>
+        </div>
+        <div v-if="chunkingStrategy === &quot;recursive_character_text_splitting&quot;" class="cluster" data-gap="lg">
+          <div class="flex-1">
+            <div class="km-input-label pb-xs">{{ m.collections_chunkSize() }}</div>
+            <km-input v-model="chunkSize" type="number" :readonly="isDisable" />
+            <div class="km-description text-secondary-text mt-xs ml-xs">{{ m.collections_chunkSizeHint() }}</div>
+          </div>
+          <div class="flex-1">
+            <div class="km-input-label pb-xs">{{ m.collections_chunkOverlap() }}</div>
+            <km-input v-model="chunkOverlap" type="number" :readonly="isDisable" />
+            <div class="km-description text-secondary-text mt-xs ml-xs">{{ m.collections_chunkOverlapHint() }}</div>
+          </div>
+        </div>
+        <div class="flex-1 mt-sm">
+          <div class="cluster" data-align="baseline">
+            <div class="flex-none mr-sm">
+              <km-toggle v-model="chunkTransformationEnabled" dense :disable="isDisable" />
+            </div>
+            <div class="flex-1">{{ m.collections_enableChunkLlmTransformation() }}</div>
+          </div>
+        </div>
+        <div v-if="chunkTransformationEnabled" class="stack" data-gap="lg">
+          <div class="flex-1">
+            <km-select v-model="chunkTransformationPromptTemplate" :options="chunkTransformationPromptTemplateOptions" has-dropdown-search emit-value map-options option-value="system_name" :disabled="isDisable" />
+            <div class="km-description text-secondary-text mt-xs ml-xs">{{ m.collections_chunkTransformationPromptHint() }}</div>
+            <div class="cluster mt-sm">
+              <div class="flex-none">
+                <km-btn :label="chunkTransformationPromptTemplate ? m.common_openPromptTemplate() : m.common_openPromptTemplatesLibrary()" icon-size="16px" icon="chat" @click="chunkTransformationPromptTemplate ? navigate(`prompt-templates/${chunkTransformationPromptTemplateId}`) : navigate(&quot;prompt-templates&quot;)" />
+              </div>
+            </div>
+          </div>
+          <div class="flex-1">
+            <div class="km-input-label pb-xs">{{ m.collections_howToApplyTransformation() }}</div>
+            <km-select v-model="chunkTransformationMethod" :options="config.chunk_transformation_method.options" emit-value map-options option-value="value" option-label="label" :disabled="isDisable" />
+            <div class="km-description text-secondary-text mt-xs ml-xs">{{ m.collections_howToApplyTransformationHint() }}</div>
+          </div>
+          <div class="flex-1">
+            <div class="km-input-label pb-xs">{{ m.collections_howToUseChunks() }}</div>
+            <km-select v-model="chunkUsageMethod" :options="config.chunk_usage_method.options" emit-value map-options option-value="value" option-label="label" :disabled="isDisable" />
+            <div class="km-description text-secondary-text mt-xs ml-xs">{{ m.collections_howToUseChunksHint() }}</div>
+          </div>
+        </div>
+      </div>
+    </km-section><!-- INDEXING -->
+    <km-separator class="my-lg" />
+    <km-section :title="m.section_indexing()" :sub-title="m.collections_indexingSubtitle()">
+      <div class="stack" data-gap="lg">
+        <div class="km-description mt-sm">{{ m.collections_hybridSearchHint() }}</div>
+        <div class="flex-1">
+          <div class="cluster" data-align="baseline">
+            <div class="flex-none mr-sm">
+              <km-toggle v-model="supportSemanticSearch" dense :disable="true" />
+            </div>
+            <div class="flex-1">{{ m.collections_supportSemanticSearch() }}</div>
+          </div>
+          <div class="km-description text-secondary-text mt-sm">{{ m.collections_semanticSearchHint() }}</div>
+        </div>
+        <div v-if="supportSemanticSearch" class="flex-1">
+          <div class="km-input-label pb-xs">{{ m.collections_embeddingModel() }}</div>
+          <km-select v-model="embeddingModel" :placeholder="m.collections_embeddingModel()" :options="embeddingModelOptions" option-value="system_name" option-label="display_name" emit-value map-options :disabled="isDisable">
+            <template #option="{ itemProps, opt, toggleOption }">
+              <li class="km-item ba-border" v-bind="itemProps" dense @click="toggleOption(opt)">
+                <div class="km-item-section">
+                  <span class="km-item-label km-label">{{ opt.display_name }}</span>
+                  <div v-if="opt.provider_system_name" class="cluster mt-xs">
+                    <km-chip tone="brand" size="sm" dense>{{ opt.provider_system_name }}</km-chip>
+                  </div>
+                </div>
+              </li>
+            </template>
+          </km-select>
+        </div>
+        <div class="flex-1 mt-sm">
+          <div class="cluster" data-align="baseline">
+            <div class="flex-none mr-sm">
+              <km-toggle v-model="supportKeywordSearch" dense />
+            </div>
+            <div class="flex-1">{{ m.collections_supportKeywordSearch() }}</div>
+          </div>
+          <div class="km-description text-secondary-text mt-sm">{{ m.collections_keywordSearchHint() }}</div>
+        </div>
+      </div>
+    </km-section>
+  </div>
 </template>
 
 <script setup>

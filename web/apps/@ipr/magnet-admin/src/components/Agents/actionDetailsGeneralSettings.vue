@@ -1,31 +1,50 @@
-<template lang="pug">
-div
-  km-section(:title='m.section_llmInstructions()', :subTitle='m.subtitle_llmInstructions()')
-    .km-field.text-secondary-text.q-pb-sm.q-pl-8 {{ m.agents_nameForLlm() }}
-      |
-      km-input(ref='input', :placeholder='m.agents_nameForLlm()', border-radius='8px', height='36px', v-model='function_name')
-        .km-field.text-secondary-text.q-pb-sm.q-pl-8 {{ m.agents_nameLlmHelp() }}
-    .km-field.text-secondary-text.q-pb-sm.q-pl-8 {{ m.agents_descriptionForLlm() }}
-      km-input(ref='input', rows='8', border-radius='8px', height='36px', type='textarea', v-model='function_description')
-  q-separator.q-my-lg
-  km-section(:title='m.section_displaySettings()', :subTitle='m.subtitle_configureActionDisplay()')
-    .km-field.text-secondary-text.q-pb-sm.q-pl-8 {{ m.agents_displayName() }}
-      km-input(ref='input', :placeholder='m.agents_displayName()', border-radius='8px', height='36px', v-model='display_name')
-      .km-field.text-secondary-text.q-pb-sm.q-pl-8 {{ m.agents_displayNameHelp() }}
-    .km-field.text-secondary-text.q-pb-sm.q-pl-8 {{ m.agents_displayDescription() }}
-      km-input(ref='input', :placeholder='m.agents_displayDescription()', border-radius='8px', height='36px', v-model='display_description')
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.agents_displayDescriptionHelp() }}
-  q-separator.q-my-lg
-  km-section(:title='m.section_toolOfOrigin()', :subTitle='m.subtitle_toolOfOrigin()')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.agents_toolOfOriginLabel() }}
-      .row.items-center
-        .col-auto.q-mr-8
-          km-chip(round, size='24px', :label='getToolTypeLabel(action?.type)', color='primary-light', text-color='primary')
-        .col.q-mr-8
-          km-input(ref='input', readonly, :placeholder='m.agents_displayDescription()', border-radius='8px', height='36px', v-model='tool_name')
-    .row
-      .col-auto.q-mr-8
-        km-btn(flat, simple, :label='m.agents_openTool({ toolType: getToolTypeLabel(action?.type) })', iconSize='16px', icon='fas fa-arrow-right', @click='openTool')
+<template>
+  <div>
+    <km-section :title="m.section_llmInstructions()" :sub-title="m.subtitle_llmInstructions()">
+      <div class="km-field text-secondary-text pb-sm pl-sm">
+        {{ m.agents_nameForLlm() }}
+        <km-input ref="input" v-model="function_name" :placeholder="m.agents_nameForLlm()" border-radius="8px" height="36px">
+          <div class="km-field text-secondary-text pb-sm pl-sm">{{ m.agents_nameLlmHelp() }}</div>
+        </km-input>
+      </div>
+      <div class="km-field text-secondary-text pb-sm pl-sm">
+        {{ m.agents_descriptionForLlm() }}
+        <km-input ref="input" v-model="function_description" rows="8" border-radius="8px" height="36px" type="textarea" />
+      </div>
+    </km-section>
+    <km-separator class="my-lg" />
+    <km-section :title="m.section_displaySettings()" :sub-title="m.subtitle_configureActionDisplay()">
+      <div class="km-field text-secondary-text pb-sm pl-sm">
+        {{ m.agents_displayName() }}
+        <km-input ref="input" v-model="display_name" :placeholder="m.agents_displayName()" border-radius="8px" height="36px" />
+        <div class="km-field text-secondary-text pb-sm pl-sm">{{ m.agents_displayNameHelp() }}</div>
+      </div>
+      <div class="km-field text-secondary-text pb-sm pl-sm">
+        {{ m.agents_displayDescription() }}
+        <km-input ref="input" v-model="display_description" :placeholder="m.agents_displayDescription()" border-radius="8px" height="36px" />
+        <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.agents_displayDescriptionHelp() }}</div>
+      </div>
+    </km-section>
+    <km-separator class="my-lg" />
+    <km-section :title="m.section_toolOfOrigin()" :sub-title="m.subtitle_toolOfOrigin()">
+      <div class="km-field text-secondary-text pb-xs pl-sm">
+        {{ m.agents_toolOfOriginLabel() }}
+        <div class="cluster">
+          <div class="flex-none mr-sm">
+            <km-chip tone="brand" round size="24px" :label="getToolTypeLabel(action?.type)" />
+          </div>
+          <div class="flex-1 mr-sm">
+            <km-input ref="input" v-model="tool_name" readonly :placeholder="m.agents_displayDescription()" border-radius="8px" height="36px" />
+          </div>
+        </div>
+      </div>
+      <div class="cluster">
+        <div class="flex-none mr-sm">
+          <km-btn flat simple :label="m.agents_openTool({ toolType: getToolTypeLabel(action?.type) })" icon-size="16px" icon="arrow-right" @click="openTool" />
+        </div>
+      </div>
+    </km-section>
+  </div>
 </template>
 
 <script>

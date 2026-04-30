@@ -1,45 +1,21 @@
-<template lang="pug">
-<!-- eslint-disable vue/no-v-html -->
-div
-  div
-    .row.items-center.q-px-8.q-pb-xs
-      //- .col.km-field.text-secondary-text Prompt template body
-      .row.items-center.q-gutter-xs.justify-end.full-width
-        q-btn(
-          flat
-          round
-          dense
-          icon='code'
-          :color="viewMode === 'code' ? 'primary' : 'grey-5'"
-          @click="viewMode = 'code'"
-        )
-          q-tooltip.bg-white.block-shadow.km-description.text-text-grey {{ m.prompts_showRawTemplate() }}
-        q-btn(
-          flat
-          round
-          dense
-          icon='visibility'
-          :color="viewMode === 'preview' ? 'primary' : 'grey-5'"
-          @click="viewMode = 'preview'"
-        )
-          q-tooltip.bg-white.block-shadow.km-description.text-text-grey {{ m.prompts_showRenderedPreview() }}
-
-    // Preview: render as markdown with {vars} as chips
-    div.q-px-8.q-pt-sm.prompt-locked.markdown-content(v-if="viewMode === 'preview'")
-      div(v-html="lockedRenderedHtml")
-
-    // Code: editable textarea
-    km-input(
-      v-else
-      ref='input'
-      rows='20'
-      :placeholder='m.prompts_typeYourText()'
-      border-radius='8px'
-      height='36px'
-      type='textarea'
-      v-model='text'
-    )
-  q-separator.q-my-lg
+<template>
+  <!-- eslint-disable vue/no-v-html -->
+  <div>
+    <div class="prompt-template-tab stack" data-gap="xs">
+      <div class="prompt-template-tab__toolbar cluster" data-wrap="no">
+        <div class="cluster full-width" data-gap="xs" data-justify="end">
+          <km-btn flat round dense icon="code" icon-size="16px" :tone="viewMode === 'code' ? 'brand' : 'weak'" :tooltip="m.prompts_showRawTemplate()" @click="viewMode = 'code'" />
+          <km-btn flat round dense icon="eye" icon-size="16px" :tone="viewMode === 'preview' ? 'brand' : 'weak'" :tooltip="m.prompts_showRenderedPreview()" @click="viewMode = 'preview'" />
+        </div>
+      </div>
+      <!-- Preview: render as markdown with {vars} as chips-->
+      <div v-if="viewMode === 'preview'" class="prompt-locked markdown-content">
+        <div v-html="lockedRenderedHtml" />
+      </div>
+      <!-- Code: editable textarea-->
+      <km-input v-else ref="input" v-model="text" rows="20" :placeholder="m.prompts_typeYourText()" border-radius="8px" height="36px" type="textarea" />
+    </div>
+  </div>
 </template>
 
 <script>
@@ -198,105 +174,112 @@ export default {
 }
 </script>
 
-<style lang="stylus" scoped>
-.prompt-locked
-  background: var(--q-light)
-  border-radius: var(--radius-lg)
-  padding: 12px 16px
-  min-height: 160px
-  // Align with km-description (12px) from base typography
-  font-size: var(--km-caption-size, 12px)
+<style scoped>
+.prompt-template-tab {
+  min-block-size: 0;
+}
 
-.prompt-locked :deep(.prompt-var-chip)
-  display: inline-flex
-  align-items: center
-  padding: 2px 8px
-  margin: 2px 2px
-  border-radius: var(--radius-sm)
-  font-size: var(--km-caption-size, 12px)
-  font-weight: 500
-  border: 1px solid var(--q-primary)
-  color: var(--q-primary)
-  background: transparent
+.prompt-template-tab__toolbar {
+  min-block-size: 32px;
+}
 
-.prompt-locked :deep(p)
-  margin: 0 0 8px 0
-  line-height: 1.5
-
-.prompt-locked :deep(p:last-child)
-  margin-bottom: 0
-
+.prompt-locked {
+  background: var(--ds-color-light);
+  border-radius: var(--ds-radius-lg);
+  padding: 12px 16px;
+  min-block-size: 160px;
+  font-size: var(--km-caption-size, 12px);
+}
+.prompt-locked :deep(.prompt-var-chip) {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  margin: 2px;
+  border-radius: var(--ds-radius-sm);
+  font-size: var(--km-caption-size, 12px);
+  font-weight: 500;
+  border: 1px solid var(--ds-color-primary);
+  color: var(--ds-color-primary);
+  background: transparent;
+}
+.prompt-locked :deep(p) {
+  margin: 0 0 8px;
+  line-height: 1.5;
+}
+.prompt-locked :deep(p:last-child) {
+  margin-block-end: 0;
+}
 .prompt-locked :deep(ul),
-.prompt-locked :deep(ol)
-  padding-left: 20px
-  margin: 0 0 8px 0
-
-.prompt-locked :deep(table)
-  border-collapse: collapse
-  border: 1px solid var(--q-border)
-  margin: 0 0 8px 0
-  width: auto
-  font-size: inherit
-
+.prompt-locked :deep(ol) {
+  padding-inline-start: 20px;
+  margin: 0 0 8px;
+}
+.prompt-locked :deep(table) {
+  border-collapse: collapse;
+  border: 1px solid var(--ds-color-border);
+  margin: 0 0 8px;
+  inline-size: auto;
+  font-size: inherit;
+}
 .prompt-locked :deep(th),
-.prompt-locked :deep(td)
-  border: 1px solid var(--q-border)
-  padding: 6px 10px
-  text-align: left
-  font-size: inherit
-
+.prompt-locked :deep(td) {
+  border: 1px solid var(--ds-color-border);
+  padding: 6px 10px;
+  text-align: start;
+  font-size: inherit;
+}
 .prompt-locked :deep(pre),
-.prompt-locked :deep(code)
-  background: var(--q-border-2)
-  border-radius: var(--radius-sm)
-  padding: 2px 6px
-  font-size: var(--km-caption-size, 12px)
-
-.prompt-locked :deep(pre)
-  padding: 12px
-  overflow-x: auto
-  white-space: pre-wrap
-
+.prompt-locked :deep(code) {
+  background: var(--ds-color-border-2);
+  border-radius: var(--ds-radius-sm);
+  padding: 2px 6px;
+  font-size: var(--km-caption-size, 12px);
+}
+.prompt-locked :deep(pre) {
+  padding: 12px;
+  overflow-inline: auto;
+  white-space: pre-wrap;
+}
 .prompt-locked :deep(h1),
 .prompt-locked :deep(h2),
 .prompt-locked :deep(h3),
 .prompt-locked :deep(h4),
 .prompt-locked :deep(h5),
-.prompt-locked :deep(h6)
-  margin: 12px 0 6px 0
-  line-height: 1.3
-  // Keep headings modest; at most +6px over body
-  font-size: 1.5em
-  font-weight: 600
-
-.prompt-locked :deep(h2)
-  font-size: 1.33em
-
-.prompt-locked :deep(h3)
-  font-size: 1.25em
-
-.prompt-locked :deep(h4)
-  font-size: 1.17em
-
-.prompt-locked :deep(h5)
-  font-size: 1.08em
-
-.prompt-locked :deep(h6)
-  font-size: 1em
-
+.prompt-locked :deep(h6) {
+  margin: 12px 0 6px;
+  line-height: 1.3;
+  font-size: 1.5em;
+  font-weight: 600;
+}
+.prompt-locked :deep(h2) {
+  font-size: 1.33em;
+}
+.prompt-locked :deep(h3) {
+  font-size: 1.25em;
+}
+.prompt-locked :deep(h4) {
+  font-size: 1.17em;
+}
+.prompt-locked :deep(h5) {
+  font-size: 1.08em;
+}
+.prompt-locked :deep(h6) {
+  font-size: 1em;
+}
 .prompt-locked :deep(h1:first-child),
 .prompt-locked :deep(h2:first-child),
 .prompt-locked :deep(h3:first-child),
-.prompt-locked :deep(h4:first-child)
-  margin-top: 0
-
-.prompt-locked :deep(strong)
-  font-weight: 600
-
-.prompt-locked :deep(a)
-  color: var(--q-primary)
-  text-decoration: none
-
-.prompt-locked :deep(a:hover)
-  text-decoration: underline
+.prompt-locked :deep(h4:first-child) {
+  margin-block-start: 0;
+}
+.prompt-locked :deep(strong) {
+  font-weight: 600;
+}
+.prompt-locked :deep(a) {
+  color: var(--ds-color-primary);
+  text-decoration: none;
+}
+.prompt-locked :deep(a:hover) {
+  text-decoration: underline;
+}
 </style>

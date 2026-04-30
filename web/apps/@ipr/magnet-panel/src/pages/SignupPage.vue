@@ -1,10 +1,10 @@
-<template lang="pug">
-auth-signup-page(
-  v-if='auth.client',
-  :auth-client='auth.client',
-  @success='onSuccess',
-  @navigate='onNavigate'
-)
+<template>
+  <auth-signup-page
+    v-if="auth.client"
+    :auth-client="auth.client"
+    @success="onSuccess"
+    @navigate="onNavigate"
+  />
 </template>
 
 <script setup>

@@ -1,103 +1,219 @@
-<template lang="pug">
-.column.fit.bg-light.no-wrap
-  .fit.q-py-16.column.reverse.no-wrap.text-scroll(ref='messagesContainer', style='overflow-y: auto; max-height: 100%')
-    template(v-if='processing')
-      .column.justify-center.items-center
-        q-spinner-dots(size='62px', color='primary')
-        km-btn(flat, simple, :label='m.panel_stop()', iconSize='16px', icon='fas fa-times', @click='abortController.abort()')
-    .column.no-wrap.q-px-16.q-gap-8
-      template(v-for='(message, index) in allMessages')
-        .border-radius-12.q-pa-lg.full-width(
-          @mouseover='hoverMessage = index',
-          @mouseleave='hoverMessage = null',
-          v-if='showAllMessages || message.role === "user" || (message.role === "assistant" && !!message.content)',
-          :class='messageStyles(message.role, message.content)'
-        )
-          .row.justify-between.q-mb-sm.items-center(:style='{ height: "34px" }')
-            .km-title.text-capitalize {{ message.role }}
-            .row.q-gap-8(v-if='message.role !== "system" && hoverMessage === index && !isUserMode')
-              km-btn.self-start(
-                icon='fas fa-pen',
-                iconColor='primary',
-                iconSize='12px',
-                flat,
-                @click='((messageToEdit = index), (messageToEditContent = message.content))',
-                :tooltip='m.common_edit()'
-              )
-              km-btn(
-                icon='fas fa-trash',
-                iconColor='primary',
-                iconSize='12px',
-                flat,
-                @click='deleteMessage(index)',
-                :tooltip='m.common_delete()',
-                v-if='!messageToEdit'
-              )
-
-          template(v-if='message.role == "tool"')
-            .km-field.q-mb-sm {{ m.panel_toolResult({ toolCallId: message.tool_call_id }) }}
-
-          template(v-if='!!message.content')
-            //- .km-field.text-pre-wrap {{ message.content }}
-            template(v-if='messageToEdit === index')
-              km-input.bg-light(v-model='messageToEditContent', rows='5', type='textarea')
-              .row.justify-end.q-gap-8.q-pt-sm
-                km-btn(flat, simple, :label='m.panel_discardEdit()', iconSize='16px', icon='fas fa-times', @click='messageToEdit = null')
-                km-btn(flat, simple, :label='m.common_save()', iconSize='16px', icon='fas fa-save', @click='saveMessage(index)')
-            template(v-else) 
-              km-markdown(:source='message.content', style='overflow-wrap: break-word')
-
-          template(v-else-if='!!message.tool_calls')
-            .km-field.text-pre-wrap(style='overflow-wrap: break-word') {{ message.tool_calls }}
-          .row.justify-end.q-gap-8(v-if='message.role === "assistant" && !!message.content')
-            km-btn.border-radius-6(
-              svgIcon='like',
-              iconColor='primary',
-              iconSize='12px',
-              size='xs',
-              flat,
-              @click='reactToMessage(index, true)',
-              :class='reactions[index] === true ? "bg-like-bg" : "bg-white"'
-            )
-            km-btn.border-radius-6(
-              svgIcon='dislike',
-              iconColor='primary',
-              iconSize='12px',
-              size='xs',
-              flat,
-              @click='reactToMessage(index, false)',
-              :class='reactions[index] === false ? "bg-dislike-bg" : "bg-white"'
-            )
-
-  .col-auto.q-mt-md.q-px-16
-    form(@submit.prevent='sendUserMessage')
-      km-input(
-        ref='input',
-        rows='10',
-        :placeholder='m.placeholder_enterUserMessage()',
-        :model-value='userMessage',
-        @input='userMessage = $event',
-        border-radius='8px',
-        height='36px',
-        type='textarea',
-        @keydown.enter='handleUserMessageEnter'
-      )
-      .row.justify-end.q-py-md.items-center
-        .col-auto.q-mr-md
-          km-btn(flat, simple, :label='m.panel_clearChat()', iconSize='16px', icon='fas fa-eraser', @click='clearChat')
-        .col-auto.q-mr-md(v-if='!isUserMode')
-          km-btn(
-            flat,
-            simple,
-            :label='showAllMessages ? m.panel_hideDebugMessages() : m.panel_showAllMessages()',
-            iconSize='16px',
-            :icon='showAllMessages ? "fas fa-eye-slash" : "fas fa-eye"',
-            @click='showAllMessages = !showAllMessages'
-          )
-        .col-auto
-          q-btn(type='submit', color='primary', :disable='cantSendUserMessage', unelevated, padding='6px 7px', style='maxheight: 28px')
-            template(v-slot:default)
-              q-icon(name='fas fa-paper-plane', size='16px')
+<template>
+  <div
+    class="stack fit bg-light"
+    data-gap="0"
+  >
+    <div
+      ref="messagesContainer"
+      class="fit py-lg flex text-scroll"
+      style="overflow-block: auto; max-block-size: 100%; flex-flow: column-reverse nowrap"
+    >
+      <template v-if="processing">
+        <div
+          class="flex"
+          style="flex-direction: column; justify-content: center; align-items: center"
+        >
+          <km-loader
+            size="62px"
+          />
+          <km-btn
+            flat
+            simple
+            :label="m.panel_stop()"
+            icon-size="16px"
+            icon="close"
+            @click="abortController.abort()"
+          />
+        </div>
+      </template>
+      <div
+        class="stack px-lg"
+        data-gap="sm"
+      >
+        <template
+          v-for="(message, index) in allMessages"
+          :key="index"
+        >
+          <div
+            v-if="showAllMessages || message.role === &quot;user&quot; || (message.role === &quot;assistant&quot; &amp;&amp; !!message.content)"
+            class="border-radius-12 p-lg full-width"
+            :class="messageStyles(message.role, message.content)"
+            @mouseover="hoverMessage = index"
+            @mouseleave="hoverMessage = null"
+          >
+            <div
+              class="cluster mb-sm"
+              :style="{ height: &quot;34px&quot; }"
+              data-justify="between"
+            >
+              <div class="km-title text-capitalize">
+                {{ message.role }}
+              </div>
+              <div
+                v-if="message.role !== &quot;system&quot; &amp;&amp; hoverMessage === index &amp;&amp; !isUserMode"
+                class="cluster"
+                data-gap="sm"
+              >
+                <km-btn
+                  class="self-start"
+                  icon="edit"
+                  icon-tone="brand"
+                  icon-size="12px"
+                  flat
+                  :tooltip="m.common_edit()"
+                  @click="((messageToEdit = index), (messageToEditContent = message.content))"
+                />
+                <km-btn
+                  v-if="!messageToEdit"
+                  icon="delete"
+                  icon-tone="brand"
+                  icon-size="12px"
+                  flat
+                  :tooltip="m.common_delete()"
+                  @click="deleteMessage(index)"
+                />
+              </div>
+            </div>
+            <template v-if="message.role == &quot;tool&quot;">
+              <div class="km-field mb-sm">
+                {{ m.panel_toolResult({ toolCallId: message.tool_call_id }) }}
+              </div>
+            </template>
+            <template v-if="!!message.content">
+              <template v-if="messageToEdit === index">
+                <km-input
+                  v-model="messageToEditContent"
+                  class="bg-light"
+                  rows="5"
+                  type="textarea"
+                />
+                <div
+                  class="cluster pt-sm"
+                  data-justify="end"
+                  data-gap="sm"
+                >
+                  <km-btn
+                    flat
+                    simple
+                    :label="m.panel_discardEdit()"
+                    icon-size="16px"
+                    icon="close"
+                    @click="messageToEdit = null"
+                  />
+                  <km-btn
+                    flat
+                    simple
+                    :label="m.common_save()"
+                    icon-size="16px"
+                    icon="save"
+                    @click="saveMessage(index)"
+                  />
+                </div>
+              </template>
+              <template v-else>
+                <km-markdown
+                  :source="message.content"
+                  style="overflow-wrap: break-word"
+                />
+              </template>
+            </template>
+            <template v-else-if="!!message.tool_calls">
+              <div
+                class="km-field text-pre-wrap"
+                style="overflow-wrap: break-word"
+              >
+                {{ message.tool_calls }}
+              </div>
+            </template>
+            <div
+              v-if="message.role === &quot;assistant&quot; &amp;&amp; !!message.content"
+              class="cluster"
+              data-justify="end"
+              data-gap="sm"
+            >
+              <km-btn
+                class="border-radius-6"
+                icon="thumbs-up"
+                icon-size="16px"
+                size="xs"
+                flat
+                :class="reactions[index] === true ? &quot;bg-like-bg&quot; : &quot;bg-white&quot;"
+                @click="reactToMessage(index, true)"
+              />
+              <km-btn
+                class="border-radius-6"
+                icon="thumbs-down"
+                icon-size="16px"
+                size="xs"
+                flat
+                :class="reactions[index] === false ? &quot;bg-dislike-bg&quot; : &quot;bg-white&quot;"
+                @click="reactToMessage(index, false)"
+              />
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+    <div class="flex-none mt-md px-lg">
+      <form @submit.prevent="sendUserMessage">
+        <km-input
+          ref="input"
+          rows="10"
+          :placeholder="m.placeholder_enterUserMessage()"
+          :model-value="userMessage"
+          border-radius="8px"
+          height="36px"
+          type="textarea"
+          @input="userMessage = $event"
+          @keydown.enter="handleUserMessageEnter"
+        />
+        <div
+          class="cluster py-md"
+          data-justify="end"
+        >
+          <div class="flex-none mr-md">
+            <km-btn
+              flat
+              simple
+              :label="m.panel_clearChat()"
+              icon-size="16px"
+              icon="eraser"
+              @click="clearChat"
+            />
+          </div>
+          <div
+            v-if="!isUserMode"
+            class="flex-none mr-md"
+          >
+            <km-btn
+              flat
+              simple
+              :label="showAllMessages ? m.panel_hideDebugMessages() : m.panel_showAllMessages()"
+              icon-size="16px"
+              :icon="showAllMessages ? &quot;eye-off&quot; : &quot;eye&quot;"
+              @click="showAllMessages = !showAllMessages"
+            />
+          </div>
+          <div class="flex-none">
+            <km-btn
+              type="submit"
+              :disable="cantSendUserMessage"
+              unelevated
+              padding="6px 7px"
+              style="max-block-size: 28px"
+            >
+              <template #default>
+                <km-glyph
+                  name="send"
+                  size="16px"
+                />
+              </template>
+            </km-btn>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
 </template>
 <script>
 import { ref, computed } from 'vue'

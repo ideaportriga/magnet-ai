@@ -1,9 +1,13 @@
-<template lang="pug">
-q-chip.text-uppercase(v-if='status', :color='color', :text-color='textColor', :label='status', size='sm')
-  q-tooltip(v-if='row?.status_message', :offset='[0, 10]')
-    .row.items-center
-      .col-auto.q-mr-sm
-        .km-field {{ row?.status_message }}
+<template>
+  <km-chip v-if="status" class="text-uppercase" :tone="tone" :label="status" size="sm">
+    <km-tooltip v-if="row?.status_message" :offset="[0, 10]">
+      <div class="cluster">
+        <div class="flex-none mr-sm">
+          <div class="km-field">{{ row?.status_message }}</div>
+        </div>
+      </div>
+    </km-tooltip>
+  </km-chip>
 </template>
 
 <script>
@@ -20,24 +24,14 @@ export default defineComponent({
     status() {
       return this.row?.status
     },
-    color() {
+    tone() {
       switch (this.row?.status) {
         case 'success':
-          return 'status-ready'
+          return 'success'
         case 'error':
-          return 'error-bg'
+          return 'danger'
         default:
-          return 'gray'
-      }
-    },
-    textColor() {
-      switch (this.row?.status) {
-        case 'success':
-          return 'status-ready-text'
-        case 'error':
-          return 'error-text'
-        default:
-          return 'text-gray'
+          return 'neutral'
       }
     },
   },

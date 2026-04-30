@@ -1,32 +1,16 @@
-<template lang="pug">
-.column.no-wrap.full-height
-  .collection-container.q-mx-auto.full-width.column.full-height.q-px-md.q-pt-16
-    .col.ba-border.border-radius-12.bg-white.q-pa-16.column(style='min-height: 0')
-      .row.q-mb-12
-        .col-auto.center-flex-y
-          km-filter-bar(v-model:config='filterConfig', v-model:filterObject='filterObject', outputFormat='sql', persistent, persistentKey='traces-filter')
-        q-space
-        .col-auto.center-flex-y
-          km-btn.q-mr-12(
-            icon='refresh',
-            :label='m.common_refreshList()',
-            @click='refetch',
-            iconColor='icon',
-            hoverColor='primary',
-            labelClass='km-title',
-            flat,
-            iconSize='16px',
-            hoverBg='primary-bg'
-          )
-      .col(style='min-height: 0')
-        km-data-table(
-          :table='table',
-          :loading='isLoading', :fetching='isFetching',
-          fill-height,
-          dense,
-          row-key='id',
-          @row-click='openDetails'
-        )
+<template>
+  <km-list-page>
+    <template #toolbar>
+      <div class="flex-none center-flex-y">
+        <km-filter-bar v-model:config="filterConfig" v-model:filter-object="filterObject" output-format="sql" persistent persistent-key="traces-filter" />
+      </div>
+      <div class="km-space" />
+      <div class="flex-none center-flex-y">
+        <km-btn class="mr-md" icon="refresh" :label="m.common_refreshList()" interaction-tone="brand" label-class="km-title" flat icon-size="16px" @click="refetch" />
+      </div>
+    </template>
+    <km-data-table :table="table" :loading="isLoading" :fetching="isFetching" fill-height dense row-key="id" @row-click="openDetails" />
+  </km-list-page>
 </template>
 
 <script setup lang="ts">
@@ -88,8 +72,3 @@ const openDetails = async (row: ObservabilityTrace) => {
 }
 </script>
 
-<style lang="stylus">
-.km-input:not(.q-field--readonly) .q-field__control::before {
-  background: #fff !important;
-}
-</style>

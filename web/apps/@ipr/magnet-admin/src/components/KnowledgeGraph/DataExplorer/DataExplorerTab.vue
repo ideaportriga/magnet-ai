@@ -1,47 +1,24 @@
 <template>
-  <div class="row no-wrap full-height">
-    <div class="col q-px-md">
-      <div class="row items-center q-mb-md">
-        <div class="col">
+  <div class="cluster full-height" data-wrap="no">
+    <div class="flex-1 px-md">
+      <div class="cluster mb-md">
+        <div class="flex-1">
           <div class="km-heading-7">{{ m.dataExplorer_title() }}</div>
           <div class="km-description text-secondary-text">{{ m.dataExplorer_description() }}</div>
         </div>
-        <div class="col-auto row items-center q-gutter-md">
-          <div class="view-mode-toggle">
-            <div class="view-mode-toggle__track">
-              <div class="view-mode-toggle__indicator" :class="{ 'view-mode-toggle__indicator--right': viewMode === 'entities' }" />
-              <button
-                class="view-mode-toggle__btn"
-                :class="{ 'view-mode-toggle__btn--active': viewMode === 'documents' }"
-                @click="viewMode = 'documents'"
-              >
-                <span class="view-mode-toggle__icon">
-                  <q-icon name="description" size="18px" />
-                </span>
-                <span class="view-mode-toggle__label">{{ m.dataExplorer_documents() }}</span>
-                <span class="view-mode-toggle__icon-spacer" aria-hidden="true" />
-              </button>
-              <button
-                class="view-mode-toggle__btn"
-                :class="{ 'view-mode-toggle__btn--active': viewMode === 'entities' }"
-                @click="viewMode = 'entities'"
-              >
-                <span class="view-mode-toggle__icon">
-                  <q-icon name="hub" size="18px" />
-                </span>
-                <span class="view-mode-toggle__label">{{ m.dataExplorer_entities() }}</span>
-                <span class="view-mode-toggle__icon-spacer" aria-hidden="true" />
-              </button>
-            </div>
-          </div>
+        <div class="flex-none cluster" data-gap="md">
+          <km-btn-toggle
+            v-model="viewMode"
+            :options="viewModeOptions"
+          />
         </div>
       </div>
 
-      <q-separator class="q-my-md" />
+      <km-separator class="my-md" />
 
       <kg-table-toolbar v-if="hasRecords || loading">
         <template #leading>
-          <q-btn v-if="viewMode === 'entities' && selectedEntityType" flat dense icon="arrow_back" @click="clearSelectedEntityType" />
+          <km-btn v-if="viewMode === 'entities' && selectedEntityType" flat dense icon="arrow_back" @click="clearSelectedEntityType" />
           <div v-if="viewMode === 'entities' && selectedEntityType" class="km-heading-8">{{ selectedEntityType }}</div>
           <km-input v-if="hasRecords" v-model="searchQuery" :placeholder="m.common_search()" icon-before="search" clearable class="search-input" />
         </template>
@@ -51,24 +28,24 @@
         </template>
       </kg-table-toolbar>
 
-      <q-linear-progress v-if="loading" indeterminate color="primary" />
+      <km-linear-progress v-if="loading" indeterminate />
 
-      <div v-if="!loading && !hasRecords" class="text-center q-pa-lg">
-        <q-icon :name="viewMode === 'documents' ? 'description' : 'hub'" size="64px" color="grey-5" />
-        <div class="km-heading-7 text-grey-7 q-mt-md">
+      <div v-if="!loading && !hasRecords" class="text-center p-lg">
+        <km-glyph :name="viewMode === 'documents' ? 'file-text' : 'graph'" size="64px" tone="muted" />
+        <div class="km-heading-7 text-grey-7 mt-md">
           {{ viewMode === 'documents' ? m.dataExplorer_noDocumentsYet() : m.dataExplorer_noEntitiesYet() }}
         </div>
-        <div class="km-description text-grey-6 q-mb-md">
+        <div class="km-description text-grey-6 mb-md">
           {{ viewMode === 'documents' ? m.dataExplorer_noDocumentsDesc() : m.dataExplorer_noEntitiesDesc() }}
         </div>
-        <q-btn no-caps unelevated color="primary" :label="m.common_refresh()" @click="refresh" />
+        <km-btn no-caps unelevated :label="m.common_refresh()" @click="refresh" />
       </div>
 
-      <div v-if="!loading && hasRecords && viewMode === 'documents' && filteredDocuments.length === 0" class="text-center q-pa-lg">
+      <div v-if="!loading && hasRecords && viewMode === 'documents' && filteredDocuments.length === 0" class="text-center p-lg">
         <div class="km-description text-grey-6">{{ m.dataExplorer_tryDifferentSearch() }}</div>
       </div>
 
-      <div v-if="!loading && viewMode === 'entities' && selectedEntityType && entityRecords.length === 0" class="text-center q-pa-lg">
+      <div v-if="!loading && viewMode === 'entities' && selectedEntityType && entityRecords.length === 0" class="text-center p-lg">
         <div class="km-description text-grey-6">{{ m.dataExplorer_noEntityRecords() }}</div>
       </div>
 
@@ -101,7 +78,7 @@
     <kg-confirm-dialog
       v-model="showDeleteDialog"
       :title="m.dataExplorer_deleteDocument()"
-      icon="delete_outline"
+      icon="delete"
       :description="m.dataExplorer_deleteDocumentConfirm({ name: deletingDocument?.title || deletingDocument?.name || '' })"
       :confirm-label="m.common_delete()"
       destructive
@@ -113,7 +90,7 @@
     <kg-confirm-dialog
       v-model="showDeleteEntityRecordDialog"
       :title="m.dataExplorer_deleteEntityRecord()"
-      icon="delete_outline"
+      icon="delete"
       :description="m.dataExplorer_deleteEntityRecordConfirm({ name: deletingEntityRecord?.record_identifier || '' })"
       :confirm-label="m.common_delete()"
       destructive
@@ -125,7 +102,7 @@
     <kg-confirm-dialog
       v-model="showDeleteEntityTypeDialog"
       :title="m.dataExplorer_deleteAllRecords()"
-      icon="delete_outline"
+      icon="delete"
       :description="m.dataExplorer_deleteAllRecordsConfirm({ count: deletingEntityType?.count || 0, name: deletingEntityType?.entity || '' })"
       :confirm-label="m.common_deleteAll()"
       destructive
@@ -161,6 +138,10 @@ const deletingIds = ref<Set<string>>(new Set())
 const searchQuery = ref('')
 const loading = ref(false)
 const viewMode = ref<'documents' | 'entities'>('documents')
+const viewModeOptions = computed(() => [
+  { value: 'documents' as const, label: m.dataExplorer_documents(), icon: 'file-text' },
+  { value: 'entities' as const, label: m.dataExplorer_entities(), icon: 'graph' },
+])
 
 const entityTypes = ref<EntityTypeSummary[]>([])
 const selectedEntityType = ref<string | null>(null)
@@ -431,79 +412,6 @@ defineExpose({ refresh })
 
 <style scoped>
 .search-input {
-  width: 250px;
-}
-
-.view-mode-toggle__track {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  background: var(--q-light);
-  border-radius: var(--radius-xl);
-  padding: 4px;
-  gap: 2px;
-}
-
-.view-mode-toggle__indicator {
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  width: calc(50% - 5px);
-  height: calc(100% - 8px);
-  background: var(--q-white);
-  border-radius: var(--radius-lg);
-  box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.1),
-    0 1px 2px rgba(0, 0, 0, 0.06);
-  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 0;
-}
-
-.view-mode-toggle__indicator--right {
-  transform: translateX(calc(100% + 2px));
-}
-
-.view-mode-toggle__btn {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  grid-template-columns: 18px 1fr 18px;
-  align-items: center;
-  column-gap: 8px;
-  flex: 0 0 132px;
-  width: 100px;
-  padding: 7px 16px;
-  border: none;
-  background: transparent;
-  font-size: var(--km-font-size-body);
-  font-weight: 500;
-  color: var(--q-icon);
-  cursor: pointer;
-  border-radius: var(--radius-lg);
-  transition: color 0.2s ease;
-  white-space: nowrap;
-  line-height: 1;
-  font-family: inherit;
-}
-
-.view-mode-toggle__icon,
-.view-mode-toggle__icon-spacer {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-}
-
-.view-mode-toggle__label {
-  text-align: center;
-}
-
-.view-mode-toggle__btn:hover:not(.view-mode-toggle__btn--active) {
-  color: var(--q-secondary-text);
-}
-
-.view-mode-toggle__btn--active {
-  color: var(--q-primary);
+  inline-size: 250px;
 }
 </style>

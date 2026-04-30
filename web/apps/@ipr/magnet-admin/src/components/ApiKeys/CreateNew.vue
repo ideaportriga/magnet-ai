@@ -1,46 +1,64 @@
-<template lang="pug">
-q-dialog(:model-value='showNewDialog', @cancel='onCancel', @hide='onCancel')
-  q-card.card-style(style='min-width: 800px')
-    q-card-section.card-section-style.q-pb-none
-      .row
-        .col
-          .km-heading-7 {{ m.dialog_createApiKey() }}
-        .col-auto
-          q-btn(icon='close', flat, dense, @click='onCancel')
-    q-card-section.card-section-style.q-mb-md
-      .column(v-if='step === 0')
-        km-notification-text.q-mb-lg(:notification='m.hint_createApiKey()')
-        .km-field.text-secondary-text.q-pl-8.q-mb-xs {{ m.common_name() }}
-        .full-width
-          km-input(data-test='name-input', :placeholder='m.apiKeys_myTestApiKey()', v-model='name', ref='nameRef')
-        .row.q-mt-lg
-          .col-auto
-            km-btn(data-test='cancel-btn', flat, :label='m.common_cancel()', color='primary', @click='onCancel')
-          .col
-          .col-auto.center-flex-y.q-mr-sm
-            q-spinner(v-if='loading', color='primary', size='20px')
-          .col-auto(data-test='create-btn', :data-disabled='loading || !name ? "true" : "false"')
-            km-btn(:label='m.dialog_createApiKey()', @click='create', :disable='loading || !name')
-      .column(v-if='step === 1')
-        km-notification-text.q-mb-lg(
-          :notification='m.hint_secretKeyOnce()'
-        )
-        .row.q-gap-8.no-wrap.items-center
-          .km-field.text-secondary-text.q-pl-8(style='white-space: nowrap') {{ name || 'Key' }}
-          .full-width
-            km-input(:placeholder='m.apiKeys_myTestApiKey()', v-model='key', ref='keyRef', readonly)
-          km-btn(:label='m.common_copy()', @click='copyKey', dense, flat, icon='fa fa-copy', iconSize='16px')
-        .row.q-mt-lg
-          q-space
-          .col-auto
-            km-btn(:label='m.common_done()', @click='onCancel')
+<template>
+  <km-dialog :model-value="showNewDialog" @cancel="onCancel" @hide="onCancel">
+    <km-card class="card-style" style="min-inline-size: 800px">
+      <div class="km-card-section card-section-style pb-0">
+        <div class="cluster">
+          <div class="flex-1">
+            <div class="km-heading-7">{{ m.dialog_createApiKey() }}</div>
+          </div>
+          <div class="flex-none">
+            <km-btn icon="close" flat dense @click="onCancel" />
+          </div>
+        </div>
+      </div>
+      <div class="km-card-section card-section-style mb-md">
+        <div v-if="step === 0" class="stack" data-gap="0">
+          <form @submit.prevent="create">
+            <km-notification-text class="mb-lg" :notification="m.hint_createApiKey()" />
+            <div class="km-field text-secondary-text pl-sm mb-xs">{{ m.common_name() }}</div>
+            <div class="full-width">
+              <km-input ref="nameRef" v-model="name" data-test="name-input" :placeholder="m.apiKeys_myTestApiKey()" autofocus />
+            </div>
+            <div class="cluster mt-lg">
+              <div class="flex-none">
+                <km-btn data-test="cancel-btn" flat :label="m.common_cancel()" tone="brand" @click="onCancel" />
+              </div>
+              <div class="km-space" />
+              <div class="flex-none center-flex-y mr-sm">
+                <km-loader v-if="loading" size="20px" />
+              </div>
+              <div class="flex-none" data-test="create-btn" :data-disabled="loading || !name ? &quot;true&quot; : &quot;false&quot;">
+                <km-btn :label="m.dialog_createApiKey()" :disable="loading || !name" @click="create" />
+              </div>
+            </div>
+          </form>
+        </div>
+        <div v-if="step === 1" class="stack" data-gap="0">
+          <km-notification-text class="mb-lg" :notification="m.hint_secretKeyOnce()" />
+          <div class="cluster" data-gap="sm" data-wrap="no">
+            <div class="km-field text-secondary-text pl-sm" style="white-space: nowrap">{{ name || 'Key' }}</div>
+            <div class="full-width">
+              <km-input ref="keyRef" v-model="key" :placeholder="m.apiKeys_myTestApiKey()" readonly />
+            </div>
+            <km-btn :label="m.common_copy()" dense flat icon="copy" icon-size="16px" @click="copyKey" />
+          </div>
+          <div class="cluster mt-lg">
+            <div class="km-space" />
+            <div class="flex-none">
+              <km-btn data-test="done-btn" :label="m.common_done()" @click="onCancel" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </km-card>
+  </km-dialog>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
 import { m } from '@/paraglide/messages'
 import { useEntityQueries } from '@/queries/entities'
-import { copyToClipboard } from 'quasar'
+import { copyToClipboard } from '@ds/utils/clipboard'
 import { notify } from '@shared/utils/notify'
 import { useSafeMutation } from '@/composables/useSafeMutation'
 
@@ -69,6 +87,7 @@ const title = computed(() => {
 })
 
 const create = async () => {
+  if (!name.value || loading.value) return
   loading.value = true
   const { success, data } = await createApiKey.run({ name: name.value })
   loading.value = false

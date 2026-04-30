@@ -1,46 +1,32 @@
-<template lang="pug">
-.column.full-height.full-width.no-wrap
-  //- Toolbar
-  .row.q-mb-12.items-center
-    .col-auto
-      km-input(
-        :placeholder='m.collections_searchChunks()',
-        iconBefore='search',
-        :model-value='searchText',
-        @input='onSearchInput',
-        @keydown.enter='applySearch',
-        clearable
-      )
-    .col
-    .col-auto
-      km-btn(:label='m.collections_deleteAllChunks()', :loading='deleteLoading', @click='showDeleteConfirm = true', flat, icon='fas fa-trash', iconSize='14px')
-
-  //- Table
-  .col(style='min-height: 0')
-    km-data-table(
-      :table='table',
-      :loading='isLoading',
-      fillHeight,
-      rowKey='id',
-      :activeRowId='selectedRow?.id',
-      @row-click='onRowClick'
-    )
-      template(#empty-state)
-        .column.flex-center.q-py-xl
-          km-icon(name='empty-collection', width='200', height='200')
-          .km-title.q-py-16.text-label {{ m.collectionItems_nothingInSourceYet() }}
-
-  //- Delete confirmation
-  km-popup-confirm(
-    :visible='showDeleteConfirm',
-    notificationIcon='fas fa-triangle-exclamation',
-    :confirmButtonLabel='m.collections_yesDeleteAll()',
-    :cancelButtonLabel='m.common_cancel()',
-    @confirm='confirmDelete',
-    @cancel='showDeleteConfirm = false'
-  )
-    .row.item-center.justify-center.km-heading-7.q-mb-md {{ m.collections_deleteChunksConfirmation() }}
-    .row.text-center.justify-center {{ m.collections_deleteAllChunksConfirm() }}
+<template>
+  <div class="stack full-height full-width" data-gap="0">
+    <div class="cluster mb-md">
+      <div class="flex-none">
+        <km-input :placeholder="m.collections_searchChunks()" icon-before="search" :model-value="searchText" clearable @input="onSearchInput" @keydown.enter="applySearch" />
+      </div>
+      <div class="flex-1" />
+      <div class="flex-none mr-md">
+        <km-btn icon="refresh" :label="m.common_refreshList()" :loading="isFetching" interaction-tone="brand" label-class="km-title" flat icon-size="16px" @click="onRefresh" />
+      </div>
+      <div class="flex-none">
+        <km-btn :label="m.collections_deleteAllChunks()" :loading="deleteLoading" flat icon="delete" icon-size="14px" @click="showDeleteConfirm = true" />
+      </div>
+    </div>
+    <div class="flex-1" style="min-block-size: 0">
+      <km-data-table :table="table" :loading="isLoading" fill-height row-key="id" :active-row-id="selectedRow?.id" @row-click="onRowClick">
+        <template #empty-state>
+          <div class="flex py-xl" style="flex-direction: column; justify-content: center; align-items: center">
+            <km-icon name="empty-collection" width="200" height="200" />
+            <div class="km-title py-lg text-label">{{ m.collectionItems_nothingInSourceYet() }}</div>
+          </div>
+        </template>
+      </km-data-table>
+    </div>
+    <km-popup-confirm :visible="showDeleteConfirm" notification-icon="warning" :confirm-button-label="m.collections_yesDeleteAll()" :cancel-button-label="m.common_cancel()" @confirm="confirmDelete" @cancel="showDeleteConfirm = false">
+      <div class="cluster km-heading-7 mb-md" data-justify="center">{{ m.collections_deleteChunksConfirmation() }}</div>
+      <div class="cluster text-center" data-justify="center">{{ m.collections_deleteAllChunksConfirm() }}</div>
+    </km-popup-confirm>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -87,7 +73,7 @@ const queryParams = computed(() => ({
 }))
 
 // TanStack Query — server-side paginated fetch
-const { data, isLoading } = useQuery({
+const { data, isLoading, isFetching } = useQuery({
   queryKey: computed(() => ['documents', 'list', queryParams.value]),
   queryFn: async () => {
     const { collectionId: cid, ...body } = queryParams.value
@@ -104,6 +90,11 @@ const { data, isLoading } = useQuery({
 const rows = computed(() => data.value?.items ?? [])
 const totalRows = computed(() => data.value?.total ?? 0)
 const pageCount = computed(() => Math.ceil(totalRows.value / pagination.value.pageSize))
+
+async function onRefresh() {
+  await queryClient.invalidateQueries({ queryKey: ['documents'] })
+  await queryClient.invalidateQueries({ queryKey: ['collections'] })
+}
 
 // Columns
 const columns: ColumnDef<Document, unknown>[] = [

@@ -4,7 +4,7 @@ import secrets
 from logging import getLogger
 
 from core.config.app import alchemy
-from core.domain.api_keys.schemas import APIKey, APIKeyCreate
+from core.domain.api_keys.schemas import APIKey, APIKeyCreate, APIKeyUpdate
 from core.domain.api_keys.service import APIKeysService
 
 from .types import (
@@ -12,6 +12,7 @@ from .types import (
     ApiKeyConfigPersisted,
     CreateApiKeyData,
     CreateApiKeyResult,
+    UpdateApiKeyData,
 )
 
 logger = getLogger(__name__)
@@ -123,6 +124,36 @@ async def create_api_key(
         created_api_key = await service.create(create_data, auto_commit=True)
         await refresh_api_keys_caches()
         return CreateApiKeyResult(id=str(created_api_key.id), api_key=api_key)
+
+
+async def get_api_key(id: str) -> ApiKeyConfigEntity:
+    """Get a single API key by id."""
+    async with alchemy.get_session() as session:
+        service = APIKeysService(session=session)
+        api_key_obj = await service.get_one_or_none(id=id)
+        if not api_key_obj:
+            raise ValueError("API key not found")
+        api_key_data = service.to_schema(api_key_obj, schema_type=APIKey).model_dump()
+        if "id" in api_key_data and api_key_data["id"] is not None:
+            api_key_data["id"] = str(api_key_data["id"])
+        api_key_data.pop("hash", None)
+        return ApiKeyConfigEntity(**api_key_data)
+
+
+async def update_api_key(id: str, data: UpdateApiKeyData) -> ApiKeyConfigEntity:
+    """Update an existing API key."""
+    async with alchemy.get_session() as session:
+        service = APIKeysService(session=session)
+
+        api_key_obj = await service.get_one_or_none(id=id)
+        if not api_key_obj:
+            raise ValueError("API key not found")
+
+        update_payload = APIKeyUpdate(**data.model_dump(exclude_unset=True))
+        await service.update(update_payload, item_id=id, auto_commit=True)
+        await refresh_api_keys_caches()
+
+    return await get_api_key(id)
 
 
 async def delete_api_key(id: str) -> None:

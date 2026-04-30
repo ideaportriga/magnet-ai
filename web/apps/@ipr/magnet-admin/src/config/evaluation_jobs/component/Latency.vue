@@ -1,6 +1,7 @@
-<template lang="pug">
-.km-small-chip(v-if='latency !== 0', :color='color', :text-color='textColor')
-  .km-field {{ label }}
+<template>
+  <div v-if="latency !== 0" class="km-small-chip">
+    <div class="km-field">{{ label }}</div>
+  </div>
 </template>
 
 <script>
@@ -21,15 +22,6 @@ export default defineComponent({
     },
     latency() {
       return this.row?.average_latency || 0
-    },
-    statusStyles() {
-      return { color: 'in-progress', textColor: 'text-gray' }
-    },
-    color() {
-      return this.statusStyles?.color || ''
-    },
-    textColor() {
-      return this.statusStyles?.textColor || ''
     },
   },
 })

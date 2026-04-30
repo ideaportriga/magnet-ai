@@ -4,7 +4,6 @@ import vue from '@vitejs/plugin-vue'
 import { nxViteTsPaths } from '@nx/vite/plugins/nx-tsconfig-paths.plugin'
 import { nxCopyAssetsPlugin } from '@nx/vite/plugins/nx-copy-assets.plugin'
 import vueDevTools from 'vite-plugin-vue-devtools'
-import { quasar, transformAssetUrls } from '@quasar/vite-plugin'
 import basicSsl from '@vitejs/plugin-basic-ssl'
 import path from 'path'
 import { paraglideVitePlugin } from '@inlang/paraglide-js'
@@ -19,15 +18,8 @@ export default defineConfig({
   },
   plugins: [
     basicSsl(),
-    vue({
-      template: {
-        transformAssetUrls,
-      },
-    }),
+    vue(),
     vueDevTools(),
-    quasar({
-      // sassVariables: '@/styles/quasar-variables.sass' // Simplified path
-    }),
     nxViteTsPaths(),
     nxCopyAssetsPlugin(['*.md']),
     paraglideVitePlugin({
@@ -51,7 +43,6 @@ export default defineConfig({
       output: {
         manualChunks: {
           vue: ['vue', 'vue-router', 'pinia'],
-          quasar: ['quasar', '@quasar/extras'],
           query: ['@tanstack/vue-query'],
         },
       },

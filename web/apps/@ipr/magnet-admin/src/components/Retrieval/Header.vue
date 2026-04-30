@@ -1,26 +1,31 @@
-<template lang="pug">
-.col-auto.q-py-auto
-  .km-body {{ activeRetrievalName }}
+<template>
+  <div class="flex-1 min-w-0 py-auto">
+    <KmBreadcrumbNav :items="crumbs" />
+  </div>
 </template>
 
 <script>
-import { m } from '@/paraglide/messages'
 import { computed } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
+import KmBreadcrumbNav from '@ds/components/domain/KmBreadcrumbNav.vue'
 
 export default {
+  components: { KmBreadcrumbNav },
   setup() {
     const queries = useEntityQueries()
     const { data: listData } = queries.retrieval.useList()
     const items = computed(() => listData.value?.items ?? [])
-    return { m, items }
+    return { items }
   },
   computed: {
     activeRetrievalId() {
       return this.$route.params.id
     },
     activeRetrievalName() {
-      return this.items.find((item) => item.id == this.activeRetrievalId)?.name
+      return this.items.find((item) => item.id == this.activeRetrievalId)?.name ?? ''
+    },
+    crumbs() {
+      return [{ label: this.activeRetrievalName }]
     },
   },
 }
