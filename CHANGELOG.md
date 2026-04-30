@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.18](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.17...v0.7.0-dev.18) (2026-04-30)
+
+### ✨ Features
+
+* **model:** add ability to configure what parameters are available ([e2946dc](https://github.com/ideaportriga/magnet-ai/commit/e2946dc48c68bec4366c0f3db5c27e96f23acc45))
+* **prompts:** improved UI for settings up model parameters ([31ae6bc](https://github.com/ideaportriga/magnet-ai/commit/31ae6bcb8603f92bdc6788b718110586667454fb))
+* **traces:** added raw request and reponse payloads for chat trace ([e0593fc](https://github.com/ideaportriga/magnet-ai/commit/e0593fc6dea4ebd016fee1827deaa7be16e072e6))
+
 ## [0.7.0-dev.17](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.16...v0.7.0-dev.17) (2026-04-29)
 
 ### ✨ Features
