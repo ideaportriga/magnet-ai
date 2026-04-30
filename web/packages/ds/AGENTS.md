@@ -224,6 +224,6 @@ These were real bugs found in the codebase. As of Phase 5 they are baseline-guar
 ## When in doubt
 
 - Read `packages/ds/README.md` (long-form contract).
-- Read `CUBE_CSS_RESEARCH.md` and `CUBE_CSS_ARCHITECTURE_ROADMAP.md` at repo root for rationale and current phase.
-- Read `REKA_CUBE_COMPONENT_VARIANTS_AUDIT.md` for the semantic prop vocabulary (`display`, `tone`, `variant`, `shape`, `size`).
+- Read `docs/CUBE_CSS_RESEARCH.md` and `docs/CUBE_CSS_ARCHITECTURE_ROADMAP.md` for rationale and current phase.
+- Read `docs/REKA_CUBE_COMPONENT_VARIANTS_AUDIT.md` for the semantic prop vocabulary (`display`, `tone`, `variant`, `shape`, `size`).
 - Pick the smallest layer that solves the problem. Composition over utility, utility over block CSS, block CSS over inline `style`.

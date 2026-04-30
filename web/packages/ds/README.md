@@ -224,7 +224,7 @@ at zero.
 
 ## Status
 
-See the repository-root `CUBE_CSS_RESEARCH.md` and
-`CUBE_CSS_ARCHITECTURE_ROADMAP.md` for the active CUBE/DS architecture work.
-`REKA_CUBE_UI_REFACTOR_PLAN.md` remains the broader Reka/Cube migration history,
-and `QUASAR_TO_REKA_MIGRATION_PLAN.md` remains the historical Quasar removal log.
+See `docs/CUBE_CSS_RESEARCH.md` and `docs/CUBE_CSS_ARCHITECTURE_ROADMAP.md` for
+the active CUBE/DS architecture work. `docs/REKA_CUBE_UI_REFACTOR_PLAN.md`
+remains the broader Reka/Cube migration history, and
+`docs/QUASAR_TO_REKA_MIGRATION_PLAN.md` remains the historical Quasar removal log.
