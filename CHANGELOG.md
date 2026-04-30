@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-alpha.19](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.18...v0.7.0-alpha.19) (2026-04-30)
+
+### 🐛 Bug Fixes
+
+* schema updates and minor ui fixes ([cc0dfed](https://github.com/ideaportriga/magnet-ai/commit/cc0dfed72b54aceb81bd18a5d3bb047399090a02))
+
 ## [0.7.0-alpha.18](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.17...v0.7.0-alpha.18) (2026-04-30)
 
 ### 🐛 Bug Fixes
