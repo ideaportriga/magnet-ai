@@ -190,8 +190,24 @@ function selectCurrent() {
   if (item) navigateTo(item)
 }
 
+/**
+ * Providers share a single backend table but split across two list / detail
+ * screens by `category`: `category === 'llm'` is shown in
+ * `/model-providers`, `category === 'knowledge'` in `/knowledge-providers`.
+ * Without this branch the search routes every provider to the model-providers
+ * screen — a knowledge-source provider would land on the right id but the
+ * wrong page (404 / blank, depending on whether the row passed the LLM-only
+ * `category` filter on that page).
+ */
+function resolveBase(item: CatalogItem): string | undefined {
+  if (item.entity_type === 'provider' && item.category === 'knowledge') {
+    return '/knowledge-providers'
+  }
+  return entityRouteMap[item.entity_type]
+}
+
 function navigateTo(item: CatalogItem) {
-  const base = entityRouteMap[item.entity_type]
+  const base = resolveBase(item)
   if (!base) return
   record({ id: item.id, entity_type: item.entity_type })
   router.push(`${base}/${item.id}`)

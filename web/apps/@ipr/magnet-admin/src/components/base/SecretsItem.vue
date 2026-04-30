@@ -51,7 +51,10 @@ const getSecretDisplayValue = (key, value) => {
   }
 }
 
-const editMode = ref(props.value.length || props.isNew)
+// `props.value` is declared `String, required: true` but Vue still passes
+// `null` through (only logs a warning). Coerce defensively so the component
+// can mount even when an old encrypted secret returns null/undefined.
+const editMode = ref(Boolean((props.value ?? '').length) || props.isNew)
 
 const cancelEditMode = () => {
   editMode.value = false

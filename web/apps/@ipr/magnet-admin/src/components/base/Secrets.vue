@@ -25,14 +25,20 @@ const props = defineProps({
 
 const emit = defineEmits(['update:secrets'])
 
+// `default: () => ({})` only kicks in for `undefined` — if the parent passes
+// `null` the prop stays `null`. Same for direct property mutation: writing to
+// `props.secrets[...]` only works if it's a real object and even then it
+// breaks the parent's reactivity. Coerce to `{}` and emit a fresh object on
+// every change.
+const safeSecrets = () => props.secrets ?? {}
+
 const deleteSecret = (key) => {
-  const secrets = props.secrets
-  delete secrets[key]
-  emit('update:secrets', secrets)
+  const next = { ...safeSecrets() }
+  delete next[key]
+  emit('update:secrets', next)
 }
 const updateSecret = (key, newKey, newValue) => {
-  const secrets = props.secrets
-  const entries = [...Object.entries(secrets)]
+  const entries = Object.entries(safeSecrets())
   const idx = entries.findIndex(([k]) => k === key)
 
   if (idx !== -1) {
@@ -41,13 +47,10 @@ const updateSecret = (key, newKey, newValue) => {
     entries.push([newKey, newValue]) // add new
   }
 
-  const newSecrets = Object.fromEntries(entries)
-  emit('update:secrets', newSecrets)
+  emit('update:secrets', Object.fromEntries(entries))
 }
 
 const addSecret = () => {
-  const object = props.secrets
-  object[''] = ''
-  emit('update:secrets', object)
+  emit('update:secrets', { ...safeSecrets(), '': '' })
 }
 </script>
