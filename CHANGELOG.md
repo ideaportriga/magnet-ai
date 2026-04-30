@@ -10,6 +10,21 @@ All notable changes to this project will be documented in this file.
 
 ### 🐛 Bug Fixes
 
+* clear agent preview ([b41f373](https://github.com/ideaportriga/magnet-ai/commit/b41f3733bf5390e2bacde205ecd77a5bc80062ba))
+* remove unactual docs ([dee2765](https://github.com/ideaportriga/magnet-ai/commit/dee2765cb0f635fb22fabf2d79aca485016b5c68))
+
+### 📚 Documentation
+
+* move CUBE/Reka migration md files into docs/ ([655a0eb](https://github.com/ideaportriga/magnet-ai/commit/655a0eb2db89cd8451de80ab05a6d3ad41938875))
+
+## [0.7.0-alpha.17](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.16...v0.7.0-alpha.17) (2026-04-30)
+
+### ✨ Features
+
+* migrate frontend to Reka UI + CUBE CSS, harden design system ([19efa4e](https://github.com/ideaportriga/magnet-ai/commit/19efa4e0e6a593e4f36350f583207c740788ca3c))
+
+### 🐛 Bug Fixes
+
 * remove unactual docs ([32203e8](https://github.com/ideaportriga/magnet-ai/commit/32203e8cf2dffe411d9dab0f548c294bf9b628d3))
 
 ### 📚 Documentation
