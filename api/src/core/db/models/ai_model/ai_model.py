@@ -92,6 +92,28 @@ class AIModel(UUIDAuditSimpleBase):
         Boolean, nullable=False, default=False, comment="Supports keyterms"
     )
 
+    supports_temperature: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default="true",
+        comment="Whether the model accepts the `temperature` parameter",
+    )
+    supports_top_p: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default="true",
+        comment="Whether the model accepts the `top_p` parameter",
+    )
+    supports_max_tokens: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default="true",
+        comment="Whether the model accepts the `max_tokens` parameter",
+    )
+
     # Type and default settings
     type: Mapped[str] = mapped_column(
         String(50), nullable=False, comment="Model type (e.g., prompts)", index=True

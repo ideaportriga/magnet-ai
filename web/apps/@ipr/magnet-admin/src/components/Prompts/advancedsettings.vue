@@ -20,10 +20,12 @@ div
               q-chip(color='primary-light', text-color='primary', size='sm', dense) {{ opt.provider_system_name }}
   q-separator.q-my-lg
   km-section(
+    v-if='showTemperature || showTopP',
     title='Parameters',
     subTitle='Temperature controls randomness of output. Top p controls diversity and unpredictability of output. Reasoning effort controls how much effort reasoning models spend on the answer. Use default values if you are not certain about these parameters.'
   )
     km-slider-card.q-mb-lg(
+      v-if='showTemperature',
       v-model='temperature',
       name='Temperature',
       :min='0',
@@ -35,7 +37,7 @@ div
       infoTooltip='Temperature controls randomness of output.'
     )
 
-  km-section
+  km-section(v-if='showTopP')
     km-slider-card(
       v-model='topP',
       name='Top P',
@@ -62,8 +64,8 @@ div
       clearable
     )
     .km-description.text-secondary-text.q-pt-xs.q-pl-8 Controls how much effort the reasoning model spends on the answer. Available values are configured per-model.
-  q-separator.q-my-lg
-  km-section(title='Output limit', subTitle='Limits generated output length. Leave blank if not necessary')
+  q-separator.q-my-lg(v-if='showMaxTokens')
+  km-section(v-if='showMaxTokens', title='Output limit', subTitle='Limits generated output length. Leave blank if not necessary')
     .km-field.text-secondary-text.q-pb-xs.q-pl-8 Max tokens
       div(style='max-width: 200px')
         km-input(type='number', height='30px', placeholder='Max tokens', v-model='maxTokens')
@@ -192,6 +194,15 @@ export default {
     showReasoningEffortSelector() {
       return !!this.selectedModel?.reasoning && this.reasoningEffortOptions.length > 0
     },
+    showTemperature() {
+      return this.selectedModel?.supports_temperature !== false
+    },
+    showTopP() {
+      return this.selectedModel?.supports_top_p !== false
+    },
+    showMaxTokens() {
+      return this.selectedModel?.supports_max_tokens !== false
+    },
     model: {
       get() {
         return this.model_name || ''
@@ -232,11 +243,22 @@ export default {
   },
   watch: {
     selectedModel() {
-      const current = this.$store.getters.promptTemplateVariant?.reasoning_effort
-      if (!current) return
-      const allowed = this.selectedModel?.reasoning_effort_options || []
-      if (!allowed.includes(current)) {
-        this.$store.commit('updateNestedPromptTemplateProperty', { path: 'reasoning_effort', value: null })
+      const variant = this.$store.getters.promptTemplateVariant
+      const current = variant?.reasoning_effort
+      if (current) {
+        const allowed = this.selectedModel?.reasoning_effort_options || []
+        if (!allowed.includes(current)) {
+          this.$store.commit('updateNestedPromptTemplateProperty', { path: 'reasoning_effort', value: null })
+        }
+      }
+      if (this.selectedModel?.supports_temperature === false && variant?.temperature != null) {
+        this.$store.commit('updateNestedPromptTemplateProperty', { path: 'temperature', value: null })
+      }
+      if (this.selectedModel?.supports_top_p === false && variant?.topP != null) {
+        this.$store.commit('updateNestedPromptTemplateProperty', { path: 'topP', value: null })
+      }
+      if (this.selectedModel?.supports_max_tokens === false && variant?.maxTokens != null) {
+        this.$store.commit('updateNestedPromptTemplateProperty', { path: 'maxTokens', value: null })
       }
     },
   },

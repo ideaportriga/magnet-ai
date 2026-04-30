@@ -61,6 +61,15 @@
               km-checkbox(label='Tool calling', :model-value='tool_calling', @update:model-value='tool_calling = $event')
               km-checkbox(label='Reasoning', :model-value='reasoning', @update:model-value='reasoning = $event')
 
+        q-card.km-capability-card(flat, bordered)
+          q-card-section
+            .km-title Parameters
+            .km-description.text-secondary-text.q-pb-12 Toggle which standard sampling parameters this model accepts. Disabled parameters are hidden from the prompt template editor and stripped from outgoing requests.
+            .column.q-gap-8
+              km-checkbox(label='Temperature', :model-value='supports_temperature', @update:model-value='supports_temperature = $event')
+              km-checkbox(label='Top P', :model-value='supports_top_p', @update:model-value='supports_top_p = $event')
+              km-checkbox(label='Max tokens', :model-value='supports_max_tokens', @update:model-value='supports_max_tokens = $event')
+
         q-card.km-capability-card(v-if='reasoning', flat, bordered)
           q-card-section
             .km-title Reasoning Effort Options
@@ -647,6 +656,30 @@ export default {
       },
       set(value) {
         this.$store.commit('modelConfig/updateEntityProperty', { key: 'reasoning', value })
+      },
+    },
+    supports_temperature: {
+      get() {
+        return this.modelConfig?.supports_temperature !== false
+      },
+      set(value) {
+        this.$store.commit('modelConfig/updateEntityProperty', { key: 'supports_temperature', value })
+      },
+    },
+    supports_top_p: {
+      get() {
+        return this.modelConfig?.supports_top_p !== false
+      },
+      set(value) {
+        this.$store.commit('modelConfig/updateEntityProperty', { key: 'supports_top_p', value })
+      },
+    },
+    supports_max_tokens: {
+      get() {
+        return this.modelConfig?.supports_max_tokens !== false
+      },
+      set(value) {
+        this.$store.commit('modelConfig/updateEntityProperty', { key: 'supports_max_tokens', value })
       },
     },
     reasoning_effort_options: {

@@ -332,19 +332,37 @@ class BaseLiteLLMProvider(AIProviderInterface):
         # Check if reasoning model (for reasoning_effort parameter)
         is_reasoning_model = model_config and model_config.get("reasoning")
 
+        # Per-model parameter flags configured in the Model card → Capabilities
+        # tab. Default to True so models without the flag set keep their old
+        # behavior. False means the parameter is stripped from the outgoing call
+        # even if the caller still has a stale value in their variant.
+        supports_temperature = (
+            model_config.get("supports_temperature", True) if model_config else True
+        )
+        supports_top_p = (
+            model_config.get("supports_top_p", True) if model_config else True
+        )
+        supports_max_tokens = (
+            model_config.get("supports_max_tokens", True) if model_config else True
+        )
+
         # Add optional parameters based on model support.
         # Reasoning models use reasoning_effort instead of temperature; if the
         # caller didn't pass one, omit the param and let the provider default.
         if is_reasoning_model:
             if reasoning_effort:
                 params["reasoning_effort"] = reasoning_effort
-        elif temperature is not None and "temperature" in supported_params:
+        elif (
+            temperature is not None
+            and "temperature" in supported_params
+            and supports_temperature
+        ):
             params["temperature"] = temperature
 
-        if top_p is not None and "top_p" in supported_params:
+        if top_p is not None and "top_p" in supported_params and supports_top_p:
             params["top_p"] = top_p
 
-        if max_tokens is not None:
+        if max_tokens is not None and supports_max_tokens:
             # Prefer max_completion_tokens for newer models that support it.
             # litellm reports both params as supported for most models, but newer
             # OpenAI models (o3-mini, o4-mini, gpt-5, etc.) reject max_tokens.

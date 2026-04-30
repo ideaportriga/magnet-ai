@@ -151,6 +151,16 @@ class AIModelFieldsMixin(BaseModel):
     )
     diarization: bool = Field(default=False, description="Supports speaker diarization")
     keyterms: bool = Field(default=False, description="Supports keyterms")
+    supports_temperature: bool = Field(
+        default=True,
+        description="Whether the model accepts the `temperature` parameter",
+    )
+    supports_top_p: bool = Field(
+        default=True, description="Whether the model accepts the `top_p` parameter"
+    )
+    supports_max_tokens: bool = Field(
+        default=True, description="Whether the model accepts the `max_tokens` parameter"
+    )
 
     # Type and default settings
     type: str = Field(..., description="Model type (e.g., prompts)")
@@ -255,6 +265,15 @@ class AIModelUpdateFieldsMixin(BaseModel):
     )
     keyterms: Optional[bool] = Field(None, description="Supports keyterms")
     reasoning: Optional[bool] = Field(None, description="Supports reasoning")
+    supports_temperature: Optional[bool] = Field(
+        None, description="Whether the model accepts the `temperature` parameter"
+    )
+    supports_top_p: Optional[bool] = Field(
+        None, description="Whether the model accepts the `top_p` parameter"
+    )
+    supports_max_tokens: Optional[bool] = Field(
+        None, description="Whether the model accepts the `max_tokens` parameter"
+    )
     reasoning_effort_options: Optional[list[str]] = Field(
         None,
         description=(
