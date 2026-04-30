@@ -451,6 +451,10 @@ export default {
         headers: { 'Content-Type': 'application/json' },
         signal: this.abortController.signal,
       })
+      // `fetchData` returns either a Response or `{ error }` on failure;
+      // surface the error through the caller's try/catch instead of crashing
+      // on `response.json()` for a plain object.
+      if (response?.error) throw response.error
       const result = await response.json()
       const { trace_id, ...completionResult } = result
 
@@ -486,6 +490,7 @@ export default {
           body: JSON.stringify(confirmPayload),
           headers: { 'Content-Type': 'application/json' },
         })
+        if (confirmResponse?.error) throw confirmResponse.error
         const confirmResult = await confirmResponse.json()
         const { trace_id, ...completionResult } = confirmResult
         this.traceId = trace_id
