@@ -420,10 +420,13 @@ export default {
         const updatedMessages = await this.processChat()
         this.allMessages = updatedMessages
       } catch (error) {
-        if (error?.technicalError?.name === 'AbortError') {
-
+        if (error?.name === 'AbortError' || error?.technicalError?.name === 'AbortError') {
+          // Aborted (e.g. user cleared the chat mid-request) — silent.
         } else {
-          throw ('Request failed:', error)
+          // Surface the actual backend error to the user instead of a silent
+          // re-throw that bubbled into Vue's global error handler as a
+          // confusing "response.json is not a function" trace.
+          notify.error(error?.message || 'Agent request failed')
         }
       } finally {
         this.processing = false
@@ -453,8 +456,11 @@ export default {
       })
       // `fetchData` returns either a Response or `{ error }` on failure;
       // surface the error through the caller's try/catch instead of crashing
-      // on `response.json()` for a plain object.
+      // on `response.json()` for a plain object. The extra `typeof` guard
+      // catches any other non-Response shape (e.g. an aborted request that
+      // resolved to `undefined`).
       if (response?.error) throw response.error
+      if (typeof response?.json !== 'function') throw new Error('Empty response from agent test endpoint')
       const result = await response.json()
       const { trace_id, ...completionResult } = result
 
@@ -491,6 +497,7 @@ export default {
           headers: { 'Content-Type': 'application/json' },
         })
         if (confirmResponse?.error) throw confirmResponse.error
+        if (typeof confirmResponse?.json !== 'function') throw new Error('Empty response from agent test endpoint')
         const confirmResult = await confirmResponse.json()
         const { trace_id, ...completionResult } = confirmResult
         this.traceId = trace_id
@@ -502,8 +509,19 @@ export default {
       }
     },
     clearChat() {
+      // Abort any in-flight /test request so it can't write back into the
+      // freshly-cleared state. Reset the trace id too — leaving it set
+      // ties the next request to a server-side context that no longer has
+      // any messages, which the backend rejects with
+      // `list index out of range`.
+      if (this.abortController) {
+        this.abortController.abort()
+        this.abortController = null
+      }
+      this.traceId = null
       this.allMessages = []
       this.reactions = {}
+      this.processing = false
     },
     async saveMessage(index) {
       this.allMessages[index].content = this.messageToEditContent
