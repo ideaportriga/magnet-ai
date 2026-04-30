@@ -54,17 +54,21 @@ def load_env() -> None:
     base_loaded = _load_file(PROJECT_ROOT / ".env", override=False)
 
     env_name = os.environ.get("ENV", "").strip()
+    env_name_lower = env_name.lower()
     override_loaded = False
     if env_name:
         override_loaded = _load_file(PROJECT_ROOT / f".env.{env_name}", override=True)
 
-    if not base_loaded and not override_loaded:
+    # Production injects config via container env vars, so the absence of an
+    # `.env` file is expected — don't emit a noisy warning. `_validate_required`
+    # below still fails fast if required vars aren't actually set.
+    if not base_loaded and not override_loaded and env_name_lower != "production":
         logger.warning(
             "No .env file found under project root",
             project_root=str(PROJECT_ROOT),
         )
 
-    _validate_required(env_name.lower())
+    _validate_required(env_name_lower)
 
 
 def _validate_required(env_name_lower: str) -> None:

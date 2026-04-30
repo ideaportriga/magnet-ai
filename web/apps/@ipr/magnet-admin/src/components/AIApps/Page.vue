@@ -13,8 +13,19 @@
         </div>
         <div class="flex-1 overflow-auto relative-position" style="min-block-size: 0">
           <km-inner-loading :showing="isLoading && rows.length === 0" />
+          <!-- Refetch indicator: shows during background fetches (search,
+               pagination, sort) when previous results are still on screen.
+               Without this the page looks frozen for the first second of
+               every server round-trip. Same pattern as Agents/Page.vue. -->
+          <ds-progress
+            v-if="isFetching && rows.length > 0"
+            :value="null"
+            tone="primary"
+            size="sm"
+            class="ai-apps-fetching-bar"
+          />
           <template v-if="rows.length">
-            <div class="agents-grid">
+            <div class="agents-grid" :data-fetching="isFetching || undefined">
               <button
                 v-for="row in rows"
                 :key="row.original.id ?? row.original.system_name"
@@ -66,8 +77,37 @@
           </template>
         </div>
         <km-separator />
-        <div class="cluster px-md py-sm text-grey" style="flex-shrink: 0">
-          <div class="km-description">{{ totalRows }} {{ m.common_records() }}</div>
+        <div class="cluster px-md py-sm text-grey" data-justify="between" style="flex-shrink: 0">
+          <span class="km-description">{{ totalRows }} {{ m.common_records() }}</span>
+
+          <span v-if="showPagination" class="cluster" data-gap="sm" data-align="center">
+            <span class="km-description">{{ m.common_rowsPerPage() }}</span>
+            <km-select
+              v-model="pageSize"
+              :options="pageSizeOptions"
+              option-label="label"
+              option-value="value"
+              emit-value
+              class="ai-apps-page-size"
+            />
+            <span class="km-description">
+              {{ table.getState().pagination.pageIndex + 1 }} / {{ table.getPageCount() || 1 }}
+            </span>
+            <km-btn
+              flat
+              icon="chevron_left"
+              icon-size="20px"
+              :disable="!table.getCanPreviousPage()"
+              @click="table.previousPage()"
+            />
+            <km-btn
+              flat
+              icon="chevron_right"
+              icon-size="20px"
+              :disable="!table.getCanNextPage()"
+              @click="table.nextPage()"
+            />
+          </span>
         </div>
       </div>
       <ai-apps-create-new v-if="showNewDialog" :show-new-dialog="showNewDialog" @cancel="showNewDialog = false" />
@@ -99,12 +139,23 @@ const columns = [
   dateColumn<AiApp>('updated_at', m.common_lastUpdated()),
 ]
 
-const { table, totalRows, isLoading, globalFilter } = useDataTable<AiApp>('ai_apps', columns, {
+const { table, totalRows, isLoading, isFetching, globalFilter } = useDataTable<AiApp>('ai_apps', columns, {
   defaultSort: [{ id: 'updated_at', desc: true }],
-  defaultPageSize: 50,
+  defaultPageSize: 20,
 })
 
 const rows = computed(() => table.getRowModel().rows)
+
+const pageSizeOptions = [
+  { label: '20', value: 20 },
+  { label: '50', value: 50 },
+  { label: '100', value: 100 },
+]
+const pageSize = computed({
+  get: () => table.getState().pagination.pageSize,
+  set: (val: number) => table.setPageSize(Number(val)),
+})
+const showPagination = computed(() => table.getPageCount() > 1)
 
 function tabCount(app: AiApp): number {
   return (app as { tabs?: unknown[] })?.tabs?.length ?? 0
@@ -118,3 +169,25 @@ function openDetails(app: AiApp) {
   router.push(`/ai-apps/${app.id}`)
 }
 </script>
+
+<style>
+.ai-apps-fetching-bar {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: 0;
+  block-size: 2px;
+  z-index: var(--ds-z-raised);
+  opacity: 0.7;
+}
+/* Subtle dimming + click-through-disable while a background fetch is in
+ * flight. Tells the user the cards they see are about to change without
+ * blocking the whole surface like a full-overlay loader does. */
+.agents-grid[data-fetching] {
+  opacity: 0.55;
+  pointer-events: none;
+  transition: opacity var(--ds-duration-fast) var(--ds-ease-out);
+}
+.ai-apps-page-size {
+  inline-size: 80px;
+}
+</style>
