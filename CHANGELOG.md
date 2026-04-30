@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-alpha.18](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.17...v0.7.0-alpha.18) (2026-04-30)
+
+### 🐛 Bug Fixes
+
+* agent preview ([08ec827](https://github.com/ideaportriga/magnet-ai/commit/08ec82721dd568b8f17eb368f9b41594e3abd18b))
+* clear agent preview ([b41f373](https://github.com/ideaportriga/magnet-ai/commit/b41f3733bf5390e2bacde205ecd77a5bc80062ba))
+
 ## [0.7.0-alpha.17](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.16...v0.7.0-alpha.17) (2026-04-30)
 
 ### ✨ Features
