@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-alpha.20](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.19...v0.7.0-alpha.20) (2026-04-30)
+
+### 🐛 Bug Fixes
+
+* ui fix for card lists ([e5ccc8f](https://github.com/ideaportriga/magnet-ai/commit/e5ccc8f8f80ba49bda3fcfb98803c7008d1f3c94))
+
 ## [0.7.0-alpha.19](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.18...v0.7.0-alpha.19) (2026-04-30)
 
 ### 🐛 Bug Fixes
