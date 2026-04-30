@@ -349,10 +349,10 @@ class BaseLiteLLMProvider(AIProviderInterface):
         # Add optional parameters based on model support.
         # Reasoning models use reasoning_effort instead of temperature; if the
         # caller didn't pass one, omit the param and let the provider default.
-        if is_reasoning_model:
-            if reasoning_effort:
-                params["reasoning_effort"] = reasoning_effort
-        elif (
+        if is_reasoning_model and reasoning_effort:
+            params["reasoning_effort"] = reasoning_effort
+
+        if (
             temperature is not None
             and "temperature" in supported_params
             and supports_temperature

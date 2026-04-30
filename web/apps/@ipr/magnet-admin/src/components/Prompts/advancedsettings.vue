@@ -18,11 +18,11 @@ div
             q-item-label.km-label {{ opt.display_name }}
             .row.q-mt-xs(v-if='opt.provider_system_name')
               q-chip(color='primary-light', text-color='primary', size='sm', dense) {{ opt.provider_system_name }}
-  q-separator.q-my-lg
+  q-separator.q-my-lg(v-if='showTemperature || showTopP || showReasoningEffortSelector || showMaxTokens')
   km-section(
-    v-if='showTemperature || showTopP',
+    v-if='showTemperature || showTopP || showReasoningEffortSelector || showMaxTokens',
     title='Parameters',
-    subTitle='Temperature controls randomness of output. Top p controls diversity and unpredictability of output. Reasoning effort controls how much effort reasoning models spend on the answer. Use default values if you are not certain about these parameters.'
+    subTitle='Control how the model generates output. Use default values if you are not certain about these parameters.'
   )
     km-slider-card.q-mb-lg(
       v-if='showTemperature',
@@ -33,12 +33,11 @@ div
       :defaultValue='1',
       minLabel='Less random',
       maxLabel='More random',
-      description='We generally recommend altering this or top p, but not both.',
+      description='Controls randomness of output. We generally recommend altering this or Top P, but not both.',
       infoTooltip='Temperature controls randomness of output.'
     )
-
-  km-section(v-if='showTopP')
-    km-slider-card(
+    km-slider-card.q-mb-lg(
+      v-if='showTopP',
       v-model='topP',
       name='Top P',
       :min='0',
@@ -46,30 +45,28 @@ div
       :defaultValue='1',
       minLabel='Less diverse',
       maxLabel='More diverse',
-      description='We generally recommend altering this or top p, but not both.',
-      infoTooltip='Top p controls diversity and unpredictability of output.'
+      description='Controls diversity of output. We generally recommend altering this or Temperature, but not both.',
+      infoTooltip='Top P controls diversity and unpredictability of output.'
     )
-  km-section(v-if='showReasoningEffortSelector')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-md Reasoning Effort
-    km-select(
-      height='auto',
-      minHeight='36px',
-      placeholder='Select reasoning effort',
-      v-model='reasoningEffort',
-      :options='reasoningEffortOptions',
-      optionLabel='label',
-      optionValue='value',
-      emit-value,
-      map-options,
-      clearable
-    )
-    .km-description.text-secondary-text.q-pt-xs.q-pl-8 Controls how much effort the reasoning model spends on the answer. Available values are configured per-model.
-  q-separator.q-my-lg(v-if='showMaxTokens')
-  km-section(v-if='showMaxTokens', title='Output limit', subTitle='Limits generated output length. Leave blank if not necessary')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 Max tokens
-      div(style='max-width: 200px')
-        km-input(type='number', height='30px', placeholder='Max tokens', v-model='maxTokens')
-      .km-description.text-secondary-text.q-pb-4 1 token = approx. 4 characters in English
+    .q-mb-lg(v-if='showReasoningEffortSelector')
+      .km-button-text.q-pb-xs Reasoning Effort
+      km-select(
+        height='auto',
+        minHeight='36px',
+        placeholder='Select reasoning effort',
+        v-model='reasoningEffort',
+        :options='reasoningEffortOptions',
+        optionLabel='label',
+        optionValue='value',
+        emit-value,
+        map-options,
+        clearable
+      )
+      .km-description.text-text-gray.q-mt-8 Controls how much effort the reasoning model spends on the answer. Available values are configured per-model.
+    .q-mb-sm(v-if='showMaxTokens')
+      .km-button-text.q-pb-xs Max Tokens
+      km-input(type='number', height='36px', placeholder='Leave blank for no limit', v-model='maxTokens')
+      .km-description.text-text-gray.q-mt-8 Limits the generated output length. 1 token ≈ 4 characters in English.
   q-separator.q-my-lg
   km-section(
     title='Observability',
