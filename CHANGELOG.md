@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-alpha.21](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.20...v0.7.0-alpha.21) (2026-05-05)
+
+### ✨ Features
+
+* **mcp:** implement initial version of embedded mcp server ([a61b150](https://github.com/ideaportriga/magnet-ai/commit/a61b150690d626ba5333377dd0ae83e71d7f0283))
+
 ## [0.7.0-alpha.20](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.19...v0.7.0-alpha.20) (2026-04-30)
 
 ### 🐛 Bug Fixes
