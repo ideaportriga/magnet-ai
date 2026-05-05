@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.19](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.18...v0.7.0-dev.19) (2026-05-05)
+
+### 🐛 Bug Fixes
+
+* **observability:** fixed export of the x-attrib headers, this field was ([ed5aef1](https://github.com/ideaportriga/magnet-ai/commit/ed5aef13dd76cf2aefed7dab5ad183aeb0aa2ebe))
+
 ## [0.7.0-dev.18](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.17...v0.7.0-dev.18) (2026-04-30)
 
 ### ✨ Features
