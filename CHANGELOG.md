@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-alpha.23](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.22...v0.7.0-alpha.23) (2026-05-05)
+
+### 🐛 Bug Fixes
+
+* observability screens (agents, llm calls,rag queries) ([71b195f](https://github.com/ideaportriga/magnet-ai/commit/71b195f82c77fb33c9d627ff9d29d40723e47ec7))
+
 ## [0.7.0-alpha.22](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.21...v0.7.0-alpha.22) (2026-05-05)
 
 ### ✨ Features
