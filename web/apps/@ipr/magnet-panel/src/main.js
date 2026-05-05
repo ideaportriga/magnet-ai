@@ -1,5 +1,19 @@
 import '../public-path.js'
 window.appPublicPath = window.SiebelApp?.S_App ? window.kmPanelPublicPath : ''
+
+// After a deploy, an open tab still has the old index.html in memory, which
+// references hashed chunks that no longer exist. Vite's dynamic `import()`
+// rejects with a preload error, Vue Router's lazy route load throws, and the
+// UI freezes mid-navigation. Reload to pick up the fresh manifest; the 30s
+// window prevents a tight reload loop if the deploy itself is broken.
+window.addEventListener('vite:preloadError', (event) => {
+  event.preventDefault()
+  const last = Number(sessionStorage.getItem('km:preloadErrorTs') || 0)
+  if (Date.now() - last < 30_000) return
+  sessionStorage.setItem('km:preloadErrorTs', String(Date.now()))
+  window.location.reload()
+})
+
 // Import Vue core modules
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'

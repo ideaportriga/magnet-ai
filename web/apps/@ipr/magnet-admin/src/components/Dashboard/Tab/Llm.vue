@@ -84,6 +84,8 @@ import { formatDuration } from '@shared/utils'
 import { formatDateTime } from '@shared/utils/dateTime'
 import llmDetailsControls from '@/config/dashboard/llm-details-table'
 import { useLocalDataTable } from '@/composables/useLocalDataTable'
+import { useCatalog } from '@/queries/catalog'
+import { toMongoFilter } from '@/utils/filterTransforms'
 
 export default {
   props: {
@@ -174,6 +176,8 @@ export default {
       defaultSort: [{ id: 'start_time', desc: true }],
     })
 
+    const { data: catalogData } = useCatalog()
+
     return {
       m,
       top,
@@ -181,6 +185,7 @@ export default {
       detailsLoading,
       topTable,
       detailsTable,
+      catalogData,
     }
   },
 
@@ -220,6 +225,9 @@ export default {
     endpoint() {
       return this.$appConfig.api.aiBridge.urlAdmin
     },
+    mongoFilters() {
+      return toMongoFilter(this.activeFilters ?? {}, this.listFilter ?? {})
+    },
     currentFilter: {
       get() {
         return this.tab === 'list' ? this.listFilter : this.summaryFilter
@@ -249,6 +257,16 @@ export default {
       deep: true,
       handler() {
         this.refresh()
+      },
+    },
+    catalogData: {
+      handler() {
+        // Catalog options for dropdowns are read synchronously via
+        // getCachedCatalog() inside the filter config getters. Reassign the
+        // refs so KmFilterBar receives a new prop reference and re-resolves
+        // its option lists once the catalog query has populated.
+        this.listFilter = { ...filter }
+        this.summaryFilter = { ...Object.fromEntries(Object.entries(filter)) }
       },
     },
   },
@@ -289,7 +307,7 @@ export default {
         credentials: 'include',
         service: 'observability/monitoring/llm/options',
         body: JSON.stringify({
-          filters: this.activeFilters,
+          filters: this.mongoFilters,
         }),
         headers: {
           'Content-Type': 'application/json',
@@ -307,7 +325,7 @@ export default {
         credentials: 'include',
         service: 'observability/monitoring/llm/top',
         body: JSON.stringify({
-          filters: this.activeFilters,
+          filters: this.mongoFilters,
         }),
         headers: {
           'Content-Type': 'application/json',
@@ -325,7 +343,7 @@ export default {
         limit: props.rowsPerPage,
         sort: props.sortBy,
         order: props.descending ? -1 : 1,
-        filters: this.activeFilters,
+        filters: this.mongoFilters,
         fields: [],
         // exclude_fields: ['input', 'output'],
         offset: (props.page - 1) * props.rowsPerPage,
@@ -359,7 +377,7 @@ export default {
         credentials: 'include',
         service: 'observability/monitoring/llm',
         body: JSON.stringify({
-          filters: this.activeFilters,
+          filters: this.mongoFilters,
         }),
         headers: {
           'Content-Type': 'application/json',

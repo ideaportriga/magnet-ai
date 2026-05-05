@@ -14,20 +14,37 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
 import { m } from '@/paraglide/messages'
 import { useRouter } from 'vue-router'
 import { useDataTable } from '@/composables/useDataTable'
-import { useDebouncedWatch } from '@/composables/useDebouncedWatch'
 import { textColumn, dateColumn, componentColumn } from '@/utils/columnHelpers'
 import StatusField from '@/config/observability/traces/components/StatusField.vue'
 import { traceFilters } from '@/config/observability/traces'
 import { getApiClient } from '@/api'
+import { useCatalog } from '@/queries/catalog'
+import { toSqlFilter, type FilterConf } from '@/utils/filterTransforms'
 import type { ObservabilityTrace } from '@/types'
 
 const router = useRouter()
 const filterObject = ref<Record<string, unknown>>({})
+const knowledgeGraphNames = ref<string[]>([])
 const filterConfig = ref(traceFilters())
+
+// `traceFilters()` reads catalog snapshots via getCachedCatalog() inside its
+// option getters — those reads are not reactive. Reassign filterConfig once
+// the catalog query resolves so KmFilterBar re-renders its dropdowns.
+const { data: catalogData } = useCatalog()
+watch(catalogData, () => {
+  filterConfig.value = traceFilters(knowledgeGraphNames.value)
+})
+
+// Backend `/traces` expects camelCase query params (`statusIn`, `nameIn`,
+// `startTimeAfter`, …); transform on the fly so `useDataTable.queryParams`
+// stays reactive to user filter edits.
+const sqlFilters = computed(() =>
+  toSqlFilter(filterObject.value ?? {}, filterConfig.value as Record<string, FilterConf>),
+)
 
 const columns = [
   textColumn<ObservabilityTrace>('type', m.common_type()),
@@ -50,17 +67,18 @@ const { table, isLoading, isFetching, refetch } = useDataTable<ObservabilityTrac
   manualPagination: true,
   manualSorting: true,
   manualFiltering: true,
-  extraParams: filterObject,
+  extraParams: sqlFilters,
 })
 
-// §C.3 — debounce to collapse multi-field filter edits into one refetch.
-useDebouncedWatch(filterObject, () => refetch(), 250)
+// useDataTable already reactively rebuilds query params from filterObject and
+// refetches automatically — no extra debounced watcher needed.
 
 onMounted(async () => {
   try {
     const client = getApiClient()
     const graphs = await client.get<Array<{ name?: string }>>('knowledge_graphs')
     const graphNames = [...new Set((graphs ?? []).map((g) => g.name).filter(Boolean))] as string[]
+    knowledgeGraphNames.value = graphNames
     filterConfig.value = traceFilters(graphNames)
   } catch {
     // ignore — filter will work without KG names

@@ -150,6 +150,8 @@ import { formatDuration } from '@shared/utils'
 import { formatDateTime } from '@shared/utils/dateTime'
 import { useLocalDataTable } from '@/composables/useLocalDataTable'
 import { textColumn, componentColumn } from '@/utils/columnHelpers'
+import { useCatalog } from '@/queries/catalog'
+import { toMongoFilter } from '@/utils/filterTransforms'
 
 const naTooltip = 'Data not available because post-processing was not enabled'
 
@@ -263,6 +265,8 @@ export default {
       defaultSort: [{ id: 'start_time', desc: true }],
     })
 
+    const { data: catalogData } = useCatalog()
+
     return {
       m,
       rags,
@@ -270,6 +274,7 @@ export default {
       loading,
       overviewTable,
       detailsTable,
+      catalogData,
     }
   },
 
@@ -339,6 +344,9 @@ export default {
     },
     endpoint() {
       return this.$appConfig.api.aiBridge.urlAdmin
+    },
+    mongoFilters() {
+      return toMongoFilter(this.activeFilters ?? {}, this.listFilter ?? {})
     },
     columns() {
       return Object.values(this.controls)
@@ -445,6 +453,16 @@ export default {
         this.refresh()
       },
     },
+    catalogData: {
+      handler() {
+        // Catalog options for dropdowns are read synchronously via
+        // getCachedCatalog() inside the filter config getters. Reassign the
+        // refs so KmFilterBar receives a new prop reference and re-resolves
+        // its option lists once the catalog query has populated.
+        this.listFilter = { ...filter }
+        this.summaryFilter = { ...Object.fromEntries(Object.entries(filter)) }
+      },
+    },
   },
   mounted() {},
   methods: {
@@ -502,7 +520,7 @@ export default {
         credentials: 'include',
         service: 'observability/monitoring/rag/options',
         body: JSON.stringify({
-          filters: this.activeFilters,
+          filters: this.mongoFilters,
         }),
         headers: {
           'Content-Type': 'application/json',
@@ -520,7 +538,7 @@ export default {
         credentials: 'include',
         service: 'observability/monitoring/rag/top',
         body: JSON.stringify({
-          filters: this.activeFilters,
+          filters: this.mongoFilters,
         }),
         headers: {
           'Content-Type': 'application/json',
@@ -536,7 +554,7 @@ export default {
         credentials: 'include',
         service: 'observability/monitoring/rag',
         body: JSON.stringify({
-          filters: this.activeFilters,
+          filters: this.mongoFilters,
         }),
         headers: {
           'Content-Type': 'application/json',
@@ -552,7 +570,7 @@ export default {
         limit: props.rowsPerPage,
         sort: props.sortBy,
         order: props.descending ? -1 : 1,
-        filters: this.activeFilters,
+        filters: this.mongoFilters,
         fields: [],
         exclude_fields: [],
         offset: (props.page - 1) * props.rowsPerPage,
@@ -589,7 +607,7 @@ export default {
         limit: 999999,
         sort: sortBy,
         order: descending ? -1 : 1,
-        filters: this.activeFilters,
+        filters: this.mongoFilters,
         fields: [],
         exclude_fields: [],
       }

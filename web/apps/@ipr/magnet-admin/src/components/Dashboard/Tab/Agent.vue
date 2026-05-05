@@ -177,6 +177,8 @@ import agentDetailsControls from '@/config/dashboard/agent-details-table'
 import { formatDuration } from '@shared/utils'
 import { formatDateTime } from '@shared/utils/dateTime'
 import { useLocalDataTable } from '@/composables/useLocalDataTable'
+import { useCatalog } from '@/queries/catalog'
+import { toMongoFilter } from '@/utils/filterTransforms'
 
 const naTooltip = 'Data not available because post-processing was not done for this conversation yet'
 
@@ -261,6 +263,8 @@ export default {
       defaultSort: [{ id: 'start_time', desc: true }],
     })
 
+    const { data: catalogData } = useCatalog()
+
     return {
       m,
       rags,
@@ -268,6 +272,7 @@ export default {
       detailsLoading,
       overviewTable,
       detailsTable,
+      catalogData,
     }
   },
 
@@ -339,6 +344,9 @@ export default {
     },
     endpoint() {
       return this.$appConfig.api.aiBridge.urlAdmin
+    },
+    mongoFilters() {
+      return toMongoFilter(this.activeFilters ?? {}, this.listFilter ?? {})
     },
     columns() {
       return Object.values(this.controls)
@@ -461,6 +469,16 @@ export default {
         this.getOptions()
       },
     },
+    catalogData: {
+      handler() {
+        // Catalog options for dropdowns are read synchronously via
+        // getCachedCatalog() inside the filter config getters. Reassign the
+        // refs so KmFilterBar receives a new prop reference and re-resolves
+        // its option lists once the catalog query has populated.
+        this.listFilter = { ...filter }
+        this.summaryFilter = { ...Object.fromEntries(Object.entries(filter)) }
+      },
+    },
   },
   methods: {
     goToPage(page) {
@@ -570,7 +588,7 @@ export default {
         credentials: 'include',
         service: 'observability/monitoring/agent/top',
         body: JSON.stringify({
-          filters: this.activeFilters,
+          filters: this.mongoFilters,
         }),
         headers: {
           'Content-Type': 'application/json',
@@ -586,7 +604,7 @@ export default {
         credentials: 'include',
         service: 'observability/monitoring/agent',
         body: JSON.stringify({
-          filters: this.activeFilters,
+          filters: this.mongoFilters,
         }),
         headers: {
           'Content-Type': 'application/json',
@@ -601,7 +619,7 @@ export default {
         limit: props.rowsPerPage,
         sort: props.sortBy,
         order: props.descending ? -1 : 1,
-        filters: this.activeFilters,
+        filters: this.mongoFilters,
         fields: [],
         exclude_fields: [],
         offset: (props.page - 1) * props.rowsPerPage,
@@ -634,7 +652,7 @@ export default {
         limit: 999999,
         sort: sortBy,
         order: descending ? -1 : 1,
-        filters: this.activeFilters,
+        filters: this.mongoFilters,
         fields: [],
         exclude_fields: [],
       }
@@ -670,7 +688,7 @@ export default {
         credentials: 'include',
         service: 'observability/monitoring/agent/options',
         body: JSON.stringify({
-          filters: this.activeFilters,
+          filters: this.mongoFilters,
         }),
         headers: {
           'Content-Type': 'application/json',
