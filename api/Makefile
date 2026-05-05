@@ -5,12 +5,14 @@
 
 .PHONY: run help docker-up docker-down docker-restart docker-logs docker-status docker-clean db-init db-migrate db-upgrade db-downgrade db-current db-history db-stamp db-merge db-reset db-create db-drop db-status db-docker-status fixtures-load fixtures-list fixtures-load-entity migration-check migration-dry-run migration-run migration-collection migration-collection-dry download-static bootstrap-superuser setup-fresh
 
-# PostgreSQL connection parameters from .env
-POSTGRES_HOST := $(or $(shell grep '^DATABASE_URL=' .env 2>/dev/null | sed -n 's|.*@\([^:]*\):.*|\1|p'),localhost)
-POSTGRES_PORT := $(or $(shell grep '^DATABASE_URL=' .env 2>/dev/null | sed -n 's|.*:\([0-9]*\)/.*|\1|p'),5432)
-POSTGRES_USER := $(or $(shell grep '^DATABASE_URL=' .env 2>/dev/null | sed -n 's|.*://\([^:]*\):.*|\1|p'),postgres)
-POSTGRES_PASSWORD := $(or $(shell grep '^DATABASE_URL=' .env 2>/dev/null | sed -n 's|.*://[^:]*:\([^@]*\)@.*|\1|p'),password)
-POSTGRES_DB := $(or $(shell grep '^DATABASE_URL=' .env 2>/dev/null | sed -n 's|.*/\([^?]*\).*|\1|p'),magnet_dev)
+# PostgreSQL connection parameters from project-root .env (same file the app loads
+# via api/src/config/config.py — api/.env is intentionally NOT consulted).
+ENV_FILE := ../.env
+POSTGRES_HOST := $(or $(shell grep '^DATABASE_URL=' $(ENV_FILE) 2>/dev/null | sed -n 's|.*@\([^:]*\):.*|\1|p'),localhost)
+POSTGRES_PORT := $(or $(shell grep '^DATABASE_URL=' $(ENV_FILE) 2>/dev/null | sed -n 's|.*:\([0-9]*\)/.*|\1|p'),5432)
+POSTGRES_USER := $(or $(shell grep '^DATABASE_URL=' $(ENV_FILE) 2>/dev/null | sed -n 's|.*://\([^:]*\):.*|\1|p'),postgres)
+POSTGRES_PASSWORD := $(or $(shell grep '^DATABASE_URL=' $(ENV_FILE) 2>/dev/null | sed -n 's|.*://[^:]*:\([^@]*\)@.*|\1|p'),password)
+POSTGRES_DB := $(or $(shell grep '^DATABASE_URL=' $(ENV_FILE) 2>/dev/null | sed -n 's|.*/\([^?]*\).*|\1|p'),magnet_dev)
 
 # Docker container name for PostgreSQL (adjust if needed)
 POSTGRES_CONTAINER := $(or $(shell docker ps --format "table {{.Names}}" | grep -i postgres | head -1),magnet_postgres)

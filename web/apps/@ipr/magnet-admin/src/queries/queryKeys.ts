@@ -31,6 +31,7 @@ export const entityKeys = {
   assistant_tools: createEntityKeys('assistant_tools'),
   jobs: createEntityKeys('jobs'),
   mcp_servers: createEntityKeys('mcp_servers'),
+  oauth_clients: createEntityKeys('oauth_clients'),
   api_keys: createEntityKeys('api_keys'),
   api_servers: createEntityKeys('api_servers'),
   observability_traces: createEntityKeys('observability_traces'),

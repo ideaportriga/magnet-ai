@@ -1,0 +1,13 @@
+[
+    {
+        "system_name": "claude",
+        "name": "Claude",
+        "is_public": true,
+        "client_secret_encrypted": null,
+        "redirect_uris": [
+            "https://claude.ai/api/mcp/auth_callback"
+        ],
+        "enabled": true,
+        "created_via": "admin"
+    }
+]

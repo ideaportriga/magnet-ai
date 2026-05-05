@@ -31,6 +31,7 @@ from core.server.plugin_registry import (  # noqa: E402
 from routes import get_route_handlers  # noqa: E402
 from core.config.base import (  # noqa: E402
     get_auth_settings,
+    get_mcp_settings,
     get_vector_database_settings,
     get_general_settings,
     get_log_settings,
@@ -46,17 +47,38 @@ auth_settings = get_auth_settings()
 db_connection_settings = get_vector_database_settings()
 general_settings = get_general_settings()
 log_settings = get_log_settings()
+mcp_settings = get_mcp_settings()
 
 AUTH_ENABLED = auth_settings.AUTH_ENABLED
 VECTOR_DB_TYPE = db_connection_settings.VECTOR_DB_TYPE
 DEBUG_MODE = log_settings.DEBUG_MODE
+MCP_ENABLED = mcp_settings.MCP_ENABLED
 
 
 def create_app() -> Litestar:
     """Create the Litestar application with plugins."""
-    route_handlers = get_route_handlers(
-        auth_enabled=AUTH_ENABLED, web_included=WEB_INCLUDED
+    route_handlers = list(
+        get_route_handlers(auth_enabled=AUTH_ENABLED, web_included=WEB_INCLUDED)
     )
+
+    lifespan_managers: list = []
+
+    # When MCP_ENABLED, register the OAuth + Streamable-HTTP routes plus the
+    # FastMCP session-manager lifespan. Conditional so dev environments without
+    # MCP_ISSUER_URL/MCP_AUDIENCE configured keep working unchanged.
+    if MCP_ENABLED:
+        from mcp_server.asgi_mount import (  # noqa: E402  (deferred to avoid import cost when disabled)
+            get_mcp_route_handlers,
+            mcp_lifespan,
+        )
+
+        route_handlers.extend(get_mcp_route_handlers())
+        lifespan_managers.append(mcp_lifespan)
+        logger.info(
+            "MCP server enabled — issuer=%s audience=%s",
+            mcp_settings.MCP_ISSUER_URL,
+            mcp_settings.MCP_AUDIENCE,
+        )
 
     # Create the application with all plugins
     max_upload_mb = int(os.environ.get("MAX_UPLOAD_FILE_SIZE_MB", "50"))
@@ -65,6 +87,7 @@ def create_app() -> Litestar:
         route_handlers=route_handlers,
         debug=DEBUG_MODE,
         request_max_body_size=max_upload_mb * 1024 * 1024,
+        lifespan=lifespan_managers if lifespan_managers else None,
         plugins=[
             # Core plugins
             alchemy,

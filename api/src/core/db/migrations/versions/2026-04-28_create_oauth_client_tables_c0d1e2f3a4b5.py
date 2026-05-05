@@ -143,33 +143,6 @@ def schema_upgrades() -> None:
         'Audience (aud claim) carried by access tokens this family issues. NULL = web cookie.'
     """)
 
-    # 4. Seed one row for Claude so a fresh deploy can connect without admin clicks.
-    #    is_public=TRUE, no client_secret. Redirect URIs include both claude.ai and
-    #    claude.com hosts (Anthropic uses both depending on entry point).
-    #    NB: gen_random_uuid() requires pgcrypto which is already installed in the
-    #    Magnet schema for UUIDv7 generation in advanced-alchemy.
-    op.execute("""
-        INSERT INTO oauth_client (
-            id, client_id, name, is_public, redirect_uris, enabled, created_via,
-            created_at, updated_at
-        )
-        VALUES (
-            gen_random_uuid(),
-            'claude',
-            'Claude (Anthropic)',
-            TRUE,
-            ARRAY[
-                'https://claude.ai/api/mcp/auth_callback',
-                'https://claude.com/api/mcp/auth_callback'
-            ],
-            TRUE,
-            'admin',
-            NOW(),
-            NOW()
-        )
-        ON CONFLICT (client_id) DO NOTHING
-    """)
-
 
 def schema_downgrades() -> None:
     # 4. Drop seeded row implicitly via DROP TABLE below.

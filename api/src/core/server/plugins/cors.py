@@ -73,6 +73,16 @@ class CORSPlugin(InitPluginProtocol):
                     "x-api-key",
                     "x-user-id",
                     "x-request-id",
+                    # MCP Streamable HTTP transport headers — sent by browser-
+                    # based MCP clients (e.g. MCP Inspector at :6274).
+                    "mcp-session-id",
+                    "mcp-protocol-version",
+                    "last-event-id",
+                ],
+                expose_headers=[
+                    # The MCP server returns Mcp-Session-Id on the initialize
+                    # response; clients have to read it to continue the session.
+                    "mcp-session-id",
                 ],
             )
             app_config.cors_config = cors_config

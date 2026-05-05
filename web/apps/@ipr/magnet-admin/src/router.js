@@ -424,6 +424,23 @@ const routes = [
     },
   },
   {
+    path: '/oauth-clients',
+    name: 'OAuthClients',
+    component: () => import('@/components/OAuthClients/Page.vue'),
+    meta: {
+      pageLabel: () => 'OAuth Clients (MCP)',
+    },
+  },
+  {
+    path: '/oauth-clients/:id',
+    name: 'OAuthClientsDetail',
+    component: () => import('@/components/OAuthClients/Details.vue'),
+    meta: {
+      pageLabel: () => 'OAuth Client',
+      entity: 'oauth_clients',
+    },
+  },
+  {
     path: '/api-keys',
     name: 'ApiKeys',
     component: () => import('@/components/ApiKeys/Page.vue'),

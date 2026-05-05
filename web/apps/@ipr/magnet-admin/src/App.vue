@@ -190,6 +190,14 @@ export default {
       if (this.hasAdminAccess) {
         await this.loadData()
       }
+      // Honor ?return_to=… set by the MCP OAuth bridge (or any other
+      // backend redirect to the login page). Only same-origin relative
+      // paths are allowed — refuse absolute URLs to avoid open-redirect.
+      const params = new URLSearchParams(window.location.search)
+      const returnTo = params.get('return_to')
+      if (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')) {
+        window.location.href = returnTo
+      }
     },
   },
 }

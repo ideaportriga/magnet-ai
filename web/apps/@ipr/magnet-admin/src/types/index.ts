@@ -15,6 +15,7 @@ export type {
 
   Job,
   McpServer,
+  OAuthClient,
   ApiKey,
   ApiServer,
   ObservabilityTrace,
