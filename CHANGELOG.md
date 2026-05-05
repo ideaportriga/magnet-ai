@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-alpha.22](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.21...v0.7.0-alpha.22) (2026-05-05)
+
+### ✨ Features
+
+* **mcp:** fix DNS rebinding issue ([55538b1](https://github.com/ideaportriga/magnet-ai/commit/55538b1443471738fb039c0561ab451fd1ccfc26))
+
 ## [0.7.0-alpha.21](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.20...v0.7.0-alpha.21) (2026-05-05)
 
 ### ✨ Features
