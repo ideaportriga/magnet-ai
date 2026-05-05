@@ -63,15 +63,14 @@ def get_fastmcp() -> FastMCP:
 
     fastmcp = FastMCP(
         name="magnet",
-        instructions=(
-            "Magnet MCP server — exposes selected Magnet APIs (currently: "
-            "prompt-template lookup) to MCP-aware clients."
-        ),
+        instructions=("Magnet MCP server"),
         auth_server_provider=auth_provider,
-        # Override only what we care about. host/port don't matter because the
-        # ASGI app is mounted onto the existing Litestar process.
         auth=mcp_auth,
         stateless_http=True,
+        # host="0.0.0.0" tells FastMCP this isn't a localhost-only server,
+        # so it skips auto-enabling the DNS rebinding protection that would
+        # restrict Host headers to 127.0.0.1/localhost only.
+        host="0.0.0.0",
     )
 
     # Register tools.
