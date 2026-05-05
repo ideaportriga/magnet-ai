@@ -76,6 +76,25 @@
           </kg-warning-banner>
         </template>
       </kg-dialog-section>
+
+      <kg-dialog-section
+        title="Extraction Iterations"
+        description="Run multiple verification passes per segment to surface entities the first pass may have missed."
+        icon="repeat"
+      >
+        <kg-field-row
+          label="Max extraction iterations"
+          hint="Number of extraction passes per segment (1 = single pass, 3 = initial pass + 2 verification passes)."
+        >
+          <km-input
+            v-model.number="maxExtractionIterations"
+            type="number"
+            :min="MIN_ENTITY_EXTRACTION_MAX_ITERATIONS"
+            :max="MAX_ENTITY_EXTRACTION_MAX_ITERATIONS"
+            height="36px"
+          />
+        </kg-field-row>
+      </kg-dialog-section>
     </div>
   </kg-dialog-base>
 </template>
@@ -85,6 +104,8 @@ import { ref, watch } from 'vue'
 import { KgDialogBase, KgDialogSection, KgDropdownField, KgFieldRow, KgTileSelect, KgWarningBanner, type TileOption } from '../common'
 import {
   createDefaultEntityExtractionRunSettings,
+  MAX_ENTITY_EXTRACTION_MAX_ITERATIONS,
+  MIN_ENTITY_EXTRACTION_MAX_ITERATIONS,
   type EntityExtractionApproach,
   type EntityExtractionRunSettings,
 } from './models'
@@ -120,6 +141,7 @@ const approach = ref<EntityExtractionApproach>(defaults.approach)
 const promptTemplateSystemName = ref(defaults.prompt_template_system_name)
 const segmentSize = ref(defaults.segment_size)
 const segmentOverlap = ref(defaults.segment_overlap)
+const maxExtractionIterations = ref(defaults.max_extraction_iterations)
 const loading = ref(false)
 
 watch(
@@ -130,11 +152,13 @@ watch(
       promptTemplateSystemName.value = props.settings.prompt_template_system_name || defaults.prompt_template_system_name
       segmentSize.value = props.settings.segment_size || defaults.segment_size
       segmentOverlap.value = props.settings.segment_overlap ?? defaults.segment_overlap
+      maxExtractionIterations.value = props.settings.max_extraction_iterations ?? defaults.max_extraction_iterations
     } else if (props.showDialog) {
       approach.value = defaults.approach
       promptTemplateSystemName.value = defaults.prompt_template_system_name
       segmentSize.value = defaults.segment_size
       segmentOverlap.value = defaults.segment_overlap
+      maxExtractionIterations.value = defaults.max_extraction_iterations
     }
   },
   { immediate: true }
@@ -146,6 +170,7 @@ function onConfirm() {
     prompt_template_system_name: promptTemplateSystemName.value.trim(),
     segment_size: segmentSize.value,
     segment_overlap: segmentOverlap.value,
+    max_extraction_iterations: maxExtractionIterations.value,
   })
 }
 </script>

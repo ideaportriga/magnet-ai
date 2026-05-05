@@ -4,6 +4,9 @@ export type EntityExtractionApproach = 'document' | 'chunks'
 export const DEFAULT_ENTITY_EXTRACTION_PROMPT_TEMPLATE_SYSTEM_NAME = 'KG_ENTITY_EXTRACTION'
 export const DEFAULT_ENTITY_EXTRACTION_SEGMENT_SIZE = 18000
 export const DEFAULT_ENTITY_EXTRACTION_SEGMENT_OVERLAP = 0.1
+export const DEFAULT_ENTITY_EXTRACTION_MAX_ITERATIONS = 3
+export const MIN_ENTITY_EXTRACTION_MAX_ITERATIONS = 1
+export const MAX_ENTITY_EXTRACTION_MAX_ITERATIONS = 10
 
 export const ColumnTypeOptions = [
   { label: 'Text', value: 'string', icon: 'text_fields' },
@@ -34,6 +37,7 @@ export interface EntityExtractionRunSettings {
   prompt_template_system_name: string
   segment_size: number
   segment_overlap: number
+  max_extraction_iterations: number
 }
 
 export interface EntityExtractionSettings {
@@ -67,6 +71,15 @@ function normalizeSegmentOverlap(value: unknown): number {
   return Number.isFinite(normalizedValue) ? Math.min(Math.max(normalizedValue, 0), 0.9) : DEFAULT_ENTITY_EXTRACTION_SEGMENT_OVERLAP
 }
 
+function normalizeMaxExtractionIterations(value: unknown): number {
+  const normalizedValue = Number(value)
+  if (!Number.isFinite(normalizedValue)) {
+    return DEFAULT_ENTITY_EXTRACTION_MAX_ITERATIONS
+  }
+  const integer = Math.trunc(normalizedValue)
+  return Math.min(Math.max(integer, MIN_ENTITY_EXTRACTION_MAX_ITERATIONS), MAX_ENTITY_EXTRACTION_MAX_ITERATIONS)
+}
+
 function getEntityExtractionRaw(settings?: Record<string, unknown>): Record<string, unknown> | undefined {
   const entityExtractionRaw = settings?.[ENTITY_EXTRACTION_SETTINGS_KEY]
   return entityExtractionRaw && typeof entityExtractionRaw === 'object' ? (entityExtractionRaw as Record<string, unknown>) : undefined
@@ -78,6 +91,7 @@ export function createDefaultEntityExtractionRunSettings(): EntityExtractionRunS
     prompt_template_system_name: DEFAULT_ENTITY_EXTRACTION_PROMPT_TEMPLATE_SYSTEM_NAME,
     segment_size: DEFAULT_ENTITY_EXTRACTION_SEGMENT_SIZE,
     segment_overlap: DEFAULT_ENTITY_EXTRACTION_SEGMENT_OVERLAP,
+    max_extraction_iterations: DEFAULT_ENTITY_EXTRACTION_MAX_ITERATIONS,
   }
 }
 
@@ -103,6 +117,7 @@ export function cloneEntityExtractionRunSettings(settings?: EntityExtractionRunS
     prompt_template_system_name: String(settings?.prompt_template_system_name ?? defaults.prompt_template_system_name).trim(),
     segment_size: normalizeSegmentSize(settings?.segment_size ?? defaults.segment_size),
     segment_overlap: normalizeSegmentOverlap(settings?.segment_overlap ?? defaults.segment_overlap),
+    max_extraction_iterations: normalizeMaxExtractionIterations(settings?.max_extraction_iterations ?? defaults.max_extraction_iterations),
   }
 }
 
@@ -162,6 +177,7 @@ export function getEntityExtractionRunSettingsFromSettings(settings?: Record<str
         : defaults.prompt_template_system_name,
     segment_size: normalizeSegmentSize(extraction?.segment_size),
     segment_overlap: normalizeSegmentOverlap(extraction?.segment_overlap),
+    max_extraction_iterations: normalizeMaxExtractionIterations(extraction?.max_extraction_iterations),
   })
 }
 
@@ -199,6 +215,7 @@ export function withEntityExtractionRunSettings(
       prompt_template_system_name: String(extractionSettings.prompt_template_system_name || '').trim() || undefined,
       segment_size: normalizeSegmentSize(extractionSettings.segment_size),
       segment_overlap: normalizeSegmentOverlap(extractionSettings.segment_overlap),
+      max_extraction_iterations: normalizeMaxExtractionIterations(extractionSettings.max_extraction_iterations),
     },
   }
 

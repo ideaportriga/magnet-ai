@@ -567,6 +567,7 @@ async function runExtraction() {
       prompt_template_system_name: String(extractionSettings.value.prompt_template_system_name || '').trim(),
       segment_size: extractionSettings.value.segment_size,
       segment_overlap: extractionSettings.value.segment_overlap,
+      max_extraction_iterations: extractionSettings.value.max_extraction_iterations,
     }
 
     const response = await fetchData({
