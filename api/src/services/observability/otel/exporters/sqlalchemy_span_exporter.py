@@ -403,8 +403,8 @@ class SqlAlchemySpanExporter(SpanExporter):
             }
             for key, value in (extra_data or {}).items():
                 full_extra_data[key] = value
-            for key, value in (global_fields.x_attributes.value or {}).items():
-                full_extra_data[f"x_attributes.{key}"] = value
+
+            x_attributes = dict(global_fields.x_attributes.value or {}) or None
 
             # Calculate min start_time and max end_time
             current_start = analytics.get("start_time")
@@ -439,6 +439,7 @@ class SqlAlchemySpanExporter(SpanExporter):
                     "conversation_id": conversation.id.value,
                     "conversation_data": conversation_data,
                     "extra_data": full_extra_data,
+                    "x_attributes": x_attributes,
                 }
             )
             if cost_details:

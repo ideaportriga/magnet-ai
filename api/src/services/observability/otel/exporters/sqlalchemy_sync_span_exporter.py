@@ -381,8 +381,11 @@ class SqlAlchemySyncSpanExporter(SpanExporter):
             )
             for key, value in (extra_data or {}).items():
                 full_extra_data[key] = _serialize_for_json(value)
-            for key, value in (global_fields.x_attributes.value or {}).items():
-                full_extra_data[f"x_attributes.{key}"] = _serialize_for_json(value)
+
+            x_attributes = (
+                _serialize_for_json(dict(global_fields.x_attributes.value or {}))
+                or None
+            )
 
             analytics.update(
                 {
@@ -404,6 +407,7 @@ class SqlAlchemySyncSpanExporter(SpanExporter):
                     "conversation_id": conversation.id.value,
                     "conversation_data": conversation_data,
                     "extra_data": full_extra_data,
+                    "x_attributes": x_attributes,
                 }
             )
             if cost_details:
