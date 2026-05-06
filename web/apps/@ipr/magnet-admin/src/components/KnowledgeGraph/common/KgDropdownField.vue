@@ -61,16 +61,6 @@
             <span class="styled-select__option-name">{{ opt[optionLabel] }}</span>
           </div>
         </q-item-section>
-        <q-item-section side class="styled-select__side">
-          <div
-            :class="[
-              'styled-select__check-wrapper',
-              { 'styled-select__check-wrapper--dense': dense, 'styled-select__check-wrapper--visible': selected },
-            ]"
-          >
-            <q-icon name="check" color="white" :size="dense ? '10px' : '12px'" />
-          </div>
-        </q-item-section>
       </q-item>
       <!-- Regular option -->
       <q-item v-else v-bind="itemProps" :class="optionClasses(selected)">
@@ -80,16 +70,6 @@
             <span v-if="getOptionMeta(opt)" class="styled-select__option-meta">{{ getOptionMeta(opt) }}</span>
           </div>
           <div v-if="getOptionDescription(opt)" class="styled-select__option-description">{{ getOptionDescription(opt) }}</div>
-        </q-item-section>
-        <q-item-section side class="styled-select__side">
-          <div
-            :class="[
-              'styled-select__check-wrapper',
-              { 'styled-select__check-wrapper--dense': dense, 'styled-select__check-wrapper--visible': selected },
-            ]"
-          >
-            <q-icon name="check" color="white" :size="dense ? '10px' : '12px'" />
-          </div>
         </q-item-section>
       </q-item>
     </template>
@@ -443,10 +423,11 @@ const optionClasses = (selected: boolean) => [
   box-shadow:
     0 4px 16px rgba(104, 64, 194, 0.08),
     0 12px 32px rgba(45, 36, 56, 0.12);
-  padding: 5px;
+  padding: 2px 4px;
   background: #ffffff;
   border: 1px solid #ebe6f2;
   overflow: hidden;
+  max-width: 420px !important;
 }
 
 .styled-select-popup .q-virtual-scroll__content {
@@ -459,12 +440,13 @@ const optionClasses = (selected: boolean) => [
   padding: 4px;
   box-shadow: 0 2px 12px rgba(45, 36, 56, 0.1);
   border: 1px solid #e8e4ed;
+  max-width: 360px !important;
 }
 
 /* Option item base */
 .styled-select__option {
   position: relative;
-  border-radius: 6px;
+  border-radius: 4px;
   margin: 2px 0;
   min-height: 40px;
   padding: 10px 12px;
@@ -491,13 +473,31 @@ const optionClasses = (selected: boolean) => [
   transform: scale(0.995);
 }
 
-/* Selected state - no background, icon only */
+/* Selected state - vertical bar on the left */
 .styled-select__option--selected {
   background: transparent;
 }
 
 .styled-select__option--selected:hover {
   background-color: #f8f5fb;
+}
+
+.styled-select__option--selected::before {
+  content: '';
+  position: absolute;
+  left: 3px;
+  width: 3px;
+  top: 8px;
+  bottom: 8px;
+  background-color: var(--q-primary);
+  border-radius: 2px;
+}
+
+.styled-select__option--selected.styled-select__option--dense::before {
+  left: 2px;
+  width: 2px;
+  height: 55%;
+  border-radius: 1px;
 }
 
 /* Option row layout */
@@ -573,43 +573,6 @@ const optionClasses = (selected: boolean) => [
   color: #6840c2;
   background-color: #f0eaf8;
   border-color: #d8cce8;
-}
-
-/* Side section with checkmark */
-.styled-select__side {
-  padding-left: 6px !important;
-  min-width: 26px;
-}
-
-.styled-select__option--dense .styled-select__side {
-  padding-left: 4px !important;
-  min-width: 18px;
-}
-
-/* Checkmark wrapper */
-.styled-select__check-wrapper {
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background-color: var(--q-primary);
-  opacity: 0;
-  transform: scale(0.5);
-  transition:
-    opacity 0.15s ease,
-    transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.styled-select__check-wrapper--visible {
-  opacity: 1;
-  transform: scale(1);
-}
-
-.styled-select__check-wrapper--dense {
-  width: 16px;
-  height: 16px;
 }
 
 /* Empty state */
@@ -693,7 +656,7 @@ const optionClasses = (selected: boolean) => [
 }
 
 .styled-select__option--selected .styled-select__option-description {
-  color: #a98bd4;
+  color: #7a6a91;
 }
 
 /* No results state (when search yields no matches) */
