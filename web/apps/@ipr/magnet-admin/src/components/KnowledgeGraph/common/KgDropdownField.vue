@@ -4,6 +4,7 @@
     :model-value="computedModelValue"
     :display-value="selectDisplayValue"
     :class="selectClasses"
+    :style="selectStyle"
     outlined
     dense
     emit-value
@@ -78,6 +79,7 @@
             <span class="styled-select__option-name">{{ opt[optionLabel] || opt.label || opt }}</span>
             <span v-if="getOptionMeta(opt)" class="styled-select__option-meta">{{ getOptionMeta(opt) }}</span>
           </div>
+          <div v-if="getOptionDescription(opt)" class="styled-select__option-description">{{ getOptionDescription(opt) }}</div>
         </q-item-section>
         <q-item-section side class="styled-select__side">
           <div
@@ -117,11 +119,13 @@ interface Props {
   disable?: boolean
   loading?: boolean
   optionMeta?: string | ((opt: any) => string | undefined)
+  optionDescription?: string | ((opt: any) => string | undefined)
   dense?: boolean
   searchable?: boolean
   multiple?: boolean
   showAllOption?: boolean
   allOptionLabel?: string
+  width?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -134,11 +138,13 @@ const props = withDefaults(defineProps<Props>(), {
   disable: false,
   loading: false,
   optionMeta: undefined,
+  optionDescription: undefined,
   dense: false,
   searchable: false,
   multiple: false,
   showAllOption: false,
   allOptionLabel: 'Select All',
+  width: undefined,
 })
 
 const $emit = defineEmits<{
@@ -256,6 +262,14 @@ const getOptionMeta = (opt: any): string | undefined => {
   return opt[props.optionMeta]
 }
 
+const getOptionDescription = (opt: any): string | undefined => {
+  if (!props.optionDescription) return undefined
+  if (typeof props.optionDescription === 'function') {
+    return props.optionDescription(opt)
+  }
+  return opt[props.optionDescription]
+}
+
 const hasValue = computed(() => {
   if (props.multiple) {
     return Array.isArray(props.modelValue) && props.modelValue.length > 0
@@ -309,8 +323,14 @@ const selectClasses = computed(() => [
   {
     'styled-select--error': props.showError && !hasValue.value,
     'styled-select--dense': props.dense,
+    'styled-select--fixed-width': !!props.width,
   },
 ])
+
+const selectStyle = computed(() => {
+  if (!props.width) return undefined
+  return { width: props.width, minWidth: 0 }
+})
 
 const popupClasses = computed(() => (props.dense ? 'styled-select-popup styled-select-popup--dense' : 'styled-select-popup'))
 
@@ -324,6 +344,9 @@ const optionClasses = (selected: boolean) => [
 </script>
 
 <style scoped>
+.styled-select {
+  min-width: 0;
+}
 .styled-select-dense {
   height: 36px !important;
 }
@@ -331,6 +354,7 @@ const optionClasses = (selected: boolean) => [
 .styled-select :deep(.q-field__control) {
   border-radius: 4px;
   background: white;
+  flex-wrap: wrap;
 }
 
 .styled-select--dense :deep(.q-field__control) {
@@ -370,6 +394,12 @@ const optionClasses = (selected: boolean) => [
   color: #2d2438;
   font-weight: 500;
   letter-spacing: -0.01em;
+}
+
+.styled-select--fixed-width :deep(.q-field__native) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .styled-select :deep(.q-field__append) {
@@ -646,6 +676,24 @@ const optionClasses = (selected: boolean) => [
 
 .styled-select__search-input .q-field__native::placeholder {
   color: #a99bba;
+}
+
+/* Option description */
+.styled-select__option-description {
+  font-size: 11px;
+  font-weight: 400;
+  color: #9e8eb5;
+  margin-top: 2px;
+  line-height: 1.4;
+  white-space: normal;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.styled-select__option--selected .styled-select__option-description {
+  color: #a98bd4;
 }
 
 /* No results state (when search yields no matches) */

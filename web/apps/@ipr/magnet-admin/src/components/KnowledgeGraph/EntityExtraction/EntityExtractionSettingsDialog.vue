@@ -17,62 +17,82 @@
         icon="auto_awesome"
       >
         <div class="column q-gap-16">
-          <kg-field-row label="Extraction Approach" hint="Choose whether entities are extracted from full documents or from already-generated chunks.">
+          <kg-field-row
+            label="Extraction Approach"
+            hint="Choose whether entities are extracted from full documents or from already-generated chunks."
+          >
             <kg-tile-select v-model="approach" :options="approachOptions" :cols="2" />
           </kg-field-row>
 
-          <kg-field-row label="Extraction Prompt" hint="Select a prompt template that returns structured entity records.">
-            <kg-dropdown-field
-              v-model="promptTemplateSystemName"
-              placeholder="Select a prompt template"
-              :options="promptTemplateOptions"
-              :loading="loadingPromptTemplates"
-              option-value="system_name"
-              option-label="name"
-              searchable
-              clearable
-            />
+          <kg-field-row label="Extraction Mode">
+            <kg-dropdown-field v-model="mode" :options="modeOptions" option-value="value" option-label="label" option-description="description" />
           </kg-field-row>
-        </div>
-      </kg-dialog-section>
 
-      <kg-dialog-section
-        title="Schema Format"
-        description="Choose how the configured entity schema is conveyed to the LLM."
-        icon="schema"
-      >
-        <kg-field-row
-          label="Format"
-          hint="JSON Schema attaches a strict structured-output schema to the request. TypeScript and Markdown describe the schema as text inside the prompt."
-        >
-          <kg-tile-select v-model="schemaFormat" :options="schemaFormatOptions" :cols="3" />
-        </kg-field-row>
-      </kg-dialog-section>
+          <div v-if="mode === 'advanced'" class="row q-col-gutter-md">
+            <div class="col">
+              <kg-field-row label="Analysis Prompt" hint="Prompt that builds the running global analysis used by the extraction pass.">
+                <kg-dropdown-field
+                  v-model="analysisPromptTemplateSystemName"
+                  placeholder="Select an analysis prompt template"
+                  :options="promptTemplateOptions"
+                  :loading="loadingPromptTemplates"
+                  option-value="system_name"
+                  option-label="name"
+                  searchable
+                  clearable
+                />
+              </kg-field-row>
+            </div>
+            <div class="col">
+              <kg-field-row label="Extraction Prompt" hint="Select a prompt template that returns structured entity records.">
+                <kg-dropdown-field
+                  v-model="promptTemplateSystemName"
+                  placeholder="Select a prompt template"
+                  :options="promptTemplateOptions"
+                  :loading="loadingPromptTemplates"
+                  option-value="system_name"
+                  option-label="name"
+                  searchable
+                  clearable
+                />
+              </kg-field-row>
+            </div>
+          </div>
+          <div v-else>
+            <kg-field-row label="Extraction Prompt" hint="Select a prompt template that returns structured entity records.">
+              <kg-dropdown-field
+                v-model="promptTemplateSystemName"
+                placeholder="Select a prompt template"
+                :options="promptTemplateOptions"
+                :loading="loadingPromptTemplates"
+                option-value="system_name"
+                option-label="name"
+                searchable
+                clearable
+              />
+            </kg-field-row>
+          </div>
 
-      <kg-dialog-section
-        title="Extraction Mode"
-        description="Choose the strategy used to extract entities. Advanced mode runs a global document analysis pass first to gather cross-segment context."
-        icon="psychology"
-      >
-        <div class="column q-gap-16">
-          <kg-field-row label="Mode" hint="Basic runs a single extraction pass per segment. Advanced first builds a global analysis across all segments, then injects it as context during extraction.">
-            <kg-tile-select v-model="mode" :options="modeOptions" :cols="2" />
+          <kg-field-row label="Schema Format">
+            <kg-dropdown-field
+              v-model="schemaFormat"
+              :options="schemaFormatOptions"
+              option-value="value"
+              option-label="label"
+              option-description="description"
+            />
           </kg-field-row>
 
           <kg-field-row
-            v-if="mode === 'advanced'"
-            label="Analysis Prompt"
-            hint="Prompt that builds the running global analysis used by the extraction pass."
+            label="Max Extraction Iterations"
+            hint="Number of extraction passes per segment (1 = single pass, 3 = initial pass + 2 verification passes)."
           >
-            <kg-dropdown-field
-              v-model="analysisPromptTemplateSystemName"
-              placeholder="Select an analysis prompt template"
-              :options="promptTemplateOptions"
-              :loading="loadingPromptTemplates"
-              option-value="system_name"
-              option-label="name"
-              searchable
-              clearable
+            <km-input
+              v-model.number="maxExtractionIterations"
+              type="number"
+              :min="MIN_ENTITY_EXTRACTION_MAX_ITERATIONS"
+              :max="MAX_ENTITY_EXTRACTION_MAX_ITERATIONS"
+              height="36px"
             />
           </kg-field-row>
         </div>
@@ -118,25 +138,6 @@
           </kg-warning-banner>
         </template>
       </kg-dialog-section>
-
-      <kg-dialog-section
-        title="Extraction Iterations"
-        description="Run multiple verification passes per segment to surface entities the first pass may have missed."
-        icon="repeat"
-      >
-        <kg-field-row
-          label="Max extraction iterations"
-          hint="Number of extraction passes per segment (1 = single pass, 3 = initial pass + 2 verification passes)."
-        >
-          <km-input
-            v-model.number="maxExtractionIterations"
-            type="number"
-            :min="MIN_ENTITY_EXTRACTION_MAX_ITERATIONS"
-            :max="MAX_ENTITY_EXTRACTION_MAX_ITERATIONS"
-            height="36px"
-          />
-        </kg-field-row>
-      </kg-dialog-section>
     </div>
   </kg-dialog-base>
 </template>
@@ -167,35 +168,20 @@ const approachOptions: TileOption[] = [
   },
 ]
 
-const modeOptions: TileOption[] = [
-  {
-    label: 'Basic',
-    value: 'basic',
-    description: 'Single extraction pass per segment with verification iterations. Fast and predictable.',
-  },
+const modeOptions = [
+  { label: 'Basic', value: 'basic', description: 'Single extraction pass per segment with verification iterations. Fast and predictable.' },
   {
     label: 'Advanced',
     value: 'advanced',
-    description: 'Pre-analyses the document for cross-segment context, then extracts with that analysis as input. Better recall for global attributes; uses more tokens.',
+    description:
+      'Pre-analyses the document for cross-segment context, then extracts with that analysis as input. Better recall for global attributes; uses more tokens.',
   },
 ]
 
-const schemaFormatOptions: TileOption[] = [
-  {
-    label: 'JSON Schema',
-    value: 'json_schema',
-    description: 'Send a strict JSON Schema as the structured-output format on the request.',
-  },
-  {
-    label: 'TypeScript',
-    value: 'typescript',
-    description: 'Describe entities using a TypeScript class-style block embedded in the prompt.',
-  },
-  {
-    label: 'Markdown',
-    value: 'markdown',
-    description: 'Describe entities using a simple markdown listing embedded in the prompt.',
-  },
+const schemaFormatOptions = [
+  { label: 'JSON Schema', value: 'json_schema', description: 'Send a strict JSON Schema as the structured-output format on the request.' },
+  { label: 'TypeScript', value: 'typescript', description: 'Describe entities using a TypeScript class-style block embedded in the prompt.' },
+  { label: 'Markdown', value: 'markdown', description: 'Describe entities using a simple markdown listing embedded in the prompt.' },
 ]
 
 const props = defineProps<{
@@ -230,8 +216,7 @@ watch(
       mode.value = props.settings.mode || defaults.mode
       schemaFormat.value = props.settings.schema_format || defaults.schema_format
       promptTemplateSystemName.value = props.settings.prompt_template_system_name || defaults.prompt_template_system_name
-      analysisPromptTemplateSystemName.value =
-        props.settings.analysis_prompt_template_system_name || defaults.analysis_prompt_template_system_name
+      analysisPromptTemplateSystemName.value = props.settings.analysis_prompt_template_system_name || defaults.analysis_prompt_template_system_name
       segmentSize.value = props.settings.segment_size || defaults.segment_size
       segmentOverlap.value = props.settings.segment_overlap ?? defaults.segment_overlap
       maxExtractionIterations.value = props.settings.max_extraction_iterations ?? defaults.max_extraction_iterations
