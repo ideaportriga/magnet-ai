@@ -1,7 +1,12 @@
 export type EntityColumnType = 'string' | 'number' | 'boolean' | 'date'
 export type EntityExtractionApproach = 'document' | 'chunks'
+export type EntityExtractionMode = 'basic' | 'advanced'
+export type EntityExtractionSchemaFormat = 'json_schema' | 'typescript' | 'markdown'
 
 export const DEFAULT_ENTITY_EXTRACTION_PROMPT_TEMPLATE_SYSTEM_NAME = 'KG_ENTITY_EXTRACTION'
+export const DEFAULT_ENTITY_EXTRACTION_ANALYSIS_PROMPT_TEMPLATE_SYSTEM_NAME = 'KG_ENTITY_EXTRACTION_ANALYSIS'
+export const DEFAULT_ENTITY_EXTRACTION_MODE: EntityExtractionMode = 'basic'
+export const DEFAULT_ENTITY_EXTRACTION_SCHEMA_FORMAT: EntityExtractionSchemaFormat = 'typescript'
 export const DEFAULT_ENTITY_EXTRACTION_SEGMENT_SIZE = 18000
 export const DEFAULT_ENTITY_EXTRACTION_SEGMENT_OVERLAP = 0.1
 export const DEFAULT_ENTITY_EXTRACTION_MAX_ITERATIONS = 3
@@ -34,7 +39,10 @@ export interface EntityDefinition {
 
 export interface EntityExtractionRunSettings {
   approach: EntityExtractionApproach
+  mode: EntityExtractionMode
+  schema_format: EntityExtractionSchemaFormat
   prompt_template_system_name: string
+  analysis_prompt_template_system_name: string
   segment_size: number
   segment_overlap: number
   max_extraction_iterations: number
@@ -48,6 +56,8 @@ export interface EntityExtractionSettings {
 const ENTITY_EXTRACTION_SETTINGS_KEY = 'entity_extraction'
 const ENTITY_COLUMN_TYPES: EntityColumnType[] = ['string', 'number', 'boolean', 'date']
 const ENTITY_EXTRACTION_APPROACHES: EntityExtractionApproach[] = ['document', 'chunks']
+export const ENTITY_EXTRACTION_MODES: EntityExtractionMode[] = ['basic', 'advanced']
+export const ENTITY_EXTRACTION_SCHEMA_FORMATS: EntityExtractionSchemaFormat[] = ['json_schema', 'typescript', 'markdown']
 
 function normalizeColumnType(value: unknown): EntityColumnType {
   const normalizedValue = String(value || '').trim()
@@ -59,6 +69,20 @@ function normalizeExtractionApproach(value: unknown): EntityExtractionApproach {
   return ENTITY_EXTRACTION_APPROACHES.includes(normalizedValue as EntityExtractionApproach)
     ? (normalizedValue as EntityExtractionApproach)
     : 'document'
+}
+
+function normalizeExtractionMode(value: unknown): EntityExtractionMode {
+  const normalizedValue = String(value || '').trim()
+  return ENTITY_EXTRACTION_MODES.includes(normalizedValue as EntityExtractionMode)
+    ? (normalizedValue as EntityExtractionMode)
+    : DEFAULT_ENTITY_EXTRACTION_MODE
+}
+
+function normalizeSchemaFormat(value: unknown): EntityExtractionSchemaFormat {
+  const normalizedValue = String(value || '').trim()
+  return ENTITY_EXTRACTION_SCHEMA_FORMATS.includes(normalizedValue as EntityExtractionSchemaFormat)
+    ? (normalizedValue as EntityExtractionSchemaFormat)
+    : DEFAULT_ENTITY_EXTRACTION_SCHEMA_FORMAT
 }
 
 function normalizeSegmentSize(value: unknown): number {
@@ -88,7 +112,10 @@ function getEntityExtractionRaw(settings?: Record<string, unknown>): Record<stri
 export function createDefaultEntityExtractionRunSettings(): EntityExtractionRunSettings {
   return {
     approach: 'document',
+    mode: DEFAULT_ENTITY_EXTRACTION_MODE,
+    schema_format: DEFAULT_ENTITY_EXTRACTION_SCHEMA_FORMAT,
     prompt_template_system_name: DEFAULT_ENTITY_EXTRACTION_PROMPT_TEMPLATE_SYSTEM_NAME,
+    analysis_prompt_template_system_name: DEFAULT_ENTITY_EXTRACTION_ANALYSIS_PROMPT_TEMPLATE_SYSTEM_NAME,
     segment_size: DEFAULT_ENTITY_EXTRACTION_SEGMENT_SIZE,
     segment_overlap: DEFAULT_ENTITY_EXTRACTION_SEGMENT_OVERLAP,
     max_extraction_iterations: DEFAULT_ENTITY_EXTRACTION_MAX_ITERATIONS,
@@ -114,7 +141,12 @@ export function cloneEntityExtractionRunSettings(settings?: EntityExtractionRunS
   const defaults = createDefaultEntityExtractionRunSettings()
   return {
     approach: normalizeExtractionApproach(settings?.approach ?? defaults.approach),
+    mode: normalizeExtractionMode(settings?.mode ?? defaults.mode),
+    schema_format: normalizeSchemaFormat(settings?.schema_format ?? defaults.schema_format),
     prompt_template_system_name: String(settings?.prompt_template_system_name ?? defaults.prompt_template_system_name).trim(),
+    analysis_prompt_template_system_name: String(
+      settings?.analysis_prompt_template_system_name ?? defaults.analysis_prompt_template_system_name
+    ).trim(),
     segment_size: normalizeSegmentSize(settings?.segment_size ?? defaults.segment_size),
     segment_overlap: normalizeSegmentOverlap(settings?.segment_overlap ?? defaults.segment_overlap),
     max_extraction_iterations: normalizeMaxExtractionIterations(settings?.max_extraction_iterations ?? defaults.max_extraction_iterations),
@@ -170,11 +202,17 @@ export function getEntityExtractionRunSettingsFromSettings(settings?: Record<str
 
   return cloneEntityExtractionRunSettings({
     approach: normalizeExtractionApproach(extraction?.approach),
+    mode: normalizeExtractionMode(extraction?.mode),
+    schema_format: normalizeSchemaFormat(extraction?.schema_format),
     prompt_template_system_name: hasPromptSystemName
       ? String(extraction?.prompt_template_system_name || '').trim()
       : isExplicitlyDisabled
         ? ''
         : defaults.prompt_template_system_name,
+    analysis_prompt_template_system_name:
+      typeof extraction?.analysis_prompt_template_system_name === 'string'
+        ? String(extraction.analysis_prompt_template_system_name).trim()
+        : defaults.analysis_prompt_template_system_name,
     segment_size: normalizeSegmentSize(extraction?.segment_size),
     segment_overlap: normalizeSegmentOverlap(extraction?.segment_overlap),
     max_extraction_iterations: normalizeMaxExtractionIterations(extraction?.max_extraction_iterations),
@@ -212,7 +250,11 @@ export function withEntityExtractionRunSettings(
     extraction: {
       enabled: !!String(extractionSettings.prompt_template_system_name || '').trim(),
       approach: normalizeExtractionApproach(extractionSettings.approach),
+      mode: normalizeExtractionMode(extractionSettings.mode),
+      schema_format: normalizeSchemaFormat(extractionSettings.schema_format),
       prompt_template_system_name: String(extractionSettings.prompt_template_system_name || '').trim() || undefined,
+      analysis_prompt_template_system_name:
+        String(extractionSettings.analysis_prompt_template_system_name || '').trim() || undefined,
       segment_size: normalizeSegmentSize(extractionSettings.segment_size),
       segment_overlap: normalizeSegmentOverlap(extractionSettings.segment_overlap),
       max_extraction_iterations: normalizeMaxExtractionIterations(extractionSettings.max_extraction_iterations),

@@ -17,7 +17,7 @@
         icon="auto_awesome"
       >
         <div class="column q-gap-16">
-          <kg-field-row label="Extraction Mode" hint="Choose whether entities are extracted from full documents or from already-generated chunks.">
+          <kg-field-row label="Extraction Approach" hint="Choose whether entities are extracted from full documents or from already-generated chunks.">
             <kg-tile-select v-model="approach" :options="approachOptions" :cols="2" />
           </kg-field-row>
 
@@ -25,6 +25,48 @@
             <kg-dropdown-field
               v-model="promptTemplateSystemName"
               placeholder="Select a prompt template"
+              :options="promptTemplateOptions"
+              :loading="loadingPromptTemplates"
+              option-value="system_name"
+              option-label="name"
+              searchable
+              clearable
+            />
+          </kg-field-row>
+        </div>
+      </kg-dialog-section>
+
+      <kg-dialog-section
+        title="Schema Format"
+        description="Choose how the configured entity schema is conveyed to the LLM."
+        icon="schema"
+      >
+        <kg-field-row
+          label="Format"
+          hint="JSON Schema attaches a strict structured-output schema to the request. TypeScript and Markdown describe the schema as text inside the prompt."
+        >
+          <kg-tile-select v-model="schemaFormat" :options="schemaFormatOptions" :cols="3" />
+        </kg-field-row>
+      </kg-dialog-section>
+
+      <kg-dialog-section
+        title="Extraction Mode"
+        description="Choose the strategy used to extract entities. Advanced mode runs a global document analysis pass first to gather cross-segment context."
+        icon="psychology"
+      >
+        <div class="column q-gap-16">
+          <kg-field-row label="Mode" hint="Basic runs a single extraction pass per segment. Advanced first builds a global analysis across all segments, then injects it as context during extraction.">
+            <kg-tile-select v-model="mode" :options="modeOptions" :cols="2" />
+          </kg-field-row>
+
+          <kg-field-row
+            v-if="mode === 'advanced'"
+            label="Analysis Prompt"
+            hint="Prompt that builds the running global analysis used by the extraction pass."
+          >
+            <kg-dropdown-field
+              v-model="analysisPromptTemplateSystemName"
+              placeholder="Select an analysis prompt template"
               :options="promptTemplateOptions"
               :loading="loadingPromptTemplates"
               option-value="system_name"
@@ -107,7 +149,9 @@ import {
   MAX_ENTITY_EXTRACTION_MAX_ITERATIONS,
   MIN_ENTITY_EXTRACTION_MAX_ITERATIONS,
   type EntityExtractionApproach,
+  type EntityExtractionMode,
   type EntityExtractionRunSettings,
+  type EntityExtractionSchemaFormat,
 } from './models'
 
 const approachOptions: TileOption[] = [
@@ -120,6 +164,37 @@ const approachOptions: TileOption[] = [
     label: 'Chunk Based',
     value: 'chunks',
     description: 'Extract entities from each existing chunk. Useful when chunk-level provenance matters most.',
+  },
+]
+
+const modeOptions: TileOption[] = [
+  {
+    label: 'Basic',
+    value: 'basic',
+    description: 'Single extraction pass per segment with verification iterations. Fast and predictable.',
+  },
+  {
+    label: 'Advanced',
+    value: 'advanced',
+    description: 'Pre-analyses the document for cross-segment context, then extracts with that analysis as input. Better recall for global attributes; uses more tokens.',
+  },
+]
+
+const schemaFormatOptions: TileOption[] = [
+  {
+    label: 'JSON Schema',
+    value: 'json_schema',
+    description: 'Send a strict JSON Schema as the structured-output format on the request.',
+  },
+  {
+    label: 'TypeScript',
+    value: 'typescript',
+    description: 'Describe entities using a TypeScript class-style block embedded in the prompt.',
+  },
+  {
+    label: 'Markdown',
+    value: 'markdown',
+    description: 'Describe entities using a simple markdown listing embedded in the prompt.',
   },
 ]
 
@@ -138,7 +213,10 @@ const emit = defineEmits<{
 
 const defaults = createDefaultEntityExtractionRunSettings()
 const approach = ref<EntityExtractionApproach>(defaults.approach)
+const mode = ref<EntityExtractionMode>(defaults.mode)
+const schemaFormat = ref<EntityExtractionSchemaFormat>(defaults.schema_format)
 const promptTemplateSystemName = ref(defaults.prompt_template_system_name)
+const analysisPromptTemplateSystemName = ref(defaults.analysis_prompt_template_system_name)
 const segmentSize = ref(defaults.segment_size)
 const segmentOverlap = ref(defaults.segment_overlap)
 const maxExtractionIterations = ref(defaults.max_extraction_iterations)
@@ -149,13 +227,20 @@ watch(
   () => {
     if (props.showDialog && props.settings) {
       approach.value = props.settings.approach || defaults.approach
+      mode.value = props.settings.mode || defaults.mode
+      schemaFormat.value = props.settings.schema_format || defaults.schema_format
       promptTemplateSystemName.value = props.settings.prompt_template_system_name || defaults.prompt_template_system_name
+      analysisPromptTemplateSystemName.value =
+        props.settings.analysis_prompt_template_system_name || defaults.analysis_prompt_template_system_name
       segmentSize.value = props.settings.segment_size || defaults.segment_size
       segmentOverlap.value = props.settings.segment_overlap ?? defaults.segment_overlap
       maxExtractionIterations.value = props.settings.max_extraction_iterations ?? defaults.max_extraction_iterations
     } else if (props.showDialog) {
       approach.value = defaults.approach
+      mode.value = defaults.mode
+      schemaFormat.value = defaults.schema_format
       promptTemplateSystemName.value = defaults.prompt_template_system_name
+      analysisPromptTemplateSystemName.value = defaults.analysis_prompt_template_system_name
       segmentSize.value = defaults.segment_size
       segmentOverlap.value = defaults.segment_overlap
       maxExtractionIterations.value = defaults.max_extraction_iterations
@@ -167,7 +252,10 @@ watch(
 function onConfirm() {
   emit('save', {
     approach: approach.value,
+    mode: mode.value,
+    schema_format: schemaFormat.value,
     prompt_template_system_name: promptTemplateSystemName.value.trim(),
+    analysis_prompt_template_system_name: analysisPromptTemplateSystemName.value.trim(),
     segment_size: segmentSize.value,
     segment_overlap: segmentOverlap.value,
     max_extraction_iterations: maxExtractionIterations.value,

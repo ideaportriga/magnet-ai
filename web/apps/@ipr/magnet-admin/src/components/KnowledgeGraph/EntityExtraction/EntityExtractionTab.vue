@@ -564,7 +564,10 @@ async function runExtraction() {
 
     const payload = {
       approach: extractionSettings.value.approach,
+      mode: extractionSettings.value.mode,
+      schema_format: extractionSettings.value.schema_format,
       prompt_template_system_name: String(extractionSettings.value.prompt_template_system_name || '').trim(),
+      analysis_prompt_template_system_name: String(extractionSettings.value.analysis_prompt_template_system_name || '').trim(),
       segment_size: extractionSettings.value.segment_size,
       segment_overlap: extractionSettings.value.segment_overlap,
       max_extraction_iterations: extractionSettings.value.max_extraction_iterations,

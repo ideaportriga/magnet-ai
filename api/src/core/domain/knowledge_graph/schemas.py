@@ -467,8 +467,22 @@ class KnowledgeGraphEntityExtractionRunRequest(BaseModel):
     approach: Optional[str] = Field(
         default=None, description="Extraction approach: 'document' or 'chunks'"
     )
+    mode: Optional[str] = Field(
+        default=None,
+        description=(
+            "Extraction mode: 'basic' (single-pass per segment) or 'advanced' "
+            "(per-document analysis pre-pass, then context-aware extraction)"
+        ),
+    )
     prompt_template_system_name: Optional[str] = Field(
-        default=None, description="Prompt template system name to execute"
+        default=None, description="Prompt template system name for entity extraction"
+    )
+    analysis_prompt_template_system_name: Optional[str] = Field(
+        default=None,
+        description=(
+            "Prompt template system name for the document analysis pass (required "
+            "when mode='advanced')"
+        ),
     )
     segment_size: Optional[int] = Field(
         default=None,
@@ -485,6 +499,14 @@ class KnowledgeGraphEntityExtractionRunRequest(BaseModel):
         default=None,
         ge=1,
         description="Total extraction passes per segment (1 = single pass, 3 = initial + 2 verification passes)",
+    )
+    schema_format: Optional[str] = Field(
+        default=None,
+        description=(
+            "How the entity schema is conveyed to the LLM: "
+            "'json_schema' (strict structured output), 'typescript' (TS class-style "
+            "block in the prompt), or 'markdown' (markdown listing in the prompt)."
+        ),
     )
 
 

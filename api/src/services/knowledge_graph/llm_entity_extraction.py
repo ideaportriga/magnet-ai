@@ -38,7 +38,17 @@ logger = logging.getLogger(__name__)
 _active_extraction_tasks: dict[UUID, bool] = {}
 
 EntityExtractionApproach = Literal["document", "chunks"]
+EntityExtractionMode = Literal["basic", "advanced"]
+EXTRACTION_MODES: tuple[str, ...] = ("basic", "advanced")
+DEFAULT_EXTRACTION_MODE: EntityExtractionMode = "basic"
 EntityColumnType = Literal["string", "number", "boolean", "date"]
+EntityExtractionSchemaFormat = Literal["json_schema", "typescript", "markdown"]
+SCHEMA_FORMATS: tuple[str, ...] = ("json_schema", "typescript", "markdown")
+DEFAULT_SCHEMA_FORMAT: EntityExtractionSchemaFormat = "typescript"
+_JSON_SCHEMA_MODE_PROMPT_HINT = (
+    "The schema for the entity records is provided as a JSON Schema attached to "
+    "this request as the `response_format`. Follow it exactly."
+)
 
 
 @dataclass(slots=True)
@@ -167,7 +177,7 @@ def normalize_entity_definitions(
     return normalized_entities
 
 
-def build_entity_extraction_prompt_schema(
+def build_entity_extraction_prompt_schema_typescript(
     entity_definitions: list[EntityDefinition],
 ) -> str:
     has_required_fields = any(
@@ -182,7 +192,7 @@ def build_entity_extraction_prompt_schema(
             " *   field?: type | null — Optional. Omit or set to null if not found.",
             " */",
         ]
-    lines += ["type ExtractedEntityRecords = {", "  records: {"]
+    lines.append("type ExtractedEntityRecords = {")
     ts_type_map: dict[EntityColumnType, str] = {
         "string": "string",
         "number": "number",
@@ -191,15 +201,15 @@ def build_entity_extraction_prompt_schema(
     }
 
     for entity_definition in entity_definitions:
-        lines.append("    /**")
+        lines.append("  /**")
         lines.append(
-            f"     * Entity: {entity_definition.name}; Identifier column: {entity_definition.identifier_column}"
+            f"   * Entity: {entity_definition.name}; Identifier column: {entity_definition.identifier_column}"
         )
         if entity_definition.description:
             for description_line in entity_definition.description.splitlines():
-                lines.append(f"     * {description_line}".rstrip())
-        lines.append("     */")
-        lines.append(f"    {json.dumps(entity_definition.name)}: Array<{{")
+                lines.append(f"   * {description_line}".rstrip())
+        lines.append("   */")
+        lines.append("  records: Array<{")
 
         for column in entity_definition.columns or []:
             comment_parts = [f"Type: {column.type}"]
@@ -207,28 +217,173 @@ def build_entity_extraction_prompt_schema(
                 comment_parts.append("Primary identifier")
             if column.description:
                 comment_parts.append(column.description)
-            lines.append(f"      /** {'; '.join(comment_parts)} */")
+            lines.append(f"    /** {'; '.join(comment_parts)} */")
             if column.is_required:
                 lines.append(
-                    f"      {json.dumps(column.name)}: {ts_type_map[column.type]}"
+                    f"    {json.dumps(column.name)}: {ts_type_map[column.type]}"
                 )
             else:
                 lines.append(
-                    f"      {json.dumps(column.name)}?: {ts_type_map[column.type]} | null"
+                    f"    {json.dumps(column.name)}?: {ts_type_map[column.type]} | null"
                 )
 
-        lines.append("")
-        lines.append(
-            "      /** Detailed reasoning explaining why this record was extracted */"
-        )
-        lines.append('      "__reasoning": string')
-        lines.append("    }>")
+        lines.append("  }>")
         lines.append("")
 
     if lines[-1] == "":
         lines.pop()
-    lines.extend(["  }", "}"])
+    lines.append("}")
     return "\n".join(lines).strip() + "\n"
+
+
+_MARKDOWN_TYPE_LABEL: dict[EntityColumnType, str] = {
+    "string": "string",
+    "number": "number",
+    "boolean": "boolean",
+    "date": "date (ISO 8601)",
+}
+
+
+def build_entity_extraction_prompt_schema_markdown(
+    entity_definitions: list[EntityDefinition],
+) -> str:
+    """Render the entity schema as a simple markdown listing.
+
+    Mentions every entity, its identifier column, every column with its type
+    and required/optional flag, and any column description.
+    """
+    blocks: list[str] = []
+    for entity_definition in entity_definitions:
+        lines: list[str] = []
+        identifier = entity_definition.identifier_column
+        header = f"### {entity_definition.name}"
+        lines.append(header)
+        lines.append(f"- Identifier column: `{identifier}`")
+        description = (entity_definition.description or "").strip()
+        if description:
+            for description_line in description.splitlines():
+                stripped = description_line.strip()
+                if stripped:
+                    lines.append(f"- {stripped}")
+        lines.append("- Columns:")
+        for column in entity_definition.columns or []:
+            type_label = _MARKDOWN_TYPE_LABEL.get(column.type, column.type)
+            requirement = "required" if column.is_required else "optional"
+            tags = [type_label, requirement]
+            if column.is_identifier:
+                tags.append("identifier")
+            tag_str = ", ".join(tags)
+            column_description = (column.description or "").strip().replace("\n", " ")
+            if column_description:
+                lines.append(f"  - `{column.name}` ({tag_str}) — {column_description}")
+            else:
+                lines.append(f"  - `{column.name}` ({tag_str})")
+        blocks.append("\n".join(lines))
+    return "\n\n".join(blocks).rstrip() + "\n"
+
+
+_JSON_SCHEMA_TYPE_MAP: dict[EntityColumnType, str] = {
+    "string": "string",
+    "number": "number",
+    "boolean": "boolean",
+    "date": "string",
+}
+
+
+def build_entity_extraction_prompt_schema_json(
+    entity_definition: EntityDefinition,
+) -> dict[str, Any]:
+    """Build a strict JSON Schema describing the records output for a single entity.
+
+    Shape::
+
+        {"records": [{<column>: <value>, ...}, ...]}
+    """
+    item_properties: dict[str, Any] = {}
+    item_required: list[str] = []
+    for column in entity_definition.columns or []:
+        json_type = _JSON_SCHEMA_TYPE_MAP.get(column.type, "string")
+        column_schema: dict[str, Any] = (
+            {"type": json_type} if column.is_required else {"type": [json_type, "null"]}
+        )
+        if column.type == "date":
+            column_schema["description"] = "ISO 8601 date (YYYY-MM-DD)"
+        if column.description:
+            existing_description = column_schema.get("description")
+            column_schema["description"] = (
+                f"{existing_description}. {column.description}"
+                if existing_description
+                else column.description
+            )
+        item_properties[column.name] = column_schema
+        # In OpenAI strict structured outputs every property must be in `required`;
+        # optional fields are expressed via the `["<type>", "null"]` type union.
+        item_required.append(column.name)
+
+    item_schema: dict[str, Any] = {
+        "type": "object",
+        "properties": item_properties,
+        "required": item_required,
+        "additionalProperties": False,
+    }
+
+    return {
+        "type": "object",
+        "properties": {
+            "records": {
+                "type": "array",
+                "items": item_schema,
+            }
+        },
+        "required": ["records"],
+        "additionalProperties": False,
+    }
+
+
+def build_entity_extraction_response_format(
+    entity_definition: EntityDefinition,
+) -> dict[str, Any]:
+    """Build the OpenAI structured-output `response_format` for json_schema mode."""
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "kg_entity_extraction_response",
+            "schema": build_entity_extraction_prompt_schema_json(entity_definition),
+            "strict": True,
+        },
+    }
+
+
+def build_entity_schema_summary(
+    entity_definitions: list[EntityDefinition],
+) -> str:
+    """Compact markdown summary of the entity schema for the analysis prompt.
+
+    Drops types and required/optional notation — the analysis pass only needs
+    to know which entities exist, what their identifier is, and what columns
+    must be filled.
+    """
+    lines: list[str] = []
+    for entity_definition in entity_definitions:
+        identifier = entity_definition.identifier_column
+        header = f"- **{entity_definition.name}** (identifier: `{identifier}`)"
+        if entity_definition.description:
+            description_first_line = entity_definition.description.splitlines()[
+                0
+            ].strip()
+            if description_first_line:
+                header = f"{header} — {description_first_line}"
+        lines.append(header)
+
+        for column in entity_definition.columns or []:
+            tag = " *(identifier)*" if column.is_identifier else ""
+            description = (column.description or "").strip().replace("\n", " ")
+            if description:
+                lines.append(f"  - `{column.name}`{tag} — {description}")
+            else:
+                lines.append(f"  - `{column.name}`{tag}")
+
+    return "\n".join(lines)
 
 
 def _strip_surrounding_code_fences(value: str) -> str:
@@ -342,23 +497,11 @@ def _merge_candidate_records(
     )
     merged_column_values = dict(existing.column_values)
     for key, value in incoming.column_values.items():
-        if key == "__reasoning":
-            continue
         if key not in merged_column_values:
             if not _is_empty_value(value):
                 merged_column_values[key] = value
             continue
         merged_column_values[key] = _merge_values(merged_column_values.get(key), value)
-
-    existing_reasoning = str(existing.column_values.get("__reasoning") or "").strip()
-    incoming_reasoning = str(incoming.column_values.get("__reasoning") or "").strip()
-    if existing_reasoning and incoming_reasoning:
-        if incoming_reasoning != existing_reasoning:
-            merged_column_values["__reasoning"] = (
-                f"{existing_reasoning} | {incoming_reasoning}"
-            )
-    elif incoming_reasoning:
-        merged_column_values["__reasoning"] = incoming_reasoning
 
     return EntityCandidateRecord(
         entity=existing.entity,
@@ -423,15 +566,12 @@ def parse_entity_candidates_from_output(
     output: dict[str, Any], entity_definitions: list[EntityDefinition]
 ) -> list[EntityCandidateRecord]:
     records_value = output.get("records")
-    records_by_entity = records_value if isinstance(records_value, dict) else {}
-    entity_map = {entity.name: entity for entity in entity_definitions}
+    raw_records = records_value if isinstance(records_value, list) else []
 
     candidates: dict[tuple[str, str], EntityCandidateRecord] = {}
 
-    for entity_name, entity_definition in entity_map.items():
-        raw_records = records_by_entity.get(entity_name)
-        if not isinstance(raw_records, list):
-            continue
+    for entity_definition in entity_definitions:
+        entity_name = entity_definition.name
 
         for raw_record in raw_records:
             if not isinstance(raw_record, dict):
@@ -444,10 +584,6 @@ def parse_entity_candidates_from_output(
                 )
                 if coerced_value is not None:
                     column_values[column.name] = coerced_value
-
-            reasoning = raw_record.get("__reasoning")
-            if isinstance(reasoning, str) and reasoning.strip():
-                column_values["__reasoning"] = reasoning.strip()
 
             identifier_value = column_values.get(entity_definition.identifier_column)
             if _is_empty_value(identifier_value):
@@ -486,6 +622,7 @@ async def _extract_entities_iterative(
     schema: str,
     entity_definition: EntityDefinition,
     content: str,
+    additional_prefix_messages: list[dict[str, str]] | None = None,
     extra_iterations: int = 2,
     cancel_check: Any = None,
 ) -> list[EntityCandidateRecord]:
@@ -495,11 +632,16 @@ async def _extract_entities_iterative(
     passes where the full conversation history is preserved and the LLM is
     asked to find anything it missed.  Stops early when a verification pass
     returns zero new entities.
+
+    ``additional_prefix_messages`` are prepended to the conversation before
+    the segment user message (used by AdvancedStrategy to inject the global
+    document analysis as context).
     """
     merged: dict[tuple[str, str], EntityCandidateRecord] = {}
 
     # Accumulated conversation history — grows each iteration
-    additional_messages: list[dict[str, str]] = [{"role": "user", "content": content}]
+    additional_messages: list[dict[str, str]] = list(additional_prefix_messages or [])
+    additional_messages.append({"role": "user", "content": content})
 
     for i in range(1 + max(0, extra_iterations)):
         if cancel_check and await cancel_check():
@@ -600,6 +742,8 @@ async def _extract_entity_from_content(
     entity_definition: EntityDefinition,
     content: str,
     max_extraction_iterations: int,
+    schema_format: EntityExtractionSchemaFormat = DEFAULT_SCHEMA_FORMAT,
+    additional_prefix_messages: list[dict[str, str]] | None = None,
     cancel_check: Any = None,
 ) -> list[EntityCandidateRecord]:
     """Extract all records for a single entity type from a content string."""
@@ -608,17 +752,231 @@ async def _extract_entity_from_content(
         input={
             "Entity": entity_definition.name,
             "Max Extraction Iterations": max_extraction_iterations,
+            "Schema Format": schema_format,
         }
     )
 
-    entity_schema = build_entity_extraction_prompt_schema([entity_definition])
+    config_for_call = prompt_template_config
+    if schema_format == "json_schema":
+        entity_schema_text = _JSON_SCHEMA_MODE_PROMPT_HINT
+        config_for_call = dict(prompt_template_config)
+        config_for_call["response_format"] = build_entity_extraction_response_format(
+            entity_definition
+        )
+    elif schema_format == "markdown":
+        entity_schema_text = build_entity_extraction_prompt_schema_markdown(
+            [entity_definition]
+        )
+    else:
+        entity_schema_text = build_entity_extraction_prompt_schema_typescript(
+            [entity_definition]
+        )
+
     return await _extract_entities_iterative(
-        prompt_template_config=prompt_template_config,
-        schema=entity_schema,
+        prompt_template_config=config_for_call,
+        schema=entity_schema_text,
         entity_definition=entity_definition,
         content=content,
+        additional_prefix_messages=additional_prefix_messages,
         extra_iterations=max_extraction_iterations - 1,
         cancel_check=cancel_check,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Extraction strategies
+#
+# Each strategy decides what (if anything) to do *before* per-segment extraction
+# (see ``prepare_context``) and how to inject that into per-segment extraction
+# (see ``extract_segment``).  Adding a new mode is: implement a new strategy
+# class, add the mode name to ``EXTRACTION_MODES``, and route it in
+# ``build_extraction_strategy``.
+# ---------------------------------------------------------------------------
+
+
+class BasicStrategy:
+    """Single-prompt per-segment extraction with the verification iteration loop."""
+
+    def __init__(
+        self,
+        *,
+        extraction_prompt_template_config: dict[str, Any],
+        schema_format: EntityExtractionSchemaFormat = DEFAULT_SCHEMA_FORMAT,
+    ) -> None:
+        self._extraction_config = extraction_prompt_template_config
+        self._schema_format: EntityExtractionSchemaFormat = schema_format
+
+    async def prepare_context(
+        self,
+        *,
+        segments: list[str],
+        entity_definitions: list[EntityDefinition],
+        cancel_check: Any = None,
+    ) -> dict[str, Any]:
+        return {}
+
+    async def extract_segment(
+        self,
+        *,
+        content: str,
+        entity_definition: EntityDefinition,
+        context: dict[str, Any],
+        max_extraction_iterations: int,
+        cancel_check: Any = None,
+    ) -> list[EntityCandidateRecord]:
+        return await _extract_entity_from_content(
+            prompt_template_config=self._extraction_config,
+            entity_definition=entity_definition,
+            content=content,
+            max_extraction_iterations=max_extraction_iterations,
+            schema_format=self._schema_format,
+            cancel_check=cancel_check,
+        )
+
+
+_ANALYSIS_LEAD_IN = (
+    "The following message is a global analysis of the source document, produced "
+    "by a separate pre-analysis pass. Use it as cross-segment context when "
+    "extracting entities from the segment that follows. Do not extract records "
+    "directly from the analysis — only from the segment content."
+)
+
+
+class AdvancedStrategy:
+    """Two-stage strategy: running document analysis, then context-aware extraction."""
+
+    def __init__(
+        self,
+        *,
+        extraction_prompt_template_config: dict[str, Any],
+        analysis_prompt_template_config: dict[str, Any],
+        schema_format: EntityExtractionSchemaFormat = DEFAULT_SCHEMA_FORMAT,
+    ) -> None:
+        self._extraction_config = extraction_prompt_template_config
+        self._analysis_config = analysis_prompt_template_config
+        self._schema_format: EntityExtractionSchemaFormat = schema_format
+
+    @observe(
+        name="Advanced strategy: document analysis pass",
+        channel="production",
+        source="production",
+    )
+    async def prepare_context(
+        self,
+        *,
+        segments: list[str],
+        entity_definitions: list[EntityDefinition],
+        cancel_check: Any = None,
+    ) -> dict[str, Any]:
+        analysis = ""
+        full_schema = build_entity_schema_summary(entity_definitions)
+        entity_names = ", ".join(ed.name for ed in entity_definitions)
+        total_segments = len(segments)
+
+        observability_context.update_current_span(
+            input={
+                "Segments Count": total_segments,
+                "Entity Names": entity_names,
+            }
+        )
+
+        for index, segment in enumerate(segments):
+            if cancel_check and await cancel_check():
+                break
+
+            additional_messages: list[dict[str, str]] = []
+            if analysis:
+                additional_messages.append({"role": "assistant", "content": analysis})
+            additional_messages.append({"role": "user", "content": segment})
+
+            try:
+                result = await execute_prompt_template(
+                    system_name_or_config=self._analysis_config,
+                    template_values={
+                        "SCHEMA": full_schema,
+                        "ENTITY_NAMES": entity_names,
+                        "SEGMENT_INDEX": str(index + 1),
+                        "SEGMENT_COUNT": str(total_segments),
+                    },
+                    template_additional_messages=additional_messages,
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "Advanced strategy analysis pass %d/%d failed: %s",
+                    index + 1,
+                    total_segments,
+                    exc,
+                )
+                break
+
+            updated_analysis = str(result.content or "").strip()
+            if updated_analysis:
+                analysis = updated_analysis
+
+        return {"analysis": analysis}
+
+    async def extract_segment(
+        self,
+        *,
+        content: str,
+        entity_definition: EntityDefinition,
+        context: dict[str, Any],
+        max_extraction_iterations: int,
+        cancel_check: Any = None,
+    ) -> list[EntityCandidateRecord]:
+        analysis = str((context or {}).get("analysis") or "").strip()
+        prefix_messages: list[dict[str, str]] = []
+        if analysis:
+            prefix_messages.append({"role": "user", "content": _ANALYSIS_LEAD_IN})
+            prefix_messages.append({"role": "assistant", "content": analysis})
+
+        return await _extract_entity_from_content(
+            prompt_template_config=self._extraction_config,
+            entity_definition=entity_definition,
+            content=content,
+            max_extraction_iterations=max_extraction_iterations,
+            schema_format=self._schema_format,
+            additional_prefix_messages=prefix_messages,
+            cancel_check=cancel_check,
+        )
+
+
+async def build_extraction_strategy(
+    mode: str,
+    *,
+    extraction_prompt_template_system_name: str,
+    analysis_prompt_template_system_name: str | None,
+    schema_format: EntityExtractionSchemaFormat = DEFAULT_SCHEMA_FORMAT,
+) -> BasicStrategy | AdvancedStrategy:
+    """Resolve prompt configs and return the strategy implementing ``mode``."""
+    extraction_config = dict(
+        await get_prompt_template_by_system_name_flat(
+            extraction_prompt_template_system_name
+        )
+    )
+
+    if mode == "advanced":
+        if not analysis_prompt_template_system_name:
+            raise ValueError(
+                "analysis_prompt_template_system_name is required for advanced mode"
+            )
+        analysis_config = dict(
+            await get_prompt_template_by_system_name_flat(
+                analysis_prompt_template_system_name
+            )
+        )
+        return AdvancedStrategy(
+            extraction_prompt_template_config=extraction_config,
+            analysis_prompt_template_config=analysis_config,
+            schema_format=schema_format,
+        )
+
+    if mode != "basic":
+        raise ValueError(f"Unknown extraction mode: {mode}")
+
+    return BasicStrategy(
+        extraction_prompt_template_config=extraction_config,
+        schema_format=schema_format,
     )
 
 
@@ -633,7 +991,7 @@ async def _process_document_extraction(
     source_id: str | None,
     content_str: str,
     entity_definitions: list[EntityDefinition],
-    prompt_template_config: dict[str, Any],
+    strategy: BasicStrategy | AdvancedStrategy,
     entity_service: KnowledgeGraphEntityService,
     segment_size: int,
     segment_overlap: float,
@@ -642,8 +1000,9 @@ async def _process_document_extraction(
 ) -> dict[str, int]:
     """Extract entities from a single document (document approach).
 
-    Splits content into segments, runs iterative extraction for each
-    (segment x entity) pair, merges across segments, and upserts records.
+    Splits content into segments, runs the strategy's pre-analysis (if any),
+    extracts each (segment x entity) pair, merges across segments, and upserts
+    records.
     """
 
     upserted_records = 0
@@ -664,6 +1023,26 @@ async def _process_document_extraction(
         }
     )
 
+    if not segments:
+        return {
+            "upserted_records": 0,
+            "errors": 0,
+            "cancelled": False,
+        }
+
+    try:
+        strategy_context = await strategy.prepare_context(
+            segments=segments,
+            entity_definitions=entity_definitions,
+            cancel_check=cancel_check,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Strategy pre-analysis failed for document %s: %s", doc_id, exc)
+        strategy_context = {}
+
+    if cancel_check and await cancel_check():
+        cancelled = True
+
     for segment in segments:
         if cancelled:
             break
@@ -673,10 +1052,10 @@ async def _process_document_extraction(
                 break
 
             try:
-                candidates = await _extract_entity_from_content(
-                    prompt_template_config=prompt_template_config,
-                    entity_definition=entity_def,
+                candidates = await strategy.extract_segment(
                     content=segment,
+                    entity_definition=entity_def,
+                    context=strategy_context,
                     max_extraction_iterations=max_extraction_iterations,
                     cancel_check=cancel_check,
                 )
@@ -736,7 +1115,7 @@ async def _process_document_chunks_extraction(
     source_id: str | None,
     chunk_rows: list[Any],
     entity_definitions: list[EntityDefinition],
-    prompt_template_config: dict[str, Any],
+    strategy: BasicStrategy | AdvancedStrategy,
     entity_service: KnowledgeGraphEntityService,
     max_extraction_iterations: int,
     cancel_check: Any = None,
@@ -756,16 +1135,49 @@ async def _process_document_chunks_extraction(
     errors = 0
     cancelled = False
 
+    chunk_segments: list[tuple[str, str]] = []
     for chunk_row in chunk_rows:
-        if cancel_check and await cancel_check():
-            cancelled = True
-            break
-
         chunk_id = str(chunk_row.get("id") or "").strip()
         content_str = str(chunk_row.get("content") or "").strip()
         if not chunk_id or not content_str:
             skipped_chunks += 1
             continue
+        chunk_segments.append((chunk_id, content_str))
+
+    if not chunk_segments:
+        return {
+            "processed_chunks": 0,
+            "skipped_chunks": skipped_chunks,
+            "upserted_records": 0,
+            "errors": 0,
+            "cancelled": False,
+        }
+
+    try:
+        strategy_context = await strategy.prepare_context(
+            segments=[content for _id, content in chunk_segments],
+            entity_definitions=entity_definitions,
+            cancel_check=cancel_check,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "Strategy pre-analysis failed for document %s chunks: %s", doc_id, exc
+        )
+        strategy_context = {}
+
+    if cancel_check and await cancel_check():
+        return {
+            "processed_chunks": 0,
+            "skipped_chunks": skipped_chunks,
+            "upserted_records": 0,
+            "errors": 0,
+            "cancelled": True,
+        }
+
+    for chunk_id, content_str in chunk_segments:
+        if cancel_check and await cancel_check():
+            cancelled = True
+            break
 
         processed_chunks += 1
 
@@ -775,10 +1187,10 @@ async def _process_document_chunks_extraction(
                 break
 
             try:
-                chunk_candidates = await _extract_entity_from_content(
-                    prompt_template_config=prompt_template_config,
-                    entity_definition=entity_def,
+                chunk_candidates = await strategy.extract_segment(
                     content=content_str,
+                    entity_definition=entity_def,
+                    context=strategy_context,
                     max_extraction_iterations=max_extraction_iterations,
                     cancel_check=cancel_check,
                 )
@@ -828,10 +1240,13 @@ async def run_graph_llm_entity_extraction(
     approach: EntityExtractionApproach,
     prompt_template_system_name: str,
     entity_definitions: list[EntityDefinition],
+    mode: str = DEFAULT_EXTRACTION_MODE,
+    analysis_prompt_template_system_name: str | None = None,
     entity_service: KnowledgeGraphEntityService | None = None,
     segment_size: int = 18000,
     segment_overlap: float = 0.1,
     max_extraction_iterations: int = 3,
+    schema_format: EntityExtractionSchemaFormat = DEFAULT_SCHEMA_FORMAT,
     progress_callback: Any | None = None,
     cancel_check: Any | None = None,
 ) -> dict[str, Any]:
@@ -841,6 +1256,19 @@ async def run_graph_llm_entity_extraction(
 
     if approach not in ("document", "chunks"):
         raise ValueError("approach must be 'document' or 'chunks'")
+
+    mode = str(mode or DEFAULT_EXTRACTION_MODE).strip() or DEFAULT_EXTRACTION_MODE
+    if mode not in EXTRACTION_MODES:
+        raise ValueError(f"Unknown extraction mode: {mode}")
+
+    schema_format_str = str(schema_format or DEFAULT_SCHEMA_FORMAT).strip()
+    if schema_format_str not in SCHEMA_FORMATS:
+        raise ValueError(f"Unknown schema_format: {schema_format_str}")
+    schema_format = schema_format_str  # type: ignore[assignment]
+
+    analysis_prompt_template_system_name = (
+        str(analysis_prompt_template_system_name or "").strip() or None
+    )
 
     async def _mark_document_extracted(doc_id: str) -> None:
         """Mark a document's entity_extraction pipeline state as completed."""
@@ -871,21 +1299,27 @@ async def run_graph_llm_entity_extraction(
         raise ValueError("entity_definitions is required and cannot be empty")
 
     logger.info(
-        "run_graph_llm_entity_extraction started for graph %s (approach=%s, prompt=%s, entity_definitions=%d)",
+        "run_graph_llm_entity_extraction started for graph %s (approach=%s, mode=%s, prompt=%s, analysis_prompt=%s, entity_definitions=%d)",
         graph_id,
         approach,
+        mode,
         prompt_template_system_name,
+        analysis_prompt_template_system_name,
         len(entity_definitions),
     )
 
     entity_service = entity_service or KnowledgeGraphEntityService()
-    prompt_template_config = dict(
-        await get_prompt_template_by_system_name_flat(prompt_template_system_name)
+    strategy = await build_extraction_strategy(
+        mode,
+        extraction_prompt_template_system_name=prompt_template_system_name,
+        analysis_prompt_template_system_name=analysis_prompt_template_system_name,
+        schema_format=schema_format,
     )
 
     observability_context.update_current_span(
         input={
             "approach": str(approach),
+            "mode": mode,
             "entity_definitions_count": len(entity_definitions),
         }
     )
@@ -992,7 +1426,7 @@ async def run_graph_llm_entity_extraction(
                     source_id=source_id,
                     content_str=content_str,
                     entity_definitions=entity_definitions,
-                    prompt_template_config=prompt_template_config,
+                    strategy=strategy,
                     entity_service=entity_service,
                     segment_size=segment_size,
                     segment_overlap=segment_overlap,
@@ -1116,7 +1550,7 @@ async def run_graph_llm_entity_extraction(
             source_id=source_id,
             chunk_rows=list(chunk_rows),
             entity_definitions=entity_definitions,
-            prompt_template_config=prompt_template_config,
+            strategy=strategy,
             entity_service=entity_service,
             max_extraction_iterations=max_extraction_iterations,
             cancel_check=cancel_check,
@@ -1301,6 +1735,38 @@ async def run_entity_extraction(
             f"Prompt template '{prompt_template_system_name}' was not found"
         ) from exc
 
+    mode = (
+        str(data.mode).strip()
+        if getattr(data, "mode", None) is not None
+        else str(extraction_settings.get("mode") or "").strip()
+    ) or DEFAULT_EXTRACTION_MODE
+    if mode not in EXTRACTION_MODES:
+        raise ClientException(
+            f"Unknown extraction mode: {mode}. Expected one of {list(EXTRACTION_MODES)}"
+        )
+
+    analysis_prompt_template_system_name: str | None = (
+        str(data.analysis_prompt_template_system_name).strip()
+        if getattr(data, "analysis_prompt_template_system_name", None) is not None
+        else str(
+            extraction_settings.get("analysis_prompt_template_system_name") or ""
+        ).strip()
+    ) or None
+
+    if mode == "advanced":
+        if not analysis_prompt_template_system_name:
+            raise ClientException(
+                "Analysis prompt template is required for advanced extraction mode"
+            )
+        try:
+            await get_prompt_template_by_system_name_flat(
+                analysis_prompt_template_system_name
+            )
+        except LookupError as exc:
+            raise ClientException(
+                f"Analysis prompt template '{analysis_prompt_template_system_name}' was not found"
+            ) from exc
+
     segment_size = (
         int(data.segment_size)
         if getattr(data, "segment_size", None) is not None
@@ -1318,14 +1784,28 @@ async def run_entity_extraction(
         else int(extraction_settings.get("max_extraction_iterations") or 3),
     )
 
+    schema_format_raw = (
+        str(data.schema_format).strip()
+        if getattr(data, "schema_format", None) is not None
+        else str(extraction_settings.get("schema_format") or "").strip()
+    ) or DEFAULT_SCHEMA_FORMAT
+    if schema_format_raw not in SCHEMA_FORMATS:
+        raise ClientException(
+            f"Unknown schema_format: {schema_format_raw}. Expected one of {list(SCHEMA_FORMATS)}"
+        )
+    schema_format: EntityExtractionSchemaFormat = schema_format_raw  # type: ignore[assignment]
+
     logger.info(
-        "Starting entity extraction for graph %s (approach=%s, prompt=%s, segment_size=%d, segment_overlap=%.2f, max_iterations=%d)",
+        "Starting entity extraction for graph %s (approach=%s, mode=%s, prompt=%s, analysis_prompt=%s, segment_size=%d, segment_overlap=%.2f, max_iterations=%d, schema_format=%s)",
         graph_id,
         approach_raw,
+        mode,
         prompt_template_system_name,
+        analysis_prompt_template_system_name,
         segment_size,
         segment_overlap,
         max_extraction_iterations,
+        schema_format,
     )
 
     entity_svc = entity_service or KnowledgeGraphEntityService()
@@ -1353,10 +1833,13 @@ async def run_entity_extraction(
             approach=approach_raw,  # type: ignore[arg-type]
             prompt_template_system_name=prompt_template_system_name,
             entity_definitions=entity_definitions,
+            mode=mode,
+            analysis_prompt_template_system_name=analysis_prompt_template_system_name,
             entity_service=entity_svc,
             segment_size=segment_size,
             segment_overlap=segment_overlap,
             max_extraction_iterations=max_extraction_iterations,
+            schema_format=schema_format,
             progress_callback=_progress_cb,
             cancel_check=_cancel_check,
         )
