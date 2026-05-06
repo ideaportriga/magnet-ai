@@ -16,14 +16,10 @@
         description="Choose when entity extraction runs and which prompt template should produce the structured entity output."
         icon="auto_awesome"
       >
+        <template #header-actions>
+          <kg-section-control v-model="approach" :options="approachControlOptions" />
+        </template>
         <div class="column q-gap-16">
-          <kg-field-row
-            label="Extraction Approach"
-            hint="Choose whether entities are extracted from full documents or from already-generated chunks."
-          >
-            <kg-tile-select v-model="approach" :options="approachOptions" :cols="2" />
-          </kg-field-row>
-
           <kg-field-row label="Extraction Mode">
             <kg-dropdown-field v-model="mode" :options="modeOptions" option-value="value" option-label="label" option-description="description" />
           </kg-field-row>
@@ -144,7 +140,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { KgDialogBase, KgDialogSection, KgDropdownField, KgFieldRow, KgTileSelect, KgWarningBanner, type TileOption } from '../common'
+import { KgDialogBase, KgDialogSection, KgDropdownField, KgFieldRow, KgSectionControl, KgWarningBanner, type ControlOption } from '../common'
 import {
   createDefaultEntityExtractionRunSettings,
   MAX_ENTITY_EXTRACTION_MAX_ITERATIONS,
@@ -155,16 +151,16 @@ import {
   type EntityExtractionSchemaFormat,
 } from './models'
 
-const approachOptions: TileOption[] = [
+const approachControlOptions: ControlOption[] = [
   {
     label: 'Document Based',
     value: 'document',
-    description: 'Extract entities from full documents with automatic segmentation for large inputs. Recommended for most graphs.',
+    hint: 'Extract entities from full documents with automatic segmentation for large inputs. Recommended for most graphs.',
   },
   {
     label: 'Chunk Based',
     value: 'chunks',
-    description: 'Extract entities from each existing chunk. Useful when chunk-level provenance matters most.',
+    hint: 'Extract entities from each existing chunk. Useful when chunk-level provenance matters most.',
   },
 ]
 
