@@ -95,14 +95,33 @@ class EvaluationSetsController(Controller):
                 dtype=str,
             ).fillna("")
 
+            num_columns = excel_data.shape[1]
+            supports_metadata_filter = evaluation_set_data.type == "rag_tool"
+
             items = []
             for index, row in excel_data.iterrows():
-                user_input = row.get(0, "")
-                expected_result = row.get(1, "")
-                item = {
-                    "user_input": user_input,
-                    "expected_result": expected_result,
-                }
+                item: dict = {}
+
+                if supports_metadata_filter and num_columns >= 2:
+                    raw_filter = row.get(0, "")
+                    if raw_filter == "":
+                        metadata_filter: list = []
+                    else:
+                        try:
+                            metadata_filter = json.loads(raw_filter)
+                        except json.JSONDecodeError as e:
+                            raise ValueError(
+                                f"Invalid metadata_filter JSON at row {index + 1}: {e}"
+                            ) from e
+                    item["metadata_filter"] = metadata_filter
+                    item["user_input"] = row.get(1, "")
+                    if num_columns >= 3:
+                        item["expected_result"] = row.get(2, "")
+                else:
+                    item["user_input"] = row.get(0, "")
+                    if num_columns >= 2:
+                        item["expected_result"] = row.get(1, "")
+
                 items.append(item)
 
             # Update the items in the data
