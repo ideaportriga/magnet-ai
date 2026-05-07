@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.21](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.20...v0.7.0-dev.21) (2026-05-07)
+
+### 🐛 Bug Fixes
+
+* **evaluation:** fixed long evaluation runs getting stuck ([e9e09e9](https://github.com/ideaportriga/magnet-ai/commit/e9e09e9155ff2a216675d06ec53146f516a81b4d))
+
 ## [0.7.0-dev.20](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.19...v0.7.0-dev.20) (2026-05-07)
 
 ### ✨ Features
