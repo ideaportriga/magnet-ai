@@ -452,10 +452,29 @@ class KnowledgeGraphEntityQueryRequest(BaseModel):
     offset: int = Field(default=0, ge=0)
 
 
-class KnowledgeGraphEntityQueryResponse(BaseModel):
-    """Response model for entity query — returns column_values records."""
+class KnowledgeGraphEntityDocumentReferenceSchema(BaseModel):
+    """Reference to a source document for an entity record."""
 
-    records: list[dict[str, Any]]
+    id: str
+    name: str
+    title: Optional[str] = None
+    external_link: Optional[str] = None
+
+
+class KnowledgeGraphEntityQueryRecordSchema(BaseModel):
+    """Single entity record in a query response, with source document refs."""
+
+    column_values: dict[str, Any]
+    document_ids: list[str] = Field(default_factory=list)
+
+
+class KnowledgeGraphEntityQueryResponse(BaseModel):
+    """Response model for entity query — records plus deduped document refs."""
+
+    records: list[KnowledgeGraphEntityQueryRecordSchema]
+    documents: list[KnowledgeGraphEntityDocumentReferenceSchema] = Field(
+        default_factory=list
+    )
     total: int
     limit: int
     offset: int

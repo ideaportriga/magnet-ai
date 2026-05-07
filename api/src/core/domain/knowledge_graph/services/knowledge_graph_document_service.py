@@ -34,6 +34,7 @@ from core.db.models.knowledge_graph import (
 from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphDocumentDetailSchema,
     KnowledgeGraphDocumentExternalSchema,
+    KnowledgeGraphEntityDocumentReferenceSchema,
 )
 from services.knowledge_graph.utils import normalize_metadata_value
 
@@ -232,6 +233,55 @@ class KnowledgeGraphDocumentService:
             created_at=doc.created_at.isoformat() if doc.created_at else None,
             updated_at=doc.updated_at.isoformat() if doc.updated_at else None,
         )
+
+    async def get_document_references(
+        self,
+        db_session: AsyncSession,
+        *,
+        graph_id: UUID | str,
+        document_ids: list[UUID | str],
+    ) -> list[KnowledgeGraphEntityDocumentReferenceSchema]:
+        """Bulk-fetch lightweight document references (id, name, title, external_link)."""
+
+        normalized_ids: list[UUID] = []
+        seen: set[str] = set()
+        for raw in document_ids:
+            if raw is None:
+                continue
+            try:
+                doc_uuid = raw if isinstance(raw, UUID) else UUID(str(raw))
+            except (ValueError, AttributeError):
+                continue
+            key = str(doc_uuid)
+            if key in seen:
+                continue
+            seen.add(key)
+            normalized_ids.append(doc_uuid)
+
+        if not normalized_ids:
+            return []
+
+        docs_table = docs_table_name(graph_id)
+        md = MetaData()
+        docs_tbl = knowledge_graph_document_table(md, docs_table, vector_size=None)
+
+        stmt = select(
+            docs_tbl.c.id.label("id"),
+            docs_tbl.c.name.label("name"),
+            docs_tbl.c.title.label("title"),
+            docs_tbl.c.external_link.label("external_link"),
+        ).where(docs_tbl.c.id.in_(normalized_ids))
+
+        rows = (await db_session.execute(stmt)).mappings().all()
+        return [
+            KnowledgeGraphEntityDocumentReferenceSchema(
+                id=str(row["id"]),
+                name=str(row.get("name") or ""),
+                title=row.get("title"),
+                external_link=row.get("external_link"),
+            )
+            for row in rows
+        ]
 
     async def query_documents(
         self,

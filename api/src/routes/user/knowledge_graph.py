@@ -22,6 +22,7 @@ from core.db.models.knowledge_graph import KnowledgeGraph
 from core.domain.agent_conversation.service import AgentConversationService
 from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphAgentResponse,
+    KnowledgeGraphEntityQueryRecordSchema,
     KnowledgeGraphEntityQueryRequest,
     KnowledgeGraphEntityQueryResponse,
 )
@@ -749,8 +750,28 @@ class UserKnowledgeGraphController(Controller):
             limit=data.limit,
             offset=data.offset,
         )
+
+        all_document_ids: list[str] = []
+        seen_doc_ids: set[str] = set()
+        for r in records:
+            for doc_id in r.source_document_ids or []:
+                if doc_id and doc_id not in seen_doc_ids:
+                    seen_doc_ids.add(doc_id)
+                    all_document_ids.append(doc_id)
+
+        documents = await KnowledgeGraphDocumentService().get_document_references(
+            db_session, graph_id=graph_id, document_ids=list(all_document_ids)
+        )
+
         return KnowledgeGraphEntityQueryResponse(
-            records=[r.column_values or {} for r in records],
+            records=[
+                KnowledgeGraphEntityQueryRecordSchema(
+                    column_values=r.column_values or {},
+                    document_ids=list(r.source_document_ids or []),
+                )
+                for r in records
+            ],
+            documents=documents,
             total=total,
             limit=data.limit,
             offset=data.offset,
