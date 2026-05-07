@@ -211,22 +211,32 @@ async def evaluate_variant(
     system_name,
     test_set_system_names,
     iteration_count,
-    batch_size=5,
-    max_concurrency=10,
+    max_concurrency: Optional[int] = None,
+    item_timeout: Optional[int] = None,
 ):
+    from core.config.base import get_scheduler_settings
+
+    scheduler_settings = get_scheduler_settings()
+    if max_concurrency is None:
+        max_concurrency = scheduler_settings.SCHEDULER_EVALUATION_MAX_CONCURRENCY
+    if item_timeout is None:
+        item_timeout = scheduler_settings.SCHEDULER_EVALUATION_ITEM_TIMEOUT
+
     variant = evaluation_record.get("tool").get("variant_name")
     variant_object = evaluation_record.get("tool").get("variant_object")
 
+    # Pre-load all test set configs in a single session
+    test_set_configs: dict = {}
     total_records = 0
-    for test_set in test_set_system_names:
-        async with alchemy.get_session() as session:
-            evaluation_sets_service = EvaluationSetsService(session=session)
-            evaluation_set_configs = await evaluation_sets_service.list(
-                system_name=test_set
-            )
-            if evaluation_set_configs:
-                evaluation_set_config = evaluation_set_configs[0]
-                total_records += len(evaluation_set_config.items or [])
+    async with alchemy.get_session() as session:
+        evaluation_sets_service = EvaluationSetsService(session=session)
+        for test_set in test_set_system_names:
+            configs = await evaluation_sets_service.list(system_name=test_set)
+            if configs:
+                test_set_configs[test_set] = configs[0]
+                total_records += len(configs[0].items or [])
+            else:
+                test_set_configs[test_set] = None
 
     observability_context.update_current_span(
         input={
@@ -238,154 +248,166 @@ async def evaluate_variant(
     )
 
     any_errors = False
+    cancelled = False
+    tasks: list[asyncio.Task] = []
 
-    try:
-        # Function to evaluate a single test set item
-        @observe(description="Evaluate a single record from a test set.")
-        async def evaluate_test_set_item(
-            iteration, test_set_index, item_index, test_set, test_set_item
-        ):
-            metadata_filter = metadata_filter_to_filter_object(
-                test_set_item.get("metadata_filter")
-            )
-            user_message = test_set_item.get("user_input")
-            expected_output = test_set_item.get("expected_result")
+    # Function to evaluate a single test set item
+    @observe(description="Evaluate a single record from a test set.")
+    async def evaluate_test_set_item(
+        iteration, test_set_index, item_index, test_set, test_set_item
+    ):
+        metadata_filter = metadata_filter_to_filter_object(
+            test_set_item.get("metadata_filter")
+        )
+        user_message = test_set_item.get("user_input")
+        expected_output = test_set_item.get("expected_result")
 
-            logger.info(f"User message: {user_message}")
-            logger.info(f"Expected output: {expected_output}")
+        observability_context.update_current_span(
+            name=f"Iteration #{iteration}.{test_set_index}.{item_index} - Run",
+            input={
+                "Iteration": iteration,
+                "Test set": test_set,
+                **({"Metadata filter": metadata_filter} if metadata_filter else {}),
+                "Evaluation input": user_message,
+                "Expected output": expected_output,
+            },
+        )
 
-            observability_context.update_current_span(
-                name=f"Iteration #{iteration}.{test_set_index}.{item_index} - Run",
-                input={
-                    "Iteration": iteration,
-                    "Test set": test_set,
-                    **({"Metadata filter": metadata_filter} if metadata_filter else {}),
-                    "Evaluation input": user_message,
-                    "Expected output": expected_output,
-                },
-            )
-
-            # Perform evaluation
-            logger.info(
-                f"Calling evaluate_record with job_type={job_type}, system_name={system_name}, variant={variant}"
-            )
-            result = await evaluate_record(
+        # Per-item timeout: prevents one stuck LLM call from blocking the whole run.
+        result = await asyncio.wait_for(
+            evaluate_record(
                 job_type,
                 system_name,
                 variant,
                 variant_object,
                 metadata_filter,
                 user_message,
+            ),
+            timeout=item_timeout,
+        )
+
+        return {
+            "id": str(uuid.uuid4()),
+            "model_version": result.get("model_version", ""),
+            "usage": result.get("usage", {}),
+            "latency": result.get("latency", 0),
+            "generated_output": result.get("answer", ""),
+            "test_set": test_set,
+            "evaluated_at": datetime.now(timezone.utc),
+            "expected_output": expected_output,
+            "user_message": user_message,
+            "iteration": iteration,
+        }
+
+    semaphore = asyncio.Semaphore(max_concurrency)
+
+    async def run_one_item(iteration, test_set_index, item_index, test_set, item):
+        """Run a single item bounded by the semaphore. Errors are returned, not raised,
+        so one failure cannot poison `as_completed`. CancelledError still propagates."""
+        async with semaphore:
+            try:
+                return await evaluate_test_set_item(
+                    iteration, test_set_index, item_index, test_set, item
+                )
+            except asyncio.CancelledError:
+                raise
+            except asyncio.TimeoutError:
+                return {
+                    "_error": (
+                        f"Item iter={iteration} test_set={test_set} index={item_index} "
+                        f"timed out after {item_timeout}s"
+                    )
+                }
+            except Exception as e:
+                logger.error(f"Item evaluation failed: {e}")
+                return {"_error": str(e)}
+
+    async def persist_result(new_result: Optional[dict], errors_snapshot: list[str]):
+        try:
+            async with alchemy.get_session() as session:
+                await append_evaluation_results(
+                    db_session=session,
+                    evaluation_id=str(evaluation_id),
+                    new_results=[new_result] if new_result else [],
+                    errors=errors_snapshot,
+                )
+        except Exception as e:
+            logger.error(
+                f"Failed to persist incremental result for evaluation {evaluation_id}: {e}"
             )
-            logger.info(f"Evaluation result: {result}")
 
-            generated_output = result.get("answer", "")
-            latency = result.get("latency", 0)
-            usage = result.get("usage", {})
-            model_version = result.get("model_version", "")
-
-            # Construct the result record
-            result_record = {
-                "id": str(uuid.uuid4()),
-                "model_version": model_version,
-                "usage": usage,
-                "latency": latency,
-                "generated_output": generated_output,
-                "test_set": test_set,
-                "evaluated_at": datetime.now(timezone.utc),
-                "expected_output": expected_output,
-                "user_message": user_message,
-                "iteration": iteration,
-            }
-
-            logger.info(f"Created result record with ID: {result_record['id']}")
-
-            # Return the result record instead of saving it immediately
-            logger.info("Returning result record for later batch save")
-            return result_record
-
-        semaphore = asyncio.Semaphore(max_concurrency)
-
-        async def run_with_semaphore(coro):
-            async with semaphore:
-                return await coro
-
-        # Execute iterations with batch processing
+    try:
+        # Build all tasks across iterations × test sets × items
         for iteration in range(1, iteration_count + 1):
             for test_set_index, test_set in enumerate(test_set_system_names):
-                async with alchemy.get_session() as session:
-                    evaluation_sets_service = EvaluationSetsService(session=session)
-                    evaluation_set_configs = await evaluation_sets_service.list(
-                        system_name=test_set
-                    )
-
-                # Check if test set config exists
-                if not evaluation_set_configs:
+                config = test_set_configs.get(test_set)
+                if not config:
                     evaluation_record["errors"].append(
                         f"Test set '{test_set}' not found"
                     )
                     any_errors = True
                     continue
 
-                evaluation_set_config = evaluation_set_configs[0]
-                # Get test set items and process in batches
-                test_set_items = evaluation_set_config.items or []
-                for i in range(0, len(test_set_items), batch_size):
-                    batch = test_set_items[i : i + batch_size]
-                    tasks = []
-                    for item_index, item in enumerate(batch):
-                        tasks.append(
-                            run_with_semaphore(
-                                evaluate_test_set_item(
-                                    iteration,
-                                    test_set_index + 1,
-                                    i + item_index + 1,
-                                    test_set,
-                                    item,
-                                )
+                for item_index, item in enumerate(config.items or []):
+                    tasks.append(
+                        asyncio.create_task(
+                            run_one_item(
+                                iteration,
+                                test_set_index + 1,
+                                item_index + 1,
+                                test_set,
+                                item,
                             )
                         )
+                    )
 
-                    # Execute batch tasks concurrently and collect results
-                    results = await asyncio.gather(*tasks, return_exceptions=True)
+        # Persist test-set-not-found errors immediately so they're visible even on cancel
+        if evaluation_record["errors"]:
+            await persist_result(None, list(evaluation_record["errors"]))
 
-                    # Collect all successful results
-                    batch_result_records = []
-                    for result in results:
-                        if isinstance(result, dict) and "id" in result:
-                            batch_result_records.append(result)
-                        elif isinstance(result, Exception):
-                            logger.error(f"Task failed with exception: {result}")
-                            evaluation_record["errors"].append(str(result))
-                            any_errors = True
+        # Process tasks as they complete; persist each result individually for durability.
+        for completed in asyncio.as_completed(tasks):
+            outcome = await completed
+            if not isinstance(outcome, dict):
+                continue
+            if "_error" in outcome:
+                evaluation_record["errors"].append(outcome["_error"])
+                any_errors = True
+                await persist_result(None, list(evaluation_record["errors"]))
+            elif "id" in outcome:
+                await persist_result(outcome, list(evaluation_record["errors"]))
 
-                    # Incrementally update evaluation with batch results
-                    if batch_result_records or evaluation_record["errors"]:
-                        async with alchemy.get_session() as session:
-                            await append_evaluation_results(
-                                db_session=session,
-                                evaluation_id=str(evaluation_id),
-                                new_results=batch_result_records,
-                                errors=evaluation_record["errors"],
-                            )
-
-        # Update evaluation status based on errors
+    except asyncio.CancelledError:
+        cancelled = True
+        any_errors = True
+        evaluation_record["errors"].append(
+            "Evaluation was cancelled (e.g. job-level timeout). Partial results preserved."
+        )
+        # Cancel any remaining child tasks so we don't leak
+        for t in tasks:
+            if not t.done():
+                t.cancel()
+        try:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        except Exception:
+            pass
+        raise
+    except Exception as e:
+        any_errors = True
+        evaluation_record["errors"].append(f"Evaluation failed: {e}")
+        logger.error(f"Error during evaluation processing: {e}")
+        raise
+    finally:
+        # Always set a terminal status — runs on success, exception, AND CancelledError.
         evaluation_record["finished_at"] = datetime.now(timezone.utc)
         evaluation_record["status"] = (
             JobRunStatus.FAILED.value if any_errors else JobRunStatus.COMPLETED.value
         )
-
-        # Final update of the evaluation record using SQLAlchemy
-        async with alchemy.get_session() as session:
-            evaluations_service = EvaluationsService(session=session)
-
-            # Get current evaluation to preserve any existing results
-            evaluation = await evaluations_service.get(evaluation_id)
-            if evaluation:
-                current_results = evaluation.results or []
-
+        try:
+            async with alchemy.get_session() as session:
+                evaluations_service = EvaluationsService(session=session)
                 await evaluations_service.update(
-                    item_id=str(evaluation_id),  # Convert UUID to string for item_id
+                    item_id=str(evaluation_id),
                     data={
                         "status": evaluation_record["status"],
                         "finished_at": evaluation_record["finished_at"],
@@ -394,30 +416,18 @@ async def evaluate_variant(
                 )
                 await session.commit()
                 logger.info(
-                    f"Final update: evaluation {evaluation_id} now has {len(current_results)} results"
+                    f"Evaluation {evaluation_id} terminal status: "
+                    f"{evaluation_record['status']} (cancelled={cancelled})"
                 )
-        return {
-            "evaluation_id": str(evaluation_id),
-            "errors": evaluation_record["errors"],
-        }
-    except Exception as e:
-        logger.error(f"Error during evaluation processing: {e}")
-        evaluation_record["finished_at"] = datetime.now(timezone.utc)
-        evaluation_record["status"] = JobRunStatus.FAILED.value
-        evaluation_record["errors"].append(str(e))
-
-        async with alchemy.get_session() as session:
-            evaluations_service = EvaluationsService(session=session)
-            await evaluations_service.update(
-                item_id=str(evaluation_id),
-                data={
-                    "status": evaluation_record["status"],
-                    "finished_at": evaluation_record["finished_at"],
-                    "errors": evaluation_record["errors"],
-                },
+        except Exception as e:
+            logger.error(
+                f"Failed to set terminal status for evaluation {evaluation_id}: {e}"
             )
-            await session.commit()
-        raise
+
+    return {
+        "evaluation_id": str(evaluation_id),
+        "errors": evaluation_record["errors"],
+    }
 
 
 # Main evaluation function

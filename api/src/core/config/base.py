@@ -313,6 +313,20 @@ class SchedulerSettings:
         default_factory=get_env("SCHEDULER_SYNC_JOB_TIMEOUT", 0)
     )
     """Timeout in seconds for knowledge source sync jobs (default: 0 = no timeout)."""
+    SCHEDULER_EVALUATION_JOB_TIMEOUT: int = field(
+        default_factory=get_env("SCHEDULER_EVALUATION_JOB_TIMEOUT", 0)
+    )
+    """Timeout in seconds for evaluation jobs (default: 0 = no timeout — rely on
+    per-item timeouts instead, since dataset size is unbounded)."""
+    SCHEDULER_EVALUATION_ITEM_TIMEOUT: int = field(
+        default_factory=get_env("SCHEDULER_EVALUATION_ITEM_TIMEOUT", 180)
+    )
+    """Timeout in seconds for a single test set item evaluation (default: 180 = 3 minutes).
+    Prevents one stuck LLM call from blocking the whole evaluation run."""
+    SCHEDULER_EVALUATION_MAX_CONCURRENCY: int = field(
+        default_factory=get_env("SCHEDULER_EVALUATION_MAX_CONCURRENCY", 10)
+    )
+    """Maximum concurrent test set item evaluations within a single variant run."""
 
     def get_scheduler_database_url(self, db_settings: DatabaseSettings) -> str:
         """Get synchronous database URL for APScheduler jobstore."""

@@ -41,8 +41,9 @@ def get_interval_days(interval):
 # to avoid race conditions with double status updates.
 #
 # Usage:
-#   @with_progress_status            — uses SCHEDULER_DEFAULT_JOB_TIMEOUT from settings
-#   @with_progress_status(timeout="sync")  — uses SCHEDULER_SYNC_JOB_TIMEOUT from settings
+#   @with_progress_status                  — uses SCHEDULER_DEFAULT_JOB_TIMEOUT from settings
+#   @with_progress_status(timeout="sync")        — uses SCHEDULER_SYNC_JOB_TIMEOUT from settings
+#   @with_progress_status(timeout="evaluation")  — uses SCHEDULER_EVALUATION_JOB_TIMEOUT from settings
 def with_progress_status(func=None, *, timeout=None):
     def decorator(fn):
         @wraps(fn)
@@ -54,6 +55,8 @@ def with_progress_status(func=None, *, timeout=None):
             settings = get_scheduler_settings()
             if timeout == "sync":
                 effective_timeout = settings.SCHEDULER_SYNC_JOB_TIMEOUT
+            elif timeout == "evaluation":
+                effective_timeout = settings.SCHEDULER_EVALUATION_JOB_TIMEOUT
             elif timeout is not None:
                 effective_timeout = timeout
             else:
@@ -320,16 +323,16 @@ async def execute_post_process_configuration(**kwargs):
         raise
 
 
-@with_progress_status
+@with_progress_status(timeout="evaluation")
 @observe(name="Evaluation job", channel="Job")
 async def execute_evaluation(**kwargs):
     """Execute an evaluation job with the given parameters."""
     job_id = kwargs.get("job_id")
+    params = kwargs.get("params", {})
 
     try:
         # Extract job information and parameters
         job_definition = kwargs.get("job_definition")
-        params = kwargs.get("params", {})
 
         observability_context.update_current_trace(
             type="evaluation",
@@ -394,6 +397,18 @@ async def execute_evaluation(**kwargs):
 
         # Error status will be set by APScheduler's job_error_listener
         raise
+    finally:
+        # Flush OTel spans to DB before the worker moves on or cancellation
+        # propagates further. Without this, spans buffered in BatchSpanProcessor's
+        # queue can be lost when long-running evaluation jobs time out or fail.
+        try:
+            from opentelemetry import trace as otel_trace
+
+            otel_trace.get_tracer_provider().force_flush(timeout_millis=30000)
+        except Exception as flush_error:
+            logger.warning(
+                f"Failed to flush OTel tracer provider for job {job_id}: {flush_error}"
+            )
 
 
 @with_progress_status(timeout="sync")
