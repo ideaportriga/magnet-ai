@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.20](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.19...v0.7.0-dev.20) (2026-05-07)
+
+### ✨ Features
+
+* **kg:** improved extraction of entities, added different startegies, added import/export ([ba5e85a](https://github.com/ideaportriga/magnet-ai/commit/ba5e85aca53f790fe1af0765b3899c2d5294cea7))
+
 ## [0.7.0-dev.19](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.18...v0.7.0-dev.19) (2026-05-05)
 
 ### 🐛 Bug Fixes
