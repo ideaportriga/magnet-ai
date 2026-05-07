@@ -166,6 +166,27 @@ export function cloneEntityExtractionSettings(settings?: EntityExtractionSetting
   }
 }
 
+function normalizeEntityDefinitionFromRaw(raw: Record<string, unknown>): EntityDefinition {
+  return {
+    id: String(raw.id || crypto.randomUUID()),
+    name: String(raw.name || ''),
+    description: String(raw.description || ''),
+    enabled: raw.enabled !== false,
+    columns: Array.isArray(raw.columns)
+      ? raw.columns
+          .filter((column): column is Record<string, unknown> => !!column && typeof column === 'object')
+          .map((column) => ({
+            id: String(column.id || crypto.randomUUID()),
+            name: String(column.name || ''),
+            description: String(column.description || ''),
+            type: normalizeColumnType(column.type),
+            is_identifier: !!column.is_identifier,
+            is_required: !!column.is_required,
+          }))
+      : [],
+  }
+}
+
 export function getEntityDefinitionsFromSettings(settings?: Record<string, unknown>): EntityDefinition[] {
   const entityExtraction = getEntityExtractionRaw(settings)
   const entityDefinitions = entityExtraction?.entity_definitions
@@ -175,24 +196,7 @@ export function getEntityDefinitionsFromSettings(settings?: Record<string, unkno
 
   return entityDefinitions
     .filter((entity): entity is Record<string, unknown> => !!entity && typeof entity === 'object')
-    .map((entity) => ({
-      id: String(entity.id || crypto.randomUUID()),
-      name: String(entity.name || ''),
-      description: String(entity.description || ''),
-      enabled: entity.enabled !== false,
-      columns: Array.isArray(entity.columns)
-        ? entity.columns
-            .filter((column): column is Record<string, unknown> => !!column && typeof column === 'object')
-            .map((column) => ({
-              id: String(column.id || crypto.randomUUID()),
-              name: String(column.name || ''),
-              description: String(column.description || ''),
-              type: normalizeColumnType(column.type),
-              is_identifier: !!column.is_identifier,
-              is_required: !!column.is_required,
-            }))
-        : [],
-    }))
+    .map(normalizeEntityDefinitionFromRaw)
 }
 
 export function getEntityExtractionRunSettingsFromSettings(settings?: Record<string, unknown>): EntityExtractionRunSettings {
@@ -344,4 +348,145 @@ export function createEmptyEntity(): EntityDefinition {
     enabled: true,
     columns: [createEmptyColumn()],
   }
+}
+
+// --- Export / Import ---
+
+export const ENTITY_DEFINITIONS_EXPORT_VERSION = 1
+
+export interface EntityDefinitionExportColumn {
+  name: string
+  description: string
+  type: EntityColumnType
+  is_identifier: boolean
+  is_required: boolean
+}
+
+export interface EntityDefinitionExportEntry {
+  name: string
+  description: string
+  enabled: boolean
+  columns: EntityDefinitionExportColumn[]
+}
+
+export interface EntityDefinitionsExportEnvelope {
+  magnet_kg_entity_definitions_version: number
+  exported_at: string
+  entity_definitions: EntityDefinitionExportEntry[]
+}
+
+export interface EntityDefinitionsImportResult {
+  entities: EntityDefinition[]
+  warnings: string[]
+}
+
+export interface EntityDefinitionsMergeResult {
+  merged: EntityDefinition[]
+  added: string[]
+  overwritten: string[]
+}
+
+export function serializeEntityDefinitionsForExport(entities: EntityDefinition[]): string {
+  const cloned = cloneEntityDefinitions(entities)
+  const envelope: EntityDefinitionsExportEnvelope = {
+    magnet_kg_entity_definitions_version: ENTITY_DEFINITIONS_EXPORT_VERSION,
+    exported_at: new Date().toISOString(),
+    entity_definitions: cloned.map((entity) => ({
+      name: entity.name,
+      description: entity.description,
+      enabled: entity.enabled,
+      columns: entity.columns.map((column) => ({
+        name: column.name,
+        description: column.description,
+        type: column.type,
+        is_identifier: column.is_identifier,
+        is_required: column.is_required,
+      })),
+    })),
+  }
+
+  return JSON.stringify(envelope, null, 2)
+}
+
+export function parseEntityDefinitionsFromImport(text: string): EntityDefinitionsImportResult {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(text)
+  } catch {
+    throw new Error('File is not valid JSON')
+  }
+
+  if (!parsed || typeof parsed !== 'object') {
+    throw new Error('File does not contain an entity-definitions export')
+  }
+
+  const envelope = parsed as Record<string, unknown>
+  const rawEntities = envelope.entity_definitions
+  if (!Array.isArray(rawEntities)) {
+    throw new Error('File does not contain an "entity_definitions" array')
+  }
+
+  const warnings: string[] = []
+  const entities: EntityDefinition[] = []
+  const seenNames = new Set<string>()
+
+  rawEntities.forEach((raw, index) => {
+    if (!raw || typeof raw !== 'object') {
+      warnings.push(`Entry #${index + 1} is not an object — skipped`)
+      return
+    }
+
+    const entity = normalizeEntityDefinitionFromRaw(raw as Record<string, unknown>)
+    entity.id = crypto.randomUUID()
+    entity.columns = entity.columns.map((column) => ({ ...column, id: crypto.randomUUID() }))
+
+    const trimmedName = entity.name.trim()
+    if (!trimmedName) {
+      warnings.push(`Entry #${index + 1} has no name — skipped`)
+      return
+    }
+
+    const dedupeKey = trimmedName.toLowerCase()
+    if (seenNames.has(dedupeKey)) {
+      warnings.push(`Duplicate entity "${trimmedName}" in file — only first kept`)
+      return
+    }
+    seenNames.add(dedupeKey)
+
+    entity.name = trimmedName
+    entities.push(entity)
+  })
+
+  return { entities, warnings }
+}
+
+export function mergeEntityDefinitions(
+  existing: EntityDefinition[],
+  incoming: EntityDefinition[]
+): EntityDefinitionsMergeResult {
+  const merged = cloneEntityDefinitions(existing)
+  const indexByName = new Map<string, number>()
+  merged.forEach((entity, index) => {
+    indexByName.set(entity.name.trim().toLowerCase(), index)
+  })
+
+  const added: string[] = []
+  const overwritten: string[] = []
+
+  incoming.forEach((incomingEntity) => {
+    const key = incomingEntity.name.trim().toLowerCase()
+    const existingIndex = indexByName.get(key)
+    if (existingIndex !== undefined) {
+      const preservedId = merged[existingIndex].id
+      merged[existingIndex] = { ...cloneEntityDefinition(incomingEntity), id: preservedId }
+      overwritten.push(merged[existingIndex].name)
+    } else {
+      const fresh = cloneEntityDefinition(incomingEntity)
+      indexByName.set(key, merged.length)
+      merged.push(fresh)
+      added.push(fresh.name)
+    }
+  })
+
+  return { merged, added, overwritten }
 }

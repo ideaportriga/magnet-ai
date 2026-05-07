@@ -1,8 +1,8 @@
 <template>
   <kg-dialog-base
     :model-value="props.showDialog"
-    title="Entity Extraction Settings"
-    subtitle="Configure how AI extracts structured entities from your documents"
+    title="Extraction Settings"
+    subtitle="Control how the AI identifies and pulls structured entities from documents"
     confirm-label="Save Settings"
     :loading="loading"
     size="md"
@@ -20,7 +20,10 @@
           <kg-section-control v-model="approach" :options="approachControlOptions" />
         </template>
         <div class="column q-gap-16">
-          <kg-field-row label="Extraction Strategy">
+          <kg-field-row
+            label="Extraction Strategy"
+            hint="Determines how many reasoning steps the model uses per segment. Single-Pass is faster; Context-Aware improves accuracy on complex documents."
+          >
             <kg-dropdown-field
               v-model="mode"
               :options="modeOptions"
@@ -99,7 +102,10 @@
 
           <div class="row q-col-gutter-md">
             <div class="col">
-              <kg-field-row label="Schema Format">
+              <kg-field-row
+                label="Schema Format"
+                hint="How entity types are communicated to the model. JSON Schema is the most precise; TypeScript and Markdown trade strictness for brevity."
+              >
                 <kg-dropdown-field
                   v-model="schemaFormat"
                   :options="schemaFormatOptions"
