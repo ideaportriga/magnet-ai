@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.22](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.21...v0.7.0-dev.22) (2026-05-07)
+
+### 🐛 Bug Fixes
+
+* **evaluation:** now metadata filter is included in test set when ([9e2fabd](https://github.com/ideaportriga/magnet-ai/commit/9e2fabdbfdb034159d8b73e0130d893f8bb40bca))
+
 ## [0.7.0-dev.21](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.20...v0.7.0-dev.21) (2026-05-07)
 
 ### 🐛 Bug Fixes
