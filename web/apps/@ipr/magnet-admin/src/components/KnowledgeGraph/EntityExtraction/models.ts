@@ -1,10 +1,11 @@
 export type EntityColumnType = 'string' | 'number' | 'boolean' | 'date'
 export type EntityExtractionApproach = 'document' | 'chunks'
-export type EntityExtractionMode = 'basic' | 'advanced'
+export type EntityExtractionMode = 'basic' | 'advanced' | 'reflective'
 export type EntityExtractionSchemaFormat = 'json_schema' | 'typescript' | 'markdown'
 
 export const DEFAULT_ENTITY_EXTRACTION_PROMPT_TEMPLATE_SYSTEM_NAME = 'KG_ENTITY_EXTRACTION'
 export const DEFAULT_ENTITY_EXTRACTION_ANALYSIS_PROMPT_TEMPLATE_SYSTEM_NAME = 'KG_ENTITY_EXTRACTION_ANALYSIS'
+export const DEFAULT_ENTITY_EXTRACTION_REFLECTIVE_PROMPT_TEMPLATE_SYSTEM_NAME = 'KG_ENTITY_EXTRACTION_REFLECTIVE'
 export const DEFAULT_ENTITY_EXTRACTION_MODE: EntityExtractionMode = 'basic'
 export const DEFAULT_ENTITY_EXTRACTION_SCHEMA_FORMAT: EntityExtractionSchemaFormat = 'typescript'
 export const DEFAULT_ENTITY_EXTRACTION_SEGMENT_SIZE = 18000
@@ -43,6 +44,7 @@ export interface EntityExtractionRunSettings {
   schema_format: EntityExtractionSchemaFormat
   prompt_template_system_name: string
   analysis_prompt_template_system_name: string
+  reflective_prompt_template_system_name: string
   segment_size: number
   segment_overlap: number
   max_extraction_iterations: number
@@ -56,7 +58,7 @@ export interface EntityExtractionSettings {
 const ENTITY_EXTRACTION_SETTINGS_KEY = 'entity_extraction'
 const ENTITY_COLUMN_TYPES: EntityColumnType[] = ['string', 'number', 'boolean', 'date']
 const ENTITY_EXTRACTION_APPROACHES: EntityExtractionApproach[] = ['document', 'chunks']
-export const ENTITY_EXTRACTION_MODES: EntityExtractionMode[] = ['basic', 'advanced']
+export const ENTITY_EXTRACTION_MODES: EntityExtractionMode[] = ['basic', 'advanced', 'reflective']
 export const ENTITY_EXTRACTION_SCHEMA_FORMATS: EntityExtractionSchemaFormat[] = ['json_schema', 'typescript', 'markdown']
 
 function normalizeColumnType(value: unknown): EntityColumnType {
@@ -116,6 +118,7 @@ export function createDefaultEntityExtractionRunSettings(): EntityExtractionRunS
     schema_format: DEFAULT_ENTITY_EXTRACTION_SCHEMA_FORMAT,
     prompt_template_system_name: DEFAULT_ENTITY_EXTRACTION_PROMPT_TEMPLATE_SYSTEM_NAME,
     analysis_prompt_template_system_name: DEFAULT_ENTITY_EXTRACTION_ANALYSIS_PROMPT_TEMPLATE_SYSTEM_NAME,
+    reflective_prompt_template_system_name: DEFAULT_ENTITY_EXTRACTION_REFLECTIVE_PROMPT_TEMPLATE_SYSTEM_NAME,
     segment_size: DEFAULT_ENTITY_EXTRACTION_SEGMENT_SIZE,
     segment_overlap: DEFAULT_ENTITY_EXTRACTION_SEGMENT_OVERLAP,
     max_extraction_iterations: DEFAULT_ENTITY_EXTRACTION_MAX_ITERATIONS,
@@ -146,6 +149,9 @@ export function cloneEntityExtractionRunSettings(settings?: EntityExtractionRunS
     prompt_template_system_name: String(settings?.prompt_template_system_name ?? defaults.prompt_template_system_name).trim(),
     analysis_prompt_template_system_name: String(
       settings?.analysis_prompt_template_system_name ?? defaults.analysis_prompt_template_system_name
+    ).trim(),
+    reflective_prompt_template_system_name: String(
+      settings?.reflective_prompt_template_system_name ?? defaults.reflective_prompt_template_system_name
     ).trim(),
     segment_size: normalizeSegmentSize(settings?.segment_size ?? defaults.segment_size),
     segment_overlap: normalizeSegmentOverlap(settings?.segment_overlap ?? defaults.segment_overlap),
@@ -213,6 +219,10 @@ export function getEntityExtractionRunSettingsFromSettings(settings?: Record<str
       typeof extraction?.analysis_prompt_template_system_name === 'string'
         ? String(extraction.analysis_prompt_template_system_name).trim()
         : defaults.analysis_prompt_template_system_name,
+    reflective_prompt_template_system_name:
+      typeof extraction?.reflective_prompt_template_system_name === 'string'
+        ? String(extraction.reflective_prompt_template_system_name).trim()
+        : defaults.reflective_prompt_template_system_name,
     segment_size: normalizeSegmentSize(extraction?.segment_size),
     segment_overlap: normalizeSegmentOverlap(extraction?.segment_overlap),
     max_extraction_iterations: normalizeMaxExtractionIterations(extraction?.max_extraction_iterations),
@@ -248,13 +258,18 @@ export function withEntityExtractionRunSettings(
   nextSettings[ENTITY_EXTRACTION_SETTINGS_KEY] = {
     ...(currentEntityExtraction && typeof currentEntityExtraction === 'object' ? currentEntityExtraction : {}),
     extraction: {
-      enabled: !!String(extractionSettings.prompt_template_system_name || '').trim(),
+      enabled:
+        extractionSettings.mode === 'reflective'
+          ? !!String(extractionSettings.reflective_prompt_template_system_name || '').trim()
+          : !!String(extractionSettings.prompt_template_system_name || '').trim(),
       approach: normalizeExtractionApproach(extractionSettings.approach),
       mode: normalizeExtractionMode(extractionSettings.mode),
       schema_format: normalizeSchemaFormat(extractionSettings.schema_format),
       prompt_template_system_name: String(extractionSettings.prompt_template_system_name || '').trim() || undefined,
       analysis_prompt_template_system_name:
         String(extractionSettings.analysis_prompt_template_system_name || '').trim() || undefined,
+      reflective_prompt_template_system_name:
+        String(extractionSettings.reflective_prompt_template_system_name || '').trim() || undefined,
       segment_size: normalizeSegmentSize(extractionSettings.segment_size),
       segment_overlap: normalizeSegmentOverlap(extractionSettings.segment_overlap),
       max_extraction_iterations: normalizeMaxExtractionIterations(extractionSettings.max_extraction_iterations),

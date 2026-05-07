@@ -433,6 +433,31 @@
         ]
     },
     {
+        "name": "Knowledge Graph Entity Extraction — Reflective",
+        "description": "Reflective entity extraction. In one call per segment, the model both updates a running per-entity analysis and emits extracted records; the analysis carries forward to the next segment.",
+        "system_name": "KG_ENTITY_EXTRACTION_REFLECTIVE",
+        "category": "generic",
+        "active_variant": "variant_1",
+        "variants": [
+            {
+                "variant": "variant_1",
+                "topP": 0.2,
+                "temperature": 0.0,
+                "system_name_for_model": "AZURE_OPEN_AI_GPT-4.1-MINI",
+                "retrieve": {
+                    "collection_system_names": []
+                },
+                "display_name": null,
+                "description": null,
+                "text": "---Role---\nIn a single call you do two things at once: you (1) maintain a compact, evolving analysis of the document for the entity '{ENTITY_NAME}', and (2) extract canonical records of '{ENTITY_NAME}' from the current document segment.\n\n---Inputs---\n- The prior assistant message (if any) contains the running analysis built from earlier segments of the same document, plus the records emitted for those segments. The analysis may be empty on the first segment.\n- The user message contains the next document segment.\n\n---Output schema---\nThe schema for your output is provided below. Follow it exactly:\n\n{SCHEMA}\n\n---Analysis: rules---\nThe `analysis` field is your only memory across segments. Anything observed once and not preserved is lost forever for every future segment. Start from the prior analysis verbatim, then:\n1. **Preserve** every concrete value already recorded — identifiers, codes, dates, party names, applicability codes, ordering rules, caveats, section-specific notes. These were stated in segments you can no longer see.\n2. **Add** new concrete values, structural observations, and disambiguation rules learned from the current segment. When the same kind of value appears in multiple segments, accumulate them rather than replacing.\n3. **Refine** generalizations when the current segment makes them more accurate.\n4. **Remove** an item only if the current segment **directly contradicts** it, or if it was a tentative guess the current segment proves wrong. State the correction; do not silently drop.\n5. Absence of a value in the current segment is **not** evidence against it — it usually lives in a different segment.\n\nThe analysis should cover, when relevant: what '{ENTITY_NAME}' represents in this specific document; which columns are reliably populated vs. sparse; values shared across many records but stated only once or in specific places (record the **literal value**, where it was stated, and which column it should populate when no segment-local override exists); aliases, abbreviations, casing variants, and disambiguation rules the extractor should follow.\n\nReturn the **full updated analysis** as concise plain text. Short markdown bullets are fine; no JSON, no code fences inside the analysis string. Be compact in prose, but never compact away concrete values. Always write the analysis in English regardless of the source language. Preserve proper nouns, identifiers, codes, dates, and quoted values verbatim.\n\n---Records: rules---\n1. Follow the entity name and column names exactly as provided in the schema.\n2. Return all extracted records under the `records` array.\n3. Every configured column must appear in each returned record. Use `null` when a value is unknown.\n4. The identifier column is the primary identity for deduplication. Use the most canonical human-readable form you can infer from the text.\n5. Deduplicate aggressively within the current segment:\n   - Merge casing, whitespace, and punctuation variants of the same entity.\n   - Merge repeated mentions of the same entity into one record.\n   - Do not emit duplicate records for aliases that clearly refer to the same entity in context.\n6. Prefer explicit evidence from the segment text. Do not invent records or values that are not grounded in the segment content.\n7. If '{ENTITY_NAME}' is not present in the current segment, return an empty `records` array (still update the analysis).\n8. Use the analysis (both prior and your update) to interpret ambiguous mentions and to fill global attributes — but extract records **only** from the segment content, never from the analysis itself.\n\n---Quality bar---\n- Prefer fewer, higher-confidence records over speculative records.\n- Preserve the original surface form for identifiers when possible.\n- If multiple mentions in the segment supply complementary fields for the same entity, merge them into one record.\n- If two mentions are ambiguous and may be different entities, keep them separate.\n\n---Output format---\nReturn only valid JSON matching the output schema. Do not output any prose, reasoning, or commentary outside the JSON.\n",
+                "sample_text": null,
+                "response_format": null,
+                "sample_test_set": null,
+                "observability_level": "full"
+            }
+        ]
+    },
+    {
       "active_variant": "variant_2",
       "variants": [
         {

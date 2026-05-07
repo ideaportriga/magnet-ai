@@ -38,8 +38,8 @@ logger = logging.getLogger(__name__)
 _active_extraction_tasks: dict[UUID, bool] = {}
 
 EntityExtractionApproach = Literal["document", "chunks"]
-EntityExtractionMode = Literal["basic", "advanced"]
-EXTRACTION_MODES: tuple[str, ...] = ("basic", "advanced")
+EntityExtractionMode = Literal["basic", "advanced", "reflective"]
+EXTRACTION_MODES: tuple[str, ...] = ("basic", "advanced", "reflective")
 DEFAULT_EXTRACTION_MODE: EntityExtractionMode = "basic"
 EntityColumnType = Literal["string", "number", "boolean", "date"]
 EntityExtractionSchemaFormat = Literal["json_schema", "typescript", "markdown"]
@@ -48,6 +48,11 @@ DEFAULT_SCHEMA_FORMAT: EntityExtractionSchemaFormat = "typescript"
 _JSON_SCHEMA_MODE_PROMPT_HINT = (
     "The schema for the entity records is provided as a JSON Schema attached to "
     "this request as the `response_format`. Follow it exactly."
+)
+_JSON_SCHEMA_MODE_PROMPT_HINT_REFLECTIVE = (
+    "The schema for your output (a top-level object with `analysis` and `records` "
+    "fields) is provided as a JSON Schema attached to this request as the "
+    "`response_format`. Follow it exactly."
 )
 
 
@@ -179,6 +184,8 @@ def normalize_entity_definitions(
 
 def build_entity_extraction_prompt_schema_typescript(
     entity_definitions: list[EntityDefinition],
+    *,
+    include_analysis: bool = False,
 ) -> str:
     has_required_fields = any(
         col.is_required for ed in entity_definitions for col in (ed.columns or [])
@@ -193,6 +200,12 @@ def build_entity_extraction_prompt_schema_typescript(
             " */",
         ]
     lines.append("type ExtractedEntityRecords = {")
+    if include_analysis:
+        lines.append(
+            "  /** Updated running analysis of the document (plain text). Required. */"
+        )
+        lines.append("  analysis: string")
+        lines.append("")
     ts_type_map: dict[EntityColumnType, str] = {
         "string": "string",
         "number": "number",
@@ -246,6 +259,8 @@ _MARKDOWN_TYPE_LABEL: dict[EntityColumnType, str] = {
 
 def build_entity_extraction_prompt_schema_markdown(
     entity_definitions: list[EntityDefinition],
+    *,
+    include_analysis: bool = False,
 ) -> str:
     """Render the entity schema as a simple markdown listing.
 
@@ -253,6 +268,13 @@ def build_entity_extraction_prompt_schema_markdown(
     and required/optional flag, and any column description.
     """
     blocks: list[str] = []
+    if include_analysis:
+        blocks.append(
+            "### Output\n"
+            "Return a JSON object with two top-level fields:\n"
+            "- `analysis` (string, required) — running document analysis (plain text).\n"
+            "- `records` (array, required) — extracted records of the entity below."
+        )
     for entity_definition in entity_definitions:
         lines: list[str] = []
         identifier = entity_definition.identifier_column
@@ -292,12 +314,17 @@ _JSON_SCHEMA_TYPE_MAP: dict[EntityColumnType, str] = {
 
 def build_entity_extraction_prompt_schema_json(
     entity_definition: EntityDefinition,
+    *,
+    include_analysis: bool = False,
 ) -> dict[str, Any]:
     """Build a strict JSON Schema describing the records output for a single entity.
 
     Shape::
 
         {"records": [{<column>: <value>, ...}, ...]}
+
+    With ``include_analysis=True`` the schema additionally requires an
+    ``analysis`` string field at the top level — used by the reflective strategy.
     """
     item_properties: dict[str, Any] = {}
     item_required: list[str] = []
@@ -327,28 +354,48 @@ def build_entity_extraction_prompt_schema_json(
         "additionalProperties": False,
     }
 
+    properties: dict[str, Any] = {}
+    required: list[str] = []
+    if include_analysis:
+        properties["analysis"] = {
+            "type": "string",
+            "description": (
+                "Running document analysis. Plain text; carries forward to the "
+                "next segment as cross-segment context."
+            ),
+        }
+        required.append("analysis")
+    properties["records"] = {
+        "type": "array",
+        "items": item_schema,
+    }
+    required.append("records")
+
     return {
         "type": "object",
-        "properties": {
-            "records": {
-                "type": "array",
-                "items": item_schema,
-            }
-        },
-        "required": ["records"],
+        "properties": properties,
+        "required": required,
         "additionalProperties": False,
     }
 
 
 def build_entity_extraction_response_format(
     entity_definition: EntityDefinition,
+    *,
+    include_analysis: bool = False,
 ) -> dict[str, Any]:
     """Build the OpenAI structured-output `response_format` for json_schema mode."""
     return {
         "type": "json_schema",
         "json_schema": {
-            "name": "kg_entity_extraction_response",
-            "schema": build_entity_extraction_prompt_schema_json(entity_definition),
+            "name": (
+                "kg_entity_extraction_reflective_response"
+                if include_analysis
+                else "kg_entity_extraction_response"
+            ),
+            "schema": build_entity_extraction_prompt_schema_json(
+                entity_definition, include_analysis=include_analysis
+            ),
             "strict": True,
         },
     }
@@ -624,8 +671,11 @@ async def _extract_entities_iterative(
     content: str,
     additional_prefix_messages: list[dict[str, str]] | None = None,
     extra_iterations: int = 2,
+    inline_analysis: bool = False,
+    followup_prompt_template_config: dict[str, Any] | None = None,
+    followup_schema: str | None = None,
     cancel_check: Any = None,
-) -> list[EntityCandidateRecord]:
+) -> tuple[list[EntityCandidateRecord], str]:
     """Run entity extraction with verification iterations.
 
     Performs an initial extraction pass, then up to ``extra_iterations`` more
@@ -636,8 +686,15 @@ async def _extract_entities_iterative(
     ``additional_prefix_messages`` are prepended to the conversation before
     the segment user message (used by AdvancedStrategy to inject the global
     document analysis as context).
+
+    When ``inline_analysis=True`` (reflective strategy), the first iteration's
+    JSON output is expected to include an ``analysis`` field alongside
+    ``records``; the analysis is captured and returned. Verification iterations
+    use ``followup_prompt_template_config`` / ``followup_schema`` (a records-only
+    schema) so the model does not waste tokens repeating the analysis.
     """
     merged: dict[tuple[str, str], EntityCandidateRecord] = {}
+    latest_analysis = ""
 
     # Accumulated conversation history — grows each iteration
     additional_messages: list[dict[str, str]] = list(additional_prefix_messages or [])
@@ -647,11 +704,18 @@ async def _extract_entities_iterative(
         if cancel_check and await cancel_check():
             break
 
+        if i == 0 or followup_prompt_template_config is None:
+            iteration_config = prompt_template_config
+            iteration_schema = schema
+        else:
+            iteration_config = followup_prompt_template_config
+            iteration_schema = followup_schema or schema
+
         try:
             result = await execute_prompt_template(
-                system_name_or_config=prompt_template_config,
+                system_name_or_config=iteration_config,
                 template_values={
-                    "SCHEMA": schema,
+                    "SCHEMA": iteration_schema,
                     "ENTITY_NAME": entity_definition.name,
                 },
                 template_additional_messages=list(additional_messages),
@@ -668,6 +732,11 @@ async def _extract_entities_iterative(
 
         # Preserve the full assistant response in conversation history
         additional_messages.append({"role": "assistant", "content": result.content})
+
+        if inline_analysis and i == 0:
+            analysis_value = str(raw.get("analysis") or "").strip()
+            if analysis_value:
+                latest_analysis = analysis_value
 
         # Parse candidates from this iteration and merge
         iteration_candidates = parse_entity_candidates_from_output(
@@ -694,7 +763,7 @@ async def _extract_entities_iterative(
             )
             additional_messages.append({"role": "user", "content": verification_msg})
 
-    return list(merged.values())
+    return list(merged.values()), latest_analysis
 
 
 def _split_into_segments(
@@ -744,33 +813,53 @@ async def _extract_entity_from_content(
     max_extraction_iterations: int,
     schema_format: EntityExtractionSchemaFormat = DEFAULT_SCHEMA_FORMAT,
     additional_prefix_messages: list[dict[str, str]] | None = None,
+    inline_analysis: bool = False,
     cancel_check: Any = None,
-) -> list[EntityCandidateRecord]:
-    """Extract all records for a single entity type from a content string."""
+) -> tuple[list[EntityCandidateRecord], str]:
+    """Extract all records for a single entity type from a content string.
+
+    Returns ``(candidates, analysis)``. ``analysis`` is the latest analysis text
+    when ``inline_analysis=True`` (reflective strategy), otherwise an empty string.
+    """
 
     observability_context.update_current_span(
         input={
             "Entity": entity_definition.name,
             "Max Extraction Iterations": max_extraction_iterations,
             "Schema Format": schema_format,
+            "Inline Analysis": inline_analysis,
         }
     )
 
-    config_for_call = prompt_template_config
-    if schema_format == "json_schema":
-        entity_schema_text = _JSON_SCHEMA_MODE_PROMPT_HINT
-        config_for_call = dict(prompt_template_config)
-        config_for_call["response_format"] = build_entity_extraction_response_format(
-            entity_definition
+    def _build_for(*, with_analysis: bool) -> tuple[dict[str, Any], str]:
+        if schema_format == "json_schema":
+            schema_text = (
+                _JSON_SCHEMA_MODE_PROMPT_HINT_REFLECTIVE
+                if with_analysis
+                else _JSON_SCHEMA_MODE_PROMPT_HINT
+            )
+            config = dict(prompt_template_config)
+            config["response_format"] = build_entity_extraction_response_format(
+                entity_definition, include_analysis=with_analysis
+            )
+            return config, schema_text
+        if schema_format == "markdown":
+            return (
+                prompt_template_config,
+                build_entity_extraction_prompt_schema_markdown(
+                    [entity_definition], include_analysis=with_analysis
+                ),
+            )
+        return prompt_template_config, build_entity_extraction_prompt_schema_typescript(
+            [entity_definition], include_analysis=with_analysis
         )
-    elif schema_format == "markdown":
-        entity_schema_text = build_entity_extraction_prompt_schema_markdown(
-            [entity_definition]
-        )
-    else:
-        entity_schema_text = build_entity_extraction_prompt_schema_typescript(
-            [entity_definition]
-        )
+
+    config_for_call, entity_schema_text = _build_for(with_analysis=inline_analysis)
+
+    followup_config: dict[str, Any] | None = None
+    followup_schema_text: str | None = None
+    if inline_analysis and max_extraction_iterations > 1:
+        followup_config, followup_schema_text = _build_for(with_analysis=False)
 
     return await _extract_entities_iterative(
         prompt_template_config=config_for_call,
@@ -779,6 +868,9 @@ async def _extract_entity_from_content(
         content=content,
         additional_prefix_messages=additional_prefix_messages,
         extra_iterations=max_extraction_iterations - 1,
+        inline_analysis=inline_analysis,
+        followup_prompt_template_config=followup_config,
+        followup_schema=followup_schema_text,
         cancel_check=cancel_check,
     )
 
@@ -823,8 +915,8 @@ class BasicStrategy:
         context: dict[str, Any],
         max_extraction_iterations: int,
         cancel_check: Any = None,
-    ) -> list[EntityCandidateRecord]:
-        return await _extract_entity_from_content(
+    ) -> tuple[list[EntityCandidateRecord], dict[str, Any]]:
+        candidates, _ = await _extract_entity_from_content(
             prompt_template_config=self._extraction_config,
             entity_definition=entity_definition,
             content=content,
@@ -832,6 +924,7 @@ class BasicStrategy:
             schema_format=self._schema_format,
             cancel_check=cancel_check,
         )
+        return candidates, context
 
 
 _ANALYSIS_LEAD_IN = (
@@ -923,14 +1016,14 @@ class AdvancedStrategy:
         context: dict[str, Any],
         max_extraction_iterations: int,
         cancel_check: Any = None,
-    ) -> list[EntityCandidateRecord]:
+    ) -> tuple[list[EntityCandidateRecord], dict[str, Any]]:
         analysis = str((context or {}).get("analysis") or "").strip()
         prefix_messages: list[dict[str, str]] = []
         if analysis:
             prefix_messages.append({"role": "user", "content": _ANALYSIS_LEAD_IN})
             prefix_messages.append({"role": "assistant", "content": analysis})
 
-        return await _extract_entity_from_content(
+        candidates, _ = await _extract_entity_from_content(
             prompt_template_config=self._extraction_config,
             entity_definition=entity_definition,
             content=content,
@@ -939,6 +1032,90 @@ class AdvancedStrategy:
             additional_prefix_messages=prefix_messages,
             cancel_check=cancel_check,
         )
+        return candidates, context
+
+
+_REFLECTIVE_LEAD_IN = (
+    "The following message is the running analysis for entity '{entity_name}', "
+    "built incrementally from earlier segments of this same document. Use it as "
+    "cross-segment context, then update it with observations from the next "
+    "segment and emit records from that segment."
+)
+
+
+class ReflectiveStrategy:
+    """Inline context-aware strategy: per-segment call returns analysis + records.
+
+    Each ``(segment, entity)`` call instructs the model to emit both an updated
+    running analysis and the extracted records. The analysis from the previous
+    segment for the same entity is fed back into the next call as conversation
+    context, so cross-segment knowledge accumulates progressively without a
+    separate pre-analysis pass.
+    """
+
+    def __init__(
+        self,
+        *,
+        extraction_prompt_template_config: dict[str, Any],
+        schema_format: EntityExtractionSchemaFormat = DEFAULT_SCHEMA_FORMAT,
+    ) -> None:
+        self._extraction_config = extraction_prompt_template_config
+        self._schema_format: EntityExtractionSchemaFormat = schema_format
+
+    async def prepare_context(
+        self,
+        *,
+        segments: list[str],
+        entity_definitions: list[EntityDefinition],
+        cancel_check: Any = None,
+    ) -> dict[str, Any]:
+        return {"analyses": {}}
+
+    @observe(
+        name="Reflective strategy: segment extraction",
+        channel="production",
+        source="production",
+    )
+    async def extract_segment(
+        self,
+        *,
+        content: str,
+        entity_definition: EntityDefinition,
+        context: dict[str, Any],
+        max_extraction_iterations: int,
+        cancel_check: Any = None,
+    ) -> tuple[list[EntityCandidateRecord], dict[str, Any]]:
+        analyses = dict(((context or {}).get("analyses") or {}))
+        prior_analysis = str(analyses.get(entity_definition.name) or "").strip()
+
+        prefix_messages: list[dict[str, str]] = []
+        if prior_analysis:
+            prefix_messages.append(
+                {
+                    "role": "user",
+                    "content": _REFLECTIVE_LEAD_IN.replace(
+                        "{entity_name}", entity_definition.name
+                    ),
+                }
+            )
+            prefix_messages.append({"role": "assistant", "content": prior_analysis})
+
+        candidates, new_analysis = await _extract_entity_from_content(
+            prompt_template_config=self._extraction_config,
+            entity_definition=entity_definition,
+            content=content,
+            max_extraction_iterations=max_extraction_iterations,
+            schema_format=self._schema_format,
+            additional_prefix_messages=prefix_messages,
+            inline_analysis=True,
+            cancel_check=cancel_check,
+        )
+
+        if new_analysis:
+            analyses[entity_definition.name] = new_analysis
+        updated_context = dict(context or {})
+        updated_context["analyses"] = analyses
+        return candidates, updated_context
 
 
 async def build_extraction_strategy(
@@ -947,7 +1124,7 @@ async def build_extraction_strategy(
     extraction_prompt_template_system_name: str,
     analysis_prompt_template_system_name: str | None,
     schema_format: EntityExtractionSchemaFormat = DEFAULT_SCHEMA_FORMAT,
-) -> BasicStrategy | AdvancedStrategy:
+) -> BasicStrategy | AdvancedStrategy | ReflectiveStrategy:
     """Resolve prompt configs and return the strategy implementing ``mode``."""
     extraction_config = dict(
         await get_prompt_template_by_system_name_flat(
@@ -971,6 +1148,12 @@ async def build_extraction_strategy(
             schema_format=schema_format,
         )
 
+    if mode == "reflective":
+        return ReflectiveStrategy(
+            extraction_prompt_template_config=extraction_config,
+            schema_format=schema_format,
+        )
+
     if mode != "basic":
         raise ValueError(f"Unknown extraction mode: {mode}")
 
@@ -991,7 +1174,7 @@ async def _process_document_extraction(
     source_id: str | None,
     content_str: str,
     entity_definitions: list[EntityDefinition],
-    strategy: BasicStrategy | AdvancedStrategy,
+    strategy: BasicStrategy | AdvancedStrategy | ReflectiveStrategy,
     entity_service: KnowledgeGraphEntityService,
     segment_size: int,
     segment_overlap: float,
@@ -1052,7 +1235,7 @@ async def _process_document_extraction(
                 break
 
             try:
-                candidates = await strategy.extract_segment(
+                candidates, strategy_context = await strategy.extract_segment(
                     content=segment,
                     entity_definition=entity_def,
                     context=strategy_context,
@@ -1115,7 +1298,7 @@ async def _process_document_chunks_extraction(
     source_id: str | None,
     chunk_rows: list[Any],
     entity_definitions: list[EntityDefinition],
-    strategy: BasicStrategy | AdvancedStrategy,
+    strategy: BasicStrategy | AdvancedStrategy | ReflectiveStrategy,
     entity_service: KnowledgeGraphEntityService,
     max_extraction_iterations: int,
     cancel_check: Any = None,
@@ -1187,7 +1370,7 @@ async def _process_document_chunks_extraction(
                 break
 
             try:
-                chunk_candidates = await strategy.extract_segment(
+                chunk_candidates, strategy_context = await strategy.extract_segment(
                     content=content_str,
                     entity_definition=entity_def,
                     context=strategy_context,
@@ -1720,21 +1903,6 @@ async def run_entity_extraction(
     if approach_raw not in ("chunks", "document"):
         raise ClientException("Extraction approach must be 'chunks' or 'document'")
 
-    prompt_template_system_name = (
-        str(data.prompt_template_system_name).strip()
-        if getattr(data, "prompt_template_system_name", None) is not None
-        else str(extraction_settings.get("prompt_template_system_name") or "").strip()
-    )
-    if not prompt_template_system_name:
-        raise ClientException("Prompt template is required to run extraction")
-
-    try:
-        await get_prompt_template_by_system_name_flat(prompt_template_system_name)
-    except LookupError as exc:
-        raise ClientException(
-            f"Prompt template '{prompt_template_system_name}' was not found"
-        ) from exc
-
     mode = (
         str(data.mode).strip()
         if getattr(data, "mode", None) is not None
@@ -1745,6 +1913,11 @@ async def run_entity_extraction(
             f"Unknown extraction mode: {mode}. Expected one of {list(EXTRACTION_MODES)}"
         )
 
+    prompt_template_system_name = (
+        str(data.prompt_template_system_name).strip()
+        if getattr(data, "prompt_template_system_name", None) is not None
+        else str(extraction_settings.get("prompt_template_system_name") or "").strip()
+    )
     analysis_prompt_template_system_name: str | None = (
         str(data.analysis_prompt_template_system_name).strip()
         if getattr(data, "analysis_prompt_template_system_name", None) is not None
@@ -1752,6 +1925,34 @@ async def run_entity_extraction(
             extraction_settings.get("analysis_prompt_template_system_name") or ""
         ).strip()
     ) or None
+    reflective_prompt_template_system_name: str | None = (
+        str(data.reflective_prompt_template_system_name).strip()
+        if getattr(data, "reflective_prompt_template_system_name", None) is not None
+        else str(
+            extraction_settings.get("reflective_prompt_template_system_name") or ""
+        ).strip()
+    ) or None
+
+    # Pick the active extraction prompt by mode. Reflective uses its own dedicated
+    # template since the prompt itself is structurally different (it must produce
+    # analysis + records in one call).
+    if mode == "reflective":
+        if not reflective_prompt_template_system_name:
+            raise ClientException(
+                "Reflective prompt template is required for reflective extraction mode"
+            )
+        active_extraction_prompt = reflective_prompt_template_system_name
+    else:
+        if not prompt_template_system_name:
+            raise ClientException("Prompt template is required to run extraction")
+        active_extraction_prompt = prompt_template_system_name
+
+    try:
+        await get_prompt_template_by_system_name_flat(active_extraction_prompt)
+    except LookupError as exc:
+        raise ClientException(
+            f"Prompt template '{active_extraction_prompt}' was not found"
+        ) from exc
 
     if mode == "advanced":
         if not analysis_prompt_template_system_name:
@@ -1800,7 +2001,7 @@ async def run_entity_extraction(
         graph_id,
         approach_raw,
         mode,
-        prompt_template_system_name,
+        active_extraction_prompt,
         analysis_prompt_template_system_name,
         segment_size,
         segment_overlap,
@@ -1831,7 +2032,7 @@ async def run_entity_extraction(
             db_session,
             graph_id=graph_id,
             approach=approach_raw,  # type: ignore[arg-type]
-            prompt_template_system_name=prompt_template_system_name,
+            prompt_template_system_name=active_extraction_prompt,
             entity_definitions=entity_definitions,
             mode=mode,
             analysis_prompt_template_system_name=analysis_prompt_template_system_name,

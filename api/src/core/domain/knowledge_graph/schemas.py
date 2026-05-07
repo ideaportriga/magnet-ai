@@ -470,8 +470,10 @@ class KnowledgeGraphEntityExtractionRunRequest(BaseModel):
     mode: Optional[str] = Field(
         default=None,
         description=(
-            "Extraction mode: 'basic' (single-pass per segment) or 'advanced' "
-            "(per-document analysis pre-pass, then context-aware extraction)"
+            "Extraction mode: 'basic' (single-pass per segment), 'advanced' "
+            "(per-document analysis pre-pass, then context-aware extraction), or "
+            "'reflective' (per-segment call returns analysis + records; analysis "
+            "carries to the next segment)."
         ),
     )
     prompt_template_system_name: Optional[str] = Field(
@@ -482,6 +484,14 @@ class KnowledgeGraphEntityExtractionRunRequest(BaseModel):
         description=(
             "Prompt template system name for the document analysis pass (required "
             "when mode='advanced')"
+        ),
+    )
+    reflective_prompt_template_system_name: Optional[str] = Field(
+        default=None,
+        description=(
+            "Prompt template system name for the reflective extraction pass "
+            "(required when mode='reflective'). The template must instruct the "
+            "model to emit analysis + records on the first call."
         ),
     )
     segment_size: Optional[int] = Field(

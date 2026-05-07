@@ -51,7 +51,7 @@
               </kg-field-row>
             </div>
             <div class="col">
-              <kg-field-row label="Extraction Prompt" hint="Produces the final structured entity records for each segment.">
+              <kg-field-row label="Extraction Prompt">
                 <kg-dropdown-field
                   v-model="promptTemplateSystemName"
                   placeholder="Select a prompt template"
@@ -66,8 +66,23 @@
               </kg-field-row>
             </div>
           </div>
+          <div v-else-if="mode === 'reflective'">
+            <kg-field-row label="Extraction Prompt">
+              <kg-dropdown-field
+                v-model="reflectivePromptTemplateSystemName"
+                placeholder="Select a reflective prompt template"
+                :options="promptTemplateOptions"
+                :loading="loadingPromptTemplates"
+                option-value="system_name"
+                option-label="name"
+                searchable
+                clearable
+                dense
+              />
+            </kg-field-row>
+          </div>
           <div v-else>
-            <kg-field-row label="Extraction Prompt" hint="Produces the final structured entity records for each segment.">
+            <kg-field-row label="Extraction Prompt">
               <kg-dropdown-field
                 v-model="promptTemplateSystemName"
                 placeholder="Select a prompt template"
@@ -180,6 +195,12 @@ const modeOptions = [
     description: 'Extracts entities directly from each segment in one prompt. Fast, predictable, and economical on tokens.',
   },
   {
+    label: 'Reflective',
+    value: 'reflective',
+    description:
+      "Each segment's call returns reasoning and records together; the reasoning carries forward to the next segment. A middle ground between Single-Pass and Context-Aware.",
+  },
+  {
     label: 'Context-Aware',
     value: 'advanced',
     description:
@@ -224,6 +245,7 @@ const mode = ref<EntityExtractionMode>(defaults.mode)
 const schemaFormat = ref<EntityExtractionSchemaFormat>(defaults.schema_format)
 const promptTemplateSystemName = ref(defaults.prompt_template_system_name)
 const analysisPromptTemplateSystemName = ref(defaults.analysis_prompt_template_system_name)
+const reflectivePromptTemplateSystemName = ref(defaults.reflective_prompt_template_system_name)
 const segmentSize = ref(defaults.segment_size)
 const segmentOverlap = ref(defaults.segment_overlap)
 const maxExtractionIterations = ref(defaults.max_extraction_iterations)
@@ -238,6 +260,8 @@ watch(
       schemaFormat.value = props.settings.schema_format || defaults.schema_format
       promptTemplateSystemName.value = props.settings.prompt_template_system_name || defaults.prompt_template_system_name
       analysisPromptTemplateSystemName.value = props.settings.analysis_prompt_template_system_name || defaults.analysis_prompt_template_system_name
+      reflectivePromptTemplateSystemName.value =
+        props.settings.reflective_prompt_template_system_name || defaults.reflective_prompt_template_system_name
       segmentSize.value = props.settings.segment_size || defaults.segment_size
       segmentOverlap.value = props.settings.segment_overlap ?? defaults.segment_overlap
       maxExtractionIterations.value = props.settings.max_extraction_iterations ?? defaults.max_extraction_iterations
@@ -247,6 +271,7 @@ watch(
       schemaFormat.value = defaults.schema_format
       promptTemplateSystemName.value = defaults.prompt_template_system_name
       analysisPromptTemplateSystemName.value = defaults.analysis_prompt_template_system_name
+      reflectivePromptTemplateSystemName.value = defaults.reflective_prompt_template_system_name
       segmentSize.value = defaults.segment_size
       segmentOverlap.value = defaults.segment_overlap
       maxExtractionIterations.value = defaults.max_extraction_iterations
@@ -262,6 +287,7 @@ function onConfirm() {
     schema_format: schemaFormat.value,
     prompt_template_system_name: promptTemplateSystemName.value.trim(),
     analysis_prompt_template_system_name: analysisPromptTemplateSystemName.value.trim(),
+    reflective_prompt_template_system_name: reflectivePromptTemplateSystemName.value.trim(),
     segment_size: segmentSize.value,
     segment_overlap: segmentOverlap.value,
     max_extraction_iterations: maxExtractionIterations.value,

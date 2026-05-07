@@ -285,7 +285,11 @@ const columns: QTableColumn<EntityDefinition>[] = [
 ]
 
 const canRunExtraction = computed(() => {
-  return !!String(extractionSettings.value.prompt_template_system_name || '').trim() && entities.value.length > 0 && !loadingPromptTemplates.value
+  const activePrompt =
+    extractionSettings.value.mode === 'reflective'
+      ? extractionSettings.value.reflective_prompt_template_system_name
+      : extractionSettings.value.prompt_template_system_name
+  return !!String(activePrompt || '').trim() && entities.value.length > 0 && !loadingPromptTemplates.value
 })
 
 const extractionStatus = computed<EntityExtractionStatusInfo>(() => {
@@ -568,6 +572,7 @@ async function runExtraction() {
       schema_format: extractionSettings.value.schema_format,
       prompt_template_system_name: String(extractionSettings.value.prompt_template_system_name || '').trim(),
       analysis_prompt_template_system_name: String(extractionSettings.value.analysis_prompt_template_system_name || '').trim(),
+      reflective_prompt_template_system_name: String(extractionSettings.value.reflective_prompt_template_system_name || '').trim(),
       segment_size: extractionSettings.value.segment_size,
       segment_overlap: extractionSettings.value.segment_overlap,
       max_extraction_iterations: extractionSettings.value.max_extraction_iterations,
