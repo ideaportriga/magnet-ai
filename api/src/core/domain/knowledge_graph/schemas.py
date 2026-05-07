@@ -452,10 +452,29 @@ class KnowledgeGraphEntityQueryRequest(BaseModel):
     offset: int = Field(default=0, ge=0)
 
 
-class KnowledgeGraphEntityQueryResponse(BaseModel):
-    """Response model for entity query — returns column_values records."""
+class KnowledgeGraphEntityDocumentReferenceSchema(BaseModel):
+    """Reference to a source document for an entity record."""
 
-    records: list[dict[str, Any]]
+    id: str
+    name: str
+    title: Optional[str] = None
+    external_link: Optional[str] = None
+
+
+class KnowledgeGraphEntityQueryRecordSchema(BaseModel):
+    """Single entity record in a query response, with source document refs."""
+
+    column_values: dict[str, Any]
+    document_ids: list[str] = Field(default_factory=list)
+
+
+class KnowledgeGraphEntityQueryResponse(BaseModel):
+    """Response model for entity query — records plus deduped document refs."""
+
+    records: list[KnowledgeGraphEntityQueryRecordSchema]
+    documents: list[KnowledgeGraphEntityDocumentReferenceSchema] = Field(
+        default_factory=list
+    )
     total: int
     limit: int
     offset: int
@@ -467,8 +486,32 @@ class KnowledgeGraphEntityExtractionRunRequest(BaseModel):
     approach: Optional[str] = Field(
         default=None, description="Extraction approach: 'document' or 'chunks'"
     )
+    mode: Optional[str] = Field(
+        default=None,
+        description=(
+            "Extraction mode: 'basic' (single-pass per segment), 'advanced' "
+            "(per-document analysis pre-pass, then context-aware extraction), or "
+            "'reflective' (per-segment call returns analysis + records; analysis "
+            "carries to the next segment)."
+        ),
+    )
     prompt_template_system_name: Optional[str] = Field(
-        default=None, description="Prompt template system name to execute"
+        default=None, description="Prompt template system name for entity extraction"
+    )
+    analysis_prompt_template_system_name: Optional[str] = Field(
+        default=None,
+        description=(
+            "Prompt template system name for the document analysis pass (required "
+            "when mode='advanced')"
+        ),
+    )
+    reflective_prompt_template_system_name: Optional[str] = Field(
+        default=None,
+        description=(
+            "Prompt template system name for the reflective extraction pass "
+            "(required when mode='reflective'). The template must instruct the "
+            "model to emit analysis + records on the first call."
+        ),
     )
     segment_size: Optional[int] = Field(
         default=None,
@@ -485,6 +528,14 @@ class KnowledgeGraphEntityExtractionRunRequest(BaseModel):
         default=None,
         ge=1,
         description="Total extraction passes per segment (1 = single pass, 3 = initial + 2 verification passes)",
+    )
+    schema_format: Optional[str] = Field(
+        default=None,
+        description=(
+            "How the entity schema is conveyed to the LLM: "
+            "'json_schema' (strict structured output), 'typescript' (TS class-style "
+            "block in the prompt), or 'markdown' (markdown listing in the prompt)."
+        ),
     )
 
 
