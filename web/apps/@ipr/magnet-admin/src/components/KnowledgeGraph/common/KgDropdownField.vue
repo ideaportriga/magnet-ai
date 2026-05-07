@@ -496,7 +496,8 @@ const optionClasses = (selected: boolean) => [
 .styled-select__option--selected.styled-select__option--dense::before {
   left: 2px;
   width: 2px;
-  height: 55%;
+  top: 8px;
+  bottom: 8px;
   border-radius: 1px;
 }
 

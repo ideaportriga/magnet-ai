@@ -13,34 +13,45 @@
     <div class="column q-gap-16">
       <kg-dialog-section
         title="Extraction Settings"
-        description="Choose when entity extraction runs and which prompt template should produce the structured entity output."
+        description="Define how entity extraction runs and which prompt templates drive the structured output."
         icon="auto_awesome"
       >
         <template #header-actions>
           <kg-section-control v-model="approach" :options="approachControlOptions" />
         </template>
         <div class="column q-gap-16">
-          <kg-field-row label="Extraction Mode">
-            <kg-dropdown-field v-model="mode" :options="modeOptions" option-value="value" option-label="label" option-description="description" />
+          <kg-field-row label="Extraction Strategy">
+            <kg-dropdown-field
+              v-model="mode"
+              :options="modeOptions"
+              option-value="value"
+              option-label="label"
+              option-description="description"
+              dense
+            />
           </kg-field-row>
 
           <div v-if="mode === 'advanced'" class="row q-col-gutter-md">
             <div class="col">
-              <kg-field-row label="Analysis Prompt" hint="Prompt that builds the running global analysis used by the extraction pass.">
+              <kg-field-row
+                label="Context Analysis Prompt"
+                hint="Builds a document-wide summary that gives the extraction pass cross-segment context."
+              >
                 <kg-dropdown-field
                   v-model="analysisPromptTemplateSystemName"
-                  placeholder="Select an analysis prompt template"
+                  placeholder="Select a context analysis prompt template"
                   :options="promptTemplateOptions"
                   :loading="loadingPromptTemplates"
                   option-value="system_name"
                   option-label="name"
                   searchable
                   clearable
+                  dense
                 />
               </kg-field-row>
             </div>
             <div class="col">
-              <kg-field-row label="Extraction Prompt" hint="Select a prompt template that returns structured entity records.">
+              <kg-field-row label="Extraction Prompt" hint="Produces the final structured entity records for each segment.">
                 <kg-dropdown-field
                   v-model="promptTemplateSystemName"
                   placeholder="Select a prompt template"
@@ -50,12 +61,13 @@
                   option-label="name"
                   searchable
                   clearable
+                  dense
                 />
               </kg-field-row>
             </div>
           </div>
           <div v-else>
-            <kg-field-row label="Extraction Prompt" hint="Select a prompt template that returns structured entity records.">
+            <kg-field-row label="Extraction Prompt" hint="Produces the final structured entity records for each segment.">
               <kg-dropdown-field
                 v-model="promptTemplateSystemName"
                 placeholder="Select a prompt template"
@@ -65,74 +77,71 @@
                 option-label="name"
                 searchable
                 clearable
+                dense
               />
             </kg-field-row>
           </div>
 
-          <kg-field-row label="Schema Format">
-            <kg-dropdown-field
-              v-model="schemaFormat"
-              :options="schemaFormatOptions"
-              option-value="value"
-              option-label="label"
-              option-description="description"
-            />
-          </kg-field-row>
-
-          <kg-field-row
-            label="Max Extraction Iterations"
-            hint="Number of extraction passes per segment (1 = single pass, 3 = initial pass + 2 verification passes)."
-          >
-            <km-input
-              v-model.number="maxExtractionIterations"
-              type="number"
-              :min="MIN_ENTITY_EXTRACTION_MAX_ITERATIONS"
-              :max="MAX_ENTITY_EXTRACTION_MAX_ITERATIONS"
-              height="36px"
-            />
-          </kg-field-row>
+          <div class="row q-col-gutter-md">
+            <div class="col">
+              <kg-field-row label="Schema Format">
+                <kg-dropdown-field
+                  v-model="schemaFormat"
+                  :options="schemaFormatOptions"
+                  option-value="value"
+                  option-label="label"
+                  option-description="description"
+                  dense
+                />
+              </kg-field-row>
+            </div>
+            <div class="col">
+              <kg-field-row
+                label="Max Extraction Iterations"
+                hint="How many passes the model runs on each segment. The first pass extracts entities; additional passes refine and verify them."
+              >
+                <km-input
+                  v-model.number="maxExtractionIterations"
+                  type="number"
+                  :min="MIN_ENTITY_EXTRACTION_MAX_ITERATIONS"
+                  :max="MAX_ENTITY_EXTRACTION_MAX_ITERATIONS"
+                  height="36px"
+                />
+              </kg-field-row>
+            </div>
+          </div>
         </div>
       </kg-dialog-section>
 
       <kg-dialog-section
+        v-if="approach === 'document'"
         title="Segmentation Settings"
-        :description="
-          approach === 'document'
-            ? 'Split large documents into overlapping segments before extraction.'
-            : 'Chunk-based extraction uses the existing chunks, so segmentation settings are ignored.'
-        "
+        description="Control how documents are split into overlapping segments before extraction runs."
         icon="content_cut"
       >
-        <template v-if="approach === 'document'">
-          <div class="row q-col-gutter-lg">
-            <div class="col-12 col-md-5">
-              <kg-field-row label="Segment size (characters)">
-                <km-input v-model.number="segmentSize" type="number" min="100" height="36px" />
-              </kg-field-row>
-            </div>
-            <div class="col-12 col-md-7">
-              <kg-field-row label="Segment overlap">
-                <div class="row items-center q-gap-md">
-                  <q-slider
-                    v-model="segmentOverlap"
-                    :min="0"
-                    :max="0.9"
-                    :step="0.02"
-                    label
-                    :label-value="`${Math.round((segmentOverlap || 0) * 100)}%`"
-                    class="col"
-                  />
-                  <span class="overlap-value">{{ Math.round((segmentOverlap || 0) * 100) }}%</span>
-                </div>
-              </kg-field-row>
-            </div>
+        <div class="row q-col-gutter-lg">
+          <div class="col-12 col-md-5">
+            <kg-field-row label="Segment Size (Characters)">
+              <km-input v-model.number="segmentSize" type="number" min="100" height="36px" />
+            </kg-field-row>
           </div>
-        </template>
-        <template v-else>
-          <kg-warning-banner variant="neutral">
-            Chunk-based extraction reuses the graph's chunks directly, so document segmentation is not applied here.
-          </kg-warning-banner>
-        </template>
+          <div class="col-12 col-md-7">
+            <kg-field-row label="Segment Overlap">
+              <div class="row items-center q-gap-md">
+                <q-slider
+                  v-model="segmentOverlap"
+                  :min="0"
+                  :max="0.9"
+                  :step="0.02"
+                  label
+                  :label-value="`${Math.round((segmentOverlap || 0) * 100)}%`"
+                  class="col q-mt-4"
+                />
+                <span class="overlap-value">{{ Math.round((segmentOverlap || 0) * 100) }}%</span>
+              </div>
+            </kg-field-row>
+          </div>
+        </div>
       </kg-dialog-section>
     </div>
   </kg-dialog-base>
@@ -140,7 +149,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { KgDialogBase, KgDialogSection, KgDropdownField, KgFieldRow, KgSectionControl, KgWarningBanner, type ControlOption } from '../common'
+import { KgDialogBase, KgDialogSection, KgDropdownField, KgFieldRow, KgSectionControl, type ControlOption } from '../common'
 import {
   createDefaultEntityExtractionRunSettings,
   MAX_ENTITY_EXTRACTION_MAX_ITERATIONS,
@@ -155,29 +164,45 @@ const approachControlOptions: ControlOption[] = [
   {
     label: 'Document Based',
     value: 'document',
-    hint: 'Extract entities from full documents with automatic segmentation for large inputs. Recommended for most graphs.',
+    hint: 'Process full documents and split them into overlapping segments automatically. Recommended for most graphs.',
   },
   {
     label: 'Chunk Based',
     value: 'chunks',
-    hint: 'Extract entities from each existing chunk. Useful when chunk-level provenance matters most.',
+    hint: 'Process each existing chunk on its own. Use when chunk-level provenance is the priority.',
   },
 ]
 
 const modeOptions = [
-  { label: 'Basic', value: 'basic', description: 'Single extraction pass per segment with verification iterations. Fast and predictable.' },
   {
-    label: 'Advanced',
+    label: 'Single-Pass',
+    value: 'basic',
+    description: 'Extracts entities directly from each segment in one prompt. Fast, predictable, and economical on tokens.',
+  },
+  {
+    label: 'Context-Aware',
     value: 'advanced',
     description:
-      'Pre-analyses the document for cross-segment context, then extracts with that analysis as input. Better recall for global attributes; uses more tokens.',
+      'First builds a document-wide analysis, then feeds it into the extraction pass. Improves recall on cross-segment attributes at the cost of additional tokens.',
   },
 ]
 
 const schemaFormatOptions = [
-  { label: 'JSON Schema', value: 'json_schema', description: 'Send a strict JSON Schema as the structured-output format on the request.' },
-  { label: 'TypeScript', value: 'typescript', description: 'Describe entities using a TypeScript class-style block embedded in the prompt.' },
-  { label: 'Markdown', value: 'markdown', description: 'Describe entities using a simple markdown listing embedded in the prompt.' },
+  {
+    label: 'JSON Schema',
+    value: 'json_schema',
+    description: 'Enforces output via a strict JSON Schema attached to the model request.',
+  },
+  {
+    label: 'TypeScript',
+    value: 'typescript',
+    description: 'Describes entities as a TypeScript class-style definition embedded in the prompt.',
+  },
+  {
+    label: 'Markdown',
+    value: 'markdown',
+    description: 'Describes entities as a lightweight markdown outline embedded in the prompt.',
+  },
 ]
 
 const props = defineProps<{
