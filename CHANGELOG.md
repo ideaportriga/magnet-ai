@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-alpha.24](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.23...v0.7.0-alpha.24) (2026-05-08)
+
+### ✨ Features
+
+* **mcp:** introduce new tools ([433bcac](https://github.com/ideaportriga/magnet-ai/commit/433bcac2ac4816525d615cc45f3ab9f5a5285e60))
+
 ## [0.7.0-alpha.23](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.22...v0.7.0-alpha.23) (2026-05-05)
 
 ### 🐛 Bug Fixes
