@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.23](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.22...v0.7.0-dev.23) (2026-05-08)
+
+### ✨ Features
+
+* **kg:** added ability to specify user agnet for web source in ([4309ad9](https://github.com/ideaportriga/magnet-ai/commit/4309ad930e92be72d387ee12c8d8ba1a02ab5d9a))
+
 ## [0.7.0-dev.22](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.21...v0.7.0-dev.22) (2026-05-07)
 
 ### 🐛 Bug Fixes
