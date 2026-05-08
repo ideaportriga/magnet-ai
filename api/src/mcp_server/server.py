@@ -12,6 +12,29 @@
 `/register` and `/revoke` are intentionally NOT mounted: dynamic client
 registration is disabled (admin CRUD instead), and we don't currently expose
 revocation as a public endpoint.
+
+Registered tools (11 total):
+
+  Read-only — prompt templates:
+    prompt_templates_list       List all templates (name, system_name, description)
+    prompt_template_get         Full template; active variant has text, others lean
+    prompt_template_variant_get Full details for one specific variant
+
+  Read-only — LLM monitoring:
+    llm_usage_summary           Aggregate cost/latency/error stats
+    llm_calls_list              Paginated individual call records
+
+  Mutating / LLM-calling:
+    prompt_template_run         Execute a template (incurs LLM cost)
+
+  Read-only — evaluations:
+    evaluation_sets_list        Paginated list of evaluation sets
+    evaluation_set_get          One evaluation set with all test items
+    evaluations_list            Paginated list of past evaluation runs
+
+  Mutating:
+    evaluation_set_create       Create a new evaluation set
+    evaluation_run              Fire a background evaluation job
 """
 
 from __future__ import annotations
@@ -24,15 +47,32 @@ from mcp.server.auth.settings import (
     RevocationOptions,
 )
 from mcp.server.fastmcp import FastMCP
+from mcp.types import ToolAnnotations
 from pydantic import AnyHttpUrl
 
 from core.config.base import get_mcp_settings
 
 from .auth_provider import provider as auth_provider
-from .tools.prompt_template import get_prompt_template_details
+from .tools.evaluations import (
+    evaluation_run,
+    evaluation_set_create,
+    evaluation_set_get,
+    evaluation_sets_list,
+    evaluations_list,
+)
+from .tools.llm_monitoring import llm_calls_list, llm_usage_summary
+from .tools.prompt_execution import prompt_template_run
+from .tools.prompt_templates import (
+    prompt_template_get,
+    prompt_template_variant_get,
+    prompt_templates_list,
+)
 
 logger = getLogger(__name__)
 
+_READ = ToolAnnotations(readOnlyHint=True, idempotentHint=True)
+_WRITE = ToolAnnotations(readOnlyHint=False)
+_EXEC = ToolAnnotations(readOnlyHint=False, openWorldHint=True)
 
 _fastmcp_app: FastMCP | None = None
 
@@ -63,7 +103,14 @@ def get_fastmcp() -> FastMCP:
 
     fastmcp = FastMCP(
         name="magnet",
-        instructions=("Magnet MCP server"),
+        instructions=(
+            "Magnet AI MCP server. Provides tools for prompt template discovery, "
+            "LLM cost and usage monitoring, prompt execution, and evaluation management. "
+            "Start with prompt_templates_list to discover available templates, then use "
+            "prompt_template_get for details. Use llm_usage_summary and llm_calls_list "
+            "to analyse costs and inspect LLM responses. Use evaluation_* tools to manage "
+            "and run structured evaluations of prompt templates."
+        ),
         auth_server_provider=auth_provider,
         auth=mcp_auth,
         stateless_http=True,
@@ -73,12 +120,28 @@ def get_fastmcp() -> FastMCP:
         host="0.0.0.0",
     )
 
-    # Register tools.
-    fastmcp.tool()(get_prompt_template_details)
+    # Prompt template tools (read-only)
+    fastmcp.tool(annotations=_READ)(prompt_templates_list)
+    fastmcp.tool(annotations=_READ)(prompt_template_get)
+    fastmcp.tool(annotations=_READ)(prompt_template_variant_get)
+
+    # LLM monitoring tools (read-only)
+    fastmcp.tool(annotations=_READ)(llm_usage_summary)
+    fastmcp.tool(annotations=_READ)(llm_calls_list)
+
+    # Execution tool (calls LLM — incurs cost)
+    fastmcp.tool(annotations=_EXEC)(prompt_template_run)
+
+    # Evaluation tools
+    fastmcp.tool(annotations=_READ)(evaluation_sets_list)
+    fastmcp.tool(annotations=_READ)(evaluation_set_get)
+    fastmcp.tool(annotations=_WRITE)(evaluation_set_create)
+    fastmcp.tool(annotations=_READ)(evaluations_list)
+    fastmcp.tool(annotations=_EXEC)(evaluation_run)
 
     _fastmcp_app = fastmcp
     logger.info(
-        "FastMCP initialized: issuer=%s audience=%s",
+        "FastMCP initialized: issuer=%s audience=%s tools=11",
         settings.MCP_ISSUER_URL,
         settings.MCP_AUDIENCE,
     )
