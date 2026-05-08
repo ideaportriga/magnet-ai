@@ -12,12 +12,12 @@ from apscheduler.events import (
     EVENT_JOB_MODIFIED,
     EVENT_JOB_REMOVED,
 )
-from apscheduler.executors.asyncio import AsyncIOExecutor
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from litestar import Request
 from sqlalchemy import QueuePool
 
 from core.config.base import get_database_settings, get_scheduler_settings
+from scheduler.asyncio_executor import ThreadSafeAsyncIOExecutor
 from scheduler.types import JobStatus
 from scheduler.utils import format_next_run_time, update_job_status
 
@@ -203,7 +203,7 @@ async def create_scheduler() -> AsyncIOScheduler:
     global _scheduler
 
     executors = {
-        "default": AsyncIOExecutor(),
+        "default": ThreadSafeAsyncIOExecutor(),
     }
     job_defaults = {
         "coalesce": True,
