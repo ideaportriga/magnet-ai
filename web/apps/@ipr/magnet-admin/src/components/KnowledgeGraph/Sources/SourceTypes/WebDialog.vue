@@ -67,6 +67,16 @@
         />
         <div class="text-grey-7 text-caption q-mt-xs">Target specific page elements for content extraction. Leave empty to auto-detect.</div>
       </div>
+
+      <div class="q-mt-md">
+        <div class="km-input-label q-pb-xs">Custom User-Agent (optional)</div>
+        <km-input
+          v-model="userAgent"
+          height="36px"
+          placeholder="MagnetAI-WebScraper/1.0"
+        />
+        <div class="text-grey-7 text-caption q-mt-xs">Override the User-Agent header used when fetching pages. Leave empty to use the default.</div>
+      </div>
     </kg-dialog-section>
   </kg-dialog-source-base>
 </template>
@@ -85,6 +95,7 @@ type WebSourceConfig = {
   max_depth?: number
   max_pages?: number
   css_selector?: string | null
+  user_agent?: string | null
 }
 
 type WebSourceRecord = Omit<SourceRow, 'type' | 'config'> & {
@@ -111,6 +122,7 @@ const followLinks = ref(false)
 const maxDepth = ref('2')
 const maxPages = ref('100')
 const cssSelector = ref('')
+const userAgent = ref('')
 const loading = ref(false)
 const error = ref('')
 
@@ -138,6 +150,7 @@ watch(
           maxDepth.value = String(cfg.max_depth ?? 2)
           maxPages.value = String(cfg.max_pages ?? 100)
           cssSelector.value = cfg.css_selector || ''
+          userAgent.value = cfg.user_agent || ''
         } catch {
           // ignore prefill errors
         }
@@ -147,6 +160,7 @@ watch(
         maxDepth.value = '2'
         maxPages.value = '100'
         cssSelector.value = ''
+        userAgent.value = ''
       }
     }
   },
@@ -162,6 +176,9 @@ function buildConfig(): WebSourceConfig {
   }
   if (cssSelector.value.trim()) {
     config.css_selector = cssSelector.value.trim()
+  }
+  if (userAgent.value.trim()) {
+    config.user_agent = userAgent.value.trim()
   }
   return config
 }
@@ -304,7 +321,7 @@ const onConfirm = async (payload: { sourceName: string; schedule: ScheduleFormSt
   }
 }
 
-watch([url, followLinks, maxDepth, maxPages, cssSelector], () => {
+watch([url, followLinks, maxDepth, maxPages, cssSelector, userAgent], () => {
   if (error.value) error.value = ''
 })
 </script>

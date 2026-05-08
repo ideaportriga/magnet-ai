@@ -27,6 +27,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_USER_AGENT = "MagnetAI-WebScraper/1.0"
+
 WebPipelineContext = SyncPipelineContext[
     WebListingTask, WebContentFetchTask, WebProcessDocumentTask
 ]
@@ -211,10 +213,11 @@ class WebSyncPipeline(
             extra=self._log_extra(worker_id=worker_id),
         )
 
+        user_agent = self._web_config.user_agent or DEFAULT_USER_AGENT
         async with httpx.AsyncClient(
             follow_redirects=True,
             timeout=30.0,
-            headers={"User-Agent": "MagnetAI-WebScraper/1.0"},
+            headers={"User-Agent": user_agent},
         ) as client:
             async for task in ctx.iter_listing_tasks():
                 try:
