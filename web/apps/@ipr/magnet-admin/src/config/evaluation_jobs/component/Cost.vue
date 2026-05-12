@@ -3,13 +3,16 @@
   .km-field {{ totalCost }}
     |
     q-tooltip(:offset='[0, 10]')
-      .col-auto
-        .row.q-gap-16.justify-between.q-mb-md
-          .km-input-label Input cost: {{ inputCost }}
+      .col-auto(v-if='hasAverageCost')
         .row.q-gap-16.justify-between
-          .km-input-label Output cost: {{ outputCost }}
+          .km-input-label Recorded avg cost: {{ totalCost }}
+      .col-auto(v-else)
+        .row.q-gap-16.justify-between.q-mb-md
+          .km-input-label Input cost: {{ displayInputCost }}
+        .row.q-gap-16.justify-between
+          .km-input-label Output cost: {{ displayOutputCost }}
         .row.q-gap-16.justify-between.q-mt-md
-          .km-input-label Cached cost: {{ cachedCost }}
+          .km-input-label Cached cost: {{ displayCachedCost }}
 </template>
 
 <script>
@@ -53,6 +56,13 @@ export default defineComponent({
     cachedTokens() {
       return this.row?.average_cached_tokens || 0
     },
+    averageCost() {
+      const cost = Number(this.row?.average_cost)
+      return Number.isFinite(cost) ? cost : null
+    },
+    hasAverageCost() {
+      return this.averageCost !== null && Number(this.row?.results_with_cost || 0) > 0
+    },
     roundedInputTokens() {
       return Math.round(this.inputTokens)
     },
@@ -64,22 +74,31 @@ export default defineComponent({
     },
     inputCost() {
       const result = (this.inputTokens * this.priceInput) / 1000000
-      return parseFloat(result.toPrecision(2))
+      return result
     },
     outputCost() {
       const result = (this.outputTokens * this.priceOutput) / 1000000
-      return parseFloat(result.toPrecision(2))
+      return result
     },
     cachedCost() {
       const result = (this.cachedTokens * this.priceCached) / 1000000
-      return parseFloat(result.toPrecision(2))
+      return result
+    },
+    displayInputCost() {
+      return this.formatCost(this.hasAverageCost ? 0 : this.inputCost)
+    },
+    displayOutputCost() {
+      return this.formatCost(this.hasAverageCost ? 0 : this.outputCost)
+    },
+    displayCachedCost() {
+      return this.formatCost(this.hasAverageCost ? 0 : this.cachedCost)
     },
     totalTokens() {
       return this.roundedInputTokens + this.roundedOutputTokens + this.roundedCachedTokens
     },
     totalCost() {
-      const result = this.inputCost + this.outputCost + this.cachedCost
-      return parseFloat(result.toPrecision(2))
+      const result = this.hasAverageCost ? this.averageCost : this.inputCost + this.outputCost + this.cachedCost
+      return this.formatCost(result)
     },
     color() {
       return this.statusStyles?.color || ''
@@ -89,6 +108,12 @@ export default defineComponent({
     },
     statusStyles() {
       return { color: 'in-progress', textColor: 'text-gray' }
+    },
+  },
+  methods: {
+    formatCost(value) {
+      const cost = Number(value || 0)
+      return Number.isFinite(cost) ? parseFloat(cost.toPrecision(2)) : 0
     },
   },
 })

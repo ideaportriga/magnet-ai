@@ -80,6 +80,29 @@ class EntityCandidateRecord:
     column_values: dict[str, Any]
 
 
+# Hard cap on the few-shot example bank produced by the analysis pass.
+# The analysis prompt also asks for at most this many examples; the cap is
+# enforced post-parse defensively in case the model exceeds it.
+MAX_ANALYSIS_EXAMPLES = 3
+
+
+@dataclass(slots=True)
+class AnalysisEnvelope:
+    """Parsed output of the AdvancedStrategy analysis pass."""
+
+    segment_overview: str
+    global_context: dict[str, str]
+    examples: list[dict[str, Any]]
+
+
+def _empty_global_context() -> dict[str, str]:
+    return {
+        "shared_values": "",
+        "schema_observations": "",
+        "disambiguation_rules": "",
+    }
+
+
 def normalize_entity_definitions(
     entity_definitions: list[dict[str, Any]] | list[EntityDefinition] | Any,
 ) -> list[EntityDefinition]:
@@ -312,20 +335,9 @@ _JSON_SCHEMA_TYPE_MAP: dict[EntityColumnType, str] = {
 }
 
 
-def build_entity_extraction_prompt_schema_json(
+def _build_entity_record_item_schema(
     entity_definition: EntityDefinition,
-    *,
-    include_analysis: bool = False,
 ) -> dict[str, Any]:
-    """Build a strict JSON Schema describing the records output for a single entity.
-
-    Shape::
-
-        {"records": [{<column>: <value>, ...}, ...]}
-
-    With ``include_analysis=True`` the schema additionally requires an
-    ``analysis`` string field at the top level — used by the reflective strategy.
-    """
     item_properties: dict[str, Any] = {}
     item_required: list[str] = []
     for column in entity_definition.columns or []:
@@ -347,12 +359,29 @@ def build_entity_extraction_prompt_schema_json(
         # optional fields are expressed via the `["<type>", "null"]` type union.
         item_required.append(column.name)
 
-    item_schema: dict[str, Any] = {
+    return {
         "type": "object",
         "properties": item_properties,
         "required": item_required,
         "additionalProperties": False,
     }
+
+
+def build_entity_extraction_prompt_schema_json(
+    entity_definition: EntityDefinition,
+    *,
+    include_analysis: bool = False,
+) -> dict[str, Any]:
+    """Build a strict JSON Schema describing the records output for a single entity.
+
+    Shape::
+
+        {"records": [{<column>: <value>, ...}, ...]}
+
+    With ``include_analysis=True`` the schema additionally requires an
+    ``analysis`` string field at the top level — used by the reflective strategy.
+    """
+    item_schema = _build_entity_record_item_schema(entity_definition)
 
     properties: dict[str, Any] = {}
     required: list[str] = []
@@ -461,6 +490,233 @@ def _best_effort_json_object_from_text(value: str) -> dict[str, Any]:
         return parsed if isinstance(parsed, dict) else {}
     except Exception:
         return {}
+
+
+# --- Analysis envelope: markdown parsing ---------------------------------
+#
+# The AdvancedStrategy analysis pass emits a markdown document with four
+# top-level (`## `) sections in this order: ``Segment overview``,
+# ``Global context`` (with three ``### `` subsections), ``Examples`` (a fenced
+# JSON array of (snippet, record, note) entries), and ``Decision`` (a small
+# bullet list of key/value lines). The parser below is intentionally lenient:
+# headings are matched case-insensitively, the examples fence is optional, and
+# missing fields fall back to safe defaults rather than raising.
+
+_H2_HEADING_RE = re.compile(r"^##\s+(.+?)\s*$", re.MULTILINE)
+_H3_HEADING_RE = re.compile(r"^###\s+(.+?)\s*$", re.MULTILINE)
+_JSON_FENCE_RE = re.compile(r"```(?:json)?\s*\n([\s\S]*?)\n\s*```", re.IGNORECASE)
+
+
+def _split_markdown_sections(text: str, heading_re: re.Pattern[str]) -> dict[str, str]:
+    """Split markdown into sections keyed by case-folded heading text."""
+    matches = list(heading_re.finditer(text))
+    sections: dict[str, str] = {}
+    for index, match in enumerate(matches):
+        heading_key = match.group(1).strip().casefold()
+        body_start = match.end()
+        body_end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        sections[heading_key] = text[body_start:body_end].strip()
+    return sections
+
+
+def _find_subsection_body(subsections: dict[str, str], candidates: list[str]) -> str:
+    for heading_key, body in subsections.items():
+        for candidate in candidates:
+            if candidate in heading_key:
+                return body.strip()
+    return ""
+
+
+def _parse_examples_section(text: str) -> list[dict[str, Any]]:
+    if not text or not text.strip():
+        return []
+    fence_match = _JSON_FENCE_RE.search(text)
+    candidate_text = fence_match.group(1) if fence_match else text
+    try:
+        parsed = json.loads(candidate_text.strip())
+    except Exception:
+        # Fall back: maybe the model emitted a bare JSON array without a fence.
+        start = candidate_text.find("[")
+        end = candidate_text.rfind("]")
+        if start == -1 or end <= start:
+            return []
+        try:
+            parsed = json.loads(candidate_text[start : end + 1])
+        except Exception:
+            return []
+    if not isinstance(parsed, list):
+        return []
+    examples: list[dict[str, Any]] = []
+    for entry in parsed:
+        if not isinstance(entry, dict):
+            continue
+        snippet = str(entry.get("snippet") or "").strip()
+        record = entry.get("record")
+        if not snippet or not isinstance(record, dict):
+            continue
+        note_value = entry.get("note")
+        note_str = str(note_value).strip() if note_value else ""
+        examples.append({"snippet": snippet, "record": record, "note": note_str})
+        if len(examples) >= MAX_ANALYSIS_EXAMPLES:
+            break
+    return examples
+
+
+def _parse_analysis_envelope(raw_text: str) -> AnalysisEnvelope:
+    """Parse the AdvancedStrategy analysis pass markdown envelope.
+
+    The envelope has three top-level sections (``## Segment overview``,
+    ``## Global context`` with three ``### `` subsections,
+    ``## Examples`` with a fenced JSON array).
+    Tolerant of malformed output: missing fields fall back to safe defaults.
+    If no recognizable headings are present, the raw text is preserved as
+    ``global_context.shared_values`` so cross-segment information is not lost.
+    """
+    text = (raw_text or "").strip()
+    if not text:
+        return AnalysisEnvelope(
+            segment_overview="",
+            global_context=_empty_global_context(),
+            examples=[],
+        )
+
+    sections = _split_markdown_sections(text, _H2_HEADING_RE)
+    if not sections:
+        # No recognizable structure; keep content alive as shared_values.
+        return AnalysisEnvelope(
+            segment_overview="",
+            global_context={
+                **_empty_global_context(),
+                "shared_values": text,
+            },
+            examples=[],
+        )
+
+    segment_overview = sections.get("segment overview", "").strip()
+
+    global_block = ""
+    for key, body in sections.items():
+        if key.startswith("global context"):
+            global_block = body
+            break
+    global_subsections = (
+        _split_markdown_sections(global_block, _H3_HEADING_RE) if global_block else {}
+    )
+    global_context = {
+        "shared_values": _find_subsection_body(
+            global_subsections, ["shared values", "shared"]
+        ),
+        "schema_observations": _find_subsection_body(
+            global_subsections, ["schema observations", "schema"]
+        ),
+        "disambiguation_rules": _find_subsection_body(
+            global_subsections, ["disambiguation rules", "disambig"]
+        ),
+    }
+
+    examples = _parse_examples_section(sections.get("examples", ""))
+
+    return AnalysisEnvelope(
+        segment_overview=segment_overview,
+        global_context=global_context,
+        examples=examples,
+    )
+
+
+def _render_global_context_for_extraction(global_context: dict[str, str]) -> str:
+    """Render the running global_context dict as a compact extraction prefix."""
+    parts: list[str] = []
+    shared = (global_context.get("shared_values") or "").strip()
+    schema_obs = (global_context.get("schema_observations") or "").strip()
+    disambig = (global_context.get("disambiguation_rules") or "").strip()
+    if shared:
+        parts.append(f"## Shared values\n{shared}")
+    if schema_obs:
+        parts.append(f"## Schema observations\n{schema_obs}")
+    if disambig:
+        parts.append(f"## Disambiguation rules\n{disambig}")
+    return "\n\n".join(parts).strip()
+
+
+def _render_examples_for_prompt(examples: list[dict[str, Any]]) -> str:
+    """Render the example bank as a markdown string embedded into the system prompt.
+
+    Mirrors the canonical extraction output shape (``{"records": [...]}``) so
+    the model sees examples in the same form it should produce. Returns
+    ``"(none)"`` when there are no usable examples.
+    """
+    blocks: list[str] = []
+    for index, example in enumerate(examples or [], start=1):
+        snippet = str(example.get("snippet") or "").strip()
+        record = example.get("record")
+        if not snippet or not isinstance(record, dict):
+            continue
+        record_json = json.dumps({"records": [record]}, ensure_ascii=False, indent=2)
+        note = str(example.get("note") or "").strip()
+        block_parts = [
+            f"Example {index}:",
+            "Snippet:",
+            snippet,
+            "",
+            "Expected output:",
+            record_json,
+        ]
+        if note:
+            block_parts.extend(["", f"Note: {note}"])
+        blocks.append("\n".join(block_parts))
+    if not blocks:
+        return "(none)"
+    return "\n\n".join(blocks)
+
+
+def _build_forwarded_global_context_message(
+    global_context: dict[str, str],
+) -> str:
+    """Render only the running ``Global context`` as the prior assistant message.
+
+    Per-segment sections (``Segment overview``, ``Examples``, ``Decision``) are
+    intentionally omitted from the forwarded state — they are produced fresh
+    for each segment.
+    """
+    return (
+        "## Global context\n"
+        "\n"
+        "### Shared values\n"
+        "\n"
+        f"{(global_context.get('shared_values') or '').strip()}\n"
+        "\n"
+        "### Schema observations\n"
+        "\n"
+        f"{(global_context.get('schema_observations') or '').strip()}\n"
+        "\n"
+        "### Disambiguation rules\n"
+        "\n"
+        f"{(global_context.get('disambiguation_rules') or '').strip()}\n"
+    )
+
+
+def _merge_examples_capped(
+    running: list[dict[str, Any]],
+    incoming: list[dict[str, Any]],
+    *,
+    cap: int = MAX_ANALYSIS_EXAMPLES,
+) -> list[dict[str, Any]]:
+    """Append new examples to the running bank, deduping by snippet, capped."""
+    merged: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for source in (running, incoming):
+        for example in source or []:
+            snippet = str(example.get("snippet") or "").strip()
+            if not snippet:
+                continue
+            key = snippet.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            merged.append(example)
+            if len(merged) >= cap:
+                return merged
+    return merged
 
 
 def _is_empty_value(value: Any) -> bool:
@@ -674,6 +930,7 @@ async def _extract_entities_iterative(
     inline_analysis: bool = False,
     followup_prompt_template_config: dict[str, Any] | None = None,
     followup_schema: str | None = None,
+    extra_template_values: dict[str, str] | None = None,
     cancel_check: Any = None,
 ) -> tuple[list[EntityCandidateRecord], str]:
     """Run entity extraction with verification iterations.
@@ -711,13 +968,18 @@ async def _extract_entities_iterative(
             iteration_config = followup_prompt_template_config
             iteration_schema = followup_schema or schema
 
+        template_values: dict[str, str] = {
+            "SCHEMA": iteration_schema,
+            "ENTITY_NAME": entity_definition.name,
+            "EXAMPLES": "(none)",
+        }
+        if extra_template_values:
+            template_values.update(extra_template_values)
+
         try:
             result = await execute_prompt_template(
                 system_name_or_config=iteration_config,
-                template_values={
-                    "SCHEMA": iteration_schema,
-                    "ENTITY_NAME": entity_definition.name,
-                },
+                template_values=template_values,
                 template_additional_messages=list(additional_messages),
             )
             raw = _best_effort_json_object_from_text(result.content)
@@ -814,6 +1076,7 @@ async def _extract_entity_from_content(
     schema_format: EntityExtractionSchemaFormat = DEFAULT_SCHEMA_FORMAT,
     additional_prefix_messages: list[dict[str, str]] | None = None,
     inline_analysis: bool = False,
+    extra_template_values: dict[str, str] | None = None,
     cancel_check: Any = None,
 ) -> tuple[list[EntityCandidateRecord], str]:
     """Extract all records for a single entity type from a content string.
@@ -871,6 +1134,7 @@ async def _extract_entity_from_content(
         inline_analysis=inline_analysis,
         followup_prompt_template_config=followup_config,
         followup_schema=followup_schema_text,
+        extra_template_values=extra_template_values,
         cancel_check=cancel_check,
     )
 
@@ -914,8 +1178,10 @@ class BasicStrategy:
         entity_definition: EntityDefinition,
         context: dict[str, Any],
         max_extraction_iterations: int,
+        segment_index: int = 0,
         cancel_check: Any = None,
     ) -> tuple[list[EntityCandidateRecord], dict[str, Any]]:
+        del segment_index  # not used by BasicStrategy; accepted for interface parity
         candidates, _ = await _extract_entity_from_content(
             prompt_template_config=self._extraction_config,
             entity_definition=entity_definition,
@@ -928,15 +1194,36 @@ class BasicStrategy:
 
 
 _ANALYSIS_LEAD_IN = (
-    "The following message is a global analysis of the source document, produced "
-    "by a separate pre-analysis pass. Use it as cross-segment context when "
-    "extracting entities from the segment that follows. Do not extract records "
-    "directly from the analysis — only from the segment content."
+    "The following message is the running global analysis of the source "
+    "document, produced by a separate pre-analysis pass. Use it as cross-"
+    "segment context when extracting entities from the segment that follows. "
+    "Do not extract records directly from the analysis — only from the "
+    "segment content."
+)
+
+_ANALYSIS_FORWARDED_LEAD_IN = (
+    "The following message is the running Global context accumulated from "
+    "earlier segments of this document by previous analysis passes. Use it "
+    "as cross-segment memory when analyzing the next segment. Note: only the "
+    "Global context is forwarded — Examples and per-segment sections were "
+    "not carried over and should be produced fresh for the current segment."
 )
 
 
 class AdvancedStrategy:
-    """Two-stage strategy: running document analysis, then context-aware extraction."""
+    """Two-stage strategy: structured analysis envelope, then context-aware extraction.
+
+    The analysis pass walks segments once and emits, for each segment, a markdown
+    envelope with three blocks:
+
+    * ``segment_overview`` — chain-of-thought scratchpad. Discarded after the
+      call; never fed forward.
+    * ``global_context`` — running global state (shared values, schema notes,
+      disambiguation rules). Carried forward between analysis calls and used
+      as the prefix for every extraction call.
+    * ``examples`` — accumulating, capped few-shot bank used to seed
+      extraction calls as alternating (snippet, record) message pairs.
+    """
 
     def __init__(
         self,
@@ -961,7 +1248,6 @@ class AdvancedStrategy:
         entity_definitions: list[EntityDefinition],
         cancel_check: Any = None,
     ) -> dict[str, Any]:
-        analysis = ""
         full_schema = build_entity_schema_summary(entity_definitions)
         entity_names = ", ".join(ed.name for ed in entity_definitions)
         total_segments = len(segments)
@@ -973,18 +1259,35 @@ class AdvancedStrategy:
             }
         )
 
+        # Analysis output is markdown — no structured-output `response_format`.
+        analysis_config = self._analysis_config
+
+        envelopes_built = 0
+        running_global_context: dict[str, str] = _empty_global_context()
+        running_examples: list[dict[str, Any]] = []
+
         for index, segment in enumerate(segments):
             if cancel_check and await cancel_check():
                 break
 
             additional_messages: list[dict[str, str]] = []
-            if analysis:
-                additional_messages.append({"role": "assistant", "content": analysis})
+            if any(running_global_context.values()):
+                additional_messages.append(
+                    {"role": "user", "content": _ANALYSIS_FORWARDED_LEAD_IN}
+                )
+                additional_messages.append(
+                    {
+                        "role": "assistant",
+                        "content": _build_forwarded_global_context_message(
+                            running_global_context
+                        ),
+                    }
+                )
             additional_messages.append({"role": "user", "content": segment})
 
             try:
                 result = await execute_prompt_template(
-                    system_name_or_config=self._analysis_config,
+                    system_name_or_config=analysis_config,
                     template_values={
                         "SCHEMA": full_schema,
                         "ENTITY_NAMES": entity_names,
@@ -1000,13 +1303,25 @@ class AdvancedStrategy:
                     total_segments,
                     exc,
                 )
-                break
+                continue
 
-            updated_analysis = str(result.content or "").strip()
-            if updated_analysis:
-                analysis = updated_analysis
+            envelope = _parse_analysis_envelope(str(result.content or ""))
+            envelopes_built += 1
+            running_global_context = envelope.global_context
+            running_examples = _merge_examples_capped(
+                running_examples, envelope.examples
+            )
 
-        return {"analysis": analysis}
+        observability_context.update_current_span(
+            output={
+                "Envelopes Built": envelopes_built,
+            }
+        )
+
+        return {
+            "final_global_context": running_global_context,
+            "final_examples": running_examples,
+        }
 
     async def extract_segment(
         self,
@@ -1015,13 +1330,27 @@ class AdvancedStrategy:
         entity_definition: EntityDefinition,
         context: dict[str, Any],
         max_extraction_iterations: int,
+        segment_index: int = 0,
         cancel_check: Any = None,
     ) -> tuple[list[EntityCandidateRecord], dict[str, Any]]:
-        analysis = str((context or {}).get("analysis") or "").strip()
+        # Global context and examples are taken from the *final* accumulated
+        # state across all segments (built progressively by prepare_context),
+        # not from the current segment's envelope. The accumulated state is
+        # the most informed view of the document.
+        final_global_context: dict[str, str] = (context or {}).get(
+            "final_global_context"
+        ) or _empty_global_context()
+        final_examples: list[dict[str, Any]] = (context or {}).get(
+            "final_examples"
+        ) or []
+
         prefix_messages: list[dict[str, str]] = []
-        if analysis:
+        global_text = _render_global_context_for_extraction(final_global_context)
+        if global_text:
             prefix_messages.append({"role": "user", "content": _ANALYSIS_LEAD_IN})
-            prefix_messages.append({"role": "assistant", "content": analysis})
+            prefix_messages.append({"role": "assistant", "content": global_text})
+
+        examples_text = _render_examples_for_prompt(final_examples)
 
         candidates, _ = await _extract_entity_from_content(
             prompt_template_config=self._extraction_config,
@@ -1030,6 +1359,7 @@ class AdvancedStrategy:
             max_extraction_iterations=max_extraction_iterations,
             schema_format=self._schema_format,
             additional_prefix_messages=prefix_messages,
+            extra_template_values={"EXAMPLES": examples_text},
             cancel_check=cancel_check,
         )
         return candidates, context
@@ -1083,8 +1413,12 @@ class ReflectiveStrategy:
         entity_definition: EntityDefinition,
         context: dict[str, Any],
         max_extraction_iterations: int,
+        segment_index: int = 0,
         cancel_check: Any = None,
     ) -> tuple[list[EntityCandidateRecord], dict[str, Any]]:
+        del (
+            segment_index
+        )  # not used by ReflectiveStrategy; accepted for interface parity
         analyses = dict(((context or {}).get("analyses") or {}))
         prior_analysis = str(analyses.get(entity_definition.name) or "").strip()
 
@@ -1226,7 +1560,7 @@ async def _process_document_extraction(
     if cancel_check and await cancel_check():
         cancelled = True
 
-    for segment in segments:
+    for segment_index, segment in enumerate(segments):
         if cancelled:
             break
         for entity_def in entity_definitions:
@@ -1240,6 +1574,7 @@ async def _process_document_extraction(
                     entity_definition=entity_def,
                     context=strategy_context,
                     max_extraction_iterations=max_extraction_iterations,
+                    segment_index=segment_index,
                     cancel_check=cancel_check,
                 )
             except Exception as exc:  # noqa: BLE001
@@ -1357,7 +1692,7 @@ async def _process_document_chunks_extraction(
             "cancelled": True,
         }
 
-    for chunk_id, content_str in chunk_segments:
+    for segment_index, (chunk_id, content_str) in enumerate(chunk_segments):
         if cancel_check and await cancel_check():
             cancelled = True
             break
@@ -1375,6 +1710,7 @@ async def _process_document_chunks_extraction(
                     entity_definition=entity_def,
                     context=strategy_context,
                     max_extraction_iterations=max_extraction_iterations,
+                    segment_index=segment_index,
                     cancel_check=cancel_check,
                 )
             except Exception as exc:  # noqa: BLE001
