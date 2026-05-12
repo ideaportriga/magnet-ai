@@ -164,6 +164,29 @@
           </div>
         </div>
       </kg-dialog-section>
+
+      <kg-dialog-section
+        title="Performance Optimizations"
+        description="Optimize cost and speed by skipping irrelevant content. May slightly reduce extraction quality on edge cases."
+        icon="tune"
+      >
+        <kg-field-row
+          label="Relevance Filter Prompt"
+          hint="When set, runs a small LLM check on each chunk to drop boilerplate before extraction. Clear to disable the filter."
+        >
+          <kg-dropdown-field
+            v-model="relevanceFilterPromptTemplateSystemName"
+            placeholder="Select a prompt template to enable the filter"
+            :options="promptTemplateOptions"
+            :loading="loadingPromptTemplates"
+            option-value="system_name"
+            option-label="name"
+            searchable
+            clearable
+            dense
+          />
+        </kg-field-row>
+      </kg-dialog-section>
     </div>
   </kg-dialog-base>
 </template>
@@ -173,13 +196,20 @@ import { ref, watch } from 'vue'
 import { KgDialogBase, KgDialogSection, KgDropdownField, KgFieldRow, KgSectionControl, type ControlOption } from '../common'
 import {
   createDefaultEntityExtractionRunSettings,
+  createDefaultPerformanceOptimizationsSettings,
   MAX_ENTITY_EXTRACTION_MAX_ITERATIONS,
   MIN_ENTITY_EXTRACTION_MAX_ITERATIONS,
   type EntityExtractionApproach,
   type EntityExtractionMode,
+  type EntityExtractionPerformanceOptimizationsSettings,
   type EntityExtractionRunSettings,
   type EntityExtractionSchemaFormat,
 } from './models'
+
+export interface EntityExtractionDialogPayload {
+  extraction: EntityExtractionRunSettings
+  performance_optimizations: EntityExtractionPerformanceOptimizationsSettings
+}
 
 const approachControlOptions: ControlOption[] = [
   {
@@ -235,6 +265,7 @@ const schemaFormatOptions = [
 const props = defineProps<{
   showDialog: boolean
   settings?: EntityExtractionRunSettings | null
+  performanceOptimizations?: EntityExtractionPerformanceOptimizationsSettings | null
   promptTemplateOptions?: any[]
   loadingPromptTemplates?: boolean
 }>()
@@ -242,10 +273,11 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'update:showDialog', value: boolean): void
   (e: 'cancel'): void
-  (e: 'save', settings: EntityExtractionRunSettings): void
+  (e: 'save', payload: EntityExtractionDialogPayload): void
 }>()
 
 const defaults = createDefaultEntityExtractionRunSettings()
+const performanceDefaults = createDefaultPerformanceOptimizationsSettings()
 const approach = ref<EntityExtractionApproach>(defaults.approach)
 const mode = ref<EntityExtractionMode>(defaults.mode)
 const schemaFormat = ref<EntityExtractionSchemaFormat>(defaults.schema_format)
@@ -255,10 +287,13 @@ const reflectivePromptTemplateSystemName = ref(defaults.reflective_prompt_templa
 const segmentSize = ref(defaults.segment_size)
 const segmentOverlap = ref(defaults.segment_overlap)
 const maxExtractionIterations = ref(defaults.max_extraction_iterations)
+const relevanceFilterPromptTemplateSystemName = ref(
+  performanceDefaults.relevance_filter.prompt_template_system_name
+)
 const loading = ref(false)
 
 watch(
-  () => [props.showDialog, props.settings] as const,
+  () => [props.showDialog, props.settings, props.performanceOptimizations] as const,
   () => {
     if (props.showDialog && props.settings) {
       approach.value = props.settings.approach || defaults.approach
@@ -282,21 +317,34 @@ watch(
       segmentOverlap.value = defaults.segment_overlap
       maxExtractionIterations.value = defaults.max_extraction_iterations
     }
+
+    if (props.showDialog) {
+      const perf = props.performanceOptimizations
+      relevanceFilterPromptTemplateSystemName.value =
+        perf?.relevance_filter?.prompt_template_system_name ?? ''
+    }
   },
   { immediate: true }
 )
 
 function onConfirm() {
   emit('save', {
-    approach: approach.value,
-    mode: mode.value,
-    schema_format: schemaFormat.value,
-    prompt_template_system_name: promptTemplateSystemName.value.trim(),
-    analysis_prompt_template_system_name: analysisPromptTemplateSystemName.value.trim(),
-    reflective_prompt_template_system_name: reflectivePromptTemplateSystemName.value.trim(),
-    segment_size: segmentSize.value,
-    segment_overlap: segmentOverlap.value,
-    max_extraction_iterations: maxExtractionIterations.value,
+    extraction: {
+      approach: approach.value,
+      mode: mode.value,
+      schema_format: schemaFormat.value,
+      prompt_template_system_name: promptTemplateSystemName.value.trim(),
+      analysis_prompt_template_system_name: analysisPromptTemplateSystemName.value.trim(),
+      reflective_prompt_template_system_name: reflectivePromptTemplateSystemName.value.trim(),
+      segment_size: segmentSize.value,
+      segment_overlap: segmentOverlap.value,
+      max_extraction_iterations: maxExtractionIterations.value,
+    },
+    performance_optimizations: {
+      relevance_filter: {
+        prompt_template_system_name: relevanceFilterPromptTemplateSystemName.value.trim(),
+      },
+    },
   })
 }
 </script>

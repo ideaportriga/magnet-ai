@@ -897,7 +897,12 @@ def parse_entity_candidates_from_output(
             if not record_identifier:
                 continue
 
-            dedup_key = (entity_name, normalize_record_identifier(record_identifier))
+            normalized_record_identifier = normalize_record_identifier(
+                record_identifier
+            )
+            if not normalized_record_identifier:
+                continue
+            dedup_key = (entity_name, normalized_record_identifier)
             candidate = EntityCandidateRecord(
                 entity=entity_name,
                 record_identifier=record_identifier,
@@ -1006,10 +1011,10 @@ async def _extract_entities_iterative(
             raw, [entity_definition]
         )
         for candidate in iteration_candidates:
-            key = (
-                candidate.entity,
-                normalize_record_identifier(candidate.record_identifier),
-            )
+            normalized_id = normalize_record_identifier(candidate.record_identifier)
+            if not normalized_id:
+                continue
+            key = (candidate.entity, normalized_id)
             if key in merged:
                 merged[key] = _merge_candidate_records(merged[key], candidate)
             else:
@@ -1029,9 +1034,6 @@ async def _extract_entities_iterative(
     return list(merged.values()), latest_analysis
 
 
-@observe(
-    name="Extract entity type from content", channel="production", source="production"
-)
 async def _extract_entity_from_content(
     *,
     prompt_template_config: dict[str, Any],
@@ -1202,7 +1204,7 @@ class AdvancedStrategy:
         self._schema_format: EntityExtractionSchemaFormat = schema_format
 
     @observe(
-        name="Advanced strategy: document analysis pass",
+        name="Analysis: document context pass",
         channel="production",
         source="production",
     )
@@ -1366,11 +1368,6 @@ class ReflectiveStrategy:
     ) -> dict[str, Any]:
         return {"analyses": {}}
 
-    @observe(
-        name="Reflective strategy: segment extraction",
-        channel="production",
-        source="production",
-    )
     async def extract_segment(
         self,
         *,
@@ -1463,6 +1460,77 @@ async def build_extraction_strategy(
 
 
 @observe(
+    name="Extraction: entity candidates", channel="production", source="production"
+)
+async def _run_extraction_loop(
+    *,
+    segments: list[str],
+    entity_definitions: list[EntityDefinition],
+    strategy: "BasicStrategy | AdvancedStrategy | ReflectiveStrategy",
+    strategy_context: dict[str, Any],
+    max_extraction_iterations: int,
+    doc_id: str,
+    cancel_check: Any = None,
+) -> tuple[dict[tuple[str, str], EntityCandidateRecord], int, bool]:
+    """Run the segment×entity extraction loop for a single document.
+
+    Returns ``(candidates, error_count, cancelled)``.
+    """
+    observability_context.update_current_span(
+        input={
+            "Segments Count": len(segments),
+            "Entity Count": len(entity_definitions),
+        }
+    )
+
+    document_candidates: dict[tuple[str, str], EntityCandidateRecord] = {}
+    errors = 0
+    cancelled = False
+
+    for segment_index, segment in enumerate(segments):
+        if cancelled:
+            break
+        for entity_def in entity_definitions:
+            if cancel_check and await cancel_check():
+                cancelled = True
+                break
+
+            try:
+                candidates, strategy_context = await strategy.extract_segment(
+                    content=segment,
+                    entity_definition=entity_def,
+                    context=strategy_context,
+                    max_extraction_iterations=max_extraction_iterations,
+                    segment_index=segment_index,
+                    cancel_check=cancel_check,
+                )
+            except Exception as exc:  # noqa: BLE001
+                errors += 1
+                logger.warning(
+                    "Entity extraction failed for document %s entity %s: %s",
+                    doc_id,
+                    entity_def.name,
+                    exc,
+                )
+                continue
+
+            for candidate in candidates:
+                normalized_id = normalize_record_identifier(candidate.record_identifier)
+                if not normalized_id:
+                    continue
+                candidate_key = (candidate.entity, normalized_id)
+                if candidate_key in document_candidates:
+                    document_candidates[candidate_key] = _merge_candidate_records(
+                        document_candidates[candidate_key],
+                        candidate,
+                    )
+                else:
+                    document_candidates[candidate_key] = candidate
+
+    return document_candidates, errors, cancelled
+
+
+@observe(
     name="Extract entities from document", channel="production", source="production"
 )
 async def _process_document_extraction(
@@ -1518,45 +1586,17 @@ async def _process_document_extraction(
     if cancel_check and await cancel_check():
         cancelled = True
 
-    for segment_index, segment in enumerate(segments):
-        if cancelled:
-            break
-        for entity_def in entity_definitions:
-            if cancel_check and await cancel_check():
-                cancelled = True
-                break
-
-            try:
-                candidates, strategy_context = await strategy.extract_segment(
-                    content=segment,
-                    entity_definition=entity_def,
-                    context=strategy_context,
-                    max_extraction_iterations=max_extraction_iterations,
-                    segment_index=segment_index,
-                    cancel_check=cancel_check,
-                )
-            except Exception as exc:  # noqa: BLE001
-                errors += 1
-                logger.warning(
-                    "Entity extraction failed for document %s entity %s: %s",
-                    doc_id,
-                    entity_def.name,
-                    exc,
-                )
-                continue
-
-            for candidate in candidates:
-                candidate_key = (
-                    candidate.entity,
-                    normalize_record_identifier(candidate.record_identifier),
-                )
-                if candidate_key in document_candidates:
-                    document_candidates[candidate_key] = _merge_candidate_records(
-                        document_candidates[candidate_key],
-                        candidate,
-                    )
-                else:
-                    document_candidates[candidate_key] = candidate
+    if not cancelled:
+        document_candidates, loop_errors, cancelled = await _run_extraction_loop(
+            segments=segments,
+            entity_definitions=entity_definitions,
+            strategy=strategy,
+            strategy_context=strategy_context,
+            max_extraction_iterations=max_extraction_iterations,
+            doc_id=doc_id,
+            cancel_check=cancel_check,
+        )
+        errors += loop_errors
 
     for candidate in document_candidates.values():
         await entity_service.upsert_record(
@@ -1684,6 +1724,8 @@ async def _process_document_chunks_extraction(
                 continue
 
             for candidate in chunk_candidates:
+                if not normalize_record_identifier(candidate.record_identifier):
+                    continue
                 await entity_service.upsert_record(
                     db_session,
                     graph_id=graph_id,
@@ -1724,6 +1766,7 @@ async def run_graph_llm_entity_extraction(
     segment_overlap: float = 0.1,
     max_extraction_iterations: int = 3,
     schema_format: EntityExtractionSchemaFormat = DEFAULT_SCHEMA_FORMAT,
+    relevance_filter_prompt_template_system_name: str | None = None,
     progress_callback: Any | None = None,
     cancel_check: Any | None = None,
 ) -> dict[str, Any]:
@@ -1746,6 +1789,10 @@ async def run_graph_llm_entity_extraction(
     analysis_prompt_template_system_name = (
         str(analysis_prompt_template_system_name or "").strip() or None
     )
+    relevance_filter_prompt_template_system_name = (
+        str(relevance_filter_prompt_template_system_name or "").strip() or None
+    )
+    relevance_filter_enabled = bool(relevance_filter_prompt_template_system_name)
 
     async def _mark_document_extracted(doc_id: str) -> None:
         """Mark a document's entity_extraction pipeline state as completed."""
@@ -1805,6 +1852,7 @@ async def run_graph_llm_entity_extraction(
     processed_chunks = 0
     skipped_documents = 0
     skipped_chunks = 0
+    filtered_chunks = 0
     upserted_records = 0
     errors = 0
 
@@ -1879,10 +1927,20 @@ async def run_graph_llm_entity_extraction(
                     graph_id=graph_id,
                     document_id=doc_id,
                 )
-                segments = chunk_reader.as_segments(
+                segments = (
+                    await chunk_reader.filter_irrelevant_chunks(
+                        enabled=relevance_filter_enabled,
+                        entity_definitions=entity_definitions,
+                        prompt_template_system_name=(
+                            relevance_filter_prompt_template_system_name or ""
+                        ),
+                        cancel_check=cancel_check,
+                    )
+                ).as_segments(
                     segment_size=segment_size,
                     segment_overlap=segment_overlap,
                 )
+                filtered_chunks += chunk_reader.filtered_chunk_count
                 await db_session.commit()
 
                 if not segments:
@@ -1946,6 +2004,7 @@ async def run_graph_llm_entity_extraction(
             "processed_chunks": processed_chunks,
             "skipped_documents": skipped_documents,
             "skipped_chunks": skipped_chunks,
+            "filtered_chunks": filtered_chunks,
             "upserted_records": upserted_records,
             "errors": errors,
             "cancelled": cancelled,
@@ -2066,12 +2125,16 @@ async def run_graph_llm_entity_extraction(
         errors,
         cancelled,
     )
+    # Relevance pre-filter is applied at the document level only; the chunks
+    # approach processes each chunk individually so filtering would change
+    # semantics. Always report 0 here.
     return {
         "approach": approach,
         "processed_documents": processed_documents,
         "processed_chunks": processed_chunks,
         "skipped_documents": skipped_documents,
         "skipped_chunks": skipped_chunks,
+        "filtered_chunks": 0,
         "upserted_records": upserted_records,
         "errors": errors,
         "cancelled": cancelled,
@@ -2173,6 +2236,16 @@ async def run_entity_extraction(
     ) or {}
     extraction_settings = (
         entity_settings.get("extraction") if isinstance(entity_settings, dict) else {}
+    ) or {}
+    performance_optimizations_settings = (
+        entity_settings.get("performance_optimizations")
+        if isinstance(entity_settings, dict)
+        else {}
+    ) or {}
+    relevance_filter_settings = (
+        performance_optimizations_settings.get("relevance_filter")
+        if isinstance(performance_optimizations_settings, dict)
+        else {}
     ) or {}
 
     try:
@@ -2285,8 +2358,34 @@ async def run_entity_extraction(
         )
     schema_format: EntityExtractionSchemaFormat = schema_format_raw  # type: ignore[assignment]
 
+    relevance_filter_prompt_template_system_name = (
+        str(data.relevance_filter_prompt_template_system_name).strip()
+        if getattr(data, "relevance_filter_prompt_template_system_name", None)
+        is not None
+        else str(
+            relevance_filter_settings.get("prompt_template_system_name") or ""
+        ).strip()
+    ) or None
+    relevance_filter_enabled = bool(relevance_filter_prompt_template_system_name)
+
+    if relevance_filter_enabled:
+        if not relevance_filter_prompt_template_system_name:
+            raise ClientException(
+                "Relevance filter prompt template is required when the "
+                "relevance pre-filter is enabled"
+            )
+        try:
+            await get_prompt_template_by_system_name_flat(
+                relevance_filter_prompt_template_system_name
+            )
+        except LookupError as exc:
+            raise ClientException(
+                f"Relevance filter prompt template "
+                f"'{relevance_filter_prompt_template_system_name}' was not found"
+            ) from exc
+
     logger.info(
-        "Starting entity extraction for graph %s (approach=%s, mode=%s, prompt=%s, analysis_prompt=%s, segment_size=%d, segment_overlap=%.2f, max_iterations=%d, schema_format=%s)",
+        "Starting entity extraction for graph %s (approach=%s, mode=%s, prompt=%s, analysis_prompt=%s, segment_size=%d, segment_overlap=%.2f, max_iterations=%d, schema_format=%s, relevance_filter=%s)",
         graph_id,
         approach_raw,
         mode,
@@ -2296,6 +2395,7 @@ async def run_entity_extraction(
         segment_overlap,
         max_extraction_iterations,
         schema_format,
+        "on" if relevance_filter_enabled else "off",
     )
 
     entity_svc = entity_service or KnowledgeGraphEntityService()
@@ -2330,6 +2430,9 @@ async def run_entity_extraction(
             segment_overlap=segment_overlap,
             max_extraction_iterations=max_extraction_iterations,
             schema_format=schema_format,
+            relevance_filter_prompt_template_system_name=(
+                relevance_filter_prompt_template_system_name
+            ),
             progress_callback=_progress_cb,
             cancel_check=_cancel_check,
         )

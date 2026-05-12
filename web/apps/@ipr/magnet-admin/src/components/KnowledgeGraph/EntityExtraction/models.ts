@@ -6,6 +6,8 @@ export type EntityExtractionSchemaFormat = 'json_schema' | 'typescript' | 'markd
 export const DEFAULT_ENTITY_EXTRACTION_PROMPT_TEMPLATE_SYSTEM_NAME = 'KG_ENTITY_EXTRACTION'
 export const DEFAULT_ENTITY_EXTRACTION_ANALYSIS_PROMPT_TEMPLATE_SYSTEM_NAME = 'KG_ENTITY_EXTRACTION_ANALYSIS'
 export const DEFAULT_ENTITY_EXTRACTION_REFLECTIVE_PROMPT_TEMPLATE_SYSTEM_NAME = 'KG_ENTITY_EXTRACTION_REFLECTIVE'
+export const DEFAULT_ENTITY_EXTRACTION_RELEVANCE_FILTER_PROMPT_TEMPLATE_SYSTEM_NAME =
+  'KG_ENTITY_EXTRACTION_RELEVANCE_FILTER'
 export const DEFAULT_ENTITY_EXTRACTION_MODE: EntityExtractionMode = 'basic'
 export const DEFAULT_ENTITY_EXTRACTION_SCHEMA_FORMAT: EntityExtractionSchemaFormat = 'typescript'
 export const DEFAULT_ENTITY_EXTRACTION_SEGMENT_SIZE = 18000
@@ -50,12 +52,22 @@ export interface EntityExtractionRunSettings {
   max_extraction_iterations: number
 }
 
+export interface EntityExtractionRelevanceFilterSettings {
+  prompt_template_system_name: string
+}
+
+export interface EntityExtractionPerformanceOptimizationsSettings {
+  relevance_filter: EntityExtractionRelevanceFilterSettings
+}
+
 export interface EntityExtractionSettings {
   entity_definitions: EntityDefinition[]
   extraction: EntityExtractionRunSettings
+  performance_optimizations: EntityExtractionPerformanceOptimizationsSettings
 }
 
 const ENTITY_EXTRACTION_SETTINGS_KEY = 'entity_extraction'
+const ENTITY_EXTRACTION_PERFORMANCE_OPTIMIZATIONS_KEY = 'performance_optimizations'
 const ENTITY_COLUMN_TYPES: EntityColumnType[] = ['string', 'number', 'boolean', 'date']
 const ENTITY_EXTRACTION_APPROACHES: EntityExtractionApproach[] = ['document', 'chunks']
 export const ENTITY_EXTRACTION_MODES: EntityExtractionMode[] = ['basic', 'advanced', 'reflective']
@@ -111,6 +123,34 @@ function getEntityExtractionRaw(settings?: Record<string, unknown>): Record<stri
   return entityExtractionRaw && typeof entityExtractionRaw === 'object' ? (entityExtractionRaw as Record<string, unknown>) : undefined
 }
 
+export function createDefaultEntityExtractionRelevanceFilterSettings(): EntityExtractionRelevanceFilterSettings {
+  return {
+    prompt_template_system_name: '',
+  }
+}
+
+export function createDefaultPerformanceOptimizationsSettings(): EntityExtractionPerformanceOptimizationsSettings {
+  return {
+    relevance_filter: createDefaultEntityExtractionRelevanceFilterSettings(),
+  }
+}
+
+export function cloneEntityExtractionRelevanceFilterSettings(
+  settings?: EntityExtractionRelevanceFilterSettings | null
+): EntityExtractionRelevanceFilterSettings {
+  return {
+    prompt_template_system_name: String(settings?.prompt_template_system_name ?? '').trim(),
+  }
+}
+
+export function cloneEntityExtractionPerformanceOptimizationsSettings(
+  settings?: EntityExtractionPerformanceOptimizationsSettings | null
+): EntityExtractionPerformanceOptimizationsSettings {
+  return {
+    relevance_filter: cloneEntityExtractionRelevanceFilterSettings(settings?.relevance_filter),
+  }
+}
+
 export function createDefaultEntityExtractionRunSettings(): EntityExtractionRunSettings {
   return {
     approach: 'document',
@@ -163,6 +203,9 @@ export function cloneEntityExtractionSettings(settings?: EntityExtractionSetting
   return {
     entity_definitions: cloneEntityDefinitions(settings?.entity_definitions || []),
     extraction: cloneEntityExtractionRunSettings(settings?.extraction),
+    performance_optimizations: cloneEntityExtractionPerformanceOptimizationsSettings(
+      settings?.performance_optimizations
+    ),
   }
 }
 
@@ -233,10 +276,31 @@ export function getEntityExtractionRunSettingsFromSettings(settings?: Record<str
   })
 }
 
+export function getPerformanceOptimizationsFromSettings(
+  settings?: Record<string, unknown>
+): EntityExtractionPerformanceOptimizationsSettings {
+  const entityExtraction = getEntityExtractionRaw(settings)
+  const raw = entityExtraction?.[ENTITY_EXTRACTION_PERFORMANCE_OPTIMIZATIONS_KEY]
+  const performanceOptimizations =
+    raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : undefined
+  const relevanceFilterRaw = performanceOptimizations?.relevance_filter
+  const relevanceFilter =
+    relevanceFilterRaw && typeof relevanceFilterRaw === 'object'
+      ? (relevanceFilterRaw as Record<string, unknown>)
+      : undefined
+
+  return cloneEntityExtractionPerformanceOptimizationsSettings({
+    relevance_filter: {
+      prompt_template_system_name: String(relevanceFilter?.prompt_template_system_name || '').trim(),
+    },
+  })
+}
+
 export function getEntityExtractionSettingsFromSettings(settings?: Record<string, unknown>): EntityExtractionSettings {
   return {
     entity_definitions: getEntityDefinitionsFromSettings(settings),
     extraction: getEntityExtractionRunSettingsFromSettings(settings),
+    performance_optimizations: getPerformanceOptimizationsFromSettings(settings),
   }
 }
 
@@ -277,6 +341,26 @@ export function withEntityExtractionRunSettings(
       segment_size: normalizeSegmentSize(extractionSettings.segment_size),
       segment_overlap: normalizeSegmentOverlap(extractionSettings.segment_overlap),
       max_extraction_iterations: normalizeMaxExtractionIterations(extractionSettings.max_extraction_iterations),
+    },
+  }
+
+  return nextSettings
+}
+
+export function withEntityExtractionPerformanceOptimizations(
+  settings: Record<string, unknown> | undefined,
+  performanceOptimizations: EntityExtractionPerformanceOptimizationsSettings
+): Record<string, unknown> {
+  const nextSettings = settings && typeof settings === 'object' ? { ...settings } : {}
+  const currentEntityExtraction = nextSettings[ENTITY_EXTRACTION_SETTINGS_KEY]
+  const cloned = cloneEntityExtractionPerformanceOptimizationsSettings(performanceOptimizations)
+
+  nextSettings[ENTITY_EXTRACTION_SETTINGS_KEY] = {
+    ...(currentEntityExtraction && typeof currentEntityExtraction === 'object' ? currentEntityExtraction : {}),
+    [ENTITY_EXTRACTION_PERFORMANCE_OPTIMIZATIONS_KEY]: {
+      relevance_filter: {
+        prompt_template_system_name: cloned.relevance_filter.prompt_template_system_name || undefined,
+      },
     },
   }
 

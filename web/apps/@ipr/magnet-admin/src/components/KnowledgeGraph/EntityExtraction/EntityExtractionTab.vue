@@ -164,6 +164,7 @@
     <entity-extraction-settings-dialog
       :show-dialog="showExtractionDialog"
       :settings="extractionSettings"
+      :performance-optimizations="performanceOptimizations"
       :prompt-template-options="promptTemplateOptions"
       :loading-prompt-templates="loadingPromptTemplates"
       @update:show-dialog="showExtractionDialog = $event"
@@ -255,20 +256,25 @@ import EntityDialog from './EntityDialog.vue'
 import EntityExtractionSettingsDialog from './EntityExtractionSettingsDialog.vue'
 import {
   cloneEntityDefinitions,
+  cloneEntityExtractionPerformanceOptimizationsSettings,
   cloneEntityExtractionRunSettings,
   createDefaultEntityExtractionRunSettings,
+  createDefaultPerformanceOptimizationsSettings,
   getEntityExtractionSettingsFromSettings,
   getExtractionStatusFromGraphDetails,
   mergeEntityDefinitions,
   parseEntityDefinitionsFromImport,
   serializeEntityDefinitionsForExport,
   withEntityDefinitions,
+  withEntityExtractionPerformanceOptimizations,
   withEntityExtractionRunSettings,
   type EntityDefinition,
   type EntityDefinitionsMergeResult,
+  type EntityExtractionPerformanceOptimizationsSettings,
   type EntityExtractionRunSettings,
   type EntityExtractionStatusInfo,
 } from './models'
+import type { EntityExtractionDialogPayload } from './EntityExtractionSettingsDialog.vue'
 
 const props = defineProps<{
   graphId: string
@@ -284,6 +290,9 @@ const $q = useQuasar()
 
 const entities = ref<EntityDefinition[]>([])
 const extractionSettings = ref<EntityExtractionRunSettings>(createDefaultEntityExtractionRunSettings())
+const performanceOptimizations = ref<EntityExtractionPerformanceOptimizationsSettings>(
+  createDefaultPerformanceOptimizationsSettings()
+)
 const selectedEntity = ref<EntityDefinition | null>(null)
 const selected = ref<EntityDefinition[]>([])
 const dialogOpen = ref(false)
@@ -433,6 +442,9 @@ function initializeFromSettings() {
   const normalizedSettings = getEntityExtractionSettingsFromSettings(baseSettings.value)
   entities.value = cloneEntityDefinitions(normalizedSettings.entity_definitions)
   extractionSettings.value = cloneEntityExtractionRunSettings(normalizedSettings.extraction)
+  performanceOptimizations.value = cloneEntityExtractionPerformanceOptimizationsSettings(
+    normalizedSettings.performance_optimizations
+  )
   if (selected.value.length > 0) {
     const validIds = new Set(entities.value.map((entity) => entity.id))
     selected.value = selected.value.filter((entity) => validIds.has(entity.id))
@@ -502,7 +514,8 @@ async function getResponseErrorMessage(response: Response, fallbackMessage: stri
 async function persistEntityExtractionSettings(
   nextEntities: EntityDefinition[],
   nextExtractionSettings: EntityExtractionRunSettings,
-  successMessage: string
+  successMessage: string,
+  nextPerformanceOptimizations: EntityExtractionPerformanceOptimizationsSettings = performanceOptimizations.value
 ) {
   if (saving.value) {
     return false
@@ -517,7 +530,10 @@ async function persistEntityExtractionSettings(
       return false
     }
 
-    const nextSettings = withEntityExtractionRunSettings(withEntityDefinitions(baseSettings.value, nextEntities), nextExtractionSettings)
+    const nextSettings = withEntityExtractionPerformanceOptimizations(
+      withEntityExtractionRunSettings(withEntityDefinitions(baseSettings.value, nextEntities), nextExtractionSettings),
+      nextPerformanceOptimizations
+    )
 
     const response = await fetchData({
       endpoint,
@@ -539,6 +555,7 @@ async function persistEntityExtractionSettings(
     baseSettings.value = cloneSettings(nextSettings)
     entities.value = cloneEntityDefinitions(nextEntities)
     extractionSettings.value = cloneEntityExtractionRunSettings(nextExtractionSettings)
+    performanceOptimizations.value = cloneEntityExtractionPerformanceOptimizationsSettings(nextPerformanceOptimizations)
     emit('refresh')
     $q.notify({
       type: 'positive',
@@ -582,8 +599,13 @@ async function onDialogSave(entity: EntityDefinition) {
   selectedEntity.value = null
 }
 
-async function onExtractionSettingsSave(nextSettings: EntityExtractionRunSettings) {
-  const success = await persistEntityExtractionSettings(entities.value, nextSettings, 'Entity extraction settings updated')
+async function onExtractionSettingsSave(payload: EntityExtractionDialogPayload) {
+  const success = await persistEntityExtractionSettings(
+    entities.value,
+    payload.extraction,
+    'Entity extraction settings updated',
+    payload.performance_optimizations
+  )
   if (!success) {
     return
   }
@@ -655,6 +677,9 @@ async function runExtraction() {
       segment_size: extractionSettings.value.segment_size,
       segment_overlap: extractionSettings.value.segment_overlap,
       max_extraction_iterations: extractionSettings.value.max_extraction_iterations,
+      relevance_filter_prompt_template_system_name: String(
+        performanceOptimizations.value.relevance_filter.prompt_template_system_name || ''
+      ).trim(),
     }
 
     const response = await fetchData({

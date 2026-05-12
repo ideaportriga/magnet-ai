@@ -15,6 +15,11 @@ def get_default_entity_extraction_settings() -> dict[str, Any]:
                 "prompt_template_system_name": "KG_ENTITY_EXTRACTION",
                 "analysis_prompt_template_system_name": "KG_ENTITY_EXTRACTION_ANALYSIS",
             },
+            "performance_optimizations": {
+                "relevance_filter": {
+                    "prompt_template_system_name": "",
+                },
+            },
             "entity_definitions": [],
         }
     }

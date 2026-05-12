@@ -537,6 +537,14 @@ class KnowledgeGraphEntityExtractionRunRequest(BaseModel):
             "block in the prompt), or 'markdown' (markdown listing in the prompt)."
         ),
     )
+    relevance_filter_prompt_template_system_name: Optional[str] = Field(
+        default=None,
+        description=(
+            "Prompt template system name for the relevance pre-filter. "
+            "When set, each chunk is classified by a lightweight LLM call and "
+            "dropped if irrelevant before segmentation."
+        ),
+    )
 
 
 class KnowledgeGraphEntityExtractionRunResponse(BaseModel):
@@ -553,6 +561,10 @@ class KnowledgeGraphEntityExtractionRunResponse(BaseModel):
     )
     skipped_chunks: int = Field(
         default=0, description="Chunks skipped due to missing content"
+    )
+    filtered_chunks: int = Field(
+        default=0,
+        description="Chunks dropped by the relevance pre-filter (when enabled)",
     )
     upserted_records: int = Field(
         default=0, description="Entity rows inserted or updated"
