@@ -3,6 +3,7 @@ from .chunkers import (
     KreuzbergChunker,
     LLMChunker,
     NoneChunker,
+    PageChunker,
 )
 from .models import ChunkerResult, ChunkerStrategy, ContentConfig
 
@@ -21,6 +22,8 @@ async def split_content(
             chunker = DeterministicRecursiveChunker(config)
         case ChunkerStrategy.KREUZBERG:
             chunker = KreuzbergChunker(config)
+        case ChunkerStrategy.PAGE:
+            chunker = PageChunker(config)
         case _:
             raise ValueError(f"Unsupported strategy: {strategy!r}")
 
