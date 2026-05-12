@@ -26,6 +26,7 @@ from core.domain.knowledge_graph.services.knowledge_graph_entity_service import 
     normalize_record_identifier,
 )
 from prompt_templates.prompt_templates import get_prompt_template_by_system_name_flat
+from services.knowledge_graph.readers import ChunkDocumentReader
 from services.observability import observability_context, observe
 from services.prompt_templates import execute_prompt_template
 from utils.datetime_utils import utc_now_isoformat
@@ -1028,42 +1029,6 @@ async def _extract_entities_iterative(
     return list(merged.values()), latest_analysis
 
 
-def _split_into_segments(
-    text_value: str, *, segment_size: int, segment_overlap: float
-) -> list[str]:
-    text_value = str(text_value or "")
-    if not text_value:
-        return []
-
-    try:
-        seg_size = int(segment_size)
-    except Exception:
-        seg_size = 18000
-    seg_size = max(seg_size, 100)
-
-    try:
-        overlap_ratio = float(segment_overlap)
-    except Exception:
-        overlap_ratio = 0.1
-    overlap_ratio = max(0.0, min(overlap_ratio, 0.9))
-
-    if len(text_value) <= seg_size:
-        return [text_value]
-
-    overlap_size = int(seg_size * overlap_ratio)
-    step_size = max(seg_size - overlap_size, 1)
-
-    segments: list[str] = []
-    start = 0
-    while start < len(text_value):
-        end = min(start + seg_size, len(text_value))
-        segments.append(text_value[start:end])
-        if end >= len(text_value):
-            break
-        start += step_size
-    return segments
-
-
 @observe(
     name="Extract entity type from content", channel="production", source="production"
 )
@@ -1506,12 +1471,10 @@ async def _process_document_extraction(
     graph_id: UUID,
     doc_id: str,
     source_id: str | None,
-    content_str: str,
+    segments: list[str],
     entity_definitions: list[EntityDefinition],
     strategy: BasicStrategy | AdvancedStrategy | ReflectiveStrategy,
     entity_service: KnowledgeGraphEntityService,
-    segment_size: int,
-    segment_overlap: float,
     max_extraction_iterations: int,
     cancel_check: Any = None,
 ) -> dict[str, int]:
@@ -1527,11 +1490,6 @@ async def _process_document_extraction(
     cancelled = False
 
     document_candidates: dict[tuple[str, str], EntityCandidateRecord] = {}
-    segments = _split_into_segments(
-        content_str,
-        segment_size=segment_size,
-        segment_overlap=segment_overlap,
-    )
 
     observability_context.update_current_span(
         input={
@@ -1858,8 +1816,9 @@ async def run_graph_llm_entity_extraction(
         total_docs_res = await db_session.execute(
             text(
                 f"""
-                SELECT COUNT(*) FROM {docs_tbl}
-                WHERE pipeline_state->'entity_extraction'->>'status' IS DISTINCT FROM 'completed'
+                SELECT COUNT(*) FROM {docs_tbl} d
+                WHERE d.pipeline_state->'entity_extraction'->>'status' IS DISTINCT FROM 'completed'
+                  AND EXISTS (SELECT 1 FROM {chunks_tbl} c WHERE c.document_id = d.id)
                 """
             )
         )
@@ -1888,11 +1847,12 @@ async def run_graph_llm_entity_extraction(
                 text(
                     f"""
                     SELECT
-                        id::text AS id,
-                        source_id::text AS source_id
-                    FROM {docs_tbl}
-                    WHERE pipeline_state->'entity_extraction'->>'status' IS DISTINCT FROM 'completed'
-                    ORDER BY created_at DESC
+                        d.id::text AS id,
+                        d.source_id::text AS source_id
+                    FROM {docs_tbl} d
+                    WHERE d.pipeline_state->'entity_extraction'->>'status' IS DISTINCT FROM 'completed'
+                      AND EXISTS (SELECT 1 FROM {chunks_tbl} c WHERE c.document_id = d.id)
+                    ORDER BY d.created_at DESC
                     LIMIT :limit OFFSET :offset
                     """
                 ),
@@ -1914,23 +1874,18 @@ async def run_graph_llm_entity_extraction(
                 if not doc_id:
                     continue
 
-                content_res = await db_session.execute(
-                    text(
-                        f"""
-                        SELECT
-                            NULLIF(content_plaintext, '') AS content
-                        FROM {docs_tbl}
-                        WHERE id = CAST(:id AS uuid)
-                        LIMIT 1
-                        """
-                    ),
-                    {"id": doc_id},
+                chunk_reader = await ChunkDocumentReader.load(
+                    db_session,
+                    graph_id=graph_id,
+                    document_id=doc_id,
                 )
-                content = content_res.scalar_one_or_none()
+                segments = chunk_reader.as_segments(
+                    segment_size=segment_size,
+                    segment_overlap=segment_overlap,
+                )
                 await db_session.commit()
 
-                content_str = str(content or "").strip()
-                if not content_str:
+                if not segments:
                     skipped_documents += 1
                     docs_seen += 1
                     if progress_callback:
@@ -1943,12 +1898,10 @@ async def run_graph_llm_entity_extraction(
                     graph_id=graph_id,
                     doc_id=doc_id,
                     source_id=source_id,
-                    content_str=content_str,
+                    segments=segments,
                     entity_definitions=entity_definitions,
                     strategy=strategy,
                     entity_service=entity_service,
-                    segment_size=segment_size,
-                    segment_overlap=segment_overlap,
                     max_extraction_iterations=max_extraction_iterations,
                     cancel_check=cancel_check,
                 )

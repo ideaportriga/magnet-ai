@@ -15,6 +15,7 @@ from services.knowledge_graph.metadata_services import (
     accumulate_extracted_metadata_fields,
 )
 from services.knowledge_graph.models import MetadataMultiValueContainer
+from services.knowledge_graph.readers import ChunkDocumentReader
 from services.knowledge_graph.utils import normalize_metadata_value
 from services.observability import observability_context, observe
 from services.prompt_templates import execute_prompt_template
@@ -270,42 +271,6 @@ def _build_discovery_metadata(values: dict[str, list[Any]]) -> dict[str, Any]:
     return out
 
 
-def _split_into_segments(
-    text_value: str, *, segment_size: int, segment_overlap: float
-) -> list[str]:
-    text_value = str(text_value or "")
-    if not text_value:
-        return []
-
-    try:
-        seg_size = int(segment_size)
-    except Exception:
-        seg_size = 18000
-    seg_size = max(seg_size, 100)
-
-    try:
-        overlap_ratio = float(segment_overlap)
-    except Exception:
-        overlap_ratio = 0.1
-    overlap_ratio = max(0.0, min(overlap_ratio, 0.9))
-
-    if len(text_value) <= seg_size:
-        return [text_value]
-
-    overlap_size = int(seg_size * overlap_ratio)
-    step_size = max(seg_size - overlap_size, 1)
-
-    segments: list[str] = []
-    start = 0
-    while start < len(text_value):
-        end = min(start + seg_size, len(text_value))
-        segments.append(text_value[start:end])
-        if end >= len(text_value):
-            break
-        start += step_size
-    return segments
-
-
 @observe(
     name="Knowledge graph entity extraction (LLM)",
     channel="production",
@@ -448,7 +413,10 @@ async def run_graph_llm_metadata_extraction(
                     f"""
                     SELECT
                         id::text AS id
-                    FROM {docs_tbl}
+                    FROM {docs_tbl} d
+                    WHERE EXISTS (
+                        SELECT 1 FROM {chunks_tbl} c WHERE c.document_id = d.id
+                    )
                     ORDER BY created_at DESC
                     LIMIT :limit OFFSET :offset
                     """
@@ -467,24 +435,19 @@ async def run_graph_llm_metadata_extraction(
                 if not doc_id:
                     continue
 
-                # Fetch content for a single document (short read transaction)
-                content_res = await db_session.execute(
-                    text(
-                        f"""
-                        SELECT
-                            NULLIF(content_plaintext, '') AS content
-                        FROM {docs_tbl}
-                        WHERE id = CAST(:id AS uuid)
-                        LIMIT 1
-                        """
-                    ),
-                    {"id": doc_id},
+                # Reconstruct content from chunks and segment it (short read transaction)
+                chunk_reader = await ChunkDocumentReader.load(
+                    db_session,
+                    graph_id=graph_id,
+                    document_id=doc_id,
                 )
-                content = content_res.scalar_one_or_none()
+                segments = chunk_reader.as_segments(
+                    segment_size=segment_size,
+                    segment_overlap=segment_overlap,
+                )
                 await db_session.commit()  # close transaction before LLM calls
 
-                content_str = str(content or "").strip()
-                if not content_str:
+                if not segments:
                     skipped_documents += 1
                     continue
 
@@ -493,11 +456,6 @@ async def run_graph_llm_metadata_extraction(
                 storage: dict[str, Any] = {}
                 discovery_values: dict[str, list[Any]] = {}
 
-                segments = _split_into_segments(
-                    content_str,
-                    segment_size=segment_size,
-                    segment_overlap=segment_overlap,
-                )
                 for segment in segments:
                     try:
                         extracted = await _extract_metadata_from_content(
