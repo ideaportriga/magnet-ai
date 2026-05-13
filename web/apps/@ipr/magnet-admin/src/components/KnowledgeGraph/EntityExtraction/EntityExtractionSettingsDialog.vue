@@ -22,7 +22,7 @@
         <div class="column q-gap-16">
           <kg-field-row
             label="Extraction Strategy"
-            hint="Determines how many reasoning steps the model uses per segment. Single-Pass is faster; Context-Aware improves accuracy on complex documents."
+            hint="Determines how many reasoning steps the model uses per segment. Single-Pass is the fastest option."
           >
             <kg-dropdown-field
               v-model="mode"
@@ -34,42 +34,7 @@
             />
           </kg-field-row>
 
-          <div v-if="mode === 'advanced'" class="row q-col-gutter-md">
-            <div class="col">
-              <kg-field-row
-                label="Context Analysis Prompt"
-                hint="Builds a document-wide summary that gives the extraction pass cross-segment context."
-              >
-                <kg-dropdown-field
-                  v-model="analysisPromptTemplateSystemName"
-                  placeholder="Select a context analysis prompt template"
-                  :options="promptTemplateOptions"
-                  :loading="loadingPromptTemplates"
-                  option-value="system_name"
-                  option-label="name"
-                  searchable
-                  clearable
-                  dense
-                />
-              </kg-field-row>
-            </div>
-            <div class="col">
-              <kg-field-row label="Extraction Prompt">
-                <kg-dropdown-field
-                  v-model="promptTemplateSystemName"
-                  placeholder="Select a prompt template"
-                  :options="promptTemplateOptions"
-                  :loading="loadingPromptTemplates"
-                  option-value="system_name"
-                  option-label="name"
-                  searchable
-                  clearable
-                  dense
-                />
-              </kg-field-row>
-            </div>
-          </div>
-          <div v-else-if="mode === 'reflective'">
+          <div v-if="mode === 'reflective'">
             <kg-field-row label="Extraction Prompt">
               <kg-dropdown-field
                 v-model="reflectivePromptTemplateSystemName"
@@ -272,13 +237,7 @@ const modeOptions = [
     label: 'Reflective',
     value: 'reflective',
     description:
-      "Each segment's call returns reasoning and records together; the reasoning carries forward to the next segment. A middle ground between Single-Pass and Context-Aware.",
-  },
-  {
-    label: 'Context-Aware',
-    value: 'advanced',
-    description:
-      'First builds a document-wide analysis, then feeds it into the extraction pass. Improves recall on cross-segment attributes at the cost of additional tokens.',
+      "Each segment's call returns reasoning and records together; the reasoning carries forward to the next segment. A middle ground between Single-Pass and Self-Tuning.",
   },
   {
     label: 'Self-Tuning',
@@ -326,7 +285,6 @@ const approach = ref<EntityExtractionApproach>(defaults.approach)
 const mode = ref<EntityExtractionMode>(defaults.mode)
 const schemaFormat = ref<EntityExtractionSchemaFormat>(defaults.schema_format)
 const promptTemplateSystemName = ref(defaults.prompt_template_system_name)
-const analysisPromptTemplateSystemName = ref(defaults.analysis_prompt_template_system_name)
 const reflectivePromptTemplateSystemName = ref(defaults.reflective_prompt_template_system_name)
 const selfTuningPromptTemplateSystemName = ref(defaults.self_tuning_prompt_template_system_name)
 const selfTuningAnalysisPromptTemplateSystemName = ref(defaults.self_tuning_analysis_prompt_template_system_name)
@@ -346,7 +304,6 @@ watch(
       mode.value = props.settings.mode || defaults.mode
       schemaFormat.value = props.settings.schema_format || defaults.schema_format
       promptTemplateSystemName.value = props.settings.prompt_template_system_name || defaults.prompt_template_system_name
-      analysisPromptTemplateSystemName.value = props.settings.analysis_prompt_template_system_name || defaults.analysis_prompt_template_system_name
       reflectivePromptTemplateSystemName.value =
         props.settings.reflective_prompt_template_system_name || defaults.reflective_prompt_template_system_name
       selfTuningPromptTemplateSystemName.value =
@@ -362,7 +319,6 @@ watch(
       mode.value = defaults.mode
       schemaFormat.value = defaults.schema_format
       promptTemplateSystemName.value = defaults.prompt_template_system_name
-      analysisPromptTemplateSystemName.value = defaults.analysis_prompt_template_system_name
       reflectivePromptTemplateSystemName.value = defaults.reflective_prompt_template_system_name
       selfTuningPromptTemplateSystemName.value = defaults.self_tuning_prompt_template_system_name
       selfTuningAnalysisPromptTemplateSystemName.value = defaults.self_tuning_analysis_prompt_template_system_name
@@ -387,7 +343,6 @@ function onConfirm() {
       mode: mode.value,
       schema_format: schemaFormat.value,
       prompt_template_system_name: promptTemplateSystemName.value.trim(),
-      analysis_prompt_template_system_name: analysisPromptTemplateSystemName.value.trim(),
       reflective_prompt_template_system_name: reflectivePromptTemplateSystemName.value.trim(),
       self_tuning_prompt_template_system_name: selfTuningPromptTemplateSystemName.value.trim(),
       self_tuning_analysis_prompt_template_system_name: selfTuningAnalysisPromptTemplateSystemName.value.trim(),

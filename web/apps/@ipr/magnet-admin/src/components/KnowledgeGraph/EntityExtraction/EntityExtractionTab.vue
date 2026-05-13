@@ -679,7 +679,6 @@ async function runExtraction() {
       mode: extractionSettings.value.mode,
       schema_format: extractionSettings.value.schema_format,
       prompt_template_system_name: String(extractionSettings.value.prompt_template_system_name || '').trim(),
-      analysis_prompt_template_system_name: String(extractionSettings.value.analysis_prompt_template_system_name || '').trim(),
       reflective_prompt_template_system_name: String(extractionSettings.value.reflective_prompt_template_system_name || '').trim(),
       segment_size: extractionSettings.value.segment_size,
       segment_overlap: extractionSettings.value.segment_overlap,

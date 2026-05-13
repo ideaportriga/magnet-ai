@@ -40,8 +40,8 @@ logger = logging.getLogger(__name__)
 _active_extraction_tasks: dict[UUID, bool] = {}
 
 EntityExtractionApproach = Literal["document", "chunks"]
-EntityExtractionMode = Literal["basic", "advanced", "reflective", "self-tuning"]
-EXTRACTION_MODES: tuple[str, ...] = ("basic", "advanced", "reflective", "self-tuning")
+EntityExtractionMode = Literal["basic", "reflective", "self-tuning"]
+EXTRACTION_MODES: tuple[str, ...] = ("basic", "reflective", "self-tuning")
 DEFAULT_EXTRACTION_MODE: EntityExtractionMode = "basic"
 DEFAULT_EXTRACTION_CONCURRENCY = 8
 EntityColumnType = Literal["string", "number", "boolean", "date"]
@@ -83,27 +83,7 @@ class EntityCandidateRecord:
     column_values: dict[str, Any]
 
 
-# Hard cap on the few-shot example bank produced by the analysis pass.
-# The analysis prompt also asks for at most this many examples; the cap is
-# enforced post-parse defensively in case the model exceeds it.
 MAX_ANALYSIS_EXAMPLES = 3
-
-
-@dataclass(slots=True)
-class AnalysisEnvelope:
-    """Parsed output of the AdvancedStrategy analysis pass."""
-
-    segment_overview: str
-    global_context: dict[str, str]
-    examples: list[dict[str, Any]]
-
-
-def _empty_global_context() -> dict[str, str]:
-    return {
-        "shared_values": "",
-        "schema_observations": "",
-        "disambiguation_rules": "",
-    }
 
 
 # Hard cap on the running self-tuning instruction list. The analysis pass is
@@ -547,11 +527,8 @@ def _best_effort_json_object_from_text(value: str) -> dict[str, Any]:
 
 # --- Analysis envelope: markdown parsing ---------------------------------
 #
-# The AdvancedStrategy analysis pass emits a markdown document with four
-# top-level (`## `) sections in this order: ``Segment overview``,
-# ``Global context`` (with three ``### `` subsections), ``Examples`` (a fenced
-# JSON array of (snippet, record, note) entries), and ``Decision`` (a small
-# bullet list of key/value lines). The parser below is intentionally lenient:
+# The SelfTuningStrategy analysis pass emits markdown sections parsed below.
+# The parser is intentionally lenient:
 # headings are matched case-insensitively, the examples fence is optional, and
 # missing fields fall back to safe defaults rather than raising.
 
@@ -615,89 +592,8 @@ def _parse_examples_section(text: str) -> list[dict[str, Any]]:
     return examples
 
 
-def _parse_analysis_envelope(raw_text: str) -> AnalysisEnvelope:
-    """Parse the AdvancedStrategy analysis pass markdown envelope.
-
-    The envelope has three top-level sections (``## Segment overview``,
-    ``## Global context`` with three ``### `` subsections,
-    ``## Examples`` with a fenced JSON array).
-    Tolerant of malformed output: missing fields fall back to safe defaults.
-    If no recognizable headings are present, the raw text is preserved as
-    ``global_context.shared_values`` so cross-segment information is not lost.
-    """
-    text = (raw_text or "").strip()
-    if not text:
-        return AnalysisEnvelope(
-            segment_overview="",
-            global_context=_empty_global_context(),
-            examples=[],
-        )
-
-    sections = _split_markdown_sections(text, _H2_HEADING_RE)
-    if not sections:
-        # No recognizable structure; keep content alive as shared_values.
-        return AnalysisEnvelope(
-            segment_overview="",
-            global_context={
-                **_empty_global_context(),
-                "shared_values": text,
-            },
-            examples=[],
-        )
-
-    segment_overview = sections.get("segment overview", "").strip()
-
-    global_block = ""
-    for key, body in sections.items():
-        if key.startswith("global context"):
-            global_block = body
-            break
-    global_subsections = (
-        _split_markdown_sections(global_block, _H3_HEADING_RE) if global_block else {}
-    )
-    global_context = {
-        "shared_values": _find_subsection_body(
-            global_subsections, ["shared values", "shared"]
-        ),
-        "schema_observations": _find_subsection_body(
-            global_subsections, ["schema observations", "schema"]
-        ),
-        "disambiguation_rules": _find_subsection_body(
-            global_subsections, ["disambiguation rules", "disambig"]
-        ),
-    }
-
-    examples = _parse_examples_section(sections.get("examples", ""))
-
-    return AnalysisEnvelope(
-        segment_overview=segment_overview,
-        global_context=global_context,
-        examples=examples,
-    )
-
-
-def _render_global_context_for_extraction(global_context: dict[str, str]) -> str:
-    """Render the running global_context dict as a compact extraction prefix."""
-    parts: list[str] = []
-    shared = (global_context.get("shared_values") or "").strip()
-    schema_obs = (global_context.get("schema_observations") or "").strip()
-    disambig = (global_context.get("disambiguation_rules") or "").strip()
-    if shared:
-        parts.append(f"## Shared values\n{shared}")
-    if schema_obs:
-        parts.append(f"## Schema observations\n{schema_obs}")
-    if disambig:
-        parts.append(f"## Disambiguation rules\n{disambig}")
-    return "\n\n".join(parts).strip()
-
-
 def _render_examples_for_prompt(examples: list[dict[str, Any]]) -> str:
-    """Render the example bank as a markdown string embedded into the system prompt.
-
-    Mirrors the canonical extraction output shape (``{"records": [...]}``) so
-    the model sees examples in the same form it should produce. Returns
-    ``"(none)"`` when there are no usable examples.
-    """
+    """Render the example bank as a markdown string embedded into the system prompt."""
     blocks: list[str] = []
     for index, example in enumerate(examples or [], start=1):
         snippet = str(example.get("snippet") or "").strip()
@@ -720,32 +616,6 @@ def _render_examples_for_prompt(examples: list[dict[str, Any]]) -> str:
     if not blocks:
         return "(none)"
     return "\n\n".join(blocks)
-
-
-def _build_forwarded_global_context_message(
-    global_context: dict[str, str],
-) -> str:
-    """Render only the running ``Global context`` as the prior assistant message.
-
-    Per-segment sections (``Segment overview``, ``Examples``, ``Decision``) are
-    intentionally omitted from the forwarded state — they are produced fresh
-    for each segment.
-    """
-    return (
-        "## Global context\n"
-        "\n"
-        "### Shared values\n"
-        "\n"
-        f"{(global_context.get('shared_values') or '').strip()}\n"
-        "\n"
-        "### Schema observations\n"
-        "\n"
-        f"{(global_context.get('schema_observations') or '').strip()}\n"
-        "\n"
-        "### Disambiguation rules\n"
-        "\n"
-        f"{(global_context.get('disambiguation_rules') or '').strip()}\n"
-    )
 
 
 def _merge_examples_capped(
@@ -1228,8 +1098,7 @@ async def _extract_entities_iterative(
     returns zero new entities.
 
     ``additional_prefix_messages`` are prepended to the conversation before
-    the segment user message (used by AdvancedStrategy to inject the global
-    document analysis as context).
+    the segment user message.
 
     When ``inline_analysis=True`` (reflective strategy), the first iteration's
     JSON output is expected to include an ``analysis`` field alongside
@@ -1443,180 +1312,6 @@ class BasicStrategy:
         return candidates, context
 
 
-_ANALYSIS_LEAD_IN = (
-    "The following message is the running global analysis of the source "
-    "document, produced by a separate pre-analysis pass. Use it as cross-"
-    "segment context when extracting entities from the segment that follows. "
-    "Do not extract records directly from the analysis — only from the "
-    "segment content."
-)
-
-_ANALYSIS_FORWARDED_LEAD_IN = (
-    "The following message is the running Global context accumulated from "
-    "earlier segments of this document by previous analysis passes. Use it "
-    "as cross-segment memory when analyzing the next segment. Note: only the "
-    "Global context is forwarded — Examples and per-segment sections were "
-    "not carried over and should be produced fresh for the current segment."
-)
-
-
-class AdvancedStrategy:
-    """Two-stage strategy: structured analysis envelope, then context-aware extraction.
-
-    The analysis pass walks segments once and emits, for each segment, a markdown
-    envelope with three blocks:
-
-    * ``segment_overview`` — chain-of-thought scratchpad. Discarded after the
-      call; never fed forward.
-    * ``global_context`` — running global state (shared values, schema notes,
-      disambiguation rules). Carried forward between analysis calls and used
-      as the prefix for every extraction call.
-    * ``examples`` — accumulating, capped few-shot bank used to seed
-      extraction calls as alternating (snippet, record) message pairs.
-    """
-
-    supports_parallel_extraction: bool = True
-
-    def __init__(
-        self,
-        *,
-        extraction_prompt_template_config: dict[str, Any],
-        analysis_prompt_template_config: dict[str, Any],
-        schema_format: EntityExtractionSchemaFormat = DEFAULT_SCHEMA_FORMAT,
-    ) -> None:
-        self._extraction_config = extraction_prompt_template_config
-        self._analysis_config = analysis_prompt_template_config
-        self._schema_format: EntityExtractionSchemaFormat = schema_format
-
-    @observe(
-        name="Analysis: document context pass",
-        channel="production",
-        source="production",
-    )
-    async def prepare_context(
-        self,
-        *,
-        segments: list[str],
-        entity_definitions: list[EntityDefinition],
-        cancel_check: Any = None,
-    ) -> dict[str, Any]:
-        full_schema = build_entity_schema_summary(entity_definitions)
-        entity_names = ", ".join(ed.name for ed in entity_definitions)
-        total_segments = len(segments)
-
-        observability_context.update_current_span(
-            input={
-                "Segments Count": total_segments,
-                "Entity Names": entity_names,
-            }
-        )
-
-        # Analysis output is markdown — no structured-output `response_format`.
-        analysis_config = self._analysis_config
-
-        envelopes_built = 0
-        running_global_context: dict[str, str] = _empty_global_context()
-        running_examples: list[dict[str, Any]] = []
-
-        for index, segment in enumerate(segments):
-            if cancel_check and await cancel_check():
-                break
-
-            additional_messages: list[dict[str, str]] = []
-            if any(running_global_context.values()):
-                additional_messages.append(
-                    {"role": "user", "content": _ANALYSIS_FORWARDED_LEAD_IN}
-                )
-                additional_messages.append(
-                    {
-                        "role": "assistant",
-                        "content": _build_forwarded_global_context_message(
-                            running_global_context
-                        ),
-                    }
-                )
-            additional_messages.append({"role": "user", "content": segment})
-
-            try:
-                result = await execute_prompt_template(
-                    system_name_or_config=analysis_config,
-                    template_values={
-                        "SCHEMA": full_schema,
-                        "ENTITY_NAMES": entity_names,
-                        "SEGMENT_INDEX": str(index + 1),
-                        "SEGMENT_COUNT": str(total_segments),
-                    },
-                    template_additional_messages=additional_messages,
-                )
-            except Exception as exc:  # noqa: BLE001
-                logger.warning(
-                    "Advanced strategy analysis pass %d/%d failed: %s",
-                    index + 1,
-                    total_segments,
-                    exc,
-                )
-                continue
-
-            envelope = _parse_analysis_envelope(str(result.content or ""))
-            envelopes_built += 1
-            running_global_context = envelope.global_context
-            running_examples = _merge_examples_capped(
-                running_examples, envelope.examples
-            )
-
-        observability_context.update_current_span(
-            output={
-                "Envelopes Built": envelopes_built,
-            }
-        )
-
-        return {
-            "final_global_context": running_global_context,
-            "final_examples": running_examples,
-        }
-
-    async def extract_segment(
-        self,
-        *,
-        content: str,
-        entity_definition: EntityDefinition,
-        context: dict[str, Any],
-        max_extraction_iterations: int,
-        segment_index: int = 0,
-        cancel_check: Any = None,
-    ) -> tuple[list[EntityCandidateRecord], dict[str, Any]]:
-        # Global context and examples are taken from the *final* accumulated
-        # state across all segments (built progressively by prepare_context),
-        # not from the current segment's envelope. The accumulated state is
-        # the most informed view of the document.
-        final_global_context: dict[str, str] = (context or {}).get(
-            "final_global_context"
-        ) or _empty_global_context()
-        final_examples: list[dict[str, Any]] = (context or {}).get(
-            "final_examples"
-        ) or []
-
-        prefix_messages: list[dict[str, str]] = []
-        global_text = _render_global_context_for_extraction(final_global_context)
-        if global_text:
-            prefix_messages.append({"role": "user", "content": _ANALYSIS_LEAD_IN})
-            prefix_messages.append({"role": "assistant", "content": global_text})
-
-        examples_text = _render_examples_for_prompt(final_examples)
-
-        candidates, _ = await _extract_entity_from_content(
-            prompt_template_config=self._extraction_config,
-            entity_definition=entity_definition,
-            content=content,
-            max_extraction_iterations=max_extraction_iterations,
-            schema_format=self._schema_format,
-            additional_prefix_messages=prefix_messages,
-            extra_template_values={"EXAMPLES": examples_text},
-            cancel_check=cancel_check,
-        )
-        return candidates, context
-
-
 _REFLECTIVE_LEAD_IN = (
     "The following message is the running analysis for entity '{entity_name}', "
     "built incrementally from earlier segments of this same document. Use it as "
@@ -1723,9 +1418,9 @@ class SelfTuningStrategy:
     body via three template placeholders: ``{TUNED_INSTRUCTIONS}``,
     ``{SHARED_VALUES}``, ``{EXAMPLES}``.
 
-    Compared to ``AdvancedStrategy``: state is fed into the prompt body (not
-    as a conversation prefix), and analysis output is delta-only so cheap
-    on output tokens when a segment changes nothing.
+    State is fed into the prompt body (not as a conversation prefix), and
+    analysis output is delta-only so cheap on output tokens when a segment
+    changes nothing.
     """
 
     supports_parallel_extraction: bool = True
@@ -1860,32 +1555,15 @@ async def build_extraction_strategy(
     mode: str,
     *,
     extraction_prompt_template_system_name: str,
-    analysis_prompt_template_system_name: str | None,
     self_tuning_analysis_prompt_template_system_name: str | None = None,
     schema_format: EntityExtractionSchemaFormat = DEFAULT_SCHEMA_FORMAT,
-) -> BasicStrategy | AdvancedStrategy | ReflectiveStrategy | SelfTuningStrategy:
+) -> BasicStrategy | ReflectiveStrategy | SelfTuningStrategy:
     """Resolve prompt configs and return the strategy implementing ``mode``."""
     extraction_config = dict(
         await get_prompt_template_by_system_name_flat(
             extraction_prompt_template_system_name
         )
     )
-
-    if mode == "advanced":
-        if not analysis_prompt_template_system_name:
-            raise ValueError(
-                "analysis_prompt_template_system_name is required for advanced mode"
-            )
-        analysis_config = dict(
-            await get_prompt_template_by_system_name_flat(
-                analysis_prompt_template_system_name
-            )
-        )
-        return AdvancedStrategy(
-            extraction_prompt_template_config=extraction_config,
-            analysis_prompt_template_config=analysis_config,
-            schema_format=schema_format,
-        )
 
     if mode == "reflective":
         return ReflectiveStrategy(
@@ -1926,7 +1604,7 @@ async def _run_extraction_loop(
     *,
     segments: list[str],
     entity_definitions: list[EntityDefinition],
-    strategy: "BasicStrategy | AdvancedStrategy | ReflectiveStrategy",
+    strategy: "BasicStrategy | ReflectiveStrategy | SelfTuningStrategy",
     strategy_context: dict[str, Any],
     max_extraction_iterations: int,
     doc_id: str,
@@ -2066,7 +1744,7 @@ async def _process_document_extraction(
     source_id: str | None,
     segments: list[str],
     entity_definitions: list[EntityDefinition],
-    strategy: BasicStrategy | AdvancedStrategy | ReflectiveStrategy,
+    strategy: BasicStrategy | ReflectiveStrategy | SelfTuningStrategy,
     entity_service: KnowledgeGraphEntityService,
     max_extraction_iterations: int,
     cancel_check: Any = None,
@@ -2156,7 +1834,7 @@ async def _process_document_chunks_extraction(
     source_id: str | None,
     chunk_rows: list[Any],
     entity_definitions: list[EntityDefinition],
-    strategy: BasicStrategy | AdvancedStrategy | ReflectiveStrategy,
+    strategy: BasicStrategy | ReflectiveStrategy | SelfTuningStrategy,
     entity_service: KnowledgeGraphEntityService,
     max_extraction_iterations: int,
     cancel_check: Any = None,
@@ -2366,7 +2044,6 @@ async def run_graph_llm_entity_extraction(
     prompt_template_system_name: str,
     entity_definitions: list[EntityDefinition],
     mode: str = DEFAULT_EXTRACTION_MODE,
-    analysis_prompt_template_system_name: str | None = None,
     self_tuning_analysis_prompt_template_system_name: str | None = None,
     entity_service: KnowledgeGraphEntityService | None = None,
     segment_size: int = 18000,
@@ -2393,9 +2070,6 @@ async def run_graph_llm_entity_extraction(
         raise ValueError(f"Unknown schema_format: {schema_format_str}")
     schema_format = schema_format_str  # type: ignore[assignment]
 
-    analysis_prompt_template_system_name = (
-        str(analysis_prompt_template_system_name or "").strip() or None
-    )
     self_tuning_analysis_prompt_template_system_name = (
         str(self_tuning_analysis_prompt_template_system_name or "").strip() or None
     )
@@ -2433,12 +2107,11 @@ async def run_graph_llm_entity_extraction(
         raise ValueError("entity_definitions is required and cannot be empty")
 
     logger.info(
-        "run_graph_llm_entity_extraction started for graph %s (approach=%s, mode=%s, prompt=%s, analysis_prompt=%s, entity_definitions=%d)",
+        "run_graph_llm_entity_extraction started for graph %s (approach=%s, mode=%s, prompt=%s, entity_definitions=%d)",
         graph_id,
         approach,
         mode,
         prompt_template_system_name,
-        analysis_prompt_template_system_name,
         len(entity_definitions),
     )
 
@@ -2446,7 +2119,6 @@ async def run_graph_llm_entity_extraction(
     strategy = await build_extraction_strategy(
         mode,
         extraction_prompt_template_system_name=prompt_template_system_name,
-        analysis_prompt_template_system_name=analysis_prompt_template_system_name,
         self_tuning_analysis_prompt_template_system_name=(
             self_tuning_analysis_prompt_template_system_name
         ),
@@ -2893,13 +2565,6 @@ async def run_entity_extraction(
         if getattr(data, "prompt_template_system_name", None) is not None
         else str(extraction_settings.get("prompt_template_system_name") or "").strip()
     )
-    analysis_prompt_template_system_name: str | None = (
-        str(data.analysis_prompt_template_system_name).strip()
-        if getattr(data, "analysis_prompt_template_system_name", None) is not None
-        else str(
-            extraction_settings.get("analysis_prompt_template_system_name") or ""
-        ).strip()
-    ) or None
     reflective_prompt_template_system_name: str | None = (
         str(data.reflective_prompt_template_system_name).strip()
         if getattr(data, "reflective_prompt_template_system_name", None) is not None
@@ -2952,20 +2617,6 @@ async def run_entity_extraction(
         raise ClientException(
             f"Prompt template '{active_extraction_prompt}' was not found"
         ) from exc
-
-    if mode == "advanced":
-        if not analysis_prompt_template_system_name:
-            raise ClientException(
-                "Analysis prompt template is required for advanced extraction mode"
-            )
-        try:
-            await get_prompt_template_by_system_name_flat(
-                analysis_prompt_template_system_name
-            )
-        except LookupError as exc:
-            raise ClientException(
-                f"Analysis prompt template '{analysis_prompt_template_system_name}' was not found"
-            ) from exc
 
     if mode == "self-tuning":
         if not self_tuning_analysis_prompt_template_system_name:
@@ -3038,12 +2689,11 @@ async def run_entity_extraction(
             ) from exc
 
     logger.info(
-        "Starting entity extraction for graph %s (approach=%s, mode=%s, prompt=%s, analysis_prompt=%s, segment_size=%d, segment_overlap=%.2f, max_iterations=%d, schema_format=%s, relevance_filter=%s)",
+        "Starting entity extraction for graph %s (approach=%s, mode=%s, prompt=%s, segment_size=%d, segment_overlap=%.2f, max_iterations=%d, schema_format=%s, relevance_filter=%s)",
         graph_id,
         approach_raw,
         mode,
         active_extraction_prompt,
-        analysis_prompt_template_system_name,
         segment_size,
         segment_overlap,
         max_extraction_iterations,
@@ -3077,7 +2727,6 @@ async def run_entity_extraction(
             prompt_template_system_name=active_extraction_prompt,
             entity_definitions=entity_definitions,
             mode=mode,
-            analysis_prompt_template_system_name=analysis_prompt_template_system_name,
             self_tuning_analysis_prompt_template_system_name=(
                 self_tuning_analysis_prompt_template_system_name
             ),
