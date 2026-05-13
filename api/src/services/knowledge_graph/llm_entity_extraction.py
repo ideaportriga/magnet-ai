@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -42,6 +43,7 @@ EntityExtractionApproach = Literal["document", "chunks"]
 EntityExtractionMode = Literal["basic", "advanced", "reflective", "self-tuning"]
 EXTRACTION_MODES: tuple[str, ...] = ("basic", "advanced", "reflective", "self-tuning")
 DEFAULT_EXTRACTION_MODE: EntityExtractionMode = "basic"
+DEFAULT_EXTRACTION_CONCURRENCY = 8
 EntityColumnType = Literal["string", "number", "boolean", "date"]
 EntityExtractionSchemaFormat = Literal["json_schema", "typescript", "markdown"]
 SCHEMA_FORMATS: tuple[str, ...] = ("json_schema", "typescript", "markdown")
@@ -1399,6 +1401,8 @@ async def _extract_entity_from_content(
 class BasicStrategy:
     """Single-prompt per-segment extraction with the verification iteration loop."""
 
+    supports_parallel_extraction: bool = False
+
     def __init__(
         self,
         *,
@@ -1470,6 +1474,8 @@ class AdvancedStrategy:
     * ``examples`` — accumulating, capped few-shot bank used to seed
       extraction calls as alternating (snippet, record) message pairs.
     """
+
+    supports_parallel_extraction: bool = True
 
     def __init__(
         self,
@@ -1629,6 +1635,8 @@ class ReflectiveStrategy:
     separate pre-analysis pass.
     """
 
+    supports_parallel_extraction: bool = False
+
     def __init__(
         self,
         *,
@@ -1719,6 +1727,8 @@ class SelfTuningStrategy:
     as a conversation prefix), and analysis output is delta-only so cheap
     on output tokens when a segment changes nothing.
     """
+
+    supports_parallel_extraction: bool = True
 
     def __init__(
         self,
@@ -1937,45 +1947,110 @@ async def _run_extraction_loop(
     errors = 0
     cancelled = False
 
-    for segment_index, segment in enumerate(segments):
-        if cancelled:
-            break
-        for entity_def in entity_definitions:
-            if cancel_check and await cancel_check():
-                cancelled = True
-                break
-
-            try:
-                candidates, strategy_context = await strategy.extract_segment(
-                    content=segment,
-                    entity_definition=entity_def,
-                    context=strategy_context,
-                    max_extraction_iterations=max_extraction_iterations,
-                    segment_index=segment_index,
-                    cancel_check=cancel_check,
-                )
-            except Exception as exc:  # noqa: BLE001
-                errors += 1
-                logger.warning(
-                    "Entity extraction failed for document %s entity %s: %s",
-                    doc_id,
-                    entity_def.name,
-                    exc,
-                )
+    def _merge_candidates_into(
+        candidates: list[EntityCandidateRecord],
+    ) -> None:
+        for candidate in candidates:
+            normalized_id = normalize_record_identifier(candidate.record_identifier)
+            if not normalized_id:
                 continue
+            candidate_key = (candidate.entity, normalized_id)
+            if candidate_key in document_candidates:
+                document_candidates[candidate_key] = _merge_candidate_records(
+                    document_candidates[candidate_key],
+                    candidate,
+                )
+            else:
+                document_candidates[candidate_key] = candidate
 
-            for candidate in candidates:
-                normalized_id = normalize_record_identifier(candidate.record_identifier)
-                if not normalized_id:
-                    continue
-                candidate_key = (candidate.entity, normalized_id)
-                if candidate_key in document_candidates:
-                    document_candidates[candidate_key] = _merge_candidate_records(
-                        document_candidates[candidate_key],
-                        candidate,
+    if getattr(strategy, "supports_parallel_extraction", False):
+        tasks: list[tuple[int, EntityDefinition, str]] = [
+            (segment_index, entity_def, segment)
+            for segment_index, segment in enumerate(segments)
+            for entity_def in entity_definitions
+        ]
+
+        semaphore = asyncio.Semaphore(DEFAULT_EXTRACTION_CONCURRENCY)
+        results: list[tuple[str, list[EntityCandidateRecord] | None]] = [
+            ("skip", None)
+        ] * len(tasks)
+
+        async def _run_one(
+            index: int,
+            segment_index: int,
+            entity_def: EntityDefinition,
+            segment: str,
+        ) -> None:
+            if cancel_check and await cancel_check():
+                results[index] = ("cancel", None)
+                return
+            async with semaphore:
+                if cancel_check and await cancel_check():
+                    results[index] = ("cancel", None)
+                    return
+                try:
+                    candidates, _ = await strategy.extract_segment(
+                        content=segment,
+                        entity_definition=entity_def,
+                        context=strategy_context,
+                        max_extraction_iterations=max_extraction_iterations,
+                        segment_index=segment_index,
+                        cancel_check=cancel_check,
                     )
-                else:
-                    document_candidates[candidate_key] = candidate
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(
+                        "Entity extraction failed for document %s entity %s: %s",
+                        doc_id,
+                        entity_def.name,
+                        exc,
+                    )
+                    results[index] = ("err", None)
+                    return
+                results[index] = ("ok", candidates)
+
+        await asyncio.gather(
+            *(
+                _run_one(i, seg_idx, ent_def, seg)
+                for i, (seg_idx, ent_def, seg) in enumerate(tasks)
+            )
+        )
+
+        for status, candidates in results:
+            if status == "err":
+                errors += 1
+            elif status == "cancel":
+                cancelled = True
+            elif status == "ok" and candidates is not None:
+                _merge_candidates_into(candidates)
+    else:
+        for segment_index, segment in enumerate(segments):
+            if cancelled:
+                break
+            for entity_def in entity_definitions:
+                if cancel_check and await cancel_check():
+                    cancelled = True
+                    break
+
+                try:
+                    candidates, strategy_context = await strategy.extract_segment(
+                        content=segment,
+                        entity_definition=entity_def,
+                        context=strategy_context,
+                        max_extraction_iterations=max_extraction_iterations,
+                        segment_index=segment_index,
+                        cancel_check=cancel_check,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    errors += 1
+                    logger.warning(
+                        "Entity extraction failed for document %s entity %s: %s",
+                        doc_id,
+                        entity_def.name,
+                        exc,
+                    )
+                    continue
+
+                _merge_candidates_into(candidates)
 
     return document_candidates, errors, cancelled
 
@@ -2140,58 +2215,139 @@ async def _process_document_chunks_extraction(
             "cancelled": True,
         }
 
-    for segment_index, (chunk_id, content_str) in enumerate(chunk_segments):
-        if cancel_check and await cancel_check():
-            cancelled = True
-            break
+    async def _upsert_chunk_candidates(
+        chunk_id: str,
+        chunk_candidates: list[EntityCandidateRecord],
+    ) -> int:
+        upserted = 0
+        for candidate in chunk_candidates:
+            if not normalize_record_identifier(candidate.record_identifier):
+                continue
+            await entity_service.upsert_record(
+                db_session,
+                graph_id=graph_id,
+                entity=candidate.entity,
+                record_identifier=candidate.record_identifier,
+                column_values=candidate.column_values,
+                source_document_id=doc_id,
+                source_chunk_id=chunk_id,
+                source_id=source_id,
+            )
+            upserted += 1
+        return upserted
 
-        processed_chunks += 1
+    if getattr(strategy, "supports_parallel_extraction", False):
+        tasks: list[tuple[int, str, str, EntityDefinition]] = [
+            (segment_index, chunk_id, content_str, entity_def)
+            for segment_index, (chunk_id, content_str) in enumerate(chunk_segments)
+            for entity_def in entity_definitions
+        ]
 
-        for entity_def in entity_definitions:
+        semaphore = asyncio.Semaphore(DEFAULT_EXTRACTION_CONCURRENCY)
+        results: list[tuple[str, list[EntityCandidateRecord] | None]] = [
+            ("skip", None)
+        ] * len(tasks)
+
+        async def _run_one(
+            index: int,
+            segment_index: int,
+            chunk_id: str,
+            content_str: str,
+            entity_def: EntityDefinition,
+        ) -> None:
+            if cancel_check and await cancel_check():
+                results[index] = ("cancel", None)
+                return
+            async with semaphore:
+                if cancel_check and await cancel_check():
+                    results[index] = ("cancel", None)
+                    return
+                try:
+                    chunk_candidates, _ = await strategy.extract_segment(
+                        content=content_str,
+                        entity_definition=entity_def,
+                        context=strategy_context,
+                        max_extraction_iterations=max_extraction_iterations,
+                        segment_index=segment_index,
+                        cancel_check=cancel_check,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(
+                        "Entity extraction failed for graph %s doc %s chunk %s entity %s: %s",
+                        str(graph_id),
+                        doc_id,
+                        chunk_id,
+                        entity_def.name,
+                        exc,
+                    )
+                    results[index] = ("err", None)
+                    return
+                results[index] = ("ok", chunk_candidates)
+
+        await asyncio.gather(
+            *(
+                _run_one(i, seg_idx, c_id, content, ent_def)
+                for i, (seg_idx, c_id, content, ent_def) in enumerate(tasks)
+            )
+        )
+
+        processed_chunk_ids: set[str] = set()
+        for (_seg_idx, chunk_id, _content, _ent_def), (status, candidates) in zip(
+            tasks, results
+        ):
+            if status == "err":
+                errors += 1
+                processed_chunk_ids.add(chunk_id)
+            elif status == "cancel":
+                cancelled = True
+            elif status == "ok" and candidates is not None:
+                processed_chunk_ids.add(chunk_id)
+                upserted_records += await _upsert_chunk_candidates(chunk_id, candidates)
+        processed_chunks = len(processed_chunk_ids)
+
+        await db_session.commit()
+    else:
+        for segment_index, (chunk_id, content_str) in enumerate(chunk_segments):
             if cancel_check and await cancel_check():
                 cancelled = True
                 break
 
-            try:
-                chunk_candidates, strategy_context = await strategy.extract_segment(
-                    content=content_str,
-                    entity_definition=entity_def,
-                    context=strategy_context,
-                    max_extraction_iterations=max_extraction_iterations,
-                    segment_index=segment_index,
-                    cancel_check=cancel_check,
-                )
-            except Exception as exc:  # noqa: BLE001
-                errors += 1
-                logger.warning(
-                    "Entity extraction failed for graph %s doc %s chunk %s entity %s: %s",
-                    str(graph_id),
-                    doc_id,
-                    chunk_id,
-                    entity_def.name,
-                    exc,
-                )
-                continue
+            processed_chunks += 1
 
-            for candidate in chunk_candidates:
-                if not normalize_record_identifier(candidate.record_identifier):
+            for entity_def in entity_definitions:
+                if cancel_check and await cancel_check():
+                    cancelled = True
+                    break
+
+                try:
+                    chunk_candidates, strategy_context = await strategy.extract_segment(
+                        content=content_str,
+                        entity_definition=entity_def,
+                        context=strategy_context,
+                        max_extraction_iterations=max_extraction_iterations,
+                        segment_index=segment_index,
+                        cancel_check=cancel_check,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    errors += 1
+                    logger.warning(
+                        "Entity extraction failed for graph %s doc %s chunk %s entity %s: %s",
+                        str(graph_id),
+                        doc_id,
+                        chunk_id,
+                        entity_def.name,
+                        exc,
+                    )
                     continue
-                await entity_service.upsert_record(
-                    db_session,
-                    graph_id=graph_id,
-                    entity=candidate.entity,
-                    record_identifier=candidate.record_identifier,
-                    column_values=candidate.column_values,
-                    source_document_id=doc_id,
-                    source_chunk_id=chunk_id,
-                    source_id=source_id,
+
+                upserted_records += await _upsert_chunk_candidates(
+                    chunk_id, chunk_candidates
                 )
-                upserted_records += 1
 
-        if cancelled:
-            break
+            if cancelled:
+                break
 
-        await db_session.commit()
+            await db_session.commit()
 
     return {
         "processed_chunks": processed_chunks,
