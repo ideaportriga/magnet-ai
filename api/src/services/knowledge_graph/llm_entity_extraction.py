@@ -39,8 +39,8 @@ logger = logging.getLogger(__name__)
 _active_extraction_tasks: dict[UUID, bool] = {}
 
 EntityExtractionApproach = Literal["document", "chunks"]
-EntityExtractionMode = Literal["basic", "advanced", "reflective"]
-EXTRACTION_MODES: tuple[str, ...] = ("basic", "advanced", "reflective")
+EntityExtractionMode = Literal["basic", "advanced", "reflective", "self-tuning"]
+EXTRACTION_MODES: tuple[str, ...] = ("basic", "advanced", "reflective", "self-tuning")
 DEFAULT_EXTRACTION_MODE: EntityExtractionMode = "basic"
 EntityColumnType = Literal["string", "number", "boolean", "date"]
 EntityExtractionSchemaFormat = Literal["json_schema", "typescript", "markdown"]
@@ -102,6 +102,56 @@ def _empty_global_context() -> dict[str, str]:
         "schema_observations": "",
         "disambiguation_rules": "",
     }
+
+
+# Hard cap on the running self-tuning instruction list. The analysis pass is
+# instructed to stay under this cap; this is a defensive runtime trim.
+MAX_TUNED_INSTRUCTIONS = 12
+
+
+@dataclass(slots=True)
+class SelfTuningState:
+    """Running state mutated by the SelfTuningStrategy analysis pass.
+
+    The accumulated state is rendered *into the extraction prompt body* via
+    three template placeholders (``{TUNED_INSTRUCTIONS}``, ``{SHARED_VALUES}``,
+    ``{EXAMPLES}``) rather than carried as a conversation prefix.
+    """
+
+    instructions: list[dict[str, str]]  # ordered list of {id, text}, deduped by id
+    shared_values: dict[str, str]  # key -> literal value
+    examples: list[dict[str, Any]]  # [{snippet, record, note}], capped
+
+
+@dataclass(slots=True)
+class SelfTuningDeltaEnvelope:
+    """Parsed delta operations emitted by one self-tuning analysis call."""
+
+    no_change: bool
+    instructions_add: list[dict[str, str]]
+    instructions_replace: list[dict[str, str]]
+    instructions_remove: list[str]
+    shared_values_set: dict[str, str]
+    shared_values_remove: list[str]
+    examples_add: list[dict[str, Any]]
+    examples_remove: list[str]
+
+
+def _empty_self_tuning_state() -> SelfTuningState:
+    return SelfTuningState(instructions=[], shared_values={}, examples=[])
+
+
+def _empty_self_tuning_delta_envelope() -> SelfTuningDeltaEnvelope:
+    return SelfTuningDeltaEnvelope(
+        no_change=False,
+        instructions_add=[],
+        instructions_replace=[],
+        instructions_remove=[],
+        shared_values_set={},
+        shared_values_remove=[],
+        examples_add=[],
+        examples_remove=[],
+    )
 
 
 def normalize_entity_definitions(
@@ -718,6 +768,235 @@ def _merge_examples_capped(
             if len(merged) >= cap:
                 return merged
     return merged
+
+
+_BULLET_ID_TEXT_RE = re.compile(
+    r"^\s*-\s*(?:\[(?P<id_b>[^\]]+)\]\s*[:\-]?\s*|(?P<id_p>[^:\n]+?)\s*:\s*)(?P<text>.+?)\s*$"
+)
+_BULLET_PLAIN_RE = re.compile(r"^\s*-\s*(?P<text>.+?)\s*$")
+_NO_CHANGE_TOKENS = {
+    "no-change",
+    "no_change",
+    "nochange",
+    "no change",
+    "no-changes",
+    "no_changes",
+    "no changes",
+}
+
+
+def _parse_id_text_bullets(text: str) -> list[dict[str, str]]:
+    items: list[dict[str, str]] = []
+    if not text:
+        return items
+    for line in text.splitlines():
+        match = _BULLET_ID_TEXT_RE.match(line)
+        if not match:
+            continue
+        item_id = (match.group("id_b") or match.group("id_p") or "").strip()
+        item_text = (match.group("text") or "").strip()
+        if item_id and item_text:
+            items.append({"id": item_id, "text": item_text})
+    return items
+
+
+def _parse_plain_bullets(text: str) -> list[str]:
+    bullets: list[str] = []
+    if not text:
+        return bullets
+    for line in text.splitlines():
+        match = _BULLET_PLAIN_RE.match(line)
+        if not match:
+            continue
+        token = match.group("text").strip()
+        # Strip leading "[id]" wrapper if present
+        if token.startswith("[") and "]" in token:
+            token = token.split("]", 1)[0][1:].strip() or token
+        if token and not token.startswith("#"):
+            bullets.append(token)
+    return bullets
+
+
+def _parse_self_tuning_delta_envelope(raw_text: str) -> SelfTuningDeltaEnvelope:
+    """Parse the SelfTuningStrategy analysis-pass markdown envelope.
+
+    The envelope is structured as ``## Status`` (mandatory; body is either
+    ``no-change`` or ``changed``) plus optional ``## Instruction deltas``,
+    ``## Shared value deltas``, ``## Example deltas`` blocks, each containing
+    ``### Add``/``### Replace``/``### Remove`` / ``### Set`` subsections.
+
+    Tolerant of malformed output: omitted sections become no-op operations,
+    unrecognized status defaults to ``changed``.
+    """
+    text = (raw_text or "").strip()
+    if not text:
+        return _empty_self_tuning_delta_envelope()
+
+    sections = _split_markdown_sections(text, _H2_HEADING_RE)
+
+    status_body = ""
+    for key, body in sections.items():
+        if key.startswith("status"):
+            status_body = body.strip().casefold()
+            break
+    if status_body in _NO_CHANGE_TOKENS:
+        env = _empty_self_tuning_delta_envelope()
+        env.no_change = True
+        return env
+
+    envelope = _empty_self_tuning_delta_envelope()
+
+    instr_block = ""
+    sv_block = ""
+    ex_block = ""
+    for key, body in sections.items():
+        if "instruction" in key and not instr_block:
+            instr_block = body
+        elif key.startswith("shared value") and not sv_block:
+            sv_block = body
+        elif key.startswith("example") and not ex_block:
+            ex_block = body
+
+    if instr_block:
+        for sub_key, sub_body in _split_markdown_sections(
+            instr_block, _H3_HEADING_RE
+        ).items():
+            kf = sub_key.casefold()
+            if "replace" in kf or "update" in kf:
+                envelope.instructions_replace = _parse_id_text_bullets(sub_body)
+            elif "remove" in kf or "delete" in kf:
+                envelope.instructions_remove = _parse_plain_bullets(sub_body)
+            elif "add" in kf:
+                envelope.instructions_add = _parse_id_text_bullets(sub_body)
+
+    if sv_block:
+        for sub_key, sub_body in _split_markdown_sections(
+            sv_block, _H3_HEADING_RE
+        ).items():
+            kf = sub_key.casefold()
+            if "remove" in kf or "delete" in kf:
+                envelope.shared_values_remove = _parse_plain_bullets(sub_body)
+            elif "set" in kf or "add" in kf or "update" in kf:
+                for item in _parse_id_text_bullets(sub_body):
+                    envelope.shared_values_set[item["id"]] = item["text"]
+
+    if ex_block:
+        for sub_key, sub_body in _split_markdown_sections(
+            ex_block, _H3_HEADING_RE
+        ).items():
+            kf = sub_key.casefold()
+            if "remove" in kf or "delete" in kf:
+                envelope.examples_remove = _parse_plain_bullets(sub_body)
+            elif "add" in kf:
+                envelope.examples_add = _parse_examples_section(sub_body)
+
+    return envelope
+
+
+def _apply_self_tuning_delta(
+    state: SelfTuningState, envelope: SelfTuningDeltaEnvelope
+) -> SelfTuningState:
+    """Apply a delta envelope to the running state. Returns a new state instance."""
+    if envelope.no_change:
+        return state
+
+    instructions = list(state.instructions)
+    index_by_id: dict[str, int] = {item["id"]: i for i, item in enumerate(instructions)}
+
+    # Apply Add first (introducing new items), then Replace (overriding values
+    # including ones just added), then Remove (last so it wins over both).
+    for item in envelope.instructions_add:
+        idx = index_by_id.get(item["id"])
+        if idx is None:
+            index_by_id[item["id"]] = len(instructions)
+            instructions.append(item)
+        else:
+            instructions[idx] = item
+
+    for item in envelope.instructions_replace:
+        idx = index_by_id.get(item["id"])
+        if idx is None:
+            index_by_id[item["id"]] = len(instructions)
+            instructions.append(item)
+        else:
+            instructions[idx] = item
+
+    if envelope.instructions_remove:
+        remove_set = set(envelope.instructions_remove)
+        instructions = [item for item in instructions if item["id"] not in remove_set]
+
+    if len(instructions) > MAX_TUNED_INSTRUCTIONS:
+        instructions = instructions[-MAX_TUNED_INSTRUCTIONS:]
+
+    shared_values = dict(state.shared_values)
+    for key, value in envelope.shared_values_set.items():
+        if key:
+            shared_values[key] = value
+    for key in envelope.shared_values_remove:
+        shared_values.pop(key, None)
+
+    examples = list(state.examples)
+    if envelope.examples_remove:
+        tokens_lower = [t.casefold() for t in envelope.examples_remove if t]
+        examples = [
+            ex
+            for ex in examples
+            if not any(
+                tok in str(ex.get("snippet") or "").casefold() for tok in tokens_lower
+            )
+        ]
+    if envelope.examples_add:
+        examples = _merge_examples_capped(examples, envelope.examples_add)
+
+    return SelfTuningState(
+        instructions=instructions,
+        shared_values=shared_values,
+        examples=examples,
+    )
+
+
+def _render_tuned_instructions(state: SelfTuningState) -> str:
+    """Render the running instructions for the extraction prompt body."""
+    if not state.instructions:
+        return "(none)"
+    return "\n".join(f"- {item['text']}" for item in state.instructions)
+
+
+def _render_shared_values_for_prompt(state: SelfTuningState) -> str:
+    """Render the running shared values for the extraction prompt body."""
+    if not state.shared_values:
+        return "(none)"
+    return "\n".join(f"- {key}: {value}" for key, value in state.shared_values.items())
+
+
+def _render_self_tuning_state_for_analysis(state: SelfTuningState) -> str:
+    """Compact view of state shown to the analysis LLM as the prior assistant turn.
+
+    IDs are surfaced so the model can target precise Replace/Remove ops; example
+    snippets are truncated to first ~80 chars to stay terse.
+    """
+    parts: list[str] = ["## Instructions"]
+    if state.instructions:
+        parts.extend(f"- [{item['id']}] {item['text']}" for item in state.instructions)
+    else:
+        parts.append("(none)")
+
+    parts.extend(["", "## Shared values"])
+    if state.shared_values:
+        parts.extend(f"- {key}: {value}" for key, value in state.shared_values.items())
+    else:
+        parts.append("(none)")
+
+    parts.extend(["", "## Examples"])
+    if state.examples:
+        for example in state.examples:
+            snippet = str(example.get("snippet") or "").strip()
+            preview = (snippet[:80] + "…") if len(snippet) > 80 else snippet
+            parts.append(f"- {preview}")
+    else:
+        parts.append("(none)")
+
+    return "\n".join(parts).strip()
 
 
 def _is_empty_value(value: Any) -> bool:
@@ -1414,13 +1693,167 @@ class ReflectiveStrategy:
         return candidates, updated_context
 
 
+_SELF_TUNING_FORWARDED_LEAD_IN = (
+    "The following message is the current self-tuning state accumulated from "
+    "earlier segments of this document: the running instructions list, shared "
+    "values, and few-shot example bank. Use it as context when analyzing the "
+    "next segment, then return ONLY a delta envelope. Emit `## Status` with "
+    "body `no-change` if the next segment teaches you nothing new. Never "
+    "re-emit items that already appear in the state — operate via the "
+    "Add/Replace/Remove/Set operations."
+)
+
+
+class SelfTuningStrategy:
+    """Two-stage strategy that mutates the extraction prompt itself segment-by-segment.
+
+    The analysis pass walks segments once and, for each segment, emits either
+    an explicit ``no-change`` marker or a delta envelope (instruction
+    add/replace/remove, shared-value set/remove, example add/remove). The
+    runtime applies deltas to a running ``SelfTuningState``. During the
+    extraction phase the final state is rendered into the extraction prompt
+    body via three template placeholders: ``{TUNED_INSTRUCTIONS}``,
+    ``{SHARED_VALUES}``, ``{EXAMPLES}``.
+
+    Compared to ``AdvancedStrategy``: state is fed into the prompt body (not
+    as a conversation prefix), and analysis output is delta-only so cheap
+    on output tokens when a segment changes nothing.
+    """
+
+    def __init__(
+        self,
+        *,
+        extraction_prompt_template_config: dict[str, Any],
+        analysis_prompt_template_config: dict[str, Any],
+        schema_format: EntityExtractionSchemaFormat = DEFAULT_SCHEMA_FORMAT,
+    ) -> None:
+        self._extraction_config = extraction_prompt_template_config
+        self._analysis_config = analysis_prompt_template_config
+        self._schema_format: EntityExtractionSchemaFormat = schema_format
+
+    @observe(
+        name="Analysis: self-tuning delta pass",
+        channel="production",
+        source="production",
+    )
+    async def prepare_context(
+        self,
+        *,
+        segments: list[str],
+        entity_definitions: list[EntityDefinition],
+        cancel_check: Any = None,
+    ) -> dict[str, Any]:
+        full_schema = build_entity_schema_summary(entity_definitions)
+        entity_names = ", ".join(ed.name for ed in entity_definitions)
+        total_segments = len(segments)
+
+        observability_context.update_current_span(
+            input={
+                "Segments Count": total_segments,
+                "Entity Names": entity_names,
+            }
+        )
+
+        state = _empty_self_tuning_state()
+        envelopes_built = 0
+        no_change_count = 0
+
+        for index, segment in enumerate(segments):
+            if cancel_check and await cancel_check():
+                break
+
+            additional_messages: list[dict[str, str]] = []
+            if state.instructions or state.shared_values or state.examples:
+                additional_messages.append(
+                    {"role": "user", "content": _SELF_TUNING_FORWARDED_LEAD_IN}
+                )
+                additional_messages.append(
+                    {
+                        "role": "assistant",
+                        "content": _render_self_tuning_state_for_analysis(state),
+                    }
+                )
+            additional_messages.append({"role": "user", "content": segment})
+
+            try:
+                result = await execute_prompt_template(
+                    system_name_or_config=self._analysis_config,
+                    template_values={
+                        "SCHEMA": full_schema,
+                        "ENTITY_NAMES": entity_names,
+                        "SEGMENT_INDEX": str(index + 1),
+                        "SEGMENT_COUNT": str(total_segments),
+                    },
+                    template_additional_messages=additional_messages,
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "Self-tuning analysis pass %d/%d failed: %s",
+                    index + 1,
+                    total_segments,
+                    exc,
+                )
+                continue
+
+            envelope = _parse_self_tuning_delta_envelope(str(result.content or ""))
+            envelopes_built += 1
+            if envelope.no_change:
+                no_change_count += 1
+            state = _apply_self_tuning_delta(state, envelope)
+
+        observability_context.update_current_span(
+            output={
+                "Envelopes Built": envelopes_built,
+                "No-Change Segments": no_change_count,
+                "Final Instruction Count": len(state.instructions),
+                "Final Shared Value Count": len(state.shared_values),
+                "Final Example Count": len(state.examples),
+            }
+        )
+
+        return {"final_state": state}
+
+    async def extract_segment(
+        self,
+        *,
+        content: str,
+        entity_definition: EntityDefinition,
+        context: dict[str, Any],
+        max_extraction_iterations: int,
+        segment_index: int = 0,
+        cancel_check: Any = None,
+    ) -> tuple[list[EntityCandidateRecord], dict[str, Any]]:
+        del (
+            segment_index
+        )  # not used by SelfTuningStrategy; accepted for interface parity
+        state = (context or {}).get("final_state") or _empty_self_tuning_state()
+        if not isinstance(state, SelfTuningState):
+            state = _empty_self_tuning_state()
+
+        candidates, _ = await _extract_entity_from_content(
+            prompt_template_config=self._extraction_config,
+            entity_definition=entity_definition,
+            content=content,
+            max_extraction_iterations=max_extraction_iterations,
+            schema_format=self._schema_format,
+            extra_template_values={
+                "TUNED_INSTRUCTIONS": _render_tuned_instructions(state),
+                "SHARED_VALUES": _render_shared_values_for_prompt(state),
+                "EXAMPLES": _render_examples_for_prompt(state.examples),
+            },
+            cancel_check=cancel_check,
+        )
+        return candidates, context
+
+
 async def build_extraction_strategy(
     mode: str,
     *,
     extraction_prompt_template_system_name: str,
     analysis_prompt_template_system_name: str | None,
+    self_tuning_analysis_prompt_template_system_name: str | None = None,
     schema_format: EntityExtractionSchemaFormat = DEFAULT_SCHEMA_FORMAT,
-) -> BasicStrategy | AdvancedStrategy | ReflectiveStrategy:
+) -> BasicStrategy | AdvancedStrategy | ReflectiveStrategy | SelfTuningStrategy:
     """Resolve prompt configs and return the strategy implementing ``mode``."""
     extraction_config = dict(
         await get_prompt_template_by_system_name_flat(
@@ -1447,6 +1880,23 @@ async def build_extraction_strategy(
     if mode == "reflective":
         return ReflectiveStrategy(
             extraction_prompt_template_config=extraction_config,
+            schema_format=schema_format,
+        )
+
+    if mode == "self-tuning":
+        if not self_tuning_analysis_prompt_template_system_name:
+            raise ValueError(
+                "self_tuning_analysis_prompt_template_system_name is required "
+                "for self-tuning mode"
+            )
+        self_tuning_analysis_config = dict(
+            await get_prompt_template_by_system_name_flat(
+                self_tuning_analysis_prompt_template_system_name
+            )
+        )
+        return SelfTuningStrategy(
+            extraction_prompt_template_config=extraction_config,
+            analysis_prompt_template_config=self_tuning_analysis_config,
             schema_format=schema_format,
         )
 
@@ -1761,6 +2211,7 @@ async def run_graph_llm_entity_extraction(
     entity_definitions: list[EntityDefinition],
     mode: str = DEFAULT_EXTRACTION_MODE,
     analysis_prompt_template_system_name: str | None = None,
+    self_tuning_analysis_prompt_template_system_name: str | None = None,
     entity_service: KnowledgeGraphEntityService | None = None,
     segment_size: int = 18000,
     segment_overlap: float = 0.1,
@@ -1788,6 +2239,9 @@ async def run_graph_llm_entity_extraction(
 
     analysis_prompt_template_system_name = (
         str(analysis_prompt_template_system_name or "").strip() or None
+    )
+    self_tuning_analysis_prompt_template_system_name = (
+        str(self_tuning_analysis_prompt_template_system_name or "").strip() or None
     )
     relevance_filter_prompt_template_system_name = (
         str(relevance_filter_prompt_template_system_name or "").strip() or None
@@ -1837,6 +2291,9 @@ async def run_graph_llm_entity_extraction(
         mode,
         extraction_prompt_template_system_name=prompt_template_system_name,
         analysis_prompt_template_system_name=analysis_prompt_template_system_name,
+        self_tuning_analysis_prompt_template_system_name=(
+            self_tuning_analysis_prompt_template_system_name
+        ),
         schema_format=schema_format,
     )
 
@@ -2294,16 +2751,40 @@ async def run_entity_extraction(
             extraction_settings.get("reflective_prompt_template_system_name") or ""
         ).strip()
     ) or None
+    self_tuning_prompt_template_system_name: str | None = (
+        str(data.self_tuning_prompt_template_system_name).strip()
+        if getattr(data, "self_tuning_prompt_template_system_name", None) is not None
+        else str(
+            extraction_settings.get("self_tuning_prompt_template_system_name") or ""
+        ).strip()
+    ) or None
+    self_tuning_analysis_prompt_template_system_name: str | None = (
+        str(data.self_tuning_analysis_prompt_template_system_name).strip()
+        if getattr(data, "self_tuning_analysis_prompt_template_system_name", None)
+        is not None
+        else str(
+            extraction_settings.get("self_tuning_analysis_prompt_template_system_name")
+            or ""
+        ).strip()
+    ) or None
 
-    # Pick the active extraction prompt by mode. Reflective uses its own dedicated
-    # template since the prompt itself is structurally different (it must produce
-    # analysis + records in one call).
+    # Pick the active extraction prompt by mode. Reflective and self-tuning each
+    # use a dedicated template since the prompt bodies are structurally different
+    # (reflective produces analysis + records inline; self-tuning needs the
+    # {TUNED_INSTRUCTIONS}/{SHARED_VALUES}/{EXAMPLES} placeholders).
     if mode == "reflective":
         if not reflective_prompt_template_system_name:
             raise ClientException(
                 "Reflective prompt template is required for reflective extraction mode"
             )
         active_extraction_prompt = reflective_prompt_template_system_name
+    elif mode == "self-tuning":
+        if not self_tuning_prompt_template_system_name:
+            raise ClientException(
+                "Self-tuning extraction prompt template is required for "
+                "self-tuning extraction mode"
+            )
+        active_extraction_prompt = self_tuning_prompt_template_system_name
     else:
         if not prompt_template_system_name:
             raise ClientException("Prompt template is required to run extraction")
@@ -2328,6 +2809,22 @@ async def run_entity_extraction(
         except LookupError as exc:
             raise ClientException(
                 f"Analysis prompt template '{analysis_prompt_template_system_name}' was not found"
+            ) from exc
+
+    if mode == "self-tuning":
+        if not self_tuning_analysis_prompt_template_system_name:
+            raise ClientException(
+                "Self-tuning analysis prompt template is required for "
+                "self-tuning extraction mode"
+            )
+        try:
+            await get_prompt_template_by_system_name_flat(
+                self_tuning_analysis_prompt_template_system_name
+            )
+        except LookupError as exc:
+            raise ClientException(
+                f"Self-tuning analysis prompt template "
+                f"'{self_tuning_analysis_prompt_template_system_name}' was not found"
             ) from exc
 
     segment_size = (
@@ -2425,6 +2922,9 @@ async def run_entity_extraction(
             entity_definitions=entity_definitions,
             mode=mode,
             analysis_prompt_template_system_name=analysis_prompt_template_system_name,
+            self_tuning_analysis_prompt_template_system_name=(
+                self_tuning_analysis_prompt_template_system_name
+            ),
             entity_service=entity_svc,
             segment_size=segment_size,
             segment_overlap=segment_overlap,

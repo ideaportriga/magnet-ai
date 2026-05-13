@@ -369,11 +369,18 @@ const columns: QTableColumn<EntityDefinition>[] = [
 ]
 
 const canRunExtraction = computed(() => {
-  const activePrompt =
-    extractionSettings.value.mode === 'reflective'
-      ? extractionSettings.value.reflective_prompt_template_system_name
-      : extractionSettings.value.prompt_template_system_name
-  return !!String(activePrompt || '').trim() && entities.value.length > 0 && !loadingPromptTemplates.value
+  const mode = extractionSettings.value.mode
+  let promptsConfigured: boolean
+  if (mode === 'reflective') {
+    promptsConfigured = !!String(extractionSettings.value.reflective_prompt_template_system_name || '').trim()
+  } else if (mode === 'self-tuning') {
+    promptsConfigured =
+      !!String(extractionSettings.value.self_tuning_prompt_template_system_name || '').trim() &&
+      !!String(extractionSettings.value.self_tuning_analysis_prompt_template_system_name || '').trim()
+  } else {
+    promptsConfigured = !!String(extractionSettings.value.prompt_template_system_name || '').trim()
+  }
+  return promptsConfigured && entities.value.length > 0 && !loadingPromptTemplates.value
 })
 
 const extractionStatus = computed<EntityExtractionStatusInfo>(() => {

@@ -84,6 +84,44 @@
               />
             </kg-field-row>
           </div>
+          <div v-else-if="mode === 'self-tuning'" class="row q-col-gutter-md">
+            <div class="col">
+              <kg-field-row
+                label="Self-Tuning Analysis Prompt"
+                hint="Emits per-segment delta operations (Add/Replace/Remove) on the running instructions, shared values, and example bank — or a 'no-change' marker when the segment teaches nothing new."
+              >
+                <kg-dropdown-field
+                  v-model="selfTuningAnalysisPromptTemplateSystemName"
+                  placeholder="Select a self-tuning analysis prompt template"
+                  :options="promptTemplateOptions"
+                  :loading="loadingPromptTemplates"
+                  option-value="system_name"
+                  option-label="name"
+                  searchable
+                  clearable
+                  dense
+                />
+              </kg-field-row>
+            </div>
+            <div class="col">
+              <kg-field-row
+                label="Extraction Prompt"
+                hint="Must reference {TUNED_INSTRUCTIONS}, {SHARED_VALUES}, and {EXAMPLES} so the accumulated self-tuning state can be injected into the prompt body."
+              >
+                <kg-dropdown-field
+                  v-model="selfTuningPromptTemplateSystemName"
+                  placeholder="Select a self-tuning extraction prompt template"
+                  :options="promptTemplateOptions"
+                  :loading="loadingPromptTemplates"
+                  option-value="system_name"
+                  option-label="name"
+                  searchable
+                  clearable
+                  dense
+                />
+              </kg-field-row>
+            </div>
+          </div>
           <div v-else>
             <kg-field-row label="Extraction Prompt">
               <kg-dropdown-field
@@ -242,6 +280,12 @@ const modeOptions = [
     description:
       'First builds a document-wide analysis, then feeds it into the extraction pass. Improves recall on cross-segment attributes at the cost of additional tokens.',
   },
+  {
+    label: 'Self-Tuning',
+    value: 'self-tuning',
+    description:
+      'A pre-analysis pass tailors the extraction prompt itself segment by segment — accumulating document-specific instructions, shared values, and few-shot examples. Each analysis call emits only deltas (or a no-change marker) to keep token cost low.',
+  },
 ]
 
 const schemaFormatOptions = [
@@ -284,6 +328,8 @@ const schemaFormat = ref<EntityExtractionSchemaFormat>(defaults.schema_format)
 const promptTemplateSystemName = ref(defaults.prompt_template_system_name)
 const analysisPromptTemplateSystemName = ref(defaults.analysis_prompt_template_system_name)
 const reflectivePromptTemplateSystemName = ref(defaults.reflective_prompt_template_system_name)
+const selfTuningPromptTemplateSystemName = ref(defaults.self_tuning_prompt_template_system_name)
+const selfTuningAnalysisPromptTemplateSystemName = ref(defaults.self_tuning_analysis_prompt_template_system_name)
 const segmentSize = ref(defaults.segment_size)
 const segmentOverlap = ref(defaults.segment_overlap)
 const maxExtractionIterations = ref(defaults.max_extraction_iterations)
@@ -303,6 +349,11 @@ watch(
       analysisPromptTemplateSystemName.value = props.settings.analysis_prompt_template_system_name || defaults.analysis_prompt_template_system_name
       reflectivePromptTemplateSystemName.value =
         props.settings.reflective_prompt_template_system_name || defaults.reflective_prompt_template_system_name
+      selfTuningPromptTemplateSystemName.value =
+        props.settings.self_tuning_prompt_template_system_name || defaults.self_tuning_prompt_template_system_name
+      selfTuningAnalysisPromptTemplateSystemName.value =
+        props.settings.self_tuning_analysis_prompt_template_system_name ||
+        defaults.self_tuning_analysis_prompt_template_system_name
       segmentSize.value = props.settings.segment_size || defaults.segment_size
       segmentOverlap.value = props.settings.segment_overlap ?? defaults.segment_overlap
       maxExtractionIterations.value = props.settings.max_extraction_iterations ?? defaults.max_extraction_iterations
@@ -313,6 +364,8 @@ watch(
       promptTemplateSystemName.value = defaults.prompt_template_system_name
       analysisPromptTemplateSystemName.value = defaults.analysis_prompt_template_system_name
       reflectivePromptTemplateSystemName.value = defaults.reflective_prompt_template_system_name
+      selfTuningPromptTemplateSystemName.value = defaults.self_tuning_prompt_template_system_name
+      selfTuningAnalysisPromptTemplateSystemName.value = defaults.self_tuning_analysis_prompt_template_system_name
       segmentSize.value = defaults.segment_size
       segmentOverlap.value = defaults.segment_overlap
       maxExtractionIterations.value = defaults.max_extraction_iterations
@@ -336,6 +389,8 @@ function onConfirm() {
       prompt_template_system_name: promptTemplateSystemName.value.trim(),
       analysis_prompt_template_system_name: analysisPromptTemplateSystemName.value.trim(),
       reflective_prompt_template_system_name: reflectivePromptTemplateSystemName.value.trim(),
+      self_tuning_prompt_template_system_name: selfTuningPromptTemplateSystemName.value.trim(),
+      self_tuning_analysis_prompt_template_system_name: selfTuningAnalysisPromptTemplateSystemName.value.trim(),
       segment_size: segmentSize.value,
       segment_overlap: segmentOverlap.value,
       max_extraction_iterations: maxExtractionIterations.value,
