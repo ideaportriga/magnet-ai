@@ -13,6 +13,10 @@ docs/NOTE_TAKER_RELIABILITY_PLAN.md § P2-6:
   / knowledge_graph).
 * ``notetaker.pipeline.stage_failures`` — counter for pipeline stages
   outside the integration layer (stage1 / stage2 generic failures).
+* ``notetaker.running_jobs`` — observable gauge: number of in-flight
+  STT pipelines tracked in ``speech_to_text.service._RUNNING``. Useful
+  for both capacity alerts and as a smoke-test that the cleanup in
+  § P1-5 keeps the dict bounded.
 
 Counters / histograms are exported through ``otel_meter`` and end up on
 the Grafana side via the OTLP exporter that already ships GenAI metrics.
@@ -21,6 +25,9 @@ the Grafana side via the OTLP exporter that already ships GenAI metrics.
 from __future__ import annotations
 
 from logging import getLogger
+from typing import Iterable
+
+from opentelemetry.metrics import CallbackOptions, Observation
 
 from services.observability.otel.config.meter import otel_meter
 
@@ -111,3 +118,29 @@ def record_pipeline_stage_failure(*, stage: str, error_class: str | None) -> Non
         )
     except Exception:  # noqa: BLE001
         logger.debug("metrics: pipeline_stage_failure emit failed", exc_info=True)
+
+
+def _observe_running_jobs(_options: CallbackOptions) -> Iterable[Observation]:
+    """Yield the current size of the in-process STT task registry.
+
+    Imported lazily inside the callback so a `speech_to_text` import
+    error (rare, but happens during partial test setups) doesn't crash
+    the meter export. We emit zero in that case — a non-emit would
+    drop the series for the whole scrape interval and look like the
+    process is gone.
+    """
+    try:
+        from speech_to_text.transcription.service import _RUNNING
+
+        yield Observation(len(_RUNNING))
+    except Exception:  # noqa: BLE001 — never let telemetry break the meter
+        logger.debug("metrics: running_jobs observe failed", exc_info=True)
+        yield Observation(0)
+
+
+otel_meter.create_observable_gauge(
+    name="notetaker.running_jobs",
+    description="Number of STT pipelines currently in flight (len _RUNNING).",
+    unit="1",
+    callbacks=[_observe_running_jobs],
+)
