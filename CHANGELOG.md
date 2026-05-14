@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-alpha.25](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.24...v0.7.0-alpha.25) (2026-05-14)
+
+### ✨ Features
+
+* **notetaker:** cleanup_teams_webhook_events housekeeping cron ([d6d43fe](https://github.com/ideaportriga/magnet-ai/commit/d6d43fe314899ff00a2e086dc70d8fc56a67915e))
+* **notetaker:** observable gauge notetaker.running_jobs ([9a900cb](https://github.com/ideaportriga/magnet-ai/commit/9a900cb6fa22284b9291c0f72706d9343f368bfc))
+* **notetaker:** reliability hardening for webhook→STT→integrations pipeline ([9507a81](https://github.com/ideaportriga/magnet-ai/commit/9507a81f6306843f1149c4c9e852069a3303fe06))
+
+### 🐛 Bug Fixes
+
+* **admin:** use km-key-value-editor tag to match global registration ([09aa43d](https://github.com/ideaportriga/magnet-ai/commit/09aa43d17905200905c92c24d288c78274d039f4))
+* **notetaker:** durable retry via taskiq schedule_by_time ([dd1ab01](https://github.com/ideaportriga/magnet-ai/commit/dd1ab017d47ac35edcb777f21272ccd3b26019f3))
+
 ## [0.7.0-alpha.24](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.23...v0.7.0-alpha.24) (2026-05-08)
 
 ### ✨ Features
