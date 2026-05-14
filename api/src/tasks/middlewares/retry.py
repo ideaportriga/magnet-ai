@@ -25,6 +25,7 @@ IDEMPOTENT_TASK_NAMES: set[str] = {
     "cleanup_old_uploads",
     "cleanup_expired_refresh_tokens",
     "cleanup_note_taker_pending",
+    "cleanup_teams_webhook_events",
     "sync_knowledge_graph_source",
 }
 

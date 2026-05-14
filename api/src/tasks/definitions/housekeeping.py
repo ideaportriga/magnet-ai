@@ -201,3 +201,39 @@ async def recover_stuck_transcription_jobs_task() -> None:
                 file_id,
                 live_status,
             )
+
+
+# Retention for `teams_webhook_event` deduplication / staging rows.
+# Long enough that operators can correlate recent incidents against the
+# raw notification payload, short enough that the table doesn't grow
+# unboundedly. See docs/NOTE_TAKER_RELIABILITY_PLAN.md § P0-1.
+_TEAMS_WEBHOOK_EVENT_RETENTION_DAYS = 7
+
+
+@broker.task(task_name="cleanup_teams_webhook_events", timeout=600)
+async def cleanup_teams_webhook_events_task() -> None:
+    """Delete `teams_webhook_event` rows older than the retention window.
+
+    The table is the dedup boundary for Microsoft Graph at-least-once
+    delivery — rows past the retention window are no longer useful (a
+    Graph redelivery that far after the original would not be matched
+    against by the upstream pipeline anyway).
+    """
+    from sqlalchemy import delete
+
+    from core.db.models.teams.teams_webhook_event import TeamsWebhookEvent
+    from core.db.session import async_session_maker
+
+    cutoff = datetime.now(UTC) - timedelta(days=_TEAMS_WEBHOOK_EVENT_RETENTION_DAYS)
+    async with async_session_maker() as session:
+        result = await session.execute(
+            delete(TeamsWebhookEvent).where(TeamsWebhookEvent.received_at < cutoff)
+        )
+        await session.commit()
+    deleted = result.rowcount or 0
+    if deleted:
+        logger.info(
+            "cleanup_teams_webhook_events: deleted %d row(s) older than %dd",
+            deleted,
+            _TEAMS_WEBHOOK_EVENT_RETENTION_DAYS,
+        )

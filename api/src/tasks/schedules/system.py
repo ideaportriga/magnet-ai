@@ -88,6 +88,17 @@ async def recover_stuck_transcription_jobs_cron() -> None:
     await recover_stuck_transcription_jobs_task()
 
 
+# -- 4c. cleanup teams_webhook_event rows: daily ---------------------------
+@broker.task(
+    task_name="cleanup_teams_webhook_events_cron",
+    schedule=[{"cron": "0 3 * * *"}],
+)
+async def cleanup_teams_webhook_events_cron() -> None:
+    from tasks.definitions.housekeeping import cleanup_teams_webhook_events_task
+
+    await cleanup_teams_webhook_events_task()
+
+
 # -- 5. recover stuck PROCESSING jobs: every 5 min -------------------------
 @broker.task(
     task_name="recover_stuck_processing_jobs",
