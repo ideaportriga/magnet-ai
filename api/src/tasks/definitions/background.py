@@ -272,18 +272,24 @@ async def process_teams_recording_notification_bg_task(
                     new_count,
                     MAX_RETRIES,
                 )
-                # Fire-and-forget sleep+kick. asyncio.create_task lets the
-                # worker free its slot immediately and the broker holds
-                # the message until kiq() lands.
-                import asyncio as _asyncio
+                # Durable retry: write a one-shot into `taskiq_schedules`
+                # via `schedule_by_time`. The scheduler process picks it
+                # up at `retry_at` regardless of whether the current
+                # worker survives the backoff window — the in-memory
+                # `asyncio.create_task(sleep+kiq)` pattern this replaces
+                # lost retries when the worker was killed mid-sleep,
+                # defeating the durability we set out to gain in § P0-2.
+                from datetime import timedelta
 
-                async def _later() -> None:
-                    await _asyncio.sleep(delay_seconds)
-                    await process_teams_recording_notification_bg_task.kiq(
-                        event_id=event_id, trace_id=trace_id
-                    )
+                from tasks import schedule_source
 
-                _asyncio.create_task(_later())
+                retry_at = datetime.now(timezone.utc) + timedelta(seconds=delay_seconds)
+                await process_teams_recording_notification_bg_task.schedule_by_time(
+                    schedule_source,
+                    retry_at,
+                    event_id=event_id,
+                    trace_id=trace_id,
+                )
                 return  # don't mark failed yet
         except Exception as exc:  # outer guard so finally still records status
             logger.exception(
