@@ -26,7 +26,7 @@ api/
 │   └── utils/                 # Utility functions
 ├── scripts/                   # Database and setup scripts
 ├── tests/                     # Test suite
-├── pyproject.toml             # Dependencies (Poetry)
+├── pyproject.toml             # Dependencies (uv / PEP 621)
 └── run.py                     # Development server wrapper
 ```
 

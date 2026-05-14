@@ -21,14 +21,14 @@ Magnet AI users can rapidly create AI-powered features, even without Python skil
 - **Node.js** (v18+)
 - **Python** (v3.12+)
 - **Docker** & **Docker Compose** (for containerized database)
-- **Poetry** (Python dependency manager)
+- **uv** (Python package & project manager — install: <https://docs.astral.sh/uv/getting-started/installation/>)
 
 ### 1. Setup
 
 Run the setup script to install all dependencies (Python API, Web Frontend, and tooling).
 
 ```bash
-# Installs root dependencies, API dependencies (poetry), and Web dependencies (npm)
+# Installs root dependencies, API dependencies (uv), and Web dependencies (npm)
 npm install
 npm run setup
 ```
