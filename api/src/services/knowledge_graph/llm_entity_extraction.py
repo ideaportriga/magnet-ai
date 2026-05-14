@@ -1747,6 +1747,8 @@ async def _process_document_extraction(
     strategy: BasicStrategy | ReflectiveStrategy | SelfTuningStrategy,
     entity_service: KnowledgeGraphEntityService,
     max_extraction_iterations: int,
+    document_coverage_mode: str = "full",
+    document_coverage_coverage: float = 0.5,
     cancel_check: Any = None,
 ) -> dict[str, int]:
     """Extract entities from a single document (document approach).
@@ -1776,9 +1778,24 @@ async def _process_document_extraction(
             "cancelled": False,
         }
 
+    analysis_segments = _apply_coverage_to_sequence(
+        segments,
+        mode=document_coverage_mode,
+        coverage=document_coverage_coverage,
+    )
+    if document_coverage_mode != "full" and len(analysis_segments) != len(segments):
+        logger.info(
+            "Self-tuning analysis coverage (%s, %.0f%%) for document %s: using %d/%d segments",
+            document_coverage_mode,
+            max(0.05, min(float(document_coverage_coverage), 0.95)) * 100,
+            doc_id,
+            len(analysis_segments),
+            len(segments),
+        )
+
     try:
         strategy_context = await strategy.prepare_context(
-            segments=segments,
+            segments=analysis_segments,
             entity_definitions=entity_definitions,
             cancel_check=cancel_check,
         )
@@ -1837,6 +1854,8 @@ async def _process_document_chunks_extraction(
     strategy: BasicStrategy | ReflectiveStrategy | SelfTuningStrategy,
     entity_service: KnowledgeGraphEntityService,
     max_extraction_iterations: int,
+    document_coverage_mode: str = "full",
+    document_coverage_coverage: float = 0.5,
     cancel_check: Any = None,
 ) -> dict[str, int]:
     """Extract entities from chunks belonging to a single document."""
@@ -1872,9 +1891,26 @@ async def _process_document_chunks_extraction(
             "cancelled": False,
         }
 
+    analysis_contents = _apply_coverage_to_sequence(
+        [content for _id, content in chunk_segments],
+        mode=document_coverage_mode,
+        coverage=document_coverage_coverage,
+    )
+    if document_coverage_mode != "full" and len(analysis_contents) != len(
+        chunk_segments
+    ):
+        logger.info(
+            "Self-tuning analysis coverage (%s, %.0f%%) for document %s chunks: using %d/%d chunks",
+            document_coverage_mode,
+            max(0.05, min(float(document_coverage_coverage), 0.95)) * 100,
+            doc_id,
+            len(analysis_contents),
+            len(chunk_segments),
+        )
+
     try:
         strategy_context = await strategy.prepare_context(
-            segments=[content for _id, content in chunk_segments],
+            segments=analysis_contents,
             entity_definitions=entity_definitions,
             cancel_check=cancel_check,
         )
@@ -2036,6 +2072,44 @@ async def _process_document_chunks_extraction(
     }
 
 
+def _apply_coverage_to_sequence(
+    items: list[Any],
+    *,
+    mode: str,
+    coverage: float,
+) -> list[Any]:
+    """Return the subset of items selected by (mode, coverage).
+
+    Mirrors ChunkDocumentReader.apply_document_coverage for sequences that are
+    not managed by a reader (e.g. raw chunk_rows in the chunks approach).
+    Returns items unchanged when mode == 'full' or coverage selects all items.
+    """
+    n = len(items)
+    if mode == "full" or n == 0:
+        return list(items)
+    try:
+        cov = float(coverage)
+    except (TypeError, ValueError):
+        cov = 0.5
+    cov = max(0.05, min(cov, 0.95))
+    count = round(n * cov)
+    if count <= 0 or count >= n:
+        return list(items)
+    if mode == "beginning":
+        return list(items[:count])
+    if mode == "middle":
+        start = (n - count) // 2
+        return list(items[start : start + count])
+    if mode == "end":
+        return list(items[n - count :])
+    if mode == "outer":
+        half = count // 2
+        if half + (count - half) >= n:
+            return list(items)
+        return list(items[:half]) + list(items[n - (count - half) :])
+    return list(items)
+
+
 async def run_graph_llm_entity_extraction(
     db_session: AsyncSession,
     *,
@@ -2051,6 +2125,8 @@ async def run_graph_llm_entity_extraction(
     max_extraction_iterations: int = 3,
     schema_format: EntityExtractionSchemaFormat = DEFAULT_SCHEMA_FORMAT,
     relevance_filter_prompt_template_system_name: str | None = None,
+    document_coverage_mode: str = "full",
+    document_coverage_coverage: float = 0.5,
     progress_callback: Any | None = None,
     cancel_check: Any | None = None,
 ) -> dict[str, Any]:
@@ -2246,6 +2322,8 @@ async def run_graph_llm_entity_extraction(
                     strategy=strategy,
                     entity_service=entity_service,
                     max_extraction_iterations=max_extraction_iterations,
+                    document_coverage_mode=document_coverage_mode,
+                    document_coverage_coverage=document_coverage_coverage,
                     cancel_check=cancel_check,
                 )
                 upserted_records += doc_result["upserted_records"]
@@ -2369,6 +2447,8 @@ async def run_graph_llm_entity_extraction(
             strategy=strategy,
             entity_service=entity_service,
             max_extraction_iterations=max_extraction_iterations,
+            document_coverage_mode=document_coverage_mode,
+            document_coverage_coverage=document_coverage_coverage,
             cancel_check=cancel_check,
         )
 
@@ -2522,16 +2602,27 @@ async def run_entity_extraction(
     extraction_settings = (
         entity_settings.get("extraction") if isinstance(entity_settings, dict) else {}
     ) or {}
-    performance_optimizations_settings = (
-        entity_settings.get("performance_optimizations")
+    advanced_settings_settings = (
+        entity_settings.get("advanced_settings")
         if isinstance(entity_settings, dict)
         else {}
     ) or {}
     relevance_filter_settings = (
-        performance_optimizations_settings.get("relevance_filter")
-        if isinstance(performance_optimizations_settings, dict)
+        advanced_settings_settings.get("relevance_filter")
+        if isinstance(advanced_settings_settings, dict)
         else {}
     ) or {}
+    document_coverage_settings = (
+        advanced_settings_settings.get("document_coverage")
+        if isinstance(advanced_settings_settings, dict)
+        else {}
+    ) or {}
+    document_coverage_mode = str(
+        document_coverage_settings.get("mode") or "full"
+    ).strip()
+    document_coverage_coverage = float(
+        document_coverage_settings.get("coverage") or 0.5
+    )
 
     try:
         entity_definitions = normalize_entity_definitions(
@@ -2648,13 +2739,13 @@ async def run_entity_extraction(
         1,
         int(data.max_extraction_iterations)
         if getattr(data, "max_extraction_iterations", None) is not None
-        else int(extraction_settings.get("max_extraction_iterations") or 3),
+        else int(advanced_settings_settings.get("max_extraction_iterations") or 3),
     )
 
     schema_format_raw = (
         str(data.schema_format).strip()
         if getattr(data, "schema_format", None) is not None
-        else str(extraction_settings.get("schema_format") or "").strip()
+        else str(advanced_settings_settings.get("schema_format") or "").strip()
     ) or DEFAULT_SCHEMA_FORMAT
     if schema_format_raw not in SCHEMA_FORMATS:
         raise ClientException(
@@ -2738,6 +2829,8 @@ async def run_entity_extraction(
             relevance_filter_prompt_template_system_name=(
                 relevance_filter_prompt_template_system_name
             ),
+            document_coverage_mode=document_coverage_mode,
+            document_coverage_coverage=document_coverage_coverage,
             progress_callback=_progress_cb,
             cancel_check=_cancel_check,
         )

@@ -10,16 +10,20 @@ def get_default_entity_extraction_settings() -> dict[str, Any]:
                 "mode": "basic",
                 "segment_size": 18000,
                 "segment_overlap": 0.1,
-                "max_extraction_iterations": 3,
-                "schema_format": "typescript",
                 "prompt_template_system_name": "KG_ENTITY_EXTRACTION",
                 "reflective_prompt_template_system_name": "KG_ENTITY_EXTRACTION_REFLECTIVE",
                 "self_tuning_prompt_template_system_name": "KG_ENTITY_EXTRACTION_SELF_TUNING",
                 "self_tuning_analysis_prompt_template_system_name": "KG_ENTITY_EXTRACTION_SELF_TUNING_ANALYSIS",
             },
-            "performance_optimizations": {
+            "advanced_settings": {
+                "schema_format": "json_schema",
+                "max_extraction_iterations": 1,
                 "relevance_filter": {
                     "prompt_template_system_name": "",
+                },
+                "document_coverage": {
+                    "mode": "full",
+                    "coverage": 0.5,
                 },
             },
             "entity_definitions": [],

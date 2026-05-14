@@ -164,7 +164,7 @@
     <entity-extraction-settings-dialog
       :show-dialog="showExtractionDialog"
       :settings="extractionSettings"
-      :performance-optimizations="performanceOptimizations"
+      :performance-tuning="performanceTuning"
       :prompt-template-options="promptTemplateOptions"
       :loading-prompt-templates="loadingPromptTemplates"
       @update:show-dialog="showExtractionDialog = $event"
@@ -256,21 +256,21 @@ import EntityDialog from './EntityDialog.vue'
 import EntityExtractionSettingsDialog from './EntityExtractionSettingsDialog.vue'
 import {
   cloneEntityDefinitions,
-  cloneEntityExtractionPerformanceOptimizationsSettings,
+  cloneEntityExtractionPerformanceTuningSettings,
   cloneEntityExtractionRunSettings,
   createDefaultEntityExtractionRunSettings,
-  createDefaultPerformanceOptimizationsSettings,
+  createDefaultPerformanceTuningSettings,
   getEntityExtractionSettingsFromSettings,
   getExtractionStatusFromGraphDetails,
   mergeEntityDefinitions,
   parseEntityDefinitionsFromImport,
   serializeEntityDefinitionsForExport,
   withEntityDefinitions,
-  withEntityExtractionPerformanceOptimizations,
+  withEntityExtractionPerformanceTuning,
   withEntityExtractionRunSettings,
   type EntityDefinition,
   type EntityDefinitionsMergeResult,
-  type EntityExtractionPerformanceOptimizationsSettings,
+  type EntityExtractionPerformanceTuningSettings,
   type EntityExtractionRunSettings,
   type EntityExtractionStatusInfo,
 } from './models'
@@ -290,9 +290,7 @@ const $q = useQuasar()
 
 const entities = ref<EntityDefinition[]>([])
 const extractionSettings = ref<EntityExtractionRunSettings>(createDefaultEntityExtractionRunSettings())
-const performanceOptimizations = ref<EntityExtractionPerformanceOptimizationsSettings>(
-  createDefaultPerformanceOptimizationsSettings()
-)
+const performanceTuning = ref<EntityExtractionPerformanceTuningSettings>(createDefaultPerformanceTuningSettings())
 const selectedEntity = ref<EntityDefinition | null>(null)
 const selected = ref<EntityDefinition[]>([])
 const dialogOpen = ref(false)
@@ -449,9 +447,7 @@ function initializeFromSettings() {
   const normalizedSettings = getEntityExtractionSettingsFromSettings(baseSettings.value)
   entities.value = cloneEntityDefinitions(normalizedSettings.entity_definitions)
   extractionSettings.value = cloneEntityExtractionRunSettings(normalizedSettings.extraction)
-  performanceOptimizations.value = cloneEntityExtractionPerformanceOptimizationsSettings(
-    normalizedSettings.performance_optimizations
-  )
+  performanceTuning.value = cloneEntityExtractionPerformanceTuningSettings(normalizedSettings.advanced_settings)
   if (selected.value.length > 0) {
     const validIds = new Set(entities.value.map((entity) => entity.id))
     selected.value = selected.value.filter((entity) => validIds.has(entity.id))
@@ -522,7 +518,7 @@ async function persistEntityExtractionSettings(
   nextEntities: EntityDefinition[],
   nextExtractionSettings: EntityExtractionRunSettings,
   successMessage: string,
-  nextPerformanceOptimizations: EntityExtractionPerformanceOptimizationsSettings = performanceOptimizations.value
+  nextPerformanceTuning: EntityExtractionPerformanceTuningSettings = performanceTuning.value
 ) {
   if (saving.value) {
     return false
@@ -537,9 +533,9 @@ async function persistEntityExtractionSettings(
       return false
     }
 
-    const nextSettings = withEntityExtractionPerformanceOptimizations(
+    const nextSettings = withEntityExtractionPerformanceTuning(
       withEntityExtractionRunSettings(withEntityDefinitions(baseSettings.value, nextEntities), nextExtractionSettings),
-      nextPerformanceOptimizations
+      nextPerformanceTuning
     )
 
     const response = await fetchData({
@@ -562,7 +558,7 @@ async function persistEntityExtractionSettings(
     baseSettings.value = cloneSettings(nextSettings)
     entities.value = cloneEntityDefinitions(nextEntities)
     extractionSettings.value = cloneEntityExtractionRunSettings(nextExtractionSettings)
-    performanceOptimizations.value = cloneEntityExtractionPerformanceOptimizationsSettings(nextPerformanceOptimizations)
+    performanceTuning.value = cloneEntityExtractionPerformanceTuningSettings(nextPerformanceTuning)
     emit('refresh')
     $q.notify({
       type: 'positive',
@@ -611,7 +607,7 @@ async function onExtractionSettingsSave(payload: EntityExtractionDialogPayload) 
     entities.value,
     payload.extraction,
     'Entity extraction settings updated',
-    payload.performance_optimizations
+    payload.advanced_settings
   )
   if (!success) {
     return
@@ -677,15 +673,13 @@ async function runExtraction() {
     const payload = {
       approach: extractionSettings.value.approach,
       mode: extractionSettings.value.mode,
-      schema_format: extractionSettings.value.schema_format,
+      schema_format: performanceTuning.value.schema_format,
       prompt_template_system_name: String(extractionSettings.value.prompt_template_system_name || '').trim(),
       reflective_prompt_template_system_name: String(extractionSettings.value.reflective_prompt_template_system_name || '').trim(),
       segment_size: extractionSettings.value.segment_size,
       segment_overlap: extractionSettings.value.segment_overlap,
-      max_extraction_iterations: extractionSettings.value.max_extraction_iterations,
-      relevance_filter_prompt_template_system_name: String(
-        performanceOptimizations.value.relevance_filter.prompt_template_system_name || ''
-      ).trim(),
+      max_extraction_iterations: performanceTuning.value.max_extraction_iterations,
+      relevance_filter_prompt_template_system_name: String(performanceTuning.value.relevance_filter.prompt_template_system_name || '').trim(),
     }
 
     const response = await fetchData({
@@ -795,8 +789,7 @@ function buildExportFilename(list: EntityDefinition[]): string {
   const now = new Date()
   const pad = (n: number) => String(n).padStart(2, '0')
   const stamp =
-    `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}` +
-    `-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
+    `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}` + `-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
   return `kg-entities-${graphSlug}-${stamp}.json`
 }
 
@@ -874,11 +867,7 @@ function onImportDialogToggle(value: boolean) {
 
 async function onConfirmImport() {
   if (!pendingImport.value) return
-  const success = await persistEntityExtractionSettings(
-    pendingImport.value.merged,
-    extractionSettings.value,
-    'Entity definitions imported'
-  )
+  const success = await persistEntityExtractionSettings(pendingImport.value.merged, extractionSettings.value, 'Entity definitions imported')
   if (!success) return
 
   selected.value = []
