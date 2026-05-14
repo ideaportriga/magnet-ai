@@ -1,0 +1,143 @@
+# Note-taker reliability alerts.
+#
+# Hooks into the OpenTelemetry counters/histograms emitted by
+# `services/agents/teams/notetaker_metrics.py` and the structured logs
+# emitted by the webhook flow. See docs/NOTE_TAKER_RELIABILITY_PLAN.md
+# § P2-6.
+#
+# Imported via Grafana alerting provisioning (the existing
+# `alerting-rules.yml` already configures the same mechanism for the
+# DB-pool alerts).
+
+groups:
+  - name: notetaker_pipeline_alerts
+    rules:
+
+      # CRITICAL: webhook flow stalled — Graph deliveries arrive but the
+      # worker isn't enqueueing them. Either the dedup intake is hosed or
+      # the broker is unreachable.
+      - alert: NoteTakerWebhookStalled
+        expr: >
+          rate(notetaker_webhook_received_total{outcome="accepted"}[10m]) == 0
+          and rate(notetaker_webhook_received_total[10m]) > 0
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Note-taker webhook flow stalled"
+          description: >
+            Webhooks are arriving but none are reaching the worker queue.
+            Check `routes/user/agents.py::handle_teams_recordings_ready_webhook`
+            logs for clientState rejections or rate-limit floods.
+
+      # WARNING: spoofed webhooks — someone has the (old) clientState.
+      - alert: NoteTakerSpoofedWebhooks
+        expr: >
+          rate(notetaker_webhook_received_total{outcome="spoofed"}[10m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Spoofed Teams webhook deliveries detected"
+          description: >
+            Webhooks with wrong clientState are reaching the endpoint.
+            Rotate `TEAMS_GRAPH_WEBHOOK_CLIENT_STATE` and re-create the
+            Graph subscriptions (see `services/agents/teams/graph.py`).
+
+      # WARNING: rate-limit floor — sustained 429s mean either a real
+      # flood from one subscription, or the per-process cap is wrong.
+      - alert: NoteTakerWebhookRateLimited
+        expr: >
+          rate(notetaker_webhook_received_total{outcome="rate_limited"}[5m]) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Note-taker webhook rate limiter firing"
+          description: >
+            >30 events/min/key are bouncing off the per-process limiter.
+            Inspect which subscription is over budget; raise the cap or
+            isolate the noisy subscription if legitimate.
+
+      # WARNING: STT jobs hitting the timeout deadline.
+      - alert: NoteTakerSttTimeouts
+        expr: >
+          rate(notetaker_stt_duration_seconds_count{outcome="timeout"}[15m]) > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Note-taker STT jobs timing out"
+          description: >
+            One or more STT jobs hit the 900s deadline. Raise
+            `NOTE_TAKER_STT_TIMEOUT_SECONDS` if provider is consistently
+            slow, or investigate provider health.
+
+      # CRITICAL: slow STT — P95 over 20 minutes.
+      - alert: NoteTakerSttSlowP95
+        expr: >
+          histogram_quantile(0.95,
+            sum(rate(notetaker_stt_duration_seconds_bucket[30m])) by (le, provider)
+          ) > 1200
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Note-taker STT P95 >20 minutes"
+          description: >
+            STT pipeline P95 latency has crossed 1200s on provider
+            {{ $labels.provider }}. Check provider status page and the
+            `recover_stuck_transcription_jobs` cron output.
+
+      # WARNING: integration publishes failing (Confluence / SF / KG).
+      - alert: NoteTakerIntegrationFailing
+        expr: >
+          sum by (integration) (
+            rate(notetaker_integration_failure_total[10m])
+          ) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Note-taker integration {{ $labels.integration }} failing"
+          description: >
+            {{ $labels.integration }} publishes failing for >10m.
+            Check `note_taker_integration_attempt` rows where status=failed
+            in the last hour.
+
+      # WARNING: stage 2 failed after pending was retired — user is
+      # waiting for a summary that won't arrive.
+      - alert: NoteTakerStage2Failures
+        expr: >
+          count_over_time(
+            {application="magnet-ai"}
+            |= "stage 2 failed after pending was retired" [30m]
+          ) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Note-taker stage 2 lost a pending confirmation"
+          description: >
+            Stage 2 crashed after `load_and_delete_pending` succeeded.
+            Search Loki for the `pending_id` + `trace_id` in the log
+            line and replay manually with the salvaged state.
+
+      # CRITICAL: old pending confirmations close to TTL — bot wasn't
+      # able to deliver the speaker-mapping card.
+      - alert: NoteTakerPendingNearTtl
+        expr: >
+          count_over_time(
+            {application="magnet-ai"}
+            |= "Pending confirmation"
+            |= "has expired" [1h]
+          ) > 3
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pending confirmations expiring (>3/h)"
+          description: >
+            Several pending speaker-mapping rows are expiring instead of
+            being confirmed. The Adaptive Card likely isn't reaching
+            users — check Teams runtime logs.

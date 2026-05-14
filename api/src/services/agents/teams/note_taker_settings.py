@@ -565,18 +565,6 @@ async def _run_preview_job_background(
                     cfg_err,
                 )
 
-        # Ensure STT storage pool is initialized before submitting.
-        # `init_pool` is now a documented no-op — the pool lives on the
-        # SQLAlchemy engine — but we keep the call as a touchpoint in case
-        # the contract changes again.
-        try:
-            from stores import get_db_store
-
-            db_store = get_db_store()
-            await db_store.client.init_pool()
-        except Exception as pool_err:
-            logger.warning("Preview job %s: pool init warning: %s", job_id, pool_err)
-
         transcription_job_id = await transcription_service.submit(
             name=name,
             ext=ext.lstrip("."),

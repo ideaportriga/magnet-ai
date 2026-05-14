@@ -77,6 +77,17 @@ async def cleanup_expired_refresh_tokens_cron() -> None:
     await cleanup_expired_refresh_tokens_task()
 
 
+# -- 4b. recover stuck transcription jobs: every 15 min --------------------
+@broker.task(
+    task_name="recover_stuck_transcription_jobs_cron",
+    schedule=[{"cron": "*/15 * * * *"}],
+)
+async def recover_stuck_transcription_jobs_cron() -> None:
+    from tasks.definitions.housekeeping import recover_stuck_transcription_jobs_task
+
+    await recover_stuck_transcription_jobs_task()
+
+
 # -- 5. recover stuck PROCESSING jobs: every 5 min -------------------------
 @broker.task(
     task_name="recover_stuck_processing_jobs",

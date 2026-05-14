@@ -35,7 +35,13 @@ from core.domain.note_taker_pending_confirmations.service import (
 logger = logging.getLogger(__name__)
 
 TABLE = "note_taker_pending_confirmation"
-TTL_HOURS = 24
+# Shortened from 24h after P1-1 (docs/NOTE_TAKER_RELIABILITY_PLAN.md):
+# 24h was too long for a chat-flow confirmation — pending rows piled up
+# instead of running, and stale conversation references inside them are
+# more likely to fail when the user finally clicks the card. 6h covers
+# the realistic window (post-meeting same-day review) while keeping the
+# tail of forgotten rows much smaller.
+TTL_HOURS = 6
 
 
 def _row_to_dict(row: NoteTakerPendingConfirmation) -> dict[str, Any]:
@@ -55,6 +61,7 @@ def _row_to_dict(row: NoteTakerPendingConfirmation) -> dict[str, Any]:
         "pipeline_id": row.pipeline_id,
         "conversation_date": row.conversation_date,
         "conversation_time": row.conversation_time,
+        "trace_id": row.trace_id,
     }
 
 
@@ -82,8 +89,11 @@ async def save_pending(
     pipeline_id: str | None,
     conversation_date: str | None,
     conversation_time: str | None,
+    trace_id: str | None = None,
 ) -> str:
     """Persist a pending confirmation and return the record id (UUID str)."""
+    from .trace_context import get_trace_id
+
     now = datetime.now(timezone.utc)
     expires_at = now + timedelta(hours=TTL_HOURS)
 
@@ -104,6 +114,7 @@ async def save_pending(
         conversation_time=conversation_time,
         created_at=now,
         expires_at=expires_at,
+        trace_id=trace_id or get_trace_id(),
     )
     async with async_session_maker() as session:
         service = NoteTakerPendingConfirmationsService(session=session)

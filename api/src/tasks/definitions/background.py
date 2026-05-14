@@ -104,6 +104,226 @@ async def note_taker_rerun_bg_task(
     )
 
 
+@broker.task(task_name="process_teams_recording_notification", timeout=3600)
+@observe(name="Process Teams recording notification (bg)", channel="Background")
+async def process_teams_recording_notification_bg_task(
+    event_id: str, trace_id: str | None = None
+) -> None:
+    """Process one Graph recording-ready notification durably.
+
+    The webhook handler stages the original notification payload in
+    ``teams_webhook_event`` and enqueues this task with the row id.
+    Re-deliveries of the same event_id replay work against the same row;
+    duplicates from Graph are filtered earlier at intake time.
+
+    The task survives API rolling deploys because the payload lives in
+    Postgres and the queue lives in the broker.
+
+    ``trace_id`` is bound to the contextvar so any log emitted inside the
+    pipeline carries the same correlation id — see § P1-3.
+    """
+    from datetime import datetime, timezone
+
+    from sqlalchemy import select, update
+
+    from core.db.models.teams.teams_webhook_event import TeamsWebhookEvent
+    from core.db.session import async_session_maker
+    from services.agents.teams.note_taker import (
+        handle_recordings_ready_notifications,
+    )
+    from services.agents.teams.note_taker_worker_registry import (
+        get_worker_registry,
+    )
+    from services.agents.teams.trace_context import bind_trace_id
+
+    with bind_trace_id(trace_id):
+        async with async_session_maker() as session:
+            result = await session.execute(
+                select(TeamsWebhookEvent).where(TeamsWebhookEvent.id == UUID(event_id))
+            )
+            event = result.scalar_one_or_none()
+            if event is None:
+                logger.warning(
+                    "process_teams_recording_notification: event %s not found",
+                    event_id,
+                )
+                return
+            if event.status in {"done"}:
+                logger.info(
+                    "process_teams_recording_notification: event %s already done, skipping",
+                    event_id,
+                )
+                return
+            notification = dict(event.notification or {})
+            webhook_kind = event.webhook_kind
+
+            await session.execute(
+                update(TeamsWebhookEvent)
+                .where(TeamsWebhookEvent.id == event.id)
+                .values(status="processing")
+            )
+            await session.commit()
+
+        if webhook_kind != "recordings-ready":
+            logger.info(
+                "process_teams_recording_notification: ignoring kind=%s for event %s",
+                webhook_kind,
+                event_id,
+            )
+            async with async_session_maker() as session:
+                await session.execute(
+                    update(TeamsWebhookEvent)
+                    .where(TeamsWebhookEvent.id == UUID(event_id))
+                    .values(
+                        status="done",
+                        processed_at=datetime.now(timezone.utc),
+                    )
+                )
+                await session.commit()
+            return
+
+        payload_for_runtime = {"value": [notification]}
+
+        # Classify the worst failure seen across runtimes; on transient
+        # failures we re-enqueue with a short backoff (see § P0-4).
+        from services.agents.teams.webhook_errors import (
+            UnauthorizedWebhookError,
+            classify_exception,
+        )
+
+        error_message: str | None = None
+        worst_classification: str = "ok"
+        try:
+            registry = await get_worker_registry()
+            runtimes = [rt for _, rt in registry.all_runtimes()]
+            if not runtimes:
+                logger.warning(
+                    "process_teams_recording_notification: no runtimes available for event %s",
+                    event_id,
+                )
+            # Pull the prior attempt count once so we can decide retry.
+            from sqlalchemy import select
+
+            async with async_session_maker() as session:
+                row = (
+                    await session.execute(
+                        select(TeamsWebhookEvent.retry_count).where(
+                            TeamsWebhookEvent.id == UUID(event_id)
+                        )
+                    )
+                ).scalar_one_or_none()
+            previous_retry_count = int(row or 0)
+
+            for runtime in runtimes:
+                try:
+                    await handle_recordings_ready_notifications(
+                        runtime,
+                        payload_for_runtime,
+                        notify_user=(previous_retry_count == 0),
+                    )
+                except UnauthorizedWebhookError as exc:
+                    logger.warning(
+                        "process_teams_recording_notification: unauthorized for event %s: %s",
+                        event_id,
+                        exc,
+                    )
+                    if error_message is None:
+                        error_message = f"unauthorized: {exc}"[:2000]
+                    worst_classification = "unauthorized"
+                except Exception as exc:  # noqa: BLE001 — keep going across runtimes
+                    logger.exception(
+                        "process_teams_recording_notification: runtime failed for event %s: %s",
+                        event_id,
+                        exc,
+                    )
+                    if error_message is None:
+                        error_message = f"{type(exc).__name__}: {exc}"[:2000]
+                    bucket = classify_exception(exc)
+                    if worst_classification != "unauthorized":
+                        worst_classification = bucket
+
+            # Retry policy: transient failures get re-enqueued with
+            # exponential backoff, capped at MAX_RETRIES. See § P0-4.
+            MAX_RETRIES = 3
+            should_retry = (
+                worst_classification == "transient"
+                and previous_retry_count < MAX_RETRIES
+            )
+
+            if should_retry:
+                new_count = previous_retry_count + 1
+                async with async_session_maker() as session:
+                    await session.execute(
+                        update(TeamsWebhookEvent)
+                        .where(TeamsWebhookEvent.id == UUID(event_id))
+                        .values(
+                            status="received",
+                            retry_count=new_count,
+                            error=error_message,
+                        )
+                    )
+                    await session.commit()
+
+                delay_seconds = min(30 * (2**previous_retry_count), 300)
+                logger.info(
+                    "process_teams_recording_notification: retrying event %s in %ss (attempt %d/%d)",
+                    event_id,
+                    delay_seconds,
+                    new_count,
+                    MAX_RETRIES,
+                )
+                # Fire-and-forget sleep+kick. asyncio.create_task lets the
+                # worker free its slot immediately and the broker holds
+                # the message until kiq() lands.
+                import asyncio as _asyncio
+
+                async def _later() -> None:
+                    await _asyncio.sleep(delay_seconds)
+                    await process_teams_recording_notification_bg_task.kiq(
+                        event_id=event_id, trace_id=trace_id
+                    )
+
+                _asyncio.create_task(_later())
+                return  # don't mark failed yet
+        except Exception as exc:  # outer guard so finally still records status
+            logger.exception(
+                "process_teams_recording_notification: unexpected worker failure: %s",
+                exc,
+            )
+            if error_message is None:
+                error_message = f"{type(exc).__name__}: {exc}"[:2000]
+
+        async with async_session_maker() as session:
+            await session.execute(
+                update(TeamsWebhookEvent)
+                .where(TeamsWebhookEvent.id == UUID(event_id))
+                .values(
+                    status="failed" if error_message else "done",
+                    error=error_message,
+                    processed_at=datetime.now(timezone.utc),
+                )
+            )
+            await session.commit()
+
+
+@broker.task(task_name="process_teams_lifecycle_event", timeout=600)
+@observe(name="Process Teams lifecycle event (bg)", channel="Background")
+async def process_teams_lifecycle_event_bg_task(
+    event_id: str, trace_id: str | None = None
+) -> None:
+    """Process one Graph recordings-lifecycle notification.
+
+    See ``services/agents/teams/lifecycle_worker.py`` for the full
+    description. Kept short here so the broker doesn't block on an
+    inactive subscription forever.
+    """
+    from services.agents.teams.lifecycle_worker import process_lifecycle_event
+    from services.agents.teams.trace_context import bind_trace_id
+
+    with bind_trace_id(trace_id):
+        await process_lifecycle_event(UUID(event_id))
+
+
 @broker.task(task_name="add_assistant_message_background", timeout=1800)
 @observe(name="Assistant message (bg)", channel="Background")
 async def add_assistant_message_bg_task(conversation_id: str) -> None:

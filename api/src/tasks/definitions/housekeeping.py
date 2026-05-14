@@ -122,3 +122,82 @@ async def recover_stuck_syncing_kg_sources_task() -> None:
     result = recover_stuck_syncing_sources()
     if hasattr(result, "__await__"):
         await result
+
+
+@broker.task(task_name="recover_stuck_transcription_jobs", timeout=600)
+async def recover_stuck_transcription_jobs_task() -> None:
+    """Re-check transcription rows stuck in `running`/`started` for >1h.
+
+    The note-taker pipeline polls the STT provider in-process. If the
+    worker dies mid-poll the row stays `running` forever — the user
+    never gets a summary and `_RUNNING` doesn't repopulate after
+    restart. This sweep asks the STT service for the real status and
+    either resumes the pipeline (transient row stuck on a long job) or
+    marks the row failed so monitors can alert.
+
+    See docs/NOTE_TAKER_RELIABILITY_PLAN.md § P1-2.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import select, update
+
+    from core.db.models.transcription.transcription import Transcription
+    from core.db.session import async_session_maker
+
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=1)
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(Transcription.file_id, Transcription.id).where(
+                Transcription.status.in_(["running", "started"]),
+                Transcription.updated_at < cutoff,
+            )
+        )
+        rows = result.all()
+
+    if not rows:
+        return
+
+    logger.warning(
+        "recover_stuck_transcription_jobs: re-checking %d row(s) stuck >1h", len(rows)
+    )
+
+    # Late import — speech_to_text may not be ready in every entry-point.
+    from speech_to_text.transcription import service as transcription_service
+
+    for file_id, row_id in rows:
+        live_status: str | None = None
+        try:
+            live_status = await transcription_service.get_status(file_id)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "recover_stuck_transcription_jobs: get_status(%s) failed: %s",
+                file_id,
+                exc,
+            )
+
+        async with async_session_maker() as session:
+            if live_status in {"completed", "transcribed", "diarized"}:
+                # The provider says it's done — the row will be picked up
+                # by anyone polling it. Nothing to do; log for visibility.
+                logger.info(
+                    "recover_stuck_transcription_jobs: %s actually %s, leaving row alone",
+                    file_id,
+                    live_status,
+                )
+                continue
+
+            new_status = "failed"
+            error = (
+                f"recovered: worker stale, last live status={live_status or 'unknown'}"
+            )
+            await session.execute(
+                update(Transcription)
+                .where(Transcription.id == row_id)
+                .values(status=new_status, error=error)
+            )
+            await session.commit()
+            logger.warning(
+                "recover_stuck_transcription_jobs: marked %s as failed (live=%s)",
+                file_id,
+                live_status,
+            )

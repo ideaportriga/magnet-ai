@@ -44,3 +44,8 @@ class NoteTakerJob(UUIDv7AuditBase):
         nullable=True,
         comment="Job output (transcription, postprocessing, errors).",
     )
+
+    # Correlation id propagated from the originating webhook / preview
+    # request through STT and post-processing. See
+    # docs/NOTE_TAKER_RELIABILITY_PLAN.md § P1-3.
+    trace_id: Mapped[Optional[str]] = mapped_column(Text, nullable=True, index=True)

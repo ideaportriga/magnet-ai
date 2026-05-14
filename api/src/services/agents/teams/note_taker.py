@@ -219,16 +219,32 @@ async def _send_stt_recording_to_salesforce(
         )
         return
 
-    await sf_send_stt_recording_to_salesforce(
-        context=context,
-        settings=settings,
+    from .integration_journal import integration_attempt
+    from .trace_context import get_trace_id
+
+    async with integration_attempt(
         job_id=job_id,
-        conversation_date=conversation_date,
-        source_file_name=source_file_name,
-        source_file_type=source_file_type,
-        account_id=account_id,
-        send_expandable_section=_send_expandable_section,
-    )
+        integration_kind="salesforce",
+        trace_id=get_trace_id(),
+    ) as proceed:
+        if not proceed:
+            return
+        try:
+            await sf_send_stt_recording_to_salesforce(
+                context=context,
+                settings=settings,
+                job_id=job_id,
+                conversation_date=conversation_date,
+                source_file_name=source_file_name,
+                source_file_type=source_file_type,
+                account_id=account_id,
+                send_expandable_section=_send_expandable_section,
+            )
+        except Exception:
+            logger.exception(
+                "Salesforce sync failed for job %s — recorded in integration_attempt",
+                job_id,
+            )
 
 
 async def _send_expandable_section(
@@ -693,9 +709,16 @@ def load_note_taker_runtime_from_env() -> NoteTakerRuntime | None:
 
 
 async def handle_recordings_ready_notifications(
-    runtime: NoteTakerRuntime, payload: dict[str, Any]
+    runtime: NoteTakerRuntime,
+    payload: dict[str, Any],
+    *,
+    notify_user: bool = True,
 ) -> None:
-    """Process Graph recordings-ready notifications and proactively transcribe the latest recording."""
+    """Process Graph recordings-ready notifications and proactively transcribe the latest recording.
+
+    ``notify_user`` is False on retry attempts so we don't spam the chat
+    with "fetching the recording..." messages on every backoff cycle.
+    """
     notifications = payload.get("value") or []
     if not isinstance(notifications, list):
         logger.debug(
@@ -853,6 +876,7 @@ async def handle_recordings_ready_notifications(
                 runtime=runtime,
                 meeting_row=meeting_row,
                 notification=notification,
+                notify_user=notify_user,
             )
 
         try:
@@ -888,6 +912,13 @@ async def handle_recordings_ready_notifications(
                 _callback,
             )
         except Exception as err:
+            # Classified webhook errors must propagate so the worker can
+            # apply its retry / unauthorized policy. Other failures we
+            # log and swallow to keep processing other notifications.
+            from .webhook_errors import WebhookProcessingError
+
+            if isinstance(err, WebhookProcessingError):
+                raise
             logger.warning(
                 "[teams note-taker] continue_conversation failed for subscription %s: %s",
                 subscription_id,
@@ -901,31 +932,56 @@ async def _process_recording_notification_for_meeting(
     runtime: NoteTakerRuntime,
     meeting_row: TeamsMeeting,
     notification: dict[str, Any],
+    notify_user: bool = True,
 ) -> None:
-    await context.send_activity("Recording is ready. Fetching the latest recording...")
+    """Process one recording-ready notification end-to-end.
+
+    Raises one of the classified errors from ``webhook_errors`` so the
+    caller (the taskiq worker) can decide whether to retry, surface to
+    the user, or give up. ``notify_user`` is False on retries so we don't
+    spam the chat every attempt.
+    """
+    from .webhook_errors import (
+        PermanentWebhookError,
+        UnauthorizedWebhookError,
+        wrap_classified,
+    )
+
+    if notify_user:
+        await context.send_activity(
+            "Recording is ready. Fetching the latest recording..."
+        )
 
     handler_id = getattr(runtime, "auth_handler_id", None)
     if not handler_id:
-        await context.send_activity("Auth handler is not configured for this bot.")
-        return
+        if notify_user:
+            await context.send_activity("Auth handler is not configured for this bot.")
+        raise PermanentWebhookError("auth handler not configured for runtime")
 
     delegated_token: str | None = None
+    token_error: BaseException | None = None
     try:
         handler = runtime.agent_app.auth._resolve_handler(handler_id)
         flow, _ = await handler._load_flow(context)
         token_response = await flow.get_user_token()
         delegated_token = getattr(token_response, "token", None)
     except Exception as err:
+        token_error = err
         logger.warning(
             "[teams note-taker] failed to get delegated token in webhook flow: %s",
             getattr(err, "message", str(err)),
         )
 
     if not delegated_token:
-        await context.send_activity(
-            "I need the meeting organizer to sign in (delegated token missing)."
+        if notify_user:
+            await context.send_activity(
+                "I need the meeting organizer to sign in to fetch the recording. "
+                "Please run `/sign-in` so I can finish processing this meeting."
+            )
+        raise UnauthorizedWebhookError(
+            "delegated token unavailable for webhook flow",
+            cause=token_error,
         )
-        return
 
     online_meeting_id = (
         meeting_row.graph_online_meeting_id
@@ -977,10 +1033,24 @@ async def _process_recording_notification_for_meeting(
             "[teams note-taker] failed to fetch recordings for meeting %s",
             online_meeting_id,
         )
-        await context.send_activity(
-            f"Could not retrieve meeting recordings: {getattr(err, 'message', str(err))}"
+        wrapped = wrap_classified(
+            err, message=f"failed to fetch recordings for meeting {online_meeting_id}"
         )
-        return
+        if notify_user:
+            if wrapped.classification == "unauthorized":
+                await context.send_activity(
+                    "Recording fetch was rejected (token expired). "
+                    "Please run `/sign-in` and I'll retry automatically."
+                )
+            elif wrapped.classification == "transient":
+                await context.send_activity(
+                    "Could not retrieve the recording right now — I'll retry shortly."
+                )
+            else:
+                await context.send_activity(
+                    f"Could not retrieve meeting recordings: {getattr(err, 'message', str(err))}"
+                )
+        raise wrapped
 
     if not recordings:
         await context.send_activity("No recordings found for this meeting.")

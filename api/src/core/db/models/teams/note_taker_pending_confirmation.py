@@ -68,3 +68,7 @@ class NoteTakerPendingConfirmation(
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("now()")
     )
+
+    # Correlation id, propagated into stage 2 so log searches across both
+    # stages line up. See docs/NOTE_TAKER_RELIABILITY_PLAN.md § P1-3.
+    trace_id: Mapped[Optional[str]] = mapped_column(Text, nullable=True, index=True)

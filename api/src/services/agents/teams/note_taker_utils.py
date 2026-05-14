@@ -133,49 +133,52 @@ _DEFAULT_NOTE_TAKER_SETTINGS: dict[str, Any] = {
 
 
 def _merge_note_taker_settings(raw: dict[str, Any] | None) -> dict[str, Any]:
-    settings = dict(_DEFAULT_NOTE_TAKER_SETTINGS)
-    if not isinstance(raw, dict):
-        return settings
+    """Materialize a settings dict from a JSONB payload, with defaults filled.
 
-    for key in (
-        "subscription_recordings_ready",
-        "pipeline_id",
-        "send_number_of_speakers",
-        "create_knowledge_graph_embedding",
-        "knowledge_graph_system_name",
-        "keyterms",
-    ):
-        if key in raw:
-            settings[key] = raw[key]
+    After P2-3 (docs/NOTE_TAKER_RELIABILITY_PLAN.md):
 
-    default_integration = dict(settings.get("integration") or {})
-    raw_integration = raw.get("integration")
-    if isinstance(raw_integration, dict):
-        merged_integration: dict[str, Any] = dict(default_integration)
-        for integration_key, integration_value in raw_integration.items():
-            if isinstance(integration_value, dict) and isinstance(
-                merged_integration.get(integration_key), dict
-            ):
-                merged_integration[integration_key] = {
-                    **(merged_integration.get(integration_key) or {}),
-                    **integration_value,
-                }
+    1. Pass through Pydantic to drop unknown fields, fill defaults, and
+       coerce types. This is the fast path and what we want most of the
+       time.
+    2. If validation fails — typically because a model_validator that
+       enforces a *write* invariant (e.g. "prompt_template required
+       when enabled") catches a row written under an older rule — fall
+       back to a shallow recursive merge of ``raw`` over the schema
+       defaults. We keep user data instead of silently resetting their
+       config; the warning log is the signal that a ``settings_revision``
+       migration is overdue.
+    """
+    from logging import getLogger
+
+    from pydantic import ValidationError
+
+    from core.domain.note_taker_settings.schemas import NoteTakerSettingsSchema
+
+    _logger = getLogger(__name__)
+
+    payload = raw if isinstance(raw, dict) else {}
+    try:
+        validated = NoteTakerSettingsSchema.model_validate(payload)
+        return validated.model_dump(mode="json")
+    except ValidationError as exc:
+        _logger.warning(
+            "note_taker settings failed validation on read — falling back to "
+            "lenient merge (deploy may need a settings_revision migration): %s",
+            exc.errors()[:5],
+        )
+
+    defaults = NoteTakerSettingsSchema().model_dump(mode="json")
+
+    def _merge(base: dict[str, Any], over: dict[str, Any]) -> dict[str, Any]:
+        out = dict(base)
+        for k, v in over.items():
+            if k in out and isinstance(out[k], dict) and isinstance(v, dict):
+                out[k] = _merge(out[k], v)
             else:
-                merged_integration[integration_key] = integration_value
-        settings["integration"] = merged_integration
-    else:
-        settings["integration"] = default_integration
+                out[k] = v
+        return out
 
-    for section in ("chapters", "summary", "insights", "post_transcription"):
-        base_section = dict(settings[section])
-        section_raw = raw.get(section)
-        if isinstance(section_raw, dict):
-            for key in base_section.keys():
-                if key in section_raw:
-                    base_section[key] = section_raw[key]
-        settings[section] = base_section
-
-    return settings
+    return _merge(defaults, payload)
 
 
 def _format_duration(seconds: float | int | None) -> str:

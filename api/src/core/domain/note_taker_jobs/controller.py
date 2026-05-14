@@ -70,6 +70,21 @@ class NoteTakerJobsController(Controller):
     ) -> NoteTakerJobSchema:
         """Submit a new preview transcription job."""
 
+        # SSRF guard: reject internal / loopback / link-local URLs before
+        # the worker tries to fetch them. See P2-5.
+        if data.source_url:
+            from services.agents.teams.url_safety import (
+                UnsafeSourceURLError,
+                check_source_url,
+            )
+
+            try:
+                check_source_url(data.source_url)
+            except UnsafeSourceURLError as exc:
+                raise HTTPException(
+                    status_code=400, detail=f"Unsafe source URL: {exc}"
+                ) from exc
+
         data.settings_id = settings_id
         data.user_id = str(request.scope.get("user_id") or "") or None
 

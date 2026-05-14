@@ -1,7 +1,6 @@
 import asyncio
 import html
 import json
-import os
 from datetime import datetime, timezone
 from http.cookies import SimpleCookie
 from logging import getLogger
@@ -20,6 +19,7 @@ from litestar.status_codes import (
     HTTP_400_BAD_REQUEST,
     HTTP_403_FORBIDDEN,
     HTTP_404_NOT_FOUND,
+    HTTP_429_TOO_MANY_REQUESTS,
     HTTP_500_INTERNAL_SERVER_ERROR,
     HTTP_503_SERVICE_UNAVAILABLE,
 )
@@ -40,9 +40,15 @@ from api.tags import TagNames
 from services.agents.teams.note_taker import (
     NoteTakerRuntime,
     NoteTakerRegistry,
-    handle_recordings_ready_notifications,
 )
+from services.agents.teams.notetaker_metrics import record_webhook_received
 from services.agents.teams.runtime_cache import TeamsRuntimeCache
+from services.agents.teams.trace_context import bind_trace_id, generate_trace_id
+from services.agents.teams.webhook_intake import record_webhook_notification
+from services.agents.teams.webhook_rate_limit import (
+    allow as webhook_rate_limit_allow,
+)
+from services.agents.teams.webhook_security import get_graph_webhook_client_state
 from services.agents.slack.runtime_cache import SlackRuntimeCache
 from services.agents.slack.runtime import SlackRuntime
 from services.agents.slack.state_store import SlackOAuthStateStore
@@ -58,11 +64,9 @@ from .agents_utils.whatsapp_utils import (
 
 logger = getLogger(__name__)
 
-# clientState secret used when creating Microsoft Graph recording subscriptions.
-# Override via TEAMS_GRAPH_WEBHOOK_CLIENT_STATE env var for production deployments.
-_GRAPH_WEBHOOK_CLIENT_STATE: str = (
-    os.environ.get("TEAMS_GRAPH_WEBHOOK_CLIENT_STATE") or "recordings-ready"
-)
+# Webhook clientState is resolved lazily via webhook_security.get_graph_webhook_client_state()
+# so that production deployments fail fast on missing secrets and dev gets a
+# per-process random fallback. Don't inline a default here.
 
 
 async def _get_slack_runtime_cache(app: Any) -> SlackRuntimeCache:
@@ -738,30 +742,78 @@ class UserAgentsController(Controller):
 
         # Verify clientState on every notification item — rejects spoofed requests.
         # Microsoft Graph always echoes back the clientState set at subscription creation.
+        expected_client_state = get_graph_webhook_client_state()
+        items: list[dict[str, Any]] = []
         for item in (payload or {}).get("value", []):
-            cs = item.get("clientState") if isinstance(item, dict) else None
-            if cs != _GRAPH_WEBHOOK_CLIENT_STATE:
+            if not isinstance(item, dict):
+                continue
+            cs = item.get("clientState")
+            if cs != expected_client_state:
                 logger.warning(
                     "Teams recordings-ready webhook: invalid clientState %r, rejecting notification",
                     cs,
                 )
+                record_webhook_received(kind="recordings-ready", outcome="spoofed")
                 return Response(status_code=HTTP_400_BAD_REQUEST, content=b"")
+            items.append(item)
 
-        runtimes_to_notify: list[NoteTakerRuntime] = []
-        main_runtime: NoteTakerRuntime | None = getattr(
-            request.app.state, "teams_note_taker_runtime", None
+        # Rate limit: per-subscription_id (falls back to client IP) so a
+        # leaked clientState or runaway upstream can't drown the queue.
+        # See P2-4.
+        client_ip = (
+            request.client.host if getattr(request, "client", None) else "unknown"
         )
-        if main_runtime:
-            runtimes_to_notify.append(main_runtime)
-        registry = getattr(request.app.state, "note_taker_registry", None)
-        if registry is not None:
-            for _, reg_runtime in registry.all_runtimes():
-                if reg_runtime is not main_runtime:
-                    runtimes_to_notify.append(reg_runtime)
-        for runtime in runtimes_to_notify:
-            asyncio.create_task(
-                handle_recordings_ready_notifications(runtime, payload or {})
+        for item in items:
+            key = (
+                f"sub:{item.get('subscriptionId')}"
+                if item.get("subscriptionId")
+                else f"ip:{client_ip}"
             )
+            if not await webhook_rate_limit_allow(key):
+                logger.warning(
+                    "Teams recordings-ready webhook: rate limit exceeded for %s, returning 429",
+                    key,
+                )
+                record_webhook_received(kind="recordings-ready", outcome="rate_limited")
+                return Response(status_code=HTTP_429_TOO_MANY_REQUESTS, content=b"")
+
+        # Persist each item to the dedup table and enqueue a durable
+        # background job. Duplicates from Graph (at-least-once delivery)
+        # are filtered here, before any side effects. See
+        # docs/NOTE_TAKER_RELIABILITY_PLAN.md § P0-1 + § P0-2.
+        from tasks.definitions.background import (
+            process_teams_recording_notification_bg_task,
+        )
+
+        for item in items:
+            trace_id = generate_trace_id()
+            with bind_trace_id(trace_id):
+                intake = await record_webhook_notification(
+                    notification=item,
+                    webhook_kind="recordings-ready",
+                    trace_id=trace_id,
+                )
+                if intake is None:
+                    record_webhook_received(kind="recordings-ready", outcome="rejected")
+                    continue
+                if intake.is_duplicate:
+                    record_webhook_received(
+                        kind="recordings-ready", outcome="duplicate"
+                    )
+                    continue
+                try:
+                    await process_teams_recording_notification_bg_task.kiq(
+                        event_id=str(intake.event_id),
+                        trace_id=trace_id,
+                    )
+                    record_webhook_received(kind="recordings-ready", outcome="accepted")
+                except Exception:
+                    logger.exception(
+                        "Failed to enqueue recording-notification processing task for event %s",
+                        intake.event_id,
+                    )
+                    record_webhook_received(kind="recordings-ready", outcome="rejected")
+
         return Response(status_code=HTTP_202_ACCEPTED, content=b"")
 
     @post(
@@ -794,14 +846,55 @@ class UserAgentsController(Controller):
         logger.info("Teams recordings-lifecycle webhook payload: %s", payload or {})
 
         # Verify clientState to reject spoofed lifecycle notifications.
+        expected_client_state = get_graph_webhook_client_state()
+        items: list[dict[str, Any]] = []
         for item in (payload or {}).get("value", []):
-            cs = item.get("clientState") if isinstance(item, dict) else None
-            if cs != _GRAPH_WEBHOOK_CLIENT_STATE:
+            if not isinstance(item, dict):
+                continue
+            cs = item.get("clientState")
+            if cs != expected_client_state:
                 logger.warning(
                     "Teams recordings-lifecycle webhook: invalid clientState %r, rejecting notification",
                     cs,
                 )
+                record_webhook_received(kind="recordings-lifecycle", outcome="spoofed")
                 return Response(status_code=HTTP_400_BAD_REQUEST, content=b"")
+            items.append(item)
+
+        # Stage lifecycle events and enqueue the worker that reacts to
+        # them — subscriptionRemoved clears stale pointers,
+        # reauthorizationRequired flags the meeting row for /sign-in
+        # follow-up. See P1-6.
+        from tasks.definitions.background import (
+            process_teams_lifecycle_event_bg_task,
+        )
+
+        for item in items:
+            trace_id = generate_trace_id()
+            try:
+                intake = await record_webhook_notification(
+                    notification=item,
+                    webhook_kind="recordings-lifecycle",
+                    trace_id=trace_id,
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to record lifecycle webhook notification (sub=%s)",
+                    item.get("subscriptionId"),
+                )
+                continue
+            if intake is None or intake.is_duplicate:
+                continue
+            try:
+                await process_teams_lifecycle_event_bg_task.kiq(
+                    event_id=str(intake.event_id),
+                    trace_id=trace_id,
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to enqueue lifecycle processing task for event %s",
+                    intake.event_id,
+                )
 
         return Response(status_code=HTTP_202_ACCEPTED, content=b"")
 

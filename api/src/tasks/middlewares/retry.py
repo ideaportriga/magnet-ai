@@ -20,6 +20,7 @@ logger = getLogger(__name__)
 IDEMPOTENT_TASK_NAMES: set[str] = {
     "recover_stuck_syncing_kg_sources",
     "recover_stuck_processing_jobs",
+    "recover_stuck_transcription_jobs",
     "cleanup_logs",
     "cleanup_old_uploads",
     "cleanup_expired_refresh_tokens",

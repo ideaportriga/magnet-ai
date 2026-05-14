@@ -52,22 +52,6 @@ def _to_dict(obj: Any) -> Any:
     return obj
 
 
-def _sanitize_keyterms(keyterms: list[str] | None) -> list[str]:
-    if not keyterms:
-        return []
-    cleaned = []
-    for term in keyterms:
-        if not isinstance(term, str):
-            continue
-        t = term.strip()
-        if not t or len(t) > 50:
-            continue
-        if len(t.split()) > 5:
-            t = " ".join(t.split()[:5])
-        cleaned.append(t)
-    return cleaned[:100]
-
-
 def _ms_to_s(x: Any) -> float:
     try:
         return float(x or 0.0) / 1000.0
@@ -200,6 +184,11 @@ def _normalize_azure_segments(
 
 
 class AzureSpeechTranscriber(BaseTranscriber):
+    # Same upper bounds as ElevenLabs in practice — phrase length and
+    # count caps that long predate this refactor.
+    MAX_KEYTERM_WORDS = 5
+    MAX_KEYTERMS = 100
+
     def __init__(self, storage: PgDataStorage, cfg: TranscriptionCfg):
         super().__init__(storage, cfg)
 
@@ -269,7 +258,7 @@ class AzureSpeechTranscriber(BaseTranscriber):
             provider = await get_ai_provider(provider_system_name)
 
             file_bytes = await asyncio.to_thread(_read_bytes, tmp_wav)
-            safe_terms = _sanitize_keyterms(self._cfg.keyterms)
+            safe_terms = self._sanitize_keyterms(self._cfg.keyterms)
 
             tx = await provider.transcribe(
                 file=BytesIO(file_bytes),

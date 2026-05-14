@@ -101,11 +101,11 @@ async def create_and_persist_recordings_ready_subscription(
     expiration_dt: dt.datetime | None = None
 
     try:
-        import os as _os
-
-        _client_state = (
-            _os.environ.get("TEAMS_GRAPH_WEBHOOK_CLIENT_STATE") or "recordings-ready"
+        from services.agents.teams.webhook_security import (
+            get_graph_webhook_client_state,
         )
+
+        _client_state = get_graph_webhook_client_state()
         payload = await create_recordings_ready_subscription(
             token=delegated_token,
             online_meeting_id=online_meeting_id,
@@ -314,7 +314,7 @@ async def create_recordings_ready_subscription(
     notification_url: str,
     lifecycle_notification_url: str | None = None,
     expiration: dt.datetime | None = None,
-    client_state: str = "recordings-ready",
+    client_state: str | None = None,
 ) -> dict[str, Any]:
     if not token:
         raise ValueError("A Graph access token is required to create a subscription.")
@@ -329,6 +329,13 @@ async def create_recordings_ready_subscription(
     expiration_iso = expiration_dt.isoformat()
     if expiration_iso.endswith("+00:00"):
         expiration_iso = expiration_iso.replace("+00:00", "Z")
+
+    if not client_state:
+        from services.agents.teams.webhook_security import (
+            get_graph_webhook_client_state,
+        )
+
+        client_state = get_graph_webhook_client_state()
 
     encoded_meeting_id = quote(online_meeting_id, safe="")
     resource = f"communications/onlineMeetings/{encoded_meeting_id}/recordings"
@@ -723,11 +730,11 @@ def pick_recordings_ready_subscription(
             for target in target_resources
         ):
             continue
-        import os as _os
-
-        _expected_cs = (
-            _os.environ.get("TEAMS_GRAPH_WEBHOOK_CLIENT_STATE") or "recordings-ready"
+        from services.agents.teams.webhook_security import (
+            get_graph_webhook_client_state,
         )
+
+        _expected_cs = get_graph_webhook_client_state()
         client_state = item.get("clientState")
         if client_state and client_state != _expected_cs:
             continue

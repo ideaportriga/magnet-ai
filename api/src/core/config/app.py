@@ -81,6 +81,17 @@ _structlog_standard_lib_processors.insert(
     ),
 )
 
+# Propagate the note-taker `trace_id` contextvar onto every emitted log
+# line so a single Loki query (`| json | trace_id="..."`) reconstructs
+# the whole webhook → STT → integrations flow.
+# See docs/NOTE_TAKER_RELIABILITY_PLAN.md § P1-3.
+from services.agents.teams.trace_context import (  # noqa: E402
+    add_trace_id_to_event_dict,
+)
+
+_structlog_default_processors.insert(-1, add_trace_id_to_event_dict)
+_structlog_standard_lib_processors.insert(-1, add_trace_id_to_event_dict)
+
 # In debug mode, capture errors into in-memory collector for e2e test reporting
 if settings.log.DEBUG_MODE:
     from core.server.test_error_collector import error_collector_processor
@@ -101,6 +112,7 @@ _structlog_loki_processors.insert(
         ]
     ),
 )
+_structlog_loki_processors.insert(-1, add_trace_id_to_event_dict)
 
 # Handlers configuration - console + optionally Loki
 _default_handlers = ["queue_listener"] + (["loki"] if settings.log.LOKI_URL else [])

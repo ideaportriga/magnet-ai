@@ -1,5 +1,6 @@
 import asyncio
 import datetime as dt
+import os
 import re
 from types import SimpleNamespace
 from uuid import UUID, uuid4
@@ -18,7 +19,6 @@ from services.knowledge_graph.sources.api_ingest.api_ingest_source import (
     run_background_ingest,
 )
 from services.observability import observe
-from stores import get_db_client
 from speech_to_text.transcription import service as transcription_service
 from services.prompt_templates import execute_prompt_template
 
@@ -51,8 +51,18 @@ from .note_taker_cards import create_speaker_mapping_card
 
 logger = getLogger(__name__)
 
-_TRANSCRIPTION_TIMEOUT_SECONDS = 900
+# Override via env so ops can extend the deadline for slow providers
+# without code changes. See P1-2.
+_TRANSCRIPTION_TIMEOUT_SECONDS = int(
+    os.environ.get("NOTE_TAKER_STT_TIMEOUT_SECONDS") or 900
+)
+# Initial poll cadence — kept short so completed jobs surface quickly.
+# The loop applies exponential backoff up to ``_TRANSCRIPTION_POLL_MAX_SECONDS``
+# so long-running jobs aren't hammering ``get_status`` every 5s for 15 minutes.
 _TRANSCRIPTION_POLL_SECONDS = 5
+_TRANSCRIPTION_POLL_MAX_SECONDS = int(
+    os.environ.get("NOTE_TAKER_STT_POLL_MAX_SECONDS") or 60
+)
 
 
 def _build_transcription_keyterms(
@@ -78,17 +88,6 @@ def _format_prompt_template_error(err: Exception, *, limit: int = 300) -> str:
     return text
 
 
-async def _ensure_vector_pool_ready() -> None:
-    """Block until the pgvector pool is ready (to fix the issue with the first call after the startup)."""
-    try:
-        client = get_db_client()
-        init = getattr(client, "init_pool", None)
-        if callable(init):
-            await init()
-    except Exception as exc:
-        logger.warning("Failed to pre-initialize vector DB pool: %s", exc)
-
-
 async def _start_transcription_from_object_key(
     *,
     name: str,
@@ -103,8 +102,9 @@ async def _start_transcription_from_object_key(
     chat_id: str | None = None,
     initiated_by: str | None = None,
 ) -> tuple[str, dict | None]:
-    await _ensure_vector_pool_ready()
+    from .notetaker_metrics import record_stt_duration
 
+    submit_started = asyncio.get_event_loop().time()
     ext_no_dot = ext.lstrip(".")
 
     job_id = await transcription_service.submit(
@@ -130,6 +130,10 @@ async def _start_transcription_from_object_key(
 
     deadline = asyncio.get_event_loop().time() + _TRANSCRIPTION_TIMEOUT_SECONDS
     status: str | None = None
+    # Exponential backoff: 5s, 7s, 10s, 15s, 22s, 33s, 49s, 60s, 60s, …
+    # Cuts ``get_status`` traffic by ~10× on a typical 15-minute job
+    # while still surfacing a "completed" within the first cadence step.
+    poll_delay = float(_TRANSCRIPTION_POLL_SECONDS)
     while True:
         status = await transcription_service.get_status(job_id)
         if status in {"completed", "transcribed", "diarized", "failed"}:
@@ -137,11 +141,22 @@ async def _start_transcription_from_object_key(
         if asyncio.get_event_loop().time() > deadline:
             status = status or "timeout"
             break
-        await asyncio.sleep(_TRANSCRIPTION_POLL_SECONDS)
+        await asyncio.sleep(poll_delay)
+        poll_delay = min(poll_delay * 1.5, _TRANSCRIPTION_POLL_MAX_SECONDS)
 
     transcription = None
     if status in {"completed", "transcribed", "diarized"}:
         transcription = await transcription_service.get_transcription(job_id)
+
+    duration_s = asyncio.get_event_loop().time() - submit_started
+    metric_outcome = (
+        "completed"
+        if status in {"completed", "transcribed", "diarized"}
+        else (status or "unknown")
+    )
+    record_stt_duration(
+        provider=pipeline_id, outcome=metric_outcome, seconds=duration_s
+    )
 
     return status or "unknown", {"id": job_id, "transcription": transcription}
 
@@ -589,22 +604,39 @@ async def _send_transcription_summary(
             if key in knowledge_graph_sections
         }
         if confluence_sections:
-            await maybe_publish_confluence_notes(
-                context,
-                settings=settings,
-                job_id=job_id,
-                pipeline_id=pipeline_id,
-                meeting_context=meeting_context or resolve_meeting_details(context),
-                participants=participant_names,
-                conversation_date=conversation_date,
-                conversation_time=conversation_time,
-                duration=duration_str,
-                sections=confluence_sections,
-                transcript=full_text,
-                keyterms=keyterms,
-                invited_people=invited_people,
-                send_expandable_section=send_expandable_section,
-            )
+            from .integration_journal import integration_attempt
+            from .trace_context import get_trace_id
+
+            _trace_id = get_trace_id()
+            async with integration_attempt(
+                job_id=job_id or "",
+                integration_kind="confluence",
+                trace_id=_trace_id,
+            ) as proceed:
+                if proceed:
+                    try:
+                        await maybe_publish_confluence_notes(
+                            context,
+                            settings=settings,
+                            job_id=job_id,
+                            pipeline_id=pipeline_id,
+                            meeting_context=meeting_context
+                            or resolve_meeting_details(context),
+                            participants=participant_names,
+                            conversation_date=conversation_date,
+                            conversation_time=conversation_time,
+                            duration=duration_str,
+                            sections=confluence_sections,
+                            transcript=full_text,
+                            keyterms=keyterms,
+                            invited_people=invited_people,
+                            send_expandable_section=send_expandable_section,
+                        )
+                    except Exception:
+                        logger.exception(
+                            "Confluence publish failed for job %s — recorded in integration_attempt",
+                            job_id,
+                        )
 
             knowledge_graph_name = str(
                 settings.get("knowledge_graph_system_name") or ""
@@ -618,17 +650,29 @@ async def _send_transcription_summary(
             )
             if embedding_enabled and knowledge_graph_name and knowledge_graph_sections:
                 meeting_for_ingest = meeting_context or resolve_meeting_details(context)
-                ingested = await _ingest_knowledge_graph_sections(
-                    graph_system_name=knowledge_graph_name,
-                    meeting=meeting_for_ingest,
-                    job_id=job_id,
-                    conversation_date=conversation_date,
-                    sections=knowledge_graph_sections,
-                )
-                if ingested:
-                    await context.send_activity(
-                        f"Embedded {ingested} item(s) into knowledge graph {knowledge_graph_name}."
-                    )
+                async with integration_attempt(
+                    job_id=job_id or "",
+                    integration_kind="knowledge_graph",
+                    trace_id=_trace_id,
+                ) as proceed:
+                    if proceed:
+                        try:
+                            ingested = await _ingest_knowledge_graph_sections(
+                                graph_system_name=knowledge_graph_name,
+                                meeting=meeting_for_ingest,
+                                job_id=job_id,
+                                conversation_date=conversation_date,
+                                sections=knowledge_graph_sections,
+                            )
+                            if ingested:
+                                await context.send_activity(
+                                    f"Embedded {ingested} item(s) into knowledge graph {knowledge_graph_name}."
+                                )
+                        except Exception:
+                            logger.exception(
+                                "KG ingest failed for job %s — recorded in integration_attempt",
+                                job_id,
+                            )
 
         return
 
@@ -676,6 +720,72 @@ async def run_postprocessing_pipeline(
             "Please re-run transcription if needed."
         )
         return
+
+    # Restore the trace id captured at stage 1 so stage 2 logs join up.
+    from .trace_context import set_trace_id
+
+    stage1_trace_id = state.get("trace_id")
+    if stage1_trace_id:
+        set_trace_id(stage1_trace_id)
+
+    # Stage 1 already deleted the pending row to prevent double-processing;
+    # if stage 2 fails after this point, the state is gone. Wrap the rest
+    # of the pipeline so any unhandled failure dumps the salvageable state
+    # under the trace id, giving on-call something to replay from instead
+    # of "summary never showed up, no clue why". See P1-1.
+    try:
+        await _run_postprocessing_body(
+            context,
+            state=state,
+            pending_id=pending_id,
+            speaker_mapping=speaker_mapping,
+            extra_keyterms=extra_keyterms,
+            meeting_notes=meeting_notes,
+            send_expandable_section=send_expandable_section,
+            load_settings_by_system_name=load_settings_by_system_name,
+            load_settings_for_context=load_settings_for_context,
+            resolve_meeting_details=resolve_meeting_details,
+        )
+    except Exception:
+        logger.exception(
+            "run_postprocessing_pipeline: stage 2 failed after pending was retired; "
+            "salvageable state for replay: pending_id=%s job_id=%s "
+            "settings_system_name=%s chat_id=%s meeting_id=%s text_len=%d",
+            pending_id,
+            state.get("job_id"),
+            state.get("settings_system_name"),
+            state.get("chat_id"),
+            (state.get("meeting_context") or {}).get("id"),
+            len(state.get("full_text") or ""),
+        )
+        try:
+            await context.send_activity(
+                "Failed to finish processing the recording. The error was logged — "
+                "please re-run the transcription if you need the summary."
+            )
+        except Exception:
+            logger.exception(
+                "run_postprocessing_pipeline: also failed to notify user about stage 2 failure"
+            )
+        raise
+
+
+async def _run_postprocessing_body(
+    context: TurnContext,
+    *,
+    state: dict[str, Any],
+    pending_id: str,
+    speaker_mapping: dict[str, str],
+    extra_keyterms: list[str] | None,
+    meeting_notes: str | None,
+    send_expandable_section: Callable[..., Awaitable[None]],
+    load_settings_by_system_name: Callable[[str], Awaitable[dict[str, Any]]],
+    load_settings_for_context: Callable[[TurnContext], Awaitable[dict[str, Any]]],
+    resolve_meeting_details: Callable[[TurnContext], dict[str, Any]],
+) -> None:
+    """The body of run_postprocessing_pipeline, split out so the caller can
+    wrap it in a salvage-log try/except (see P1-1).
+    """
 
     full_text: str = state.get("full_text") or ""
     if not full_text:
@@ -785,39 +895,69 @@ async def run_postprocessing_pipeline(
         return
 
     _mc = meeting_context or resolve_meeting_details(context)
-    await maybe_publish_confluence_notes(
-        context,
-        settings=settings,
-        job_id=job_id,
-        pipeline_id=pipeline_id,
-        meeting_context=_mc,
-        participants=participant_names,
-        conversation_date=conversation_date,
-        conversation_time=conversation_time,
-        duration=None,
-        sections=confluence_sections,
-        transcript=full_text,
-        keyterms=keyterms,
-        invited_people=invited_people,
-        send_expandable_section=send_expandable_section,
-    )
+    from .integration_journal import integration_attempt
+    from .trace_context import get_trace_id
+
+    _trace_id = get_trace_id()
+
+    async with integration_attempt(
+        job_id=job_id or "",
+        integration_kind="confluence",
+        trace_id=_trace_id,
+    ) as proceed:
+        if proceed:
+            try:
+                await maybe_publish_confluence_notes(
+                    context,
+                    settings=settings,
+                    job_id=job_id,
+                    pipeline_id=pipeline_id,
+                    meeting_context=_mc,
+                    participants=participant_names,
+                    conversation_date=conversation_date,
+                    conversation_time=conversation_time,
+                    duration=None,
+                    sections=confluence_sections,
+                    transcript=full_text,
+                    keyterms=keyterms,
+                    invited_people=invited_people,
+                    send_expandable_section=send_expandable_section,
+                )
+            except Exception:
+                logger.exception(
+                    "Confluence publish failed for job %s — recorded in integration_attempt, "
+                    "continuing with KG/SF",
+                    job_id,
+                )
 
     knowledge_graph_name = str(
         settings.get("knowledge_graph_system_name") or ""
     ).strip()
     embedding_enabled = bool(settings.get("create_knowledge_graph_embedding"))
     if embedding_enabled and knowledge_graph_name and knowledge_graph_sections:
-        ingested = await _ingest_knowledge_graph_sections(
-            graph_system_name=knowledge_graph_name,
-            meeting=_mc,
-            job_id=job_id,
-            conversation_date=conversation_date,
-            sections=knowledge_graph_sections,
-        )
-        if ingested:
-            await context.send_activity(
-                f"Embedded {ingested} item(s) into knowledge graph {knowledge_graph_name}."
-            )
+        async with integration_attempt(
+            job_id=job_id or "",
+            integration_kind="knowledge_graph",
+            trace_id=_trace_id,
+        ) as proceed:
+            if proceed:
+                try:
+                    ingested = await _ingest_knowledge_graph_sections(
+                        graph_system_name=knowledge_graph_name,
+                        meeting=_mc,
+                        job_id=job_id,
+                        conversation_date=conversation_date,
+                        sections=knowledge_graph_sections,
+                    )
+                    if ingested:
+                        await context.send_activity(
+                            f"Embedded {ingested} item(s) into knowledge graph {knowledge_graph_name}."
+                        )
+                except Exception:
+                    logger.exception(
+                        "KG ingest failed for job %s — recorded in integration_attempt",
+                        job_id,
+                    )
 
 
 async def run_transcription_pipeline(

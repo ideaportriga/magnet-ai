@@ -56,5 +56,10 @@ class Transcription(
         Text(), nullable=True, index=True
     )
 
+    # Correlation id flowing from the webhook / preview entry-point so
+    # logs from STT poll loops can be joined against the upstream caller.
+    # See docs/NOTE_TAKER_RELIABILITY_PLAN.md § P1-3.
+    trace_id: Mapped[Optional[str]] = mapped_column(Text(), nullable=True, index=True)
+
     def __repr__(self) -> str:
         return f"<Transcription file_id={self.file_id} status={self.status}>"
