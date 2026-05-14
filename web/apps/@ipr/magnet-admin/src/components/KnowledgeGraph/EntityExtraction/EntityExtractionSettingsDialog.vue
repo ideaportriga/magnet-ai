@@ -16,23 +16,39 @@
         description="Define how entity extraction runs and which prompt templates drive the structured output."
         icon="auto_awesome"
       >
-        <template #header-actions>
-          <kg-section-control v-model="approach" :options="approachControlOptions" />
-        </template>
         <div class="column q-gap-16">
-          <kg-field-row
-            label="Extraction Strategy"
-            hint="Determines how many reasoning steps the model uses per segment. Single-Pass is the fastest option."
-          >
-            <kg-dropdown-field
-              v-model="mode"
-              :options="modeOptions"
-              option-value="value"
-              option-label="label"
-              option-description="description"
-              dense
-            />
-          </kg-field-row>
+          <div class="row q-col-gutter-md">
+            <div class="col-12 col-md-6">
+              <kg-field-row
+                label="Extraction Approach"
+                hint="Controls whether extraction uses complete documents with automatic segmentation or existing chunks directly."
+              >
+                <kg-dropdown-field
+                  v-model="approach"
+                  :options="approachOptions"
+                  option-value="value"
+                  option-label="label"
+                  option-description="description"
+                  dense
+                />
+              </kg-field-row>
+            </div>
+            <div class="col-12 col-md-6">
+              <kg-field-row
+                label="Extraction Strategy"
+                hint="Determines how many reasoning steps the model uses per segment. Single-Pass is the fastest option."
+              >
+                <kg-dropdown-field
+                  v-model="mode"
+                  :options="modeOptions"
+                  option-value="value"
+                  option-label="label"
+                  option-description="description"
+                  dense
+                />
+              </kg-field-row>
+            </div>
+          </div>
 
           <div v-if="mode === 'reflective'">
             <kg-field-row label="Extraction Prompt">
@@ -119,7 +135,7 @@
           </div>
           <div class="col-12 col-md-7">
             <kg-field-row label="Segment Overlap">
-              <div class="row items-center q-gap-md">
+              <div class="row items-center q-gap-md q-pl-4">
                 <q-slider
                   v-model="segmentOverlap"
                   :min="0"
@@ -136,11 +152,7 @@
         </div>
       </kg-dialog-section>
 
-      <kg-dialog-section
-        title="Advanced Settings"
-        description="Control schema format, iteration count, relevance filtering, and analysis coverage to balance extraction quality, cost, and speed."
-        icon="tune"
-      >
+      <kg-dialog-section title="Advanced Settings" :description="advancedSettingsDescription" icon="tune">
         <div class="column q-gap-16">
           <div class="row q-col-gutter-md">
             <div class="col">
@@ -191,50 +203,52 @@
             />
           </kg-field-row>
 
-          <kg-field-row
-            label="Coverage Mode"
-            hint="Which section of the document's chunks the analysis pass should learn from. Set to Full to process whole document."
-          >
-            <kg-dropdown-field v-model="documentCoverageMode" :options="coverageModeOptions" option-value="value" option-label="label" dense />
-          </kg-field-row>
+          <template v-if="isSelfTuningMode">
+            <kg-field-row
+              label="Analysis Coverage Mode"
+              hint="Which section of the document's chunks the analysis pass should learn from. Set to Full to process whole document."
+            >
+              <kg-dropdown-field v-model="documentCoverageMode" :options="coverageModeOptions" option-value="value" option-label="label" dense />
+            </kg-field-row>
 
-          <div v-if="documentCoverageMode !== 'full'" class="row q-col-gutter-md">
-            <div class="col-12 col-md-6">
-              <kg-field-row label="Coverage">
-                <div class="row items-center q-gap-md q-pl-4">
-                  <q-slider
-                    v-model="documentCoverage"
-                    :min="MIN_DOCUMENT_COVERAGE"
-                    :max="MAX_DOCUMENT_COVERAGE"
-                    :step="0.02"
-                    label
-                    :label-value="`${Math.round(documentCoverage * 100)}%`"
-                    class="col q-mt-4"
-                  />
-                  <span class="coverage-value">{{ Math.round(documentCoverage * 100) }}%</span>
-                </div>
-              </kg-field-row>
-            </div>
-            <div class="col-12 col-md-6">
-              <kg-field-row label="Coverage Preview">
-                <div class="column q-gap-4 full-width">
-                  <div class="coverage-preview">
-                    <div class="coverage-preview__bar">
-                      <div
-                        v-for="(seg, i) in coverageBarSegments"
-                        :key="i"
-                        :class="[
-                          'coverage-preview__segment',
-                          seg.analyzed ? 'coverage-preview__segment--analyzed' : 'coverage-preview__segment--skipped',
-                        ]"
-                        :style="{ flex: seg.width }"
-                      />
+            <div v-if="documentCoverageMode !== 'full'" class="row q-col-gutter-md">
+              <div class="col-12 col-md-6">
+                <kg-field-row label="Analysis Coverage">
+                  <div class="row items-center q-gap-md q-pl-4">
+                    <q-slider
+                      v-model="documentCoverage"
+                      :min="MIN_DOCUMENT_COVERAGE"
+                      :max="MAX_DOCUMENT_COVERAGE"
+                      :step="0.02"
+                      label
+                      :label-value="`${Math.round(documentCoverage * 100)}%`"
+                      class="col q-mt-4"
+                    />
+                    <span class="coverage-value">{{ Math.round(documentCoverage * 100) }}%</span>
+                  </div>
+                </kg-field-row>
+              </div>
+              <div class="col-12 col-md-6">
+                <kg-field-row label="Coverage Preview">
+                  <div class="column q-gap-4 full-width">
+                    <div class="coverage-preview">
+                      <div class="coverage-preview__bar">
+                        <div
+                          v-for="(seg, i) in coverageBarSegments"
+                          :key="i"
+                          :class="[
+                            'coverage-preview__segment',
+                            seg.analyzed ? 'coverage-preview__segment--analyzed' : 'coverage-preview__segment--skipped',
+                          ]"
+                          :style="{ flex: seg.width }"
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
-              </kg-field-row>
+                </kg-field-row>
+              </div>
             </div>
-          </div>
+          </template>
         </div>
       </kg-dialog-section>
     </div>
@@ -243,7 +257,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { KgDialogBase, KgDialogSection, KgDropdownField, KgFieldRow, KgSectionControl, type ControlOption } from '../common'
+import { KgDialogBase, KgDialogSection, KgDropdownField, KgFieldRow } from '../common'
 import {
   createDefaultEntityExtractionRunSettings,
   createDefaultPerformanceTuningSettings,
@@ -266,16 +280,16 @@ export interface EntityExtractionDialogPayload {
   advanced_settings: EntityExtractionPerformanceTuningSettings
 }
 
-const approachControlOptions: ControlOption[] = [
+const approachOptions = [
   {
     label: 'Document Based',
     value: 'document',
-    hint: 'Process full documents and split them into overlapping segments automatically. Recommended for most graphs.',
+    description: 'Process full documents and split them into overlapping segments automatically. Recommended for most graphs.',
   },
   {
     label: 'Chunk Based',
     value: 'chunks',
-    hint: 'Process each existing chunk on its own. Use when chunk-level provenance is the priority.',
+    description: 'Process each existing chunk on its own. Use when chunk-level provenance is the priority.',
   },
 ]
 
@@ -374,6 +388,12 @@ const relevanceFilterPromptTemplateSystemName = ref(tuningDefaults.relevance_fil
 const documentCoverageMode = ref<DocumentCoverageMode>(DEFAULT_DOCUMENT_COVERAGE_MODE)
 const documentCoverage = ref(DEFAULT_DOCUMENT_COVERAGE)
 const loading = ref(false)
+const isSelfTuningMode = computed(() => mode.value === 'self-tuning')
+const advancedSettingsDescription = computed(() =>
+  isSelfTuningMode.value
+    ? 'Control schema format, iteration count, relevance filtering, and analysis coverage to balance extraction quality, cost, and speed.'
+    : 'Control schema format, iteration count, and relevance filtering to balance extraction quality, cost, and speed.'
+)
 
 const coverageBarSegments = computed(() => {
   const mode = documentCoverageMode.value
@@ -455,6 +475,16 @@ watch(
 )
 
 function onConfirm() {
+  const documentCoverageSettings = isSelfTuningMode.value
+    ? {
+        mode: documentCoverageMode.value,
+        coverage: documentCoverage.value,
+      }
+    : {
+        mode: DEFAULT_DOCUMENT_COVERAGE_MODE,
+        coverage: DEFAULT_DOCUMENT_COVERAGE,
+      }
+
   emit('save', {
     extraction: {
       approach: approach.value,
@@ -472,10 +502,7 @@ function onConfirm() {
       relevance_filter: {
         prompt_template_system_name: relevanceFilterPromptTemplateSystemName.value.trim(),
       },
-      document_coverage: {
-        mode: documentCoverageMode.value,
-        coverage: documentCoverage.value,
-      },
+      document_coverage: documentCoverageSettings,
     },
   })
 }
