@@ -15,7 +15,7 @@
     <km-separator class="mt-lg mb-lg" />
     <km-section :title="m.section_customHeaders()" :sub-title="m.apiServers_customHeadersNotification()">
       <km-notification-text notification="Define custom headers that will be sent with each API request. Use placeholders in curly braces to reference secrets." />
-      <key-value-editor v-model="customHeadersObject" :key-label="m.common_headerName()" :value-label="m.common_headerValue()" :add-label="m.apiServers_addCustomHeader()" />
+      <km-key-value-editor v-model="customHeadersObject" :key-label="m.common_headerName()" :value-label="m.common_headerValue()" :add-label="m.apiServers_addCustomHeader()" />
     </km-section>
     <km-separator class="mt-lg mb-lg" />
     <km-section :title="m.section_securitySchema()" :sub-title="m.apiServers_securitySchemaSubtitle()">
@@ -34,7 +34,7 @@
     <km-separator class="mt-lg mb-lg" />
     <km-section :title="m.section_securityValues()" :sub-title="m.apiServers_securityValuesSubtitle()">
       <km-notification-text notification="Do not expose sensitive data in this section. Instead, use placeholders and provide actual values in the Secrets section. Use curly braces to insert placeholders." />
-      <key-value-editor v-model="securityValuesObject" :add-label="m.apiServers_addSecurityValue()" />
+      <km-key-value-editor v-model="securityValuesObject" :add-label="m.apiServers_addSecurityValue()" />
     </km-section>
     <km-separator class="mt-lg mb-lg" />
     <km-section :title="m.section_secrets()" :sub-title="m.apiServers_secretsSubtitle()">
@@ -106,7 +106,7 @@ const secrets = computed({
 })
 
 /* `custom_headers` and `security_values` are persisted as Maps elsewhere in
- * the app, but `<key-value-editor>` works with plain objects. Adapt both
+ * the app, but `<km-key-value-editor>` works with plain objects. Adapt both
  * directions in a single computed so the editor's `v-model` can drive
  * `updateField` directly without bespoke add/remove/update helpers. */
 const customHeadersObject = computed({

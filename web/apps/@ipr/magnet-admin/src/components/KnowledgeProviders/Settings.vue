@@ -28,7 +28,7 @@
     </km-popup-confirm>
     <km-separator class="mt-lg mb-lg" />
     <km-section :title="m.section_connection()" :sub-title="m.subtitle_connectionParams()">
-      <key-value-editor :model-value="provider?.connection_config || {}" @update:model-value="updateField('connection_config', $event)" />
+      <km-key-value-editor :model-value="provider?.connection_config || {}" @update:model-value="updateField('connection_config', $event)" />
     </km-section>
     <km-separator class="mt-lg mb-lg" />
     <km-section :title="m.section_secrets()" :sub-title="m.subtitle_useSecretsKsp()">

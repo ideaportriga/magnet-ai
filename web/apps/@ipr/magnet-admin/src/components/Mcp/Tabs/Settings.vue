@@ -17,7 +17,7 @@
     <km-separator class="mt-lg mb-lg" />
     <km-section :title="m.section_headers()" :sub-title="m.subtitle_useHeaders()">
       <km-notification-text :notification="m.hint_noSensitiveData()" />
-      <key-value-editor v-model="headersObject" :add-label="m.common_addHeaderRecord()" />
+      <km-key-value-editor v-model="headersObject" :add-label="m.common_addHeaderRecord()" />
     </km-section>
     <km-separator class="mt-lg mb-lg" />
     <km-section :title="m.section_secrets()" :sub-title="m.subtitle_useSecretsMcp()">

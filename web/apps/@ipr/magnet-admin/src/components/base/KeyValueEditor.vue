@@ -39,7 +39,7 @@
 
 <script setup>
 /**
- * `<key-value-editor v-model="record">` — generic editor for a
+ * `<km-key-value-editor v-model="record">` — generic editor for a
  * `Record<string, string>` shape. Renders one row per entry with key + value
  * inputs and a delete button, plus an "Add record" trigger underneath.
  *

@@ -32,11 +32,11 @@
     </km-popup-confirm>
     <km-separator class="mt-lg mb-lg" />
     <km-section title="Connection" sub-title="Connection parameters like endpoints and headers">
-      <key-value-editor :model-value="provider?.connection_config || {}" @update:model-value="updateField('connection_config', $event)">
+      <km-key-value-editor :model-value="provider?.connection_config || {}" @update:model-value="updateField('connection_config', $event)">
         <template #actions>
           <km-btn flat :label="testingConnection ? &quot;Testing...&quot; : &quot;Test Connection&quot;" :loading="testingConnection" icon="plug" tone="brand" size="sm" @click="testProviderConnection" />
         </template>
-      </key-value-editor>
+      </km-key-value-editor>
     </km-section>
     <km-dialog v-model="showTestDialog">
       <km-card style="min-inline-size: 580px; max-inline-size: 720px">
