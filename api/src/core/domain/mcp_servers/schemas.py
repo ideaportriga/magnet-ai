@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import Field
 
+from core.domain.base.record_level_mixin import RecordLevelFieldsMixin
 from core.domain.base.schemas import (
     BaseSimpleCreateSchema,
     BaseSimpleSchema,
@@ -17,7 +18,7 @@ from core.domain.base.schemas import (
 
 
 # Pydantic schemas for MCP server serialization
-class MCPServer(BaseSimpleSchema):
+class MCPServer(BaseSimpleSchema, RecordLevelFieldsMixin):
     """MCP server schema for serialization."""
 
     transport: str = Field(..., description="Transport protocol (e.g., sse)")
@@ -33,7 +34,9 @@ class MCPServer(BaseSimpleSchema):
     )
 
 
-class MCPServerResponse(BaseSimpleSchema, SecretsEncryptedMixin):
+class MCPServerResponse(
+    BaseSimpleSchema, SecretsEncryptedMixin, RecordLevelFieldsMixin
+):
     """MCP server schema for API responses with masked secrets."""
 
     transport: str = Field(..., description="Transport protocol (e.g., sse)")

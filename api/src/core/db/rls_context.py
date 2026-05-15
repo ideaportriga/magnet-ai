@@ -38,7 +38,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Iterator, Optional
 
-from sqlalchemy import event, text
+from sqlalchemy import event, inspect, text
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
@@ -135,6 +135,27 @@ def install_session_guc_listener() -> None:
             # — RLS isn't enforced there anyway. Log once at debug level so
             # a misconfiguration shows up.
             logger.debug("RLS GUC emit skipped (non-Postgres or no permission)")
+
+    @event.listens_for(Session, "before_flush")
+    def _populate_tenant_id(session, flush_context, instances):  # noqa: ANN001
+        # Safety net: controllers force tenant_id via `force_create_fields`,
+        # but raw `service.create({...})` and bulk callers may forget it.
+        # Only fills *unset* attributes — explicit `tenant_id=None` is left
+        # alone so NOT NULL/RLS checks still catch missing-tenant bugs.
+        ctx_tenant = current_tenant_id.get()
+        if not ctx_tenant:
+            return
+        for obj in session.new:
+            mapper = getattr(obj, "__mapper__", None)
+            if mapper is None or "tenant_id" not in mapper.columns:
+                continue
+            state = inspect(obj)
+            attr = state.attrs.get("tenant_id")
+            if attr is None:
+                continue
+            if attr.history.has_changes():
+                continue
+            obj.tenant_id = ctx_tenant
 
     _LISTENER_INSTALLED = True
 

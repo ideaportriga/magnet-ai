@@ -18,6 +18,14 @@ from core.domain.retrieval_tools.schemas import (
 from core.domain.retrieval_tools.service import (
     RetrievalToolsService,
 )
+from guards.permissions import Permission, require_permission
+from services.access_control import (
+    attach_permissions,
+    enforce_action_or_403,
+    enforce_view_or_404,
+    force_create_fields,
+    visibility_filter_for,
+)
 from services.flow_retrieval_execute import flow_retrieval_execute
 from services.flow_retrieval_test import RetrievalToolTestResult, flow_retrieval_test
 from services.observability import observability_context, observe
@@ -25,6 +33,9 @@ from validation.retrieval_tools import (
     RetrievalToolExecute,
     RetrievalToolTest,
 )
+
+
+_RESOURCE = "retrieval_tools"
 
 if TYPE_CHECKING:
     pass
@@ -50,81 +61,192 @@ class RetrievalToolsController(Controller):
         },
     )
 
-    @get()
+    @get(guards=[require_permission(Permission.RETRIEVAL_TOOLS_READ)])
     async def list_retrieval_tools(
         self,
         retrieval_tools_service: RetrievalToolsService,
         filters: Annotated[list[filters.FilterTypes], Dependency(skip_validation=True)],
+        request: Request,
     ) -> service.OffsetPagination[RetrievalTool]:
-        """List Retrieval tools with pagination and filtering."""
-        results, total = await retrieval_tools_service.list_and_count(*filters)
-        return retrieval_tools_service.to_schema(
-            results, total, filters=filters, schema_type=RetrievalTool
+        """List Retrieval tools — filtered by record-level visibility (PR 10)."""
+        from core.db.models.retrieval_tool.retrieval_tool import (
+            RetrievalTool as RetrievalToolModel,
         )
 
-    @post()
+        extra_filters: list = list(filters)
+        where = await visibility_filter_for(
+            retrieval_tools_service,
+            request=request,
+            model=RetrievalToolModel,
+            resource_type=_RESOURCE,
+        )
+        if where is not None:
+            extra_filters.append(where)
+        results, total = await retrieval_tools_service.list_and_count(*extra_filters)
+        page = retrieval_tools_service.to_schema(
+            results, total, filters=filters, schema_type=RetrievalTool
+        )
+        if request.scope.get("auth") is not None and page.items:
+            for item, model in zip(page.items, results):
+                await attach_permissions(
+                    retrieval_tools_service,
+                    item,
+                    model,
+                    request=request,
+                    resource_type=_RESOURCE,
+                )
+        return page
+
+    @post(guards=[require_permission(Permission.RETRIEVAL_TOOLS_WRITE)])
     async def create_retrieval_tool(
         self,
         retrieval_tools_service: RetrievalToolsService,
         data: RetrievalToolCreate,
+        request: Request,
         audit_username: str | None,
     ) -> RetrievalTool:
-        """Create a new Retrieval tool."""
+        """Create a new Retrieval tool. tenant_id + owner_id forced from auth."""
+        from core.db.models.retrieval_tool.retrieval_tool import (
+            RetrievalTool as RetrievalToolModel,
+        )
+
         data.created_by = audit_username
         data.updated_by = audit_username
-        obj = await retrieval_tools_service.create(data)
-        return retrieval_tools_service.to_schema(obj, schema_type=RetrievalTool)
+        payload = data.model_dump(exclude_unset=True)
+        payload = force_create_fields(payload, request=request)
+        payload["created_by"] = audit_username
+        payload["updated_by"] = audit_username
+        obj = await retrieval_tools_service.create(
+            RetrievalToolModel(**payload), auto_commit=True
+        )
+        schema = retrieval_tools_service.to_schema(obj, schema_type=RetrievalTool)
+        return await attach_permissions(
+            retrieval_tools_service,
+            schema,
+            obj,
+            request=request,
+            resource_type=_RESOURCE,
+        )
 
-    @get("/code/{code:str}")
+    @get(
+        "/code/{code:str}",
+        guards=[require_permission(Permission.RETRIEVAL_TOOLS_READ)],
+    )
     async def get_retrieval_tool_by_code(
-        self, retrieval_tools_service: RetrievalToolsService, code: str
+        self,
+        retrieval_tools_service: RetrievalToolsService,
+        code: str,
+        request: Request,
     ) -> RetrievalTool:
         """Get a Retrieval tool by its system_name."""
         obj = await retrieval_tools_service.get_one(system_name=code)
-        return retrieval_tools_service.to_schema(obj, schema_type=RetrievalTool)
+        await enforce_view_or_404(
+            retrieval_tools_service,
+            request=request,
+            resource=obj,
+            resource_type=_RESOURCE,
+        )
+        schema = retrieval_tools_service.to_schema(obj, schema_type=RetrievalTool)
+        return await attach_permissions(
+            retrieval_tools_service,
+            schema,
+            obj,
+            request=request,
+            resource_type=_RESOURCE,
+        )
 
-    @get("/{retrieval_tool_id:uuid}")
+    @get(
+        "/{retrieval_tool_id:uuid}",
+        guards=[require_permission(Permission.RETRIEVAL_TOOLS_READ)],
+    )
     async def get_retrieval_tool(
         self,
         retrieval_tools_service: RetrievalToolsService,
+        request: Request,
         retrieval_tool_id: UUID = Parameter(
             title="Retrieval Tool ID",
             description="The Retrieval tool to retrieve.",
         ),
     ) -> RetrievalTool:
-        """Get a Retrieval tool by its ID."""
+        """Get a Retrieval tool by its ID. 404 if caller can't view it."""
         obj = await retrieval_tools_service.get(retrieval_tool_id)
-        return retrieval_tools_service.to_schema(obj, schema_type=RetrievalTool)
+        await enforce_view_or_404(
+            retrieval_tools_service,
+            request=request,
+            resource=obj,
+            resource_type=_RESOURCE,
+        )
+        schema = retrieval_tools_service.to_schema(obj, schema_type=RetrievalTool)
+        return await attach_permissions(
+            retrieval_tools_service,
+            schema,
+            obj,
+            request=request,
+            resource_type=_RESOURCE,
+        )
 
-    @patch("/{retrieval_tool_id:uuid}")
+    @patch(
+        "/{retrieval_tool_id:uuid}",
+        guards=[require_permission(Permission.RETRIEVAL_TOOLS_WRITE)],
+    )
     async def update_retrieval_tool(
         self,
         retrieval_tools_service: RetrievalToolsService,
         data: RetrievalToolUpdate,
+        request: Request,
         retrieval_tool_id: UUID = Parameter(
             title="Retrieval Tool ID",
             description="The Retrieval tool to update.",
         ),
         audit_username: str | None = None,
     ) -> RetrievalTool:
-        """Update a Retrieval tool."""
+        """Update a Retrieval tool. 404/403 per record-level access rules."""
+        existing = await retrieval_tools_service.get(retrieval_tool_id)
+        await enforce_action_or_403(
+            retrieval_tools_service,
+            request=request,
+            action="edit",
+            resource=existing,
+            resource_type=_RESOURCE,
+        )
         update_data = data.model_dump(exclude_unset=True)
+        for forbidden in ("tenant_id", "owner_id"):
+            update_data.pop(forbidden, None)
         update_data["updated_by"] = audit_username
         obj = await retrieval_tools_service.update(
             update_data, item_id=retrieval_tool_id, auto_commit=True
         )
-        return retrieval_tools_service.to_schema(obj, schema_type=RetrievalTool)
+        schema = retrieval_tools_service.to_schema(obj, schema_type=RetrievalTool)
+        return await attach_permissions(
+            retrieval_tools_service,
+            schema,
+            obj,
+            request=request,
+            resource_type=_RESOURCE,
+        )
 
-    @delete("/{retrieval_tool_id:uuid}")
+    @delete(
+        "/{retrieval_tool_id:uuid}",
+        guards=[require_permission(Permission.RETRIEVAL_TOOLS_DELETE)],
+    )
     async def delete_retrieval_tool(
         self,
         retrieval_tools_service: RetrievalToolsService,
+        request: Request,
         retrieval_tool_id: UUID = Parameter(
             title="Retrieval Tool ID",
             description="The Retrieval tool to delete.",
         ),
     ) -> None:
-        """Delete a Retrieval tool from the system."""
+        """Delete a Retrieval tool. 404/403 per record-level access rules."""
+        existing = await retrieval_tools_service.get(retrieval_tool_id)
+        await enforce_action_or_403(
+            retrieval_tools_service,
+            request=request,
+            action="delete",
+            resource=existing,
+            resource_type=_RESOURCE,
+        )
         _ = await retrieval_tools_service.delete(retrieval_tool_id)
 
     @observe(name="Previewing Retrieval Tool", channel="preview")

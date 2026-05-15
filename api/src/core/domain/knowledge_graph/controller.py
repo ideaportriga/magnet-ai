@@ -23,6 +23,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from core.db.models.knowledge_graph import KnowledgeGraph
 from core.domain.agent_conversation.service import AgentConversationService
+from guards.permissions import Permission, require_permission
 from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphChunkExternalSchema,
     KnowledgeGraphCreateRequest,
@@ -114,13 +115,21 @@ class KnowledgeGraphController(Controller):
     # KNOWLEDGE GRAPH ENDPOINTS #
     ###########################################################################
 
-    @get("/", status_code=HTTP_200_OK)
+    @get(
+        "/",
+        status_code=HTTP_200_OK,
+        guards=[require_permission(Permission.KNOWLEDGE_GRAPH_READ)],
+    )
     async def list_graphs(
         self, graph_service: KnowledgeGraphService, db_session: AsyncSession
     ) -> list[KnowledgeGraphExternalSchema]:
         return await graph_service.list_graphs(db_session)
 
-    @get("/agent_tools", status_code=HTTP_200_OK)
+    @get(
+        "/agent_tools",
+        status_code=HTTP_200_OK,
+        guards=[require_permission(Permission.KNOWLEDGE_GRAPH_READ)],
+    )
     async def list_graphs_as_agent_tools(
         self, graph_service: KnowledgeGraphService, db_session: AsyncSession
     ) -> list[dict]:
@@ -153,7 +162,11 @@ class KnowledgeGraphController(Controller):
             )
         return result
 
-    @get("/{graph_id:uuid}", status_code=HTTP_200_OK)
+    @get(
+        "/{graph_id:uuid}",
+        status_code=HTTP_200_OK,
+        guards=[require_permission(Permission.KNOWLEDGE_GRAPH_READ)],
+    )
     async def get_graph(
         self,
         graph_service: KnowledgeGraphService,
@@ -162,7 +175,11 @@ class KnowledgeGraphController(Controller):
     ) -> KnowledgeGraphExternalSchema:
         return await graph_service.get_graph(db_session, graph_id)
 
-    @post("/", status_code=HTTP_200_OK)
+    @post(
+        "/",
+        status_code=HTTP_200_OK,
+        guards=[require_permission(Permission.KNOWLEDGE_GRAPH_WRITE)],
+    )
     async def create_graph(
         self,
         graph_service: KnowledgeGraphService,
@@ -180,7 +197,11 @@ class KnowledgeGraphController(Controller):
             edge_service=edge_service,
         )
 
-    @patch("/{graph_id:uuid}", status_code=HTTP_200_OK)
+    @patch(
+        "/{graph_id:uuid}",
+        status_code=HTTP_200_OK,
+        guards=[require_permission(Permission.KNOWLEDGE_GRAPH_WRITE)],
+    )
     async def update_graph(
         self,
         graph_service: KnowledgeGraphService,
@@ -198,7 +219,11 @@ class KnowledgeGraphController(Controller):
             chunk_service=chunk_service,
         )
 
-    @delete("/{graph_id:uuid}", status_code=HTTP_204_NO_CONTENT)
+    @delete(
+        "/{graph_id:uuid}",
+        status_code=HTTP_204_NO_CONTENT,
+        guards=[require_permission(Permission.KNOWLEDGE_GRAPH_DELETE)],
+    )
     async def delete_graph(
         self,
         graph_service: KnowledgeGraphService,

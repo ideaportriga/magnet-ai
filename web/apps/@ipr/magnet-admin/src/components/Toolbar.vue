@@ -224,6 +224,26 @@ export default {
         path: 'settings',
         permission: 'read:settings',
       },
+      // PR 5b — Admin UI entries. Bare-string labels for now; the paraglide
+      // catalogue can pick them up later.
+      {
+        label: 'Roles',
+        icon: 'shield-check',
+        path: 'admin/roles',
+        permission: 'read:roles',
+      },
+      {
+        label: 'Users',
+        icon: 'users',
+        path: 'admin/users',
+        permission: 'read:users',
+      },
+      {
+        label: 'Access log',
+        icon: 'history',
+        path: 'admin/access-log',
+        permission: 'read:audit',
+      },
     ]
 
     const experimental = [

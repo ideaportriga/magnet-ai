@@ -7,6 +7,7 @@ import factory
 from core.db.models.mcp_server import MCPServer
 
 from .base import BaseFactory
+from .users import _resolve_default_tenant_id
 
 
 class MCPServerFactory(BaseFactory):
@@ -19,3 +20,5 @@ class MCPServerFactory(BaseFactory):
     url = factory.Sequence(lambda n: f"http://localhost:900{n}")
     headers = factory.LazyFunction(dict)
     tools = factory.LazyFunction(list)
+    # PR 10 #7: mcp_servers are tenant-scoped; default to the seeded `default` tenant.
+    tenant_id = factory.LazyFunction(_resolve_default_tenant_id)

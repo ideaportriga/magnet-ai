@@ -2,6 +2,7 @@ from typing import List, Optional
 
 from pydantic import Field
 
+from core.domain.base.record_level_mixin import RecordLevelFieldsMixin
 from core.domain.base import (
     BaseEntityCreateSchema,
     BaseEntitySchema,
@@ -10,7 +11,7 @@ from core.domain.base import (
 from validation.retrieval_tools import RetrievalToolsBase  # noqa: F401
 
 
-class RetrievalTool(BaseEntitySchema):
+class RetrievalTool(BaseEntitySchema, RecordLevelFieldsMixin):
     """Retrieval Tool schema for serialization."""
 
     variants: Optional[List[RetrievalToolsBase]] = Field(

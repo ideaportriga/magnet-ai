@@ -4,13 +4,21 @@ from typing import TYPE_CHECKING, Annotated
 from uuid import UUID
 
 from advanced_alchemy.extensions.litestar import filters, providers, service
-from litestar import Controller, delete, get, patch, post
+from litestar import Controller, Request, delete, get, patch, post
 from litestar.params import Dependency, Parameter
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config.constants import DEFAULT_PAGINATION_SIZE
 from core.domain.collections.service import (
     CollectionsService,
+)
+from guards.permissions import Permission, require_permission
+from services.access_control import (
+    attach_permissions,
+    enforce_action_or_403,
+    enforce_view_or_404,
+    force_create_fields,
+    visibility_filter_for,
 )
 from storage import StorageService
 
@@ -20,8 +28,11 @@ if TYPE_CHECKING:
     pass
 
 
+_RESOURCE = "collections"
+
+
 class CollectionsController(Controller):
-    """Collections CRUD"""
+    """Collections CRUD — tenant + record-level scoped (PR 10 rollout)."""
 
     path = "/sql_collections"
     tags = ["Admin / Collections"]
@@ -40,35 +51,71 @@ class CollectionsController(Controller):
         },
     )
 
-    @get()
+    @get(guards=[require_permission(Permission.COLLECTIONS_READ)])
     async def list_collections(
         self,
         collections_service: CollectionsService,
         filters: Annotated[list[filters.FilterTypes], Dependency(skip_validation=True)],
+        request: Request,
     ) -> service.OffsetPagination[Collection]:
-        """List Collections with pagination and filtering."""
-        results, total = await collections_service.list_and_count(*filters)
-        return collections_service.to_schema(
+        """List Collections — filtered by record-level visibility."""
+        from core.db.models.collection.collection import Collection as CollectionModel
+
+        extra_filters: list = list(filters)
+        where = await visibility_filter_for(
+            collections_service,
+            request=request,
+            model=CollectionModel,
+            resource_type=_RESOURCE,
+        )
+        if where is not None:
+            extra_filters.append(where)
+
+        results, total = await collections_service.list_and_count(*extra_filters)
+        page = collections_service.to_schema(
             results, total, filters=filters, schema_type=Collection
         )
 
-    @post()
+        # Attach `_permissions` to each item via the shared helper.
+        if request.scope.get("auth") is not None and page.items:
+            for item, model in zip(page.items, results):
+                await attach_permissions(
+                    collections_service,
+                    item,
+                    model,
+                    request=request,
+                    resource_type=_RESOURCE,
+                )
+        return page
+
+    @post(guards=[require_permission(Permission.COLLECTIONS_WRITE)])
     async def create_collection(
         self,
         collections_service: CollectionsService,
         data: CollectionCreate,
+        request: Request,
         audit_username: str | None,
         storage_service: StorageService | None = None,
         db_session: AsyncSession | None = None,
     ) -> Collection:
-        """Create a new Collection, or update if one with the same system_name exists."""
+        """Create a new Collection. tenant_id + owner_id forced from auth."""
+        from core.db.models.collection.collection import Collection as CollectionModel
+
         data.created_by = audit_username
         data.updated_by = audit_username
+
+        payload = data.model_dump(exclude_unset=True)
+        payload = force_create_fields(payload, request=request)
+        payload["created_by"] = audit_username
+        payload["updated_by"] = audit_username
+
         obj = await collections_service.upsert(
-            data, match_fields=["system_name"], auto_commit=True
+            CollectionModel(**payload),
+            match_fields=["tenant_id", "system_name"],
+            auto_commit=True,
         )
 
-        # Claim any temp-uploaded files and reassign them to this collection
+        # Claim any temp-uploaded files and reassign them to this collection.
         if storage_service and db_session and data.source:
             uploaded_files = data.source.get("uploaded_files", [])
             file_ids = [
@@ -89,57 +136,115 @@ class CollectionsController(Controller):
                         pass
                 await db_session.commit()
 
-        return collections_service.to_schema(obj, schema_type=Collection)
+        schema = collections_service.to_schema(obj, schema_type=Collection)
+        return await attach_permissions(
+            collections_service, schema, obj, request=request, resource_type=_RESOURCE
+        )
 
-    @get("/code/{code:str}")
+    @get("/code/{code:str}", guards=[require_permission(Permission.COLLECTIONS_READ)])
     async def get_collection_by_code(
-        self, collections_service: CollectionsService, code: str
+        self,
+        collections_service: CollectionsService,
+        code: str,
+        request: Request,
     ) -> Collection:
         """Get a Collection by its system_name."""
         obj = await collections_service.get_one(system_name=code)
-        return collections_service.to_schema(obj, schema_type=Collection)
+        await enforce_view_or_404(
+            collections_service,
+            request=request,
+            resource=obj,
+            resource_type=_RESOURCE,
+        )
+        schema = collections_service.to_schema(obj, schema_type=Collection)
+        return await attach_permissions(
+            collections_service, schema, obj, request=request, resource_type=_RESOURCE
+        )
 
-    @get("/{collection_id:uuid}")
+    @get(
+        "/{collection_id:uuid}",
+        guards=[require_permission(Permission.COLLECTIONS_READ)],
+    )
     async def get_collection(
         self,
         collections_service: CollectionsService,
+        request: Request,
         collection_id: UUID = Parameter(
             title="Collection ID",
             description="The Collection to retrieve.",
         ),
     ) -> Collection:
-        """Get a Collection by its ID."""
+        """Get a Collection by its ID. 404 if the caller can't view it."""
         obj = await collections_service.get(collection_id)
-        return collections_service.to_schema(obj, schema_type=Collection)
+        await enforce_view_or_404(
+            collections_service,
+            request=request,
+            resource=obj,
+            resource_type=_RESOURCE,
+        )
+        schema = collections_service.to_schema(obj, schema_type=Collection)
+        return await attach_permissions(
+            collections_service, schema, obj, request=request, resource_type=_RESOURCE
+        )
 
-    @patch("/{collection_id:uuid}")
+    @patch(
+        "/{collection_id:uuid}",
+        guards=[require_permission(Permission.COLLECTIONS_WRITE)],
+    )
     async def update_collection(
         self,
         collections_service: CollectionsService,
         data: CollectionUpdate,
+        request: Request,
         collection_id: UUID = Parameter(
             title="Collection ID",
             description="The Collection to update.",
         ),
         audit_username: str | None = None,
     ) -> Collection:
-        """Update a Collection."""
-        # Only include fields that were explicitly set in the request
+        """Update a Collection. 404/403 per record-level access rules."""
+        existing = await collections_service.get(collection_id)
+        await enforce_action_or_403(
+            collections_service,
+            request=request,
+            action="edit",
+            resource=existing,
+            resource_type=_RESOURCE,
+        )
+
         update_data = data.model_dump(exclude_unset=True)
+        # Strip fields that must come from auth.
+        for forbidden in ("tenant_id", "owner_id"):
+            update_data.pop(forbidden, None)
         update_data["updated_by"] = audit_username
         obj = await collections_service.update(
             update_data, item_id=collection_id, auto_commit=True
         )
-        return collections_service.to_schema(obj, schema_type=Collection)
+        schema = collections_service.to_schema(obj, schema_type=Collection)
+        return await attach_permissions(
+            collections_service, schema, obj, request=request, resource_type=_RESOURCE
+        )
 
-    @delete("/{collection_id:uuid}")
+    @delete(
+        "/{collection_id:uuid}",
+        guards=[require_permission(Permission.COLLECTIONS_DELETE)],
+    )
     async def delete_collection(
         self,
         collections_service: CollectionsService,
+        request: Request,
         collection_id: UUID = Parameter(
             title="Collection ID",
             description="The Collection to delete.",
         ),
     ) -> None:
-        """Delete a Collection from the system."""
+        """Delete a Collection. 404/403 per record-level access rules."""
+        existing = await collections_service.get(collection_id)
+        await enforce_action_or_403(
+            collections_service,
+            request=request,
+            action="delete",
+            resource=existing,
+            resource_type=_RESOURCE,
+        )
         _ = await collections_service.delete(collection_id)

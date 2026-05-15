@@ -10,6 +10,7 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
+from core.domain.base.record_level_mixin import RecordLevelFieldsMixin
 from core.domain.base.schemas import (
     BaseSimpleCreateSchema,
     BaseSimpleSchema,
@@ -133,7 +134,7 @@ class CollectionUpdateFieldsMixin(BaseModel):
 
 
 # Pydantic schemas for Collections
-class Collection(BaseSimpleSchema, CollectionFieldsMixin):
+class Collection(BaseSimpleSchema, CollectionFieldsMixin, RecordLevelFieldsMixin):
     """Collection schema for serialization."""
 
 

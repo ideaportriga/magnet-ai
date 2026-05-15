@@ -2,6 +2,7 @@ from typing import List, Optional
 
 from pydantic import Field
 
+from core.domain.base.record_level_mixin import RecordLevelFieldsMixin
 from core.domain.base import (
     BaseEntityCreateSchema,
     BaseEntitySchema,
@@ -10,7 +11,7 @@ from core.domain.base import (
 from validation.rag_tools import RagToolsBase
 
 
-class RagTool(BaseEntitySchema):
+class RagTool(BaseEntitySchema, RecordLevelFieldsMixin):
     """RAG Tool schema for serialization."""
 
     variants: Optional[List[RagToolsBase]] = Field(

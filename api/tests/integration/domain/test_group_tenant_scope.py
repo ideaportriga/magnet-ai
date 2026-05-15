@@ -17,15 +17,18 @@ from sqlalchemy import select
 class TestGroupTenantScope:
     async def test_group_requires_tenant_id(self, db_session):
         from core.db.models.user.group import Group
+        from core.db.rls_context import rls_context_scope
 
-        bad = Group(
-            slug=f"no-tenant-{uuid4().hex[:6]}",
-            name=f"No tenant {uuid4().hex[:6]}",
-        )
-        db_session.add(bad)
-        with pytest.raises(Exception):
-            await db_session.flush()
-        await db_session.rollback()
+        # Clear contextvar so the before_flush safety net doesn't auto-fill.
+        with rls_context_scope(tenant_id=None):
+            bad = Group(
+                slug=f"no-tenant-{uuid4().hex[:6]}",
+                name=f"No tenant {uuid4().hex[:6]}",
+            )
+            db_session.add(bad)
+            with pytest.raises(Exception):
+                await db_session.flush()
+            await db_session.rollback()
 
     async def test_two_tenants_share_slug(self, db_session, default_tenant):
         from core.db.models.tenant.tenant import Tenant

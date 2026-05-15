@@ -13,6 +13,14 @@ from litestar.status_codes import HTTP_200_OK
 from core.config.constants import DEFAULT_PAGINATION_SIZE
 from core.domain.rag_tools.schemas import RagTool, RagToolCreate, RagToolUpdate
 from core.domain.rag_tools.service import RagToolsService
+from guards.permissions import Permission, require_permission
+from services.access_control import (
+    attach_permissions,
+    enforce_action_or_403,
+    enforce_view_or_404,
+    force_create_fields,
+    visibility_filter_for,
+)
 from services.observability import observability_context, observe
 from services.rag_tools import execute_rag_tool
 from services.rag_tools.models import RagToolTestResult
@@ -20,6 +28,7 @@ from services.rag_tools.services import get_rag_by_system_name_flat
 from validation.rag_tools import RagToolExecute, RagToolTest
 
 logger = logging.getLogger(__name__)
+_RESOURCE = "rag_tools"
 
 if TYPE_CHECKING:
     pass
@@ -45,65 +54,129 @@ class RagToolsController(Controller):
         },
     )
 
-    @get()
+    @get(guards=[require_permission(Permission.RAG_TOOLS_READ)])
     async def list_rag_tools(
         self,
         rag_tools_service: RagToolsService,
         filters: Annotated[list[filters.FilterTypes], Dependency(skip_validation=True)],
+        request: Request,
     ) -> service.OffsetPagination[RagTool]:
-        """List RAG tools with pagination and filtering."""
-        results, total = await rag_tools_service.list_and_count(*filters)
-        return rag_tools_service.to_schema(
+        """List RAG tools — filtered by record-level visibility (PR 10)."""
+        from core.db.models.rag_tool.rag_tool import RagTool as RagToolModel
+
+        extra_filters: list = list(filters)
+        where = await visibility_filter_for(
+            rag_tools_service,
+            request=request,
+            model=RagToolModel,
+            resource_type=_RESOURCE,
+        )
+        if where is not None:
+            extra_filters.append(where)
+        results, total = await rag_tools_service.list_and_count(*extra_filters)
+        page = rag_tools_service.to_schema(
             results, total, filters=filters, schema_type=RagTool
         )
+        if request.scope.get("auth") is not None and page.items:
+            for item, model in zip(page.items, results):
+                await attach_permissions(
+                    rag_tools_service,
+                    item,
+                    model,
+                    request=request,
+                    resource_type=_RESOURCE,
+                )
+        return page
 
-    @post()
+    @post(guards=[require_permission(Permission.RAG_TOOLS_WRITE)])
     async def create_rag_tool(
         self,
         rag_tools_service: RagToolsService,
         data: RagToolCreate,
+        request: Request,
         audit_username: str | None,
     ) -> RagTool:
-        """Create a new RAG tool."""
+        """Create a new RAG tool. tenant_id + owner_id forced from auth."""
+        from core.db.models.rag_tool.rag_tool import RagTool as RagToolModel
+
         data.created_by = audit_username
         data.updated_by = audit_username
-        obj = await rag_tools_service.create(data)
-        return rag_tools_service.to_schema(obj, schema_type=RagTool)
+        payload = data.model_dump(exclude_unset=True)
+        payload = force_create_fields(payload, request=request)
+        payload["created_by"] = audit_username
+        payload["updated_by"] = audit_username
+        obj = await rag_tools_service.create(RagToolModel(**payload), auto_commit=True)
+        schema = rag_tools_service.to_schema(obj, schema_type=RagTool)
+        return await attach_permissions(
+            rag_tools_service, schema, obj, request=request, resource_type=_RESOURCE
+        )
 
-    @get("/code/{code:str}")
+    @get("/code/{code:str}", guards=[require_permission(Permission.RAG_TOOLS_READ)])
     async def get_rag_tool_by_code(
-        self, rag_tools_service: RagToolsService, code: str
+        self, rag_tools_service: RagToolsService, code: str, request: Request
     ) -> RagTool:
         """Get a RAG tool by its system_name."""
         obj = await rag_tools_service.get_one(system_name=code)
-        return rag_tools_service.to_schema(obj, schema_type=RagTool)
+        await enforce_view_or_404(
+            rag_tools_service,
+            request=request,
+            resource=obj,
+            resource_type=_RESOURCE,
+        )
+        schema = rag_tools_service.to_schema(obj, schema_type=RagTool)
+        return await attach_permissions(
+            rag_tools_service, schema, obj, request=request, resource_type=_RESOURCE
+        )
 
-    @get("/{rag_tool_id:uuid}")
+    @get("/{rag_tool_id:uuid}", guards=[require_permission(Permission.RAG_TOOLS_READ)])
     async def get_rag_tool(
         self,
         rag_tools_service: RagToolsService,
+        request: Request,
         rag_tool_id: UUID = Parameter(
             title="RAG Tool ID",
             description="The RAG tool to retrieve.",
         ),
     ) -> RagTool:
-        """Get a RAG tool by its ID."""
+        """Get a RAG tool by its ID. 404 if caller can't view it."""
         obj = await rag_tools_service.get(rag_tool_id)
-        return rag_tools_service.to_schema(obj, schema_type=RagTool)
+        await enforce_view_or_404(
+            rag_tools_service,
+            request=request,
+            resource=obj,
+            resource_type=_RESOURCE,
+        )
+        schema = rag_tools_service.to_schema(obj, schema_type=RagTool)
+        return await attach_permissions(
+            rag_tools_service, schema, obj, request=request, resource_type=_RESOURCE
+        )
 
-    @patch("/{rag_tool_id:uuid}")
+    @patch(
+        "/{rag_tool_id:uuid}", guards=[require_permission(Permission.RAG_TOOLS_WRITE)]
+    )
     async def update_rag_tool(
         self,
         rag_tools_service: RagToolsService,
         data: RagToolUpdate,
+        request: Request,
         rag_tool_id: UUID = Parameter(
             title="RAG Tool ID",
             description="The RAG tool to update.",
         ),
         audit_username: str | None = None,
     ) -> RagTool:
-        """Update a RAG tool."""
+        """Update a RAG tool. 404/403 per record-level access rules."""
+        existing = await rag_tools_service.get(rag_tool_id)
+        await enforce_action_or_403(
+            rag_tools_service,
+            request=request,
+            action="edit",
+            resource=existing,
+            resource_type=_RESOURCE,
+        )
         update_data = data.model_dump(exclude_unset=True)
+        for forbidden in ("tenant_id", "owner_id"):
+            update_data.pop(forbidden, None)
         if "variants" in update_data:
             logger.info(
                 "update_rag_tool: variants type=%s",
@@ -113,18 +186,32 @@ class RagToolsController(Controller):
         obj = await rag_tools_service.update(
             update_data, item_id=rag_tool_id, auto_commit=True
         )
-        return rag_tools_service.to_schema(obj, schema_type=RagTool)
+        schema = rag_tools_service.to_schema(obj, schema_type=RagTool)
+        return await attach_permissions(
+            rag_tools_service, schema, obj, request=request, resource_type=_RESOURCE
+        )
 
-    @delete("/{rag_tool_id:uuid}")
+    @delete(
+        "/{rag_tool_id:uuid}", guards=[require_permission(Permission.RAG_TOOLS_DELETE)]
+    )
     async def delete_rag_tool(
         self,
         rag_tools_service: RagToolsService,
+        request: Request,
         rag_tool_id: UUID = Parameter(
             title="RAG Tool ID",
             description="The RAG tool to delete.",
         ),
     ) -> None:
-        """Delete a RAG tool from the system."""
+        """Delete a RAG tool. 404/403 per record-level access rules."""
+        existing = await rag_tools_service.get(rag_tool_id)
+        await enforce_action_or_403(
+            rag_tools_service,
+            request=request,
+            action="delete",
+            resource=existing,
+            resource_type=_RESOURCE,
+        )
         _ = await rag_tools_service.delete(rag_tool_id)
 
     @observe(name="Previewing RAG Tool", channel="preview")

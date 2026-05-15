@@ -8,6 +8,7 @@ from core.db.models.evaluation import Evaluation
 from core.db.models.evaluation_set import EvaluationSet
 
 from .base import BaseFactory
+from .users import _resolve_default_tenant_id
 
 
 class EvaluationFactory(BaseFactory):
@@ -32,3 +33,5 @@ class EvaluationSetFactory(BaseFactory):
             {"question": "What is AI?", "expected_answer": "Artificial Intelligence"}
         ]
     )
+    # PR 10 #8: evaluation_sets are tenant-scoped; default to the seeded `default` tenant.
+    tenant_id = factory.LazyFunction(_resolve_default_tenant_id)

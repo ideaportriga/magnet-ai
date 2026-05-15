@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import Field
 
+from core.domain.base.record_level_mixin import RecordLevelFieldsMixin
 from core.domain.base.schemas import (
     BaseSimpleCreateSchema,
     BaseSimpleSchema,
@@ -16,7 +17,7 @@ from core.domain.base.schemas import (
 
 
 # Pydantic schemas for serialization with evaluation set specific fields
-class EvaluationSet(BaseSimpleSchema):
+class EvaluationSet(BaseSimpleSchema, RecordLevelFieldsMixin):
     """Evaluation Set schema for serialization."""
 
     type: Optional[str] = Field(

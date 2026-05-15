@@ -151,28 +151,47 @@ async def engine(_db_schema_initialized) -> AsyncGenerator[AsyncEngine, None]:
                 )
             )
 
-            # PR 7: enable RLS on `agents` and create the tenant_isolation
-            # policy. `metadata.create_all` doesn't reproduce policies, so
-            # we apply them here to exercise real RLS behaviour in tests.
-            await conn.execute(text("ALTER TABLE agents ENABLE ROW LEVEL SECURITY"))
-            await conn.execute(text("ALTER TABLE agents FORCE ROW LEVEL SECURITY"))
-            await conn.execute(
-                text("DROP POLICY IF EXISTS agents_tenant_isolation ON agents")
-            )
-            await conn.execute(
-                text(
-                    """
-                    CREATE POLICY agents_tenant_isolation ON agents
-                    FOR ALL
-                    USING (
-                        tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid
-                    )
-                    WITH CHECK (
-                        tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid
-                    )
-                    """
+            # PR 7 + PR 10: enable RLS on every tenant-scoped table and
+            # apply the tenant_isolation policy template. `metadata.create_all`
+            # doesn't reproduce policies, so we apply them here to exercise
+            # real RLS behaviour in tests.
+            for table in (
+                "agents",
+                "collections",
+                "prompts",
+                "ai_apps",
+                "rag_tools",
+                "retrieval_tools",
+                "api_servers",
+                "mcp_servers",
+                "evaluation_sets",
+                "deep_research_configs",
+                "note_taker_settings",
+                "knowledge_graphs",
+            ):
+                await conn.execute(
+                    text(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
                 )
-            )
+                await conn.execute(
+                    text(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY")
+                )
+                await conn.execute(
+                    text(f"DROP POLICY IF EXISTS {table}_tenant_isolation ON {table}")
+                )
+                await conn.execute(
+                    text(
+                        f"""
+                        CREATE POLICY {table}_tenant_isolation ON {table}
+                        FOR ALL
+                        USING (
+                            tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid
+                        )
+                        WITH CHECK (
+                            tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid
+                        )
+                        """
+                    )
+                )
 
             # Postgres superuser BYPASSES row security even under FORCE RLS.
             # Production runtime never connects as superuser, but the test

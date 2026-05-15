@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
+from core.domain.base.record_level_mixin import RecordLevelFieldsMixin
 from core.domain.base.schemas import (
     BaseSimpleCreateSchema,
     BaseSimpleSchema,
@@ -37,7 +38,7 @@ class SettingsSchema(BaseModel):
 
 
 # Pydantic schemas for serialization with AI app specific fields
-class AiApp(BaseSimpleSchema):
+class AiApp(BaseSimpleSchema, RecordLevelFieldsMixin):
     """AI App schema for serialization."""
 
     settings: Optional[Dict[str, Any]] = Field(

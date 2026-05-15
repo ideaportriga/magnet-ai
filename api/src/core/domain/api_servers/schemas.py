@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
+from core.domain.base.record_level_mixin import RecordLevelFieldsMixin
 from core.domain.base.schemas import (
     BaseSimpleCreateSchema,
     BaseSimpleSchema,
@@ -52,7 +53,7 @@ class ApiTool(BaseModel):
 
 
 # Pydantic schemas for API server serialization
-class ApiServer(BaseSimpleSchema):
+class ApiServer(BaseSimpleSchema, RecordLevelFieldsMixin):
     """API server schema for serialization."""
 
     url: str = Field(..., description="API server URL")
@@ -74,7 +75,9 @@ class ApiServer(BaseSimpleSchema):
     )
 
 
-class ApiServerResponse(BaseSimpleSchema, SecretsEncryptedMixin):
+class ApiServerResponse(
+    BaseSimpleSchema, SecretsEncryptedMixin, RecordLevelFieldsMixin
+):
     """API server schema for API responses with masked secrets."""
 
     url: str = Field(..., description="API server URL")

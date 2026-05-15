@@ -7,6 +7,7 @@ import factory
 from core.db.models.knowledge_graph import KnowledgeGraph, KnowledgeGraphSource
 
 from .base import BaseFactory
+from .users import _resolve_default_tenant_id
 
 
 class KnowledgeGraphFactory(BaseFactory):
@@ -18,6 +19,8 @@ class KnowledgeGraphFactory(BaseFactory):
     description = factory.Faker("sentence")
     settings = factory.LazyFunction(dict)
     state = factory.LazyFunction(dict)
+    # PR 10 #6: knowledge_graphs are tenant-scoped; default to the seeded `default` tenant.
+    tenant_id = factory.LazyFunction(_resolve_default_tenant_id)
 
 
 class KnowledgeGraphSourceFactory(BaseFactory):

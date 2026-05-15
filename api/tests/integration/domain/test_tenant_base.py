@@ -37,17 +37,21 @@ class TestTenantBase:
 
     async def test_user_requires_tenant_id(self, db_session):
         from core.db.models.user.user import User
+        from core.db.rls_context import rls_context_scope
 
-        # Missing tenant_id → IntegrityError on flush
-        u = User(
-            email=f"no-tenant-{uuid4().hex[:6]}@test.magnet.ai",
-            name="N",
-            is_active=True,
-        )
-        db_session.add(u)
-        with pytest.raises(Exception):
-            await db_session.flush()
-        await db_session.rollback()
+        # Missing tenant_id → IntegrityError on flush.
+        # The before_flush safety net (`_populate_tenant_id`) auto-fills from
+        # the contextvar, so clear it here to truly exercise the NOT NULL.
+        with rls_context_scope(tenant_id=None):
+            u = User(
+                email=f"no-tenant-{uuid4().hex[:6]}@test.magnet.ai",
+                name="N",
+                is_active=True,
+            )
+            db_session.add(u)
+            with pytest.raises(Exception):
+                await db_session.flush()
+            await db_session.rollback()
 
 
 @pytest.mark.integration

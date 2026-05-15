@@ -596,6 +596,47 @@ const routes = [
       pageLabel: () => m.entity_profile(),
     },
   },
+  // PR 5b — Admin UI (roles, users, access log)
+  {
+    path: '/admin/roles',
+    name: 'AdminRoles',
+    component: () => import('@/components/AdminAccess/Roles/Page_ai-claude.vue'),
+    meta: {
+      pageLabel: () => 'Roles',
+    },
+  },
+  {
+    path: '/admin/roles/:id',
+    name: 'AdminRoleDetails',
+    component: () => import('@/components/AdminAccess/Roles/Details_ai-claude.vue'),
+    meta: {
+      pageLabel: () => 'Role',
+    },
+  },
+  {
+    path: '/admin/users',
+    name: 'AdminUsers',
+    component: () => import('@/components/AdminAccess/Users/Page_ai-claude.vue'),
+    meta: {
+      pageLabel: () => 'Users',
+    },
+  },
+  {
+    path: '/admin/users/:id',
+    name: 'AdminUserDetails',
+    component: () => import('@/components/AdminAccess/Users/Details_ai-claude.vue'),
+    meta: {
+      pageLabel: () => 'User',
+    },
+  },
+  {
+    path: '/admin/access-log',
+    name: 'AdminAccessLog',
+    component: () => import('@/components/AdminAccess/AccessLog/Page_ai-claude.vue'),
+    meta: {
+      pageLabel: () => 'Access log',
+    },
+  },
 ]
 
 if (import.meta.env.DEV) {

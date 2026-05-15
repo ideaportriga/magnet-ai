@@ -10,6 +10,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
+from core.domain.base.record_level_mixin import RecordLevelFieldsMixin
 from core.domain.base.schemas import (
     BaseEntityCreateSchema,
     BaseEntitySchema,
@@ -69,7 +70,7 @@ class PromptVariantSchema(BaseModel):
 
 
 # Pydantic schemas for serialization with variant validation
-class Prompt(BaseEntitySchema):
+class Prompt(BaseEntitySchema, RecordLevelFieldsMixin):
     """Prompt schema for serialization."""
 
     variants: Optional[List[PromptVariantSchema]] = Field(

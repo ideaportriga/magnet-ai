@@ -13,6 +13,7 @@ export interface ApiError {
 export interface ApiClient {
   get<T>(path: string, params?: Record<string, string | number | boolean | string[]>): Promise<T>
   post<T>(path: string, body?: unknown): Promise<T>
+  put<T>(path: string, body?: unknown): Promise<T>
   patch<T>(path: string, body?: unknown): Promise<T>
   delete(path: string): Promise<void>
   postRaw(path: string, body?: unknown, signal?: AbortSignal): Promise<Response>
@@ -86,6 +87,16 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
     async post<T>(path: string, body?: unknown): Promise<T> {
       const response = await fetchFn(buildUrl(baseUrl, path), {
         method: 'POST',
+        credentials,
+        headers: jsonHeaders,
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+      })
+      return handleResponse<T>(response)
+    },
+
+    async put<T>(path: string, body?: unknown): Promise<T> {
+      const response = await fetchFn(buildUrl(baseUrl, path), {
+        method: 'PUT',
         credentials,
         headers: jsonHeaders,
         body: body !== undefined ? JSON.stringify(body) : undefined,

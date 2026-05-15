@@ -57,14 +57,36 @@ VISIBILITY_TENANT = "tenant"
 # Maps (resource_type, action) → required global permission code.
 # Per the plan's capability ceiling: grants and visibility only narrow access;
 # without the right global capability the answer is always False.
-_ACTION_TO_CAPABILITY: dict[tuple[str, Action], Permission] = {
-    ("agents", "view"): Permission.AGENTS_READ,
-    ("agents", "edit"): Permission.AGENTS_WRITE,
-    ("agents", "create"): Permission.AGENTS_WRITE,
-    ("agents", "delete"): Permission.AGENTS_DELETE,
-    ("agents", "share"): Permission.AGENTS_SHARE,
-    ("agents", "execute"): Permission.AGENTS_EXECUTE,
+#
+# Build the table dictionary-driven from the catalog: every resource type
+# that has corresponding permission codes is registered here automatically.
+# Adding a new resource to the rollout is then a matter of declaring its
+# enum values — no need to remember to also update this table.
+
+_ACTION_VERB_MAP: dict[Action, str] = {
+    "view": "read",
+    "edit": "write",
+    "create": "write",
+    "delete": "delete",
+    "share": "share",
+    "execute": "execute",
 }
+
+
+def _build_action_to_capability() -> dict[tuple[str, "Action"], Permission]:
+    codes = {p.value for p in Permission}
+    table: dict[tuple[str, Action], Permission] = {}
+    for resource_type in sorted({p.value.split(":", 1)[1] for p in Permission}):
+        for action, verb in _ACTION_VERB_MAP.items():
+            code = f"{verb}:{resource_type}"
+            if code in codes:
+                table[(resource_type, action)] = Permission(code)
+    return table
+
+
+_ACTION_TO_CAPABILITY: dict[tuple[str, Action], Permission] = (
+    _build_action_to_capability()
+)
 
 
 _ADMIN_ROLE_SLUG = "admin"
