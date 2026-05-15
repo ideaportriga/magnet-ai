@@ -90,7 +90,7 @@
       </km-dialog>
       <div class="flex-1 ba-border bg-white border-radius-12 p-lg overflow-auto" style="min-block-size: 0">
         <div class="km-heading-6 mb-md">General Settings</div>
-        <div class="gap-md">
+        <div class="stack" data-gap="md">
           <div class="km-field">
             <div class="text-secondary-text pb-xs">Max Iterations</div>
             <div style="max-inline-size: 200px">
@@ -114,7 +114,7 @@
         <km-separator />
         <div class="full-width" />
         <div class="km-heading-6 mb-md">Prompts</div>
-        <div class="gap-md">
+        <div class="stack" data-gap="md">
           <div class="km-field">
             <div class="text-secondary-text pb-xs">Reasoning Prompt</div>
             <div class="cluster" data-gap="sm">
@@ -158,7 +158,7 @@
           <div class="km-heading-6">Webhook</div>
           <km-toggle v-model="webhookEnabled" :label="m.common_enableWebhook()" />
         </div>
-        <div v-if="webhookEnabled" class="gap-md">
+        <div v-if="webhookEnabled" class="stack" data-gap="md">
           <div class="km-field">
             <div class="text-secondary-text pb-xs">API Server</div>
             <div class="cluster" data-gap="sm">

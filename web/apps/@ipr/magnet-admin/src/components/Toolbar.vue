@@ -11,28 +11,28 @@
           </template>
         </km-nav-section>
       </div>
-      <div class="stack mt-lg width-100" data-gap="xs">
+      <div class="stack mt-md width-100" data-gap="xs">
         <km-nav-section :label="m.nav_connect()" icon="plug" :items="connectors" :collapsed="isSectionCollapsed(&quot;connect&quot;)" :sidebar-collapsed="isCollapsed" :parent-route="parentRoute" @toggle="toggleSection(&quot;connect&quot;)" @navigate="navigate">
           <template v-for="item in connectors" :key="item">
             <km-nav-btn :icon="item.icon" :label="item.label" :path="item.path" :alternative-paths="item.alternativePaths" :parent-route="parentRoute" @navigate="navigate" />
           </template>
         </km-nav-section>
       </div>
-      <div class="stack mt-lg" data-gap="xs">
+      <div class="stack mt-md" data-gap="xs">
         <km-nav-section :label="m.nav_experimental()" icon="flask" :items="experimental" :collapsed="isSectionCollapsed(&quot;experimental&quot;)" :sidebar-collapsed="isCollapsed" :parent-route="parentRoute" @toggle="toggleSection(&quot;experimental&quot;)" @navigate="navigate">
           <template v-for="item in experimental" :key="item">
             <km-nav-btn :icon="item.icon" :label="item.label" :path="item.path" :parent-route="parentRoute" @navigate="navigate" />
           </template>
         </km-nav-section>
       </div>
-      <div class="stack mt-lg" data-gap="xs">
+      <div class="stack mt-md" data-gap="xs">
         <km-nav-section :label="m.nav_evaluation()" icon="chart" :items="evaluation" :collapsed="isSectionCollapsed(&quot;evaluation&quot;)" :sidebar-collapsed="isCollapsed" :parent-route="parentRoute" @toggle="toggleSection(&quot;evaluation&quot;)" @navigate="navigate">
           <template v-for="item in evaluation" :key="item">
             <km-nav-btn :icon="item.icon" :label="item.label" :path="item.path" :parent-route="parentRoute" @navigate="navigate" />
           </template>
         </km-nav-section>
       </div>
-      <div class="stack mt-lg" data-gap="xs">
+      <div class="stack mt-md" data-gap="xs">
         <km-nav-section :label="m.nav_observability()" icon="eye" :items="observabilityItems" :collapsed="isSectionCollapsed(&quot;observability&quot;)" :sidebar-collapsed="isCollapsed" :parent-route="parentRoute" @toggle="toggleSection(&quot;observability&quot;)" @navigate="navigate">
           <template v-for="item in observabilityItems" :key="item">
             <km-nav-btn :icon="item.icon" :label="item.label" :path="item.path" :parent-route="parentRoute" @navigate="navigate" />
@@ -326,8 +326,5 @@ export default {
   overflow-block: auto;
   inline-size: 100%;
   box-sizing: border-box;
-}
-.km-toolbar::-webkit-scrollbar {
-  inline-size: 4px;
 }
 </style>

@@ -79,7 +79,7 @@
                     <div class="km-space" />
                     <km-chip :tone="webhookCall.success ? &quot;success&quot; : &quot;danger&quot;" :icon="webhookCall.success ? &quot;check&quot; : &quot;error&quot;">{{ webhookCall.success ? 'Success' : 'Failed' }}</km-chip>
                   </div>
-                  <div class="gap-md">
+                  <div class="stack" data-gap="md">
                     <div class="cluster">
                       <div class="deep-research-run__meta-label flex-none text-weight-medium text-grey-8">Timestamp:</div>
                       <div class="deep-research-run__meta-value flex-1">{{ formatDate(webhookCall.timestamp) }}</div>
@@ -215,7 +215,7 @@
                                   </div>
                                   <div v-if="step.details.relevant_urls &amp;&amp; step.details.relevant_urls.length &gt; 0" class="mb-sm">
                                     <div class="text-weight-bold text-grey-8 mb-xs">Relevant URLs:</div>
-                                    <div class="gap-xs">
+                                    <div class="cluster" data-gap="xs">
                                       <km-chip v-for="(url, idx) in step.details.relevant_urls" :key="idx" size="sm" tone="success" clickable icon="check" @click="openUrl(url)">{{ truncateUrl(url) }}</km-chip>
                                     </div>
                                   </div>

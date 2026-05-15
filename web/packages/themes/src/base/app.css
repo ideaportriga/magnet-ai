@@ -195,26 +195,75 @@ svg {
 #km-app a {
   text-decoration: none;
 }
+/* Scrollbars — normalised to look like macOS Chrome on every OS.
+   Linux/Windows Chrome default to wider classic scrollbars with arrow
+   buttons and a hover-track highlight; macOS Chrome uses thin overlay
+   scrollbars with no buttons. We can't enable native overlay on
+   Linux/Windows, but we can mimic the look: transparent track, no
+   arrows, thin thumb that slightly widens and darkens on hover. */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(0,0,0,0.2) transparent;
+  scrollbar-color: rgba(0,0,0,0.25) transparent;
 }
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
-::-webkit-scrollbar-track {
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-track-piece,
+::-webkit-scrollbar-corner {
   background: transparent;
 }
+::-webkit-scrollbar-button,
+::-webkit-scrollbar-button:single-button,
+::-webkit-scrollbar-button:start,
+::-webkit-scrollbar-button:end,
+::-webkit-scrollbar-button:vertical,
+::-webkit-scrollbar-button:horizontal,
+::-webkit-scrollbar-button:vertical:start:decrement,
+::-webkit-scrollbar-button:vertical:end:increment,
+::-webkit-scrollbar-button:horizontal:start:decrement,
+::-webkit-scrollbar-button:horizontal:end:increment,
+::-webkit-scrollbar-button:vertical:start:increment,
+::-webkit-scrollbar-button:vertical:end:decrement,
+::-webkit-scrollbar-button:horizontal:start:increment,
+::-webkit-scrollbar-button:horizontal:end:decrement {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+}
 ::-webkit-scrollbar-thumb {
-  background: rgba(0,0,0,0.2);
+  background: rgba(0,0,0,0.22);
   border-radius: 10px;
-  border: 2px solid transparent;
+  border: 3px solid transparent;
   background-clip: padding-box;
+  min-height: 40px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0,0,0,0.35);
+  background: rgba(0,0,0,0.3);
+  border-width: 2px;
   background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:active {
+  background: rgba(0,0,0,0.4);
+  border-width: 2px;
+  background-clip: padding-box;
+}
+/* Dark theme: invert thumb so it's visible on dark surfaces. */
+:root[data-theme='dark'] {
+  scrollbar-color: rgba(255,255,255,0.25) transparent;
+}
+:root[data-theme='dark'] ::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.22);
+}
+:root[data-theme='dark'] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.32);
+}
+:root[data-theme='dark'] ::-webkit-scrollbar-thumb:active {
+  background: rgba(255,255,255,0.42);
 }
 .round {
   border-radius: 50%;

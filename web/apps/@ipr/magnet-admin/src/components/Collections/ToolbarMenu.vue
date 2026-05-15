@@ -72,7 +72,4 @@ export default {
   inline-size: 100%;
   box-sizing: border-box;
 }
-.km-toolbar::-webkit-scrollbar {
-  inline-size: 4px;
-}
 </style>

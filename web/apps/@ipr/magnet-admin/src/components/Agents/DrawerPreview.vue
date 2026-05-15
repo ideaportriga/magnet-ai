@@ -556,16 +556,6 @@ export default {
 </script>
 
 <style scoped>
-.text-scroll::-webkit-scrollbar {
-  inline-size: 6px;
-}
-.text-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-.text-scroll::-webkit-scrollbar-thumb {
-  background: transparent;
-}
-
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.3s ease;

@@ -1,5 +1,5 @@
 <template>
-  <div class="gap-md">
+  <div class="stack" data-gap="md">
     <div class="km-field">
       <div class="cluster" data-justify="between">
         <div class="text-secondary-text pb-xs km-title">Post-transcription processing</div>
