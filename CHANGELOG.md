@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.24](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.23...v0.7.0-dev.24) (2026-05-15)
+
+### ✨ Features
+
+* **kg:** implemented performance optimizations for entity extraction ([35d8f3f](https://github.com/ideaportriga/magnet-ai/commit/35d8f3fd64d9f0a194937305051e1279310e34d1))
+
 ## [0.7.0-dev.23](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.22...v0.7.0-dev.23) (2026-05-08)
 
 ### ✨ Features
