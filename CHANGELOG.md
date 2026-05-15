@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-alpha.26](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.25...v0.7.0-alpha.26) (2026-05-15)
+
+### ✨ Features
+
+* replace poetry with uv ([8df8f9f](https://github.com/ideaportriga/magnet-ai/commit/8df8f9f29fd94a683dfeb44255daacab71b577a9))
+
+### 🐛 Bug Fixes
+
+* linux and macos fix ([4eb8a1f](https://github.com/ideaportriga/magnet-ai/commit/4eb8a1ff2bfd4b4f207800b2c4dea0af5c1b5e3c))
+* **web:** normalize UI across platforms and clean up layout inconsistencies ([4c8c819](https://github.com/ideaportriga/magnet-ai/commit/4c8c819cb4e019833ed8bf950518e56e22479884))
+
 ## [0.7.0-alpha.25](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.24...v0.7.0-alpha.25) (2026-05-14)
 
 ### ✨ Features
