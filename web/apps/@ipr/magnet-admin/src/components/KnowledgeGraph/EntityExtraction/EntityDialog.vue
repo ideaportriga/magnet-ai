@@ -111,8 +111,8 @@ const validationErrors = computed(() => {
     }
 
     const identifierCount = form.columns.filter((col) => col.is_identifier).length
-    if (identifierCount !== 1) {
-      errors.push('Exactly one column must be marked as identifier')
+    if (identifierCount > 1) {
+      errors.push('At most one column can be marked as identifier')
     }
   }
   return errors

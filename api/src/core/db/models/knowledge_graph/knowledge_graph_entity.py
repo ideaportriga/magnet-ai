@@ -91,8 +91,8 @@ def knowledge_graph_entity_table(metadata: MetaData, table_name: str) -> Table:
             server_default=text("gen_random_uuid()"),
         ),
         Column("entity", String(255), nullable=False),
-        Column("record_identifier", String(500), nullable=False),
-        Column("normalized_record_identifier", String(500), nullable=False),
+        Column("record_identifier", String(500), nullable=True),
+        Column("normalized_record_identifier", String(500), nullable=True),
         Column(
             "column_values",
             JSONB,

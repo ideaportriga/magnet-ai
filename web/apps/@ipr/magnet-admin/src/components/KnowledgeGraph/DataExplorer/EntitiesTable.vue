@@ -141,15 +141,19 @@ const entityRecordsColumns = computed<QTableColumn<EntityRecord>[]>(() => {
   const identifierColumn = definition?.columns.find((column) => column.is_identifier)
   const identifierLabel = identifierColumn?.name || 'Identifier'
 
-  const columns: QTableColumn<EntityRecord>[] = [
-    {
+  const columns: QTableColumn<EntityRecord>[] = []
+
+  // Render the identifier column only when the entity definition has one,
+  // or as a fallback when no definition is available at all.
+  if (!definition || identifierColumn) {
+    columns.push({
       name: 'record_identifier',
       label: identifierLabel,
       field: 'record_identifier',
       align: 'left',
       sortable: true,
-    },
-  ]
+    })
+  }
 
   if (definition) {
     for (const column of definition.columns) {

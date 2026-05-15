@@ -218,9 +218,9 @@ def normalize_entity_definitions(
 
         if not columns:
             raise ValueError(f"Entity '{entity_name}' must define at least one column")
-        if len(identifier_columns) != 1:
+        if len(identifier_columns) > 1:
             raise ValueError(
-                f"Entity '{entity_name}' must define exactly one identifier column"
+                f"Entity '{entity_name}' must define at most one identifier column"
             )
 
         normalized_entities.append(
@@ -228,7 +228,7 @@ def normalize_entity_definitions(
                 name=entity_name,
                 description=entity_description,
                 columns=columns,
-                identifier_column=identifier_columns[0],
+                identifier_column=identifier_columns[0] if identifier_columns else "",
             )
         )
 
@@ -270,9 +270,10 @@ def build_entity_extraction_prompt_schema_typescript(
     }
 
     for entity_definition in entity_definitions:
+        identifier_label = entity_definition.identifier_column or "(none)"
         lines.append("  /**")
         lines.append(
-            f"   * Entity: {entity_definition.name}; Identifier column: {entity_definition.identifier_column}"
+            f"   * Entity: {entity_definition.name}; Identifier column: {identifier_label}"
         )
         if entity_definition.description:
             for description_line in entity_definition.description.splitlines():
@@ -336,7 +337,10 @@ def build_entity_extraction_prompt_schema_markdown(
         identifier = entity_definition.identifier_column
         header = f"### {entity_definition.name}"
         lines.append(header)
-        lines.append(f"- Identifier column: `{identifier}`")
+        if identifier:
+            lines.append(f"- Identifier column: `{identifier}`")
+        else:
+            lines.append("- Identifier column: (none — every extracted record is kept)")
         description = (entity_definition.description or "").strip()
         if description:
             for description_line in description.splitlines():
@@ -475,7 +479,8 @@ def build_entity_schema_summary(
     lines: list[str] = []
     for entity_definition in entity_definitions:
         identifier = entity_definition.identifier_column
-        header = f"- **{entity_definition.name}** (identifier: `{identifier}`)"
+        identifier_text = f"`{identifier}`" if identifier else "(none)"
+        header = f"- **{entity_definition.name}** (identifier: {identifier_text})"
         if entity_definition.description:
             description_first_line = entity_definition.description.splitlines()[
                 0
@@ -1024,9 +1029,11 @@ def parse_entity_candidates_from_output(
     raw_records = records_value if isinstance(records_value, list) else []
 
     candidates: dict[tuple[str, str], EntityCandidateRecord] = {}
+    noid_records: list[EntityCandidateRecord] = []
 
     for entity_definition in entity_definitions:
         entity_name = entity_definition.name
+        has_identifier = bool(entity_definition.identifier_column)
 
         for raw_record in raw_records:
             if not isinstance(raw_record, dict):
@@ -1039,6 +1046,19 @@ def parse_entity_candidates_from_output(
                 )
                 if coerced_value is not None:
                     column_values[column.name] = coerced_value
+
+            if not has_identifier:
+                # No primary identifier — every candidate kept as-is, no dedup.
+                if not column_values:
+                    continue
+                noid_records.append(
+                    EntityCandidateRecord(
+                        entity=entity_name,
+                        record_identifier="",
+                        column_values=column_values,
+                    )
+                )
+                continue
 
             identifier_value = column_values.get(entity_definition.identifier_column)
             if _is_empty_value(identifier_value):
@@ -1066,7 +1086,7 @@ def parse_entity_candidates_from_output(
             else:
                 candidates[dedup_key] = candidate
 
-    return list(candidates.values())
+    return list(candidates.values()) + noid_records
 
 
 _VERIFICATION_PROMPT = (
@@ -1107,6 +1127,8 @@ async def _extract_entities_iterative(
     schema) so the model does not waste tokens repeating the analysis.
     """
     merged: dict[tuple[str, str], EntityCandidateRecord] = {}
+    noid_records: list[EntityCandidateRecord] = []
+    has_identifier = bool(entity_definition.identifier_column)
     latest_analysis = ""
 
     # Accumulated conversation history — grows each iteration
@@ -1161,6 +1183,11 @@ async def _extract_entities_iterative(
             raw, [entity_definition]
         )
         for candidate in iteration_candidates:
+            if not has_identifier:
+                # No primary identifier — accept every candidate, including
+                # any near-duplicates the verification pass may emit.
+                noid_records.append(candidate)
+                continue
             normalized_id = normalize_record_identifier(candidate.record_identifier)
             if not normalized_id:
                 continue
@@ -1181,7 +1208,7 @@ async def _extract_entities_iterative(
             )
             additional_messages.append({"role": "user", "content": verification_msg})
 
-    return list(merged.values()), latest_analysis
+    return list(merged.values()) + noid_records, latest_analysis
 
 
 async def _extract_entity_from_content(
@@ -1622,13 +1649,25 @@ async def _run_extraction_loop(
     )
 
     document_candidates: dict[tuple[str, str], EntityCandidateRecord] = {}
+    no_identifier_entities = {
+        ed.name for ed in entity_definitions if not ed.identifier_column
+    }
     errors = 0
     cancelled = False
+    noid_counter = 0
 
     def _merge_candidates_into(
         candidates: list[EntityCandidateRecord],
     ) -> None:
+        nonlocal noid_counter
         for candidate in candidates:
+            if candidate.entity in no_identifier_entities:
+                # Synthetic unique key — never collides, never merges.
+                document_candidates[(candidate.entity, f"__noid_{noid_counter}__")] = (
+                    candidate
+                )
+                noid_counter += 1
+                continue
             normalized_id = normalize_record_identifier(candidate.record_identifier)
             if not normalized_id:
                 continue
@@ -1929,13 +1968,20 @@ async def _process_document_chunks_extraction(
             "cancelled": True,
         }
 
+    no_identifier_entities = {
+        ed.name for ed in entity_definitions if not ed.identifier_column
+    }
+
     async def _upsert_chunk_candidates(
         chunk_id: str,
         chunk_candidates: list[EntityCandidateRecord],
     ) -> int:
         upserted = 0
         for candidate in chunk_candidates:
-            if not normalize_record_identifier(candidate.record_identifier):
+            if (
+                candidate.entity not in no_identifier_entities
+                and not normalize_record_identifier(candidate.record_identifier)
+            ):
                 continue
             await entity_service.upsert_record(
                 db_session,
