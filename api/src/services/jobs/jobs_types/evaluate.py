@@ -263,9 +263,8 @@ async def evaluate_variant(
     async def evaluate_test_set_item(
         iteration, test_set_index, item_index, test_set, test_set_item
     ):
-        metadata_filter = metadata_filter_to_filter_object(
-            test_set_item.get("metadata_filter")
-        )
+        raw_metadata_filter = test_set_item.get("metadata_filter")
+        metadata_filter = metadata_filter_to_filter_object(raw_metadata_filter)
         user_message = test_set_item.get("user_input")
         expected_output = test_set_item.get("expected_result")
 
@@ -304,6 +303,7 @@ async def evaluate_variant(
             "evaluated_at": datetime.now(timezone.utc),
             "expected_output": expected_output,
             "user_message": user_message,
+            "metadata_filter": raw_metadata_filter,
             "iteration": iteration,
         }
 

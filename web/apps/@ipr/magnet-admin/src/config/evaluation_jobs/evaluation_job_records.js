@@ -1,6 +1,7 @@
 import { required, minLength } from '@shared/utils/validationRules'
 import TextWrap from './component/TextWrap.vue'
-import { markRaw } from 'vue'
+import { markRaw, h } from 'vue'
+import RetrievalMetadataFilterChipList from '@ui/components/Retrieval/MetadataFilterChipList.vue'
 export const evaluationRecord = {
   rowsPerPage: 5,
   sortBy: 'user_message',
@@ -18,6 +19,27 @@ export const columnsSettings = {
     fromMetadata: false,
     sortable: true,
     align: 'left',
+  },
+  metadata_filter: {
+    name: 'metadata_filter',
+    code: 'metadata_filter',
+    display: true,
+    label: 'Metadata filter',
+    field: 'metadata_filter',
+    readonly: true,
+    fromMetadata: false,
+    ignorePatch: true,
+    align: 'left',
+    type: 'component',
+    component: ({ row }) => {
+      return markRaw(
+        h(RetrievalMetadataFilterChipList, {
+          readonly: true,
+          modelValue: row.metadata_filter,
+        })
+      )
+    },
+    headerStyle: 'min-width: 13vw',
   },
   user_message: {
     name: 'user_message',

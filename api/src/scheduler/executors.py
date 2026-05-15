@@ -324,7 +324,7 @@ async def execute_post_process_configuration(**kwargs):
 
 
 @with_progress_status(timeout="evaluation")
-@observe(name="Evaluation job", channel="Job")
+@observe(name="Evaluation job", channel="evaluation")
 async def execute_evaluation(**kwargs):
     """Execute an evaluation job with the given parameters."""
     job_id = kwargs.get("job_id")
@@ -335,7 +335,6 @@ async def execute_evaluation(**kwargs):
         job_definition = kwargs.get("job_definition")
 
         observability_context.update_current_trace(
-            type="evaluation",
             extra_data={
                 "job_id": job_id,
                 "job_definition": job_definition,

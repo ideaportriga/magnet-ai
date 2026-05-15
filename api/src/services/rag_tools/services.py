@@ -78,6 +78,11 @@ async def execute_rag_tool(
                 **rag_tool_config.get("post_process", {}),
             )
 
+        if metadata_filter and metadata_filter.root:
+            retrieve_config = retrieve_config.model_copy(
+                update={"allow_metadata_filter": True}
+            )
+
         multilanguage_context = await create_multilanguage_context(
             user_message=user_message,
             language_config=language_config,
