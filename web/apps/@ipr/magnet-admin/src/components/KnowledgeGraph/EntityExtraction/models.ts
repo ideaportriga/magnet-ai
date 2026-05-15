@@ -1,11 +1,13 @@
 export type EntityColumnType = 'string' | 'number' | 'boolean' | 'date'
 export type EntityExtractionApproach = 'document' | 'chunks'
-export type EntityExtractionMode = 'basic' | 'advanced' | 'reflective'
+export type EntityExtractionMode = 'basic' | 'reflective' | 'self-tuning'
 export type EntityExtractionSchemaFormat = 'json_schema' | 'typescript' | 'markdown'
 
 export const DEFAULT_ENTITY_EXTRACTION_PROMPT_TEMPLATE_SYSTEM_NAME = 'KG_ENTITY_EXTRACTION'
-export const DEFAULT_ENTITY_EXTRACTION_ANALYSIS_PROMPT_TEMPLATE_SYSTEM_NAME = 'KG_ENTITY_EXTRACTION_ANALYSIS'
 export const DEFAULT_ENTITY_EXTRACTION_REFLECTIVE_PROMPT_TEMPLATE_SYSTEM_NAME = 'KG_ENTITY_EXTRACTION_REFLECTIVE'
+export const DEFAULT_ENTITY_EXTRACTION_SELF_TUNING_PROMPT_TEMPLATE_SYSTEM_NAME = 'KG_ENTITY_EXTRACTION_SELF_TUNING'
+export const DEFAULT_ENTITY_EXTRACTION_SELF_TUNING_ANALYSIS_PROMPT_TEMPLATE_SYSTEM_NAME = 'KG_ENTITY_EXTRACTION_SELF_TUNING_ANALYSIS'
+export const DEFAULT_ENTITY_EXTRACTION_RELEVANCE_FILTER_PROMPT_TEMPLATE_SYSTEM_NAME = 'KG_ENTITY_EXTRACTION_RELEVANCE_FILTER'
 export const DEFAULT_ENTITY_EXTRACTION_MODE: EntityExtractionMode = 'basic'
 export const DEFAULT_ENTITY_EXTRACTION_SCHEMA_FORMAT: EntityExtractionSchemaFormat = 'typescript'
 export const DEFAULT_ENTITY_EXTRACTION_SEGMENT_SIZE = 18000
@@ -13,6 +15,17 @@ export const DEFAULT_ENTITY_EXTRACTION_SEGMENT_OVERLAP = 0.1
 export const DEFAULT_ENTITY_EXTRACTION_MAX_ITERATIONS = 3
 export const MIN_ENTITY_EXTRACTION_MAX_ITERATIONS = 1
 export const MAX_ENTITY_EXTRACTION_MAX_ITERATIONS = 10
+
+export type DocumentCoverageMode = 'full' | 'beginning' | 'middle' | 'end' | 'outer'
+export const DEFAULT_DOCUMENT_COVERAGE_MODE: DocumentCoverageMode = 'full'
+export const DEFAULT_DOCUMENT_COVERAGE = 0.5
+export const MIN_DOCUMENT_COVERAGE = 0.02
+export const MAX_DOCUMENT_COVERAGE = 0.98
+
+export interface DocumentCoverageSettings {
+  mode: DocumentCoverageMode
+  coverage: number
+}
 
 export const ColumnTypeOptions = [
   { label: 'Text', value: 'string', icon: 'text_fields' },
@@ -41,24 +54,36 @@ export interface EntityDefinition {
 export interface EntityExtractionRunSettings {
   approach: EntityExtractionApproach
   mode: EntityExtractionMode
-  schema_format: EntityExtractionSchemaFormat
   prompt_template_system_name: string
-  analysis_prompt_template_system_name: string
   reflective_prompt_template_system_name: string
+  self_tuning_prompt_template_system_name: string
+  self_tuning_analysis_prompt_template_system_name: string
   segment_size: number
   segment_overlap: number
+}
+
+export interface EntityExtractionRelevanceFilterSettings {
+  prompt_template_system_name: string
+}
+
+export interface EntityExtractionPerformanceTuningSettings {
+  schema_format: EntityExtractionSchemaFormat
   max_extraction_iterations: number
+  relevance_filter: EntityExtractionRelevanceFilterSettings
+  document_coverage: DocumentCoverageSettings
 }
 
 export interface EntityExtractionSettings {
   entity_definitions: EntityDefinition[]
   extraction: EntityExtractionRunSettings
+  advanced_settings: EntityExtractionPerformanceTuningSettings
 }
 
 const ENTITY_EXTRACTION_SETTINGS_KEY = 'entity_extraction'
+const ENTITY_EXTRACTION_ADVANCED_SETTINGS_KEY = 'advanced_settings'
 const ENTITY_COLUMN_TYPES: EntityColumnType[] = ['string', 'number', 'boolean', 'date']
 const ENTITY_EXTRACTION_APPROACHES: EntityExtractionApproach[] = ['document', 'chunks']
-export const ENTITY_EXTRACTION_MODES: EntityExtractionMode[] = ['basic', 'advanced', 'reflective']
+export const ENTITY_EXTRACTION_MODES: EntityExtractionMode[] = ['basic', 'reflective', 'self-tuning']
 export const ENTITY_EXTRACTION_SCHEMA_FORMATS: EntityExtractionSchemaFormat[] = ['json_schema', 'typescript', 'markdown']
 
 function normalizeColumnType(value: unknown): EntityColumnType {
@@ -97,6 +122,22 @@ function normalizeSegmentOverlap(value: unknown): number {
   return Number.isFinite(normalizedValue) ? Math.min(Math.max(normalizedValue, 0), 0.9) : DEFAULT_ENTITY_EXTRACTION_SEGMENT_OVERLAP
 }
 
+const DOCUMENT_COVERAGE_MODES: DocumentCoverageMode[] = ['full', 'beginning', 'middle', 'end', 'outer']
+
+function normalizeDocumentCoverageMode(value: unknown): DocumentCoverageMode {
+  const normalizedValue = String(value || '').trim()
+  return DOCUMENT_COVERAGE_MODES.includes(normalizedValue as DocumentCoverageMode)
+    ? (normalizedValue as DocumentCoverageMode)
+    : DEFAULT_DOCUMENT_COVERAGE_MODE
+}
+
+function normalizeDocumentCoverage(value: unknown): number {
+  const normalizedValue = Number(value)
+  return Number.isFinite(normalizedValue)
+    ? Math.min(Math.max(normalizedValue, MIN_DOCUMENT_COVERAGE), MAX_DOCUMENT_COVERAGE)
+    : DEFAULT_DOCUMENT_COVERAGE
+}
+
 function normalizeMaxExtractionIterations(value: unknown): number {
   const normalizedValue = Number(value)
   if (!Number.isFinite(normalizedValue)) {
@@ -111,17 +152,56 @@ function getEntityExtractionRaw(settings?: Record<string, unknown>): Record<stri
   return entityExtractionRaw && typeof entityExtractionRaw === 'object' ? (entityExtractionRaw as Record<string, unknown>) : undefined
 }
 
+export function createDefaultEntityExtractionRelevanceFilterSettings(): EntityExtractionRelevanceFilterSettings {
+  return {
+    prompt_template_system_name: '',
+  }
+}
+
+export function createDefaultPerformanceTuningSettings(): EntityExtractionPerformanceTuningSettings {
+  return {
+    schema_format: DEFAULT_ENTITY_EXTRACTION_SCHEMA_FORMAT,
+    max_extraction_iterations: DEFAULT_ENTITY_EXTRACTION_MAX_ITERATIONS,
+    relevance_filter: createDefaultEntityExtractionRelevanceFilterSettings(),
+    document_coverage: {
+      mode: DEFAULT_DOCUMENT_COVERAGE_MODE,
+      coverage: DEFAULT_DOCUMENT_COVERAGE,
+    },
+  }
+}
+
+export function cloneEntityExtractionRelevanceFilterSettings(
+  settings?: EntityExtractionRelevanceFilterSettings | null
+): EntityExtractionRelevanceFilterSettings {
+  return {
+    prompt_template_system_name: String(settings?.prompt_template_system_name ?? '').trim(),
+  }
+}
+
+export function cloneEntityExtractionPerformanceTuningSettings(
+  settings?: EntityExtractionPerformanceTuningSettings | null
+): EntityExtractionPerformanceTuningSettings {
+  return {
+    schema_format: normalizeSchemaFormat(settings?.schema_format),
+    max_extraction_iterations: normalizeMaxExtractionIterations(settings?.max_extraction_iterations),
+    relevance_filter: cloneEntityExtractionRelevanceFilterSettings(settings?.relevance_filter),
+    document_coverage: {
+      mode: normalizeDocumentCoverageMode(settings?.document_coverage?.mode),
+      coverage: normalizeDocumentCoverage(settings?.document_coverage?.coverage),
+    },
+  }
+}
+
 export function createDefaultEntityExtractionRunSettings(): EntityExtractionRunSettings {
   return {
     approach: 'document',
     mode: DEFAULT_ENTITY_EXTRACTION_MODE,
-    schema_format: DEFAULT_ENTITY_EXTRACTION_SCHEMA_FORMAT,
     prompt_template_system_name: DEFAULT_ENTITY_EXTRACTION_PROMPT_TEMPLATE_SYSTEM_NAME,
-    analysis_prompt_template_system_name: DEFAULT_ENTITY_EXTRACTION_ANALYSIS_PROMPT_TEMPLATE_SYSTEM_NAME,
     reflective_prompt_template_system_name: DEFAULT_ENTITY_EXTRACTION_REFLECTIVE_PROMPT_TEMPLATE_SYSTEM_NAME,
+    self_tuning_prompt_template_system_name: DEFAULT_ENTITY_EXTRACTION_SELF_TUNING_PROMPT_TEMPLATE_SYSTEM_NAME,
+    self_tuning_analysis_prompt_template_system_name: DEFAULT_ENTITY_EXTRACTION_SELF_TUNING_ANALYSIS_PROMPT_TEMPLATE_SYSTEM_NAME,
     segment_size: DEFAULT_ENTITY_EXTRACTION_SEGMENT_SIZE,
     segment_overlap: DEFAULT_ENTITY_EXTRACTION_SEGMENT_OVERLAP,
-    max_extraction_iterations: DEFAULT_ENTITY_EXTRACTION_MAX_ITERATIONS,
   }
 }
 
@@ -145,17 +225,18 @@ export function cloneEntityExtractionRunSettings(settings?: EntityExtractionRunS
   return {
     approach: normalizeExtractionApproach(settings?.approach ?? defaults.approach),
     mode: normalizeExtractionMode(settings?.mode ?? defaults.mode),
-    schema_format: normalizeSchemaFormat(settings?.schema_format ?? defaults.schema_format),
     prompt_template_system_name: String(settings?.prompt_template_system_name ?? defaults.prompt_template_system_name).trim(),
-    analysis_prompt_template_system_name: String(
-      settings?.analysis_prompt_template_system_name ?? defaults.analysis_prompt_template_system_name
-    ).trim(),
     reflective_prompt_template_system_name: String(
       settings?.reflective_prompt_template_system_name ?? defaults.reflective_prompt_template_system_name
     ).trim(),
+    self_tuning_prompt_template_system_name: String(
+      settings?.self_tuning_prompt_template_system_name ?? defaults.self_tuning_prompt_template_system_name
+    ).trim(),
+    self_tuning_analysis_prompt_template_system_name: String(
+      settings?.self_tuning_analysis_prompt_template_system_name ?? defaults.self_tuning_analysis_prompt_template_system_name
+    ).trim(),
     segment_size: normalizeSegmentSize(settings?.segment_size ?? defaults.segment_size),
     segment_overlap: normalizeSegmentOverlap(settings?.segment_overlap ?? defaults.segment_overlap),
-    max_extraction_iterations: normalizeMaxExtractionIterations(settings?.max_extraction_iterations ?? defaults.max_extraction_iterations),
   }
 }
 
@@ -163,6 +244,7 @@ export function cloneEntityExtractionSettings(settings?: EntityExtractionSetting
   return {
     entity_definitions: cloneEntityDefinitions(settings?.entity_definitions || []),
     extraction: cloneEntityExtractionRunSettings(settings?.extraction),
+    advanced_settings: cloneEntityExtractionPerformanceTuningSettings(settings?.advanced_settings),
   }
 }
 
@@ -206,30 +288,55 @@ export function getEntityExtractionRunSettingsFromSettings(settings?: Record<str
     entityExtraction?.extraction && typeof entityExtraction.extraction === 'object'
       ? (entityExtraction.extraction as Record<string, unknown>)
       : undefined
-  const hasPromptSystemName =
-    !!extraction && Object.prototype.hasOwnProperty.call(extraction, 'prompt_template_system_name')
+  const hasPromptSystemName = !!extraction && Object.prototype.hasOwnProperty.call(extraction, 'prompt_template_system_name')
   const isExplicitlyDisabled = extraction?.enabled === false
 
   return cloneEntityExtractionRunSettings({
     approach: normalizeExtractionApproach(extraction?.approach),
     mode: normalizeExtractionMode(extraction?.mode),
-    schema_format: normalizeSchemaFormat(extraction?.schema_format),
     prompt_template_system_name: hasPromptSystemName
       ? String(extraction?.prompt_template_system_name || '').trim()
       : isExplicitlyDisabled
         ? ''
         : defaults.prompt_template_system_name,
-    analysis_prompt_template_system_name:
-      typeof extraction?.analysis_prompt_template_system_name === 'string'
-        ? String(extraction.analysis_prompt_template_system_name).trim()
-        : defaults.analysis_prompt_template_system_name,
     reflective_prompt_template_system_name:
       typeof extraction?.reflective_prompt_template_system_name === 'string'
         ? String(extraction.reflective_prompt_template_system_name).trim()
         : defaults.reflective_prompt_template_system_name,
+    self_tuning_prompt_template_system_name:
+      typeof extraction?.self_tuning_prompt_template_system_name === 'string'
+        ? String(extraction.self_tuning_prompt_template_system_name).trim()
+        : defaults.self_tuning_prompt_template_system_name,
+    self_tuning_analysis_prompt_template_system_name:
+      typeof extraction?.self_tuning_analysis_prompt_template_system_name === 'string'
+        ? String(extraction.self_tuning_analysis_prompt_template_system_name).trim()
+        : defaults.self_tuning_analysis_prompt_template_system_name,
     segment_size: normalizeSegmentSize(extraction?.segment_size),
     segment_overlap: normalizeSegmentOverlap(extraction?.segment_overlap),
-    max_extraction_iterations: normalizeMaxExtractionIterations(extraction?.max_extraction_iterations),
+  })
+}
+
+export function getPerformanceTuningFromSettings(settings?: Record<string, unknown>): EntityExtractionPerformanceTuningSettings {
+  const entityExtraction = getEntityExtractionRaw(settings)
+  const raw = entityExtraction?.[ENTITY_EXTRACTION_ADVANCED_SETTINGS_KEY]
+  const performanceTuning = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : undefined
+  const relevanceFilterRaw = performanceTuning?.relevance_filter
+  const relevanceFilter = relevanceFilterRaw && typeof relevanceFilterRaw === 'object' ? (relevanceFilterRaw as Record<string, unknown>) : undefined
+
+  const documentCoverageRaw = performanceTuning?.document_coverage
+  const documentCoverageObj =
+    documentCoverageRaw && typeof documentCoverageRaw === 'object' ? (documentCoverageRaw as Record<string, unknown>) : undefined
+
+  return cloneEntityExtractionPerformanceTuningSettings({
+    schema_format: normalizeSchemaFormat(performanceTuning?.schema_format),
+    max_extraction_iterations: normalizeMaxExtractionIterations(performanceTuning?.max_extraction_iterations),
+    relevance_filter: {
+      prompt_template_system_name: String(relevanceFilter?.prompt_template_system_name || '').trim(),
+    },
+    document_coverage: {
+      mode: normalizeDocumentCoverageMode(documentCoverageObj?.mode),
+      coverage: normalizeDocumentCoverage(documentCoverageObj?.coverage),
+    },
   })
 }
 
@@ -237,6 +344,7 @@ export function getEntityExtractionSettingsFromSettings(settings?: Record<string
   return {
     entity_definitions: getEntityDefinitionsFromSettings(settings),
     extraction: getEntityExtractionRunSettingsFromSettings(settings),
+    advanced_settings: getPerformanceTuningFromSettings(settings),
   }
 }
 
@@ -265,18 +373,45 @@ export function withEntityExtractionRunSettings(
       enabled:
         extractionSettings.mode === 'reflective'
           ? !!String(extractionSettings.reflective_prompt_template_system_name || '').trim()
-          : !!String(extractionSettings.prompt_template_system_name || '').trim(),
+          : extractionSettings.mode === 'self-tuning'
+            ? !!String(extractionSettings.self_tuning_prompt_template_system_name || '').trim() &&
+              !!String(extractionSettings.self_tuning_analysis_prompt_template_system_name || '').trim()
+            : !!String(extractionSettings.prompt_template_system_name || '').trim(),
       approach: normalizeExtractionApproach(extractionSettings.approach),
       mode: normalizeExtractionMode(extractionSettings.mode),
-      schema_format: normalizeSchemaFormat(extractionSettings.schema_format),
       prompt_template_system_name: String(extractionSettings.prompt_template_system_name || '').trim() || undefined,
-      analysis_prompt_template_system_name:
-        String(extractionSettings.analysis_prompt_template_system_name || '').trim() || undefined,
-      reflective_prompt_template_system_name:
-        String(extractionSettings.reflective_prompt_template_system_name || '').trim() || undefined,
+      reflective_prompt_template_system_name: String(extractionSettings.reflective_prompt_template_system_name || '').trim() || undefined,
+      self_tuning_prompt_template_system_name: String(extractionSettings.self_tuning_prompt_template_system_name || '').trim() || undefined,
+      self_tuning_analysis_prompt_template_system_name:
+        String(extractionSettings.self_tuning_analysis_prompt_template_system_name || '').trim() || undefined,
       segment_size: normalizeSegmentSize(extractionSettings.segment_size),
       segment_overlap: normalizeSegmentOverlap(extractionSettings.segment_overlap),
-      max_extraction_iterations: normalizeMaxExtractionIterations(extractionSettings.max_extraction_iterations),
+    },
+  }
+
+  return nextSettings
+}
+
+export function withEntityExtractionPerformanceTuning(
+  settings: Record<string, unknown> | undefined,
+  performanceTuning: EntityExtractionPerformanceTuningSettings
+): Record<string, unknown> {
+  const nextSettings = settings && typeof settings === 'object' ? { ...settings } : {}
+  const currentEntityExtraction = nextSettings[ENTITY_EXTRACTION_SETTINGS_KEY]
+  const cloned = cloneEntityExtractionPerformanceTuningSettings(performanceTuning)
+
+  nextSettings[ENTITY_EXTRACTION_SETTINGS_KEY] = {
+    ...(currentEntityExtraction && typeof currentEntityExtraction === 'object' ? currentEntityExtraction : {}),
+    [ENTITY_EXTRACTION_ADVANCED_SETTINGS_KEY]: {
+      schema_format: cloned.schema_format,
+      max_extraction_iterations: cloned.max_extraction_iterations,
+      relevance_filter: {
+        prompt_template_system_name: cloned.relevance_filter.prompt_template_system_name || undefined,
+      },
+      document_coverage: {
+        mode: cloned.document_coverage.mode,
+        coverage: cloned.document_coverage.coverage,
+      },
     },
   }
 
@@ -321,9 +456,7 @@ export function getExtractionStatusFromGraphDetails(graphDetails?: Record<string
     status: VALID_EXTRACTION_STATUSES.includes(status as EntityExtractionStatus) ? (status as EntityExtractionStatus) : 'idle',
     started_at: statusObj.started_at ? String(statusObj.started_at) : null,
     completed_at: statusObj.completed_at ? String(statusObj.completed_at) : null,
-    progress: progressRaw
-      ? { processed: Number(progressRaw.processed) || 0, total: Number(progressRaw.total) || 0 }
-      : null,
+    progress: progressRaw ? { processed: Number(progressRaw.processed) || 0, total: Number(progressRaw.total) || 0 } : null,
     result: statusObj.result && typeof statusObj.result === 'object' ? (statusObj.result as EntityExtractionStatusInfo['result']) : null,
     error_message: statusObj.error_message ? String(statusObj.error_message) : null,
   }
@@ -460,10 +593,7 @@ export function parseEntityDefinitionsFromImport(text: string): EntityDefinition
   return { entities, warnings }
 }
 
-export function mergeEntityDefinitions(
-  existing: EntityDefinition[],
-  incoming: EntityDefinition[]
-): EntityDefinitionsMergeResult {
+export function mergeEntityDefinitions(existing: EntityDefinition[], incoming: EntityDefinition[]): EntityDefinitionsMergeResult {
   const merged = cloneEntityDefinitions(existing)
   const indexByName = new Map<string, number>()
   merged.forEach((entity, index) => {

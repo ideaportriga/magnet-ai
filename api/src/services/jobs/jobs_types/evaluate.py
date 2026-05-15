@@ -167,6 +167,12 @@ async def evaluate_record(
             answer = chat_completion.choices[0].message.content
             usage = chat_completion.usage
             model_version = chat_completion.model
+            cost = (
+                chat_completion.cost_details.total
+                if chat_completion.cost_details
+                and chat_completion.cost_details.total is not None
+                else None
+            )
 
             usage = {
                 "completion_tokens": usage.completion_tokens if usage else 0,
@@ -178,6 +184,7 @@ async def evaluate_record(
                 "latency": latency,
                 "usage": usage,
                 "model_version": model_version,
+                "cost": cost,
             }
 
             return result
@@ -290,6 +297,7 @@ async def evaluate_variant(
             "id": str(uuid.uuid4()),
             "model_version": result.get("model_version", ""),
             "usage": result.get("usage", {}),
+            "cost": result.get("cost"),
             "latency": result.get("latency", 0),
             "generated_output": result.get("answer", ""),
             "test_set": test_set,

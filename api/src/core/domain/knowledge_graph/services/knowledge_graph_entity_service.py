@@ -469,14 +469,11 @@ class KnowledgeGraphEntityService:
             raise ValueError("entity is required")
 
         record_identifier_value = str(record_identifier or "").strip()
-        if not record_identifier_value:
-            raise ValueError("record_identifier is required")
-
-        normalized_record_identifier = normalize_record_identifier(
-            record_identifier_value
+        normalized_record_identifier = (
+            normalize_record_identifier(record_identifier_value)
+            if record_identifier_value
+            else ""
         )
-        if not normalized_record_identifier:
-            raise ValueError("normalized_record_identifier is required")
 
         normalized_column_values = normalize_metadata_value(dict(column_values or {}))
         source_document_id_value = (
@@ -490,21 +487,25 @@ class KnowledgeGraphEntityService:
         md = MetaData()
         entities_tbl = knowledge_graph_entity_table(md, table_name)
 
-        existing_row = (
-            (
-                await db_session.execute(
-                    select(entities_tbl)
-                    .where(entities_tbl.c.entity == entity_value)
-                    .where(
-                        entities_tbl.c.normalized_record_identifier
-                        == normalized_record_identifier
+        # When the entity has no primary identifier, every candidate becomes a
+        # new row — skip the dedup lookup and merge path entirely.
+        existing_row = None
+        if normalized_record_identifier:
+            existing_row = (
+                (
+                    await db_session.execute(
+                        select(entities_tbl)
+                        .where(entities_tbl.c.entity == entity_value)
+                        .where(
+                            entities_tbl.c.normalized_record_identifier
+                            == normalized_record_identifier
+                        )
+                        .limit(1)
                     )
-                    .limit(1)
                 )
+                .mappings()
+                .one_or_none()
             )
-            .mappings()
-            .one_or_none()
-        )
 
         edge_svc = KnowledgeGraphEdgeService()
 
@@ -513,10 +514,12 @@ class KnowledgeGraphEntityService:
                 entities_tbl.insert()
                 .values(
                     entity=entity_value,
-                    record_identifier=record_identifier_value,
-                    normalized_record_identifier=normalized_record_identifier,
+                    record_identifier=record_identifier_value or None,
+                    normalized_record_identifier=normalized_record_identifier or None,
                     column_values=normalized_column_values,
-                    identifier_aliases=[record_identifier_value],
+                    identifier_aliases=(
+                        [record_identifier_value] if record_identifier_value else []
+                    ),
                 )
                 .returning(*entities_tbl.c)
             )

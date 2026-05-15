@@ -489,21 +489,14 @@ class KnowledgeGraphEntityExtractionRunRequest(BaseModel):
     mode: Optional[str] = Field(
         default=None,
         description=(
-            "Extraction mode: 'basic' (single-pass per segment), 'advanced' "
-            "(per-document analysis pre-pass, then context-aware extraction), or "
+            "Extraction mode: 'basic' (single-pass per segment), "
             "'reflective' (per-segment call returns analysis + records; analysis "
-            "carries to the next segment)."
+            "carries to the next segment), or 'self-tuning' (per-segment delta "
+            "analysis that tailors the extraction prompt body itself)."
         ),
     )
     prompt_template_system_name: Optional[str] = Field(
         default=None, description="Prompt template system name for entity extraction"
-    )
-    analysis_prompt_template_system_name: Optional[str] = Field(
-        default=None,
-        description=(
-            "Prompt template system name for the document analysis pass (required "
-            "when mode='advanced')"
-        ),
     )
     reflective_prompt_template_system_name: Optional[str] = Field(
         default=None,
@@ -511,6 +504,25 @@ class KnowledgeGraphEntityExtractionRunRequest(BaseModel):
             "Prompt template system name for the reflective extraction pass "
             "(required when mode='reflective'). The template must instruct the "
             "model to emit analysis + records on the first call."
+        ),
+    )
+    self_tuning_prompt_template_system_name: Optional[str] = Field(
+        default=None,
+        description=(
+            "Prompt template system name for the self-tuning extraction pass "
+            "(required when mode='self-tuning'). The template must reference "
+            "the {TUNED_INSTRUCTIONS}, {SHARED_VALUES}, and {EXAMPLES} "
+            "placeholders so the accumulated self-tuning state can be injected."
+        ),
+    )
+    self_tuning_analysis_prompt_template_system_name: Optional[str] = Field(
+        default=None,
+        description=(
+            "Prompt template system name for the self-tuning analysis pass "
+            "(required when mode='self-tuning'). The template must emit a "
+            "delta envelope (Status + optional Instruction/Shared value/Example "
+            "deltas) so cross-segment state grows by patches rather than full "
+            "snapshots."
         ),
     )
     segment_size: Optional[int] = Field(
@@ -537,6 +549,14 @@ class KnowledgeGraphEntityExtractionRunRequest(BaseModel):
             "block in the prompt), or 'markdown' (markdown listing in the prompt)."
         ),
     )
+    relevance_filter_prompt_template_system_name: Optional[str] = Field(
+        default=None,
+        description=(
+            "Prompt template system name for the relevance pre-filter. "
+            "When set, each chunk is classified by a lightweight LLM call and "
+            "dropped if irrelevant before segmentation."
+        ),
+    )
 
 
 class KnowledgeGraphEntityExtractionRunResponse(BaseModel):
@@ -553,6 +573,10 @@ class KnowledgeGraphEntityExtractionRunResponse(BaseModel):
     )
     skipped_chunks: int = Field(
         default=0, description="Chunks skipped due to missing content"
+    )
+    filtered_chunks: int = Field(
+        default=0,
+        description="Chunks dropped by the relevance pre-filter (when enabled)",
     )
     upserted_records: int = Field(
         default=0, description="Entity rows inserted or updated"

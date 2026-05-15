@@ -164,6 +164,7 @@
     <entity-extraction-settings-dialog
       :show-dialog="showExtractionDialog"
       :settings="extractionSettings"
+      :performance-tuning="performanceTuning"
       :prompt-template-options="promptTemplateOptions"
       :loading-prompt-templates="loadingPromptTemplates"
       @update:show-dialog="showExtractionDialog = $event"
@@ -255,20 +256,25 @@ import EntityDialog from './EntityDialog.vue'
 import EntityExtractionSettingsDialog from './EntityExtractionSettingsDialog.vue'
 import {
   cloneEntityDefinitions,
+  cloneEntityExtractionPerformanceTuningSettings,
   cloneEntityExtractionRunSettings,
   createDefaultEntityExtractionRunSettings,
+  createDefaultPerformanceTuningSettings,
   getEntityExtractionSettingsFromSettings,
   getExtractionStatusFromGraphDetails,
   mergeEntityDefinitions,
   parseEntityDefinitionsFromImport,
   serializeEntityDefinitionsForExport,
   withEntityDefinitions,
+  withEntityExtractionPerformanceTuning,
   withEntityExtractionRunSettings,
   type EntityDefinition,
   type EntityDefinitionsMergeResult,
+  type EntityExtractionPerformanceTuningSettings,
   type EntityExtractionRunSettings,
   type EntityExtractionStatusInfo,
 } from './models'
+import type { EntityExtractionDialogPayload } from './EntityExtractionSettingsDialog.vue'
 
 const props = defineProps<{
   graphId: string
@@ -284,6 +290,7 @@ const $q = useQuasar()
 
 const entities = ref<EntityDefinition[]>([])
 const extractionSettings = ref<EntityExtractionRunSettings>(createDefaultEntityExtractionRunSettings())
+const performanceTuning = ref<EntityExtractionPerformanceTuningSettings>(createDefaultPerformanceTuningSettings())
 const selectedEntity = ref<EntityDefinition | null>(null)
 const selected = ref<EntityDefinition[]>([])
 const dialogOpen = ref(false)
@@ -360,11 +367,18 @@ const columns: QTableColumn<EntityDefinition>[] = [
 ]
 
 const canRunExtraction = computed(() => {
-  const activePrompt =
-    extractionSettings.value.mode === 'reflective'
-      ? extractionSettings.value.reflective_prompt_template_system_name
-      : extractionSettings.value.prompt_template_system_name
-  return !!String(activePrompt || '').trim() && entities.value.length > 0 && !loadingPromptTemplates.value
+  const mode = extractionSettings.value.mode
+  let promptsConfigured: boolean
+  if (mode === 'reflective') {
+    promptsConfigured = !!String(extractionSettings.value.reflective_prompt_template_system_name || '').trim()
+  } else if (mode === 'self-tuning') {
+    promptsConfigured =
+      !!String(extractionSettings.value.self_tuning_prompt_template_system_name || '').trim() &&
+      !!String(extractionSettings.value.self_tuning_analysis_prompt_template_system_name || '').trim()
+  } else {
+    promptsConfigured = !!String(extractionSettings.value.prompt_template_system_name || '').trim()
+  }
+  return promptsConfigured && entities.value.length > 0 && !loadingPromptTemplates.value
 })
 
 const extractionStatus = computed<EntityExtractionStatusInfo>(() => {
@@ -433,6 +447,7 @@ function initializeFromSettings() {
   const normalizedSettings = getEntityExtractionSettingsFromSettings(baseSettings.value)
   entities.value = cloneEntityDefinitions(normalizedSettings.entity_definitions)
   extractionSettings.value = cloneEntityExtractionRunSettings(normalizedSettings.extraction)
+  performanceTuning.value = cloneEntityExtractionPerformanceTuningSettings(normalizedSettings.advanced_settings)
   if (selected.value.length > 0) {
     const validIds = new Set(entities.value.map((entity) => entity.id))
     selected.value = selected.value.filter((entity) => validIds.has(entity.id))
@@ -502,7 +517,8 @@ async function getResponseErrorMessage(response: Response, fallbackMessage: stri
 async function persistEntityExtractionSettings(
   nextEntities: EntityDefinition[],
   nextExtractionSettings: EntityExtractionRunSettings,
-  successMessage: string
+  successMessage: string,
+  nextPerformanceTuning: EntityExtractionPerformanceTuningSettings = performanceTuning.value
 ) {
   if (saving.value) {
     return false
@@ -517,7 +533,10 @@ async function persistEntityExtractionSettings(
       return false
     }
 
-    const nextSettings = withEntityExtractionRunSettings(withEntityDefinitions(baseSettings.value, nextEntities), nextExtractionSettings)
+    const nextSettings = withEntityExtractionPerformanceTuning(
+      withEntityExtractionRunSettings(withEntityDefinitions(baseSettings.value, nextEntities), nextExtractionSettings),
+      nextPerformanceTuning
+    )
 
     const response = await fetchData({
       endpoint,
@@ -539,6 +558,7 @@ async function persistEntityExtractionSettings(
     baseSettings.value = cloneSettings(nextSettings)
     entities.value = cloneEntityDefinitions(nextEntities)
     extractionSettings.value = cloneEntityExtractionRunSettings(nextExtractionSettings)
+    performanceTuning.value = cloneEntityExtractionPerformanceTuningSettings(nextPerformanceTuning)
     emit('refresh')
     $q.notify({
       type: 'positive',
@@ -582,8 +602,13 @@ async function onDialogSave(entity: EntityDefinition) {
   selectedEntity.value = null
 }
 
-async function onExtractionSettingsSave(nextSettings: EntityExtractionRunSettings) {
-  const success = await persistEntityExtractionSettings(entities.value, nextSettings, 'Entity extraction settings updated')
+async function onExtractionSettingsSave(payload: EntityExtractionDialogPayload) {
+  const success = await persistEntityExtractionSettings(
+    entities.value,
+    payload.extraction,
+    'Entity extraction settings updated',
+    payload.advanced_settings
+  )
   if (!success) {
     return
   }
@@ -648,13 +673,13 @@ async function runExtraction() {
     const payload = {
       approach: extractionSettings.value.approach,
       mode: extractionSettings.value.mode,
-      schema_format: extractionSettings.value.schema_format,
+      schema_format: performanceTuning.value.schema_format,
       prompt_template_system_name: String(extractionSettings.value.prompt_template_system_name || '').trim(),
-      analysis_prompt_template_system_name: String(extractionSettings.value.analysis_prompt_template_system_name || '').trim(),
       reflective_prompt_template_system_name: String(extractionSettings.value.reflective_prompt_template_system_name || '').trim(),
       segment_size: extractionSettings.value.segment_size,
       segment_overlap: extractionSettings.value.segment_overlap,
-      max_extraction_iterations: extractionSettings.value.max_extraction_iterations,
+      max_extraction_iterations: performanceTuning.value.max_extraction_iterations,
+      relevance_filter_prompt_template_system_name: String(performanceTuning.value.relevance_filter.prompt_template_system_name || '').trim(),
     }
 
     const response = await fetchData({
@@ -764,8 +789,7 @@ function buildExportFilename(list: EntityDefinition[]): string {
   const now = new Date()
   const pad = (n: number) => String(n).padStart(2, '0')
   const stamp =
-    `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}` +
-    `-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
+    `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}` + `-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
   return `kg-entities-${graphSlug}-${stamp}.json`
 }
 
@@ -843,11 +867,7 @@ function onImportDialogToggle(value: boolean) {
 
 async function onConfirmImport() {
   if (!pendingImport.value) return
-  const success = await persistEntityExtractionSettings(
-    pendingImport.value.merged,
-    extractionSettings.value,
-    'Entity definitions imported'
-  )
+  const success = await persistEntityExtractionSettings(pendingImport.value.merged, extractionSettings.value, 'Entity definitions imported')
   if (!success) return
 
   selected.value = []

@@ -47,6 +47,7 @@ class ChunkerStrategy(StrEnum):
     LLM = "llm"
     RECURSIVE = "recursive_character_text_splitting"
     KREUZBERG = "kreuzberg"
+    PAGE = "page"
 
 
 class ChunkContentType(StrEnum):
