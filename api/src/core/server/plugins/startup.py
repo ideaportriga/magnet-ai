@@ -63,6 +63,11 @@ class StartupPlugin(InitPluginProtocol):
         if self.auth_enabled:
             await self._refresh_api_keys()
 
+        # Load DB-backed role → permission snapshot (PR 2 of access-control plan).
+        # Falls back to in-code SYSTEM_ROLE_DEFAULTS if the table is empty or
+        # the schema hasn't been migrated yet, so this is always safe to run.
+        await self._load_permission_cache()
+
         # Initialize database connections
         await self._initialize_database_connections()
 
@@ -154,6 +159,17 @@ class StartupPlugin(InitPluginProtocol):
             logger.info("API keys cache refreshed successfully")
         except Exception as e:
             logger.error(f"Failed to refresh API keys cache: {e}")
+
+    async def _load_permission_cache(self) -> None:
+        """Load role → permission snapshot from DB into the in-process cache."""
+        try:
+            from guards.permissions import load_role_permissions_cache
+
+            await load_role_permissions_cache()
+        except Exception as e:  # noqa: BLE001
+            # Never block startup on the permission cache — in-code defaults
+            # are a safe fallback.
+            logger.warning("Failed to load permission cache: %s", e)
 
     async def _initialize_database_connections(self) -> None:
         """Initialize database connection pools and register vector stores."""

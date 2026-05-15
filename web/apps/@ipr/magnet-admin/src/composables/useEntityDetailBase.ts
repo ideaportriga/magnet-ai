@@ -28,6 +28,13 @@ export interface UseEntityDetailBaseReturn<T extends BaseEntity> {
   bufferKey: ComputedRef<string>
   /** Loading state from TanStack Query */
   isLoading: Ref<boolean>
+  /** True if the underlying detail query errored (404 from RLS/record ACL,
+   *  network, etc.). Lets pages render a "no access / not found" panel
+   *  instead of an indefinite loading spinner. */
+  isError: Ref<boolean>
+  /** Underlying error object — typed loosely because it can be either a
+   *  network/HTTP error or a TanStack-thrown one. */
+  error: Ref<unknown>
   /** Whether draft differs from original */
   isDirty: ComputedRef<boolean>
   /** Update a single field path in the draft */
@@ -100,7 +107,7 @@ export function useEntityDetailBase<T extends BaseEntity>(
 
   // 1. Fetch entity + prepare mutations
   const entityQueries = queries[entityKey]
-  const { data, isLoading, refetch } = entityQueries.useDetail(id)
+  const { data, isLoading, isError, error, refetch } = entityQueries.useDetail(id)
   const { mutateAsync: updateEntity } = entityQueries.useUpdate()
   const { mutateAsync: removeEntity } = entityQueries.useRemove()
 
@@ -202,6 +209,8 @@ export function useEntityDetailBase<T extends BaseEntity>(
     id,
     bufferKey,
     isLoading,
+    isError,
+    error,
     isDirty,
     updateField,
     updateFields,

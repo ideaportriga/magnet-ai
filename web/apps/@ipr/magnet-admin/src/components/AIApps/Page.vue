@@ -124,6 +124,9 @@ import { textColumn, dateColumn } from '@/utils/columnHelpers'
 import { beforeRouteEnter } from '@/guards'
 import { m } from '@/paraglide/messages'
 import type { AiApp } from '@/types'
+// DsProgress isn't globally registered; import explicitly from the barrel.
+// Fixes "Failed to resolve component: ds-progress" warning.
+import { DsProgress } from '@ds/primitives'
 
 defineOptions({ beforeRouteEnter })
 

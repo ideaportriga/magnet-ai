@@ -317,12 +317,13 @@ class NoteTakerSettingsController(Controller):
 
         client_id = str(creds.get("client_id") or "").strip()
         client_secret = str(creds.get("client_secret") or "").strip()
-        tenant_id = str(creds.get("tenant_id") or "").strip()
+        # DB-stored secrets/connection JSON key is `tenant_id` (Azure AD).
+        azure_tenant_id = str(creds.get("tenant_id") or "").strip()
         auth_handler_id = str(
             creds.get("auth_handler_id") or f"note_taker_{settings.system_name}"
         ).strip()
 
-        if not (client_id and client_secret and tenant_id):
+        if not (client_id and client_secret and azure_tenant_id):
             raise HTTPException(
                 status_code=400,
                 detail="Incomplete credentials (need client_id, client_secret, tenant_id).",
@@ -332,7 +333,7 @@ class NoteTakerSettingsController(Controller):
             settings_obj = _NTSettings(
                 client_id=client_id,
                 client_secret=client_secret,
-                tenant_id=tenant_id,
+                azure_tenant_id=azure_tenant_id,
                 auth_handler_id=auth_handler_id,
             )
             runtime = build_note_taker_runtime(settings_obj)

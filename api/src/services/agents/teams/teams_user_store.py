@@ -91,7 +91,8 @@ async def upsert_teams_user(session: AsyncSession, context: TurnContext) -> None
     conversation_id = getattr(conversation, "id", None)
     service_url = getattr(activity, "service_url", None)
     bot_id = normalize_bot_id(getattr(recipient, "id", None))
-    tenant_id = (channel_data.get("tenant") or {}).get("id")
+    # Azure AD tenant from the Bot Framework channel_data payload.
+    azure_tenant_id = (channel_data.get("tenant") or {}).get("id")
 
     if not all([teams_user_id, scope, conversation_id, service_url, bot_id]):
         logger.debug(
@@ -106,9 +107,10 @@ async def upsert_teams_user(session: AsyncSession, context: TurnContext) -> None
         return
 
     conversation_reference = _conversation_reference_from_activity(activity)
-    # Ensure we persist tenant id for future proactive operations if we fell back
-    if tenant_id and "tenant_id" not in conversation_reference:
-        conversation_reference["tenant_id"] = tenant_id
+    # Stored JSON keeps the Bot Framework key `tenant_id` (don't rename here —
+    # other consumers read this DB column directly).
+    if azure_tenant_id and "tenant_id" not in conversation_reference:
+        conversation_reference["tenant_id"] = azure_tenant_id
     now = dt.datetime.now(dt.timezone.utc)
 
     email = None

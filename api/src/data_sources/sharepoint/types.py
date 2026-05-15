@@ -10,7 +10,9 @@ class SharepointConfig:
 
 @dataclass
 class SharepointConfigWithCert:
-    tenant: str
+    # Azure AD tenant ID. Field was previously named `tenant`; renamed for
+    # consistency with the access-control plan PR 3 naming.
+    azure_tenant_id: str
     client_id: str
     thumbprint: str
     private_key: str

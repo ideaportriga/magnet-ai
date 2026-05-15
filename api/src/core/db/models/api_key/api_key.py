@@ -70,6 +70,13 @@ class APIKey(UUIDv7AuditBase, UniqueMixin):
         comment="Optional FK to user who owns this API key",
     )
 
+    tenant_id: Mapped[UUID] = mapped_column(
+        ForeignKey("tenant.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+        comment="Organization-tenant the key is scoped to",
+    )
+
     scopes: Mapped[Optional[list]] = mapped_column(
         JsonB,
         nullable=True,

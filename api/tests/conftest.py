@@ -138,6 +138,66 @@ async def engine(_db_schema_initialized) -> AsyncGenerator[AsyncEngine, None]:
         async with eng.begin() as conn:
             await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
             await conn.run_sync(UUIDv7AuditBase.metadata.create_all)
+            # Seed the default tenant so tests that create users / api keys
+            # under the NOT NULL `tenant_id` constraint work out of the box.
+            # PR 4 of the access-control plan.
+            await conn.execute(
+                text(
+                    """
+                    INSERT INTO tenant (id, slug, name, is_active, created_at, updated_at)
+                    VALUES (gen_random_uuid(), 'default', 'Default', TRUE, NOW(), NOW())
+                    ON CONFLICT (slug) DO NOTHING
+                    """
+                )
+            )
+
+            # PR 7: enable RLS on `agents` and create the tenant_isolation
+            # policy. `metadata.create_all` doesn't reproduce policies, so
+            # we apply them here to exercise real RLS behaviour in tests.
+            await conn.execute(text("ALTER TABLE agents ENABLE ROW LEVEL SECURITY"))
+            await conn.execute(text("ALTER TABLE agents FORCE ROW LEVEL SECURITY"))
+            await conn.execute(
+                text("DROP POLICY IF EXISTS agents_tenant_isolation ON agents")
+            )
+            await conn.execute(
+                text(
+                    """
+                    CREATE POLICY agents_tenant_isolation ON agents
+                    FOR ALL
+                    USING (
+                        tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid
+                    )
+                    WITH CHECK (
+                        tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid
+                    )
+                    """
+                )
+            )
+
+            # Postgres superuser BYPASSES row security even under FORCE RLS.
+            # Production runtime never connects as superuser, but the test
+            # container does — so we create a non-priv role and tests that
+            # need to exercise RLS use `SET LOCAL ROLE magnet_test_app`.
+            await conn.execute(text("DROP ROLE IF EXISTS magnet_test_app"))
+            await conn.execute(
+                text(
+                    "CREATE ROLE magnet_test_app "
+                    "NOLOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE"
+                )
+            )
+            await conn.execute(text("GRANT USAGE ON SCHEMA public TO magnet_test_app"))
+            await conn.execute(
+                text(
+                    "GRANT SELECT, INSERT, UPDATE, DELETE "
+                    "ON ALL TABLES IN SCHEMA public TO magnet_test_app"
+                )
+            )
+            await conn.execute(
+                text(
+                    "GRANT USAGE, SELECT "
+                    "ON ALL SEQUENCES IN SCHEMA public TO magnet_test_app"
+                )
+            )
 
         _db_schema_initialized["initialized"] = True
 
@@ -147,7 +207,28 @@ async def engine(_db_schema_initialized) -> AsyncGenerator[AsyncEngine, None]:
 
 @pytest.fixture
 async def db_session(engine) -> AsyncGenerator[AsyncSession, None]:
-    """Provide a per-test session that rolls back after each test."""
+    """Provide a per-test session that rolls back after each test.
+
+    PR 7: also sets the RLS contextvar to the default tenant id so that
+    tenant-scoped tables (e.g. `agents`) are queryable out of the box.
+    Tests that exercise cross-tenant behaviour can override with
+    `rls_context_scope`.
+    """
+    from core.db.rls_context import set_rls_context, reset_rls_context
+
+    # Resolve default tenant id from a throwaway connection so the per-test
+    # transactional connection below isn't already in a tx.
+    async with engine.connect() as probe_conn:
+        result = await probe_conn.execute(
+            text("SELECT id FROM tenant WHERE slug = 'default'")
+        )
+        default_tenant_id = result.scalar_one_or_none()
+
+    tokens = set_rls_context(
+        tenant_id=str(default_tenant_id) if default_tenant_id else None,
+        user_id=None,
+    )
+
     async with engine.connect() as conn:
         trans = await conn.begin()
         session = AsyncSession(bind=conn, expire_on_commit=False)
@@ -158,6 +239,20 @@ async def db_session(engine) -> AsyncGenerator[AsyncSession, None]:
             await session.close()
             if trans.is_active:
                 await trans.rollback()
+            reset_rls_context(tokens)
+
+
+@pytest.fixture
+async def default_tenant(db_session):
+    """Return the seeded `default` Tenant row (PR 4)."""
+    from core.db.models.tenant.tenant import Tenant
+    from sqlalchemy import select
+
+    result = await db_session.execute(select(Tenant).where(Tenant.slug == "default"))
+    tenant = result.scalar_one_or_none()
+    if tenant is None:
+        raise RuntimeError("Default tenant not seeded — check conftest engine fixture")
+    return tenant
 
 
 # ---------------------------------------------------------------------------
@@ -245,6 +340,9 @@ async def client(test_app) -> AsyncGenerator:
 
 def _import_all_models():
     """Import every model so metadata.create_all creates all tables."""
+    # PR 7: importing rls_context installs the SQLAlchemy after_begin event
+    # listener that emits SET LOCAL app.tenant_id on every transaction.
+    import core.db.rls_context  # noqa: F401
     import core.db.models  # noqa: F401
     import core.db.models.agent  # noqa: F401
     import core.db.models.agent_conversation  # noqa: F401

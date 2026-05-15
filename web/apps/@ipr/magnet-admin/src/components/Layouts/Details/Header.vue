@@ -2,8 +2,8 @@
   <div class="details-header stack" data-gap="sm">
     <div class="details-header__top cluster" data-wrap="no" data-align="start" data-gap="md">
       <div class="details-header__identity stack flex-1 km-flex-min-w-0" data-gap="2xs">
-        <km-input-flat class="km-heading-4 full-width text-black" data-test="name-input" :placeholder="namePlaceholder || m.common_name()" :model-value="name" @change="emit('update:name', $event)" />
-        <km-input-flat v-if="showDescription" class="km-description full-width text-black" data-test="description-input" :placeholder="descriptionPlaceholder || m.common_description()" :model-value="description" @change="emit('update:description', $event)" />
+        <km-input-flat class="km-heading-4 full-width text-black" data-test="name-input" :placeholder="namePlaceholder || m.common_name()" :model-value="name" :readonly="readonly" @change="emit('update:name', $event)" />
+        <km-input-flat v-if="showDescription" class="km-description full-width text-black" data-test="description-input" :placeholder="descriptionPlaceholder || m.common_description()" :model-value="description" :readonly="readonly" @change="emit('update:description', $event)" />
       </div>
       <div v-if="hasToolbar" class="details-header__toolbar cluster flex-none" data-align="center" data-wrap="no" data-gap="xs">
         <slot name="actions" />
@@ -17,6 +17,10 @@
                 <div class="details-header__record-tooltip-label km-button-xs-text">{{ field.label }}</div>
                 <div class="details-header__record-tooltip-value km-description">{{ field.value }}</div>
               </div>
+              <!-- Extra record-level metadata (PR 9a) — access-control fields
+                   like visibility, owner, department. Caller-provided so we
+                   don't bake agent-specific knowledge into the layout. -->
+              <slot name="record-info-extra" />
             </div>
           </DsTooltip>
         </div>
@@ -27,7 +31,7 @@
       <div class="details-header__system-name cluster" data-gap="sm" data-wrap="no" data-align="center">
         <div class="details-header__system-name-field">
           <slot name="system-name" :value="systemName" :update="(value) =&gt; emit('update:systemName', value)">
-            <km-input-flat class="details-header__system-name-input km-description text-black full-width font-mono" data-test="system-name-input" :placeholder="systemNamePlaceholder || m.placeholder_enterSystemNameReadable()" :model-value="systemName" :rules="systemNameRules" @change="emit('update:systemName', $event)" @focus="showInfo = true" @blur="showInfo = false" />
+            <km-input-flat class="details-header__system-name-input km-description text-black full-width font-mono" data-test="system-name-input" :placeholder="systemNamePlaceholder || m.placeholder_enterSystemNameReadable()" :model-value="systemName" :rules="systemNameRules" :readonly="readonly" @change="emit('update:systemName', $event)" @focus="showInfo = true" @blur="showInfo = false" />
           </slot>
         </div>
       </div>
@@ -110,12 +114,24 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  // PR 9a: when true, name/description/system-name inputs render as readonly
+  // — the user has the record loaded but no permission to edit it.
+  readonly: {
+    type: Boolean,
+    default: false,
+  },
 })
 const showInfo = ref(false)
 const emit = defineEmits(['update:name', 'update:description', 'update:systemName'])
 const slots = useSlots()
 
-const showRecordInfoButton = computed(() => props.showRecordInfo || Boolean(props.createdAt || props.updatedAt))
+const showRecordInfoButton = computed(() =>
+  props.showRecordInfo
+  || Boolean(props.createdAt || props.updatedAt)
+  // Force-show the tooltip button when the caller injects extra access
+  // metadata, even if standard record-info fields are absent.
+  || Boolean(slots['record-info-extra'])
+)
 const hasToolbar = computed(() => showRecordInfoButton.value || Boolean(slots.actions))
 
 const recordInfoFields = computed(() => [

@@ -39,7 +39,7 @@
 
 <script>
 import { useState } from '@shared'
-import { useAuth } from '@shared'
+import { useAuth, usePermissions } from '@shared'
 import { getCurrentInstance, computed, ref } from 'vue'
 import { useLoading } from '@ds/composables/useLoading'
 import { m } from '@/paraglide/messages'
@@ -83,7 +83,13 @@ export default {
       }
     }
 
+    const { hasAnyAccess } = usePermissions()
     const hasAdminAccess = computed(() => {
+      // Backward compatible: still allow access for users with the legacy
+      // `admin` role slug (in case /me hasn't been refreshed yet), or any
+      // user with at least one permission. Once the permission catalog
+      // covers every admin surface this can drop the slug check.
+      if (hasAnyAccess.value) return true
       const userInfo = sharedAuth.userInfo
       if (!userInfo) return false
       const roles = userInfo.roles || []

@@ -8,6 +8,7 @@ export type { AuthClient, UserInfo, LoginResult, SignupResult, SessionInfo, MfaS
 // Composables
 
 export { default as useAuth } from './lib/composables/useAuth'
+export { default as usePermissions } from './lib/composables/usePermissions'
 export { default as useState } from './lib/composables/useState'
 export { default as useValidation, validationProps } from './lib/composables/useValidation'
 

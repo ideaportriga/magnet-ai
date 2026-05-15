@@ -1,92 +1,406 @@
-"""Admin endpoints for role and user-role management."""
+"""Admin endpoints for role management (PR 5 of access-control plan).
+
+System roles: visible to all tenants, never editable (is_system=True,
+tenant_id IS NULL). Seeded via migration; only a new migration can change
+them.
+
+Custom roles: tenant-scoped, editable by tenant admins. Their permission set
+is capped by the creator's effective permissions (capability ceiling).
+Deleting a role with active assignments returns 409 — the UI must reassign
+or revoke first.
+"""
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime
+from typing import Optional
 from uuid import UUID
 
-from litestar import Controller, delete, get, post
-from litestar.exceptions import NotFoundException
+from litestar import Controller, Request, delete, get, patch, post, put
+from litestar.exceptions import (
+    HTTPException,
+    NotFoundException,
+    PermissionDeniedException,
+    ValidationException,
+)
+from litestar.status_codes import HTTP_409_CONFLICT
+from pydantic import BaseModel, Field
+from sqlalchemy import func, select
 
 from core.config.app import alchemy
+from core.db.models.user.permission import Permission as PermissionModel
 from core.db.models.user.role import Role
+from core.db.models.user.role_permission import RolePermission
 from core.db.models.user.user_role import UserRole
-from core.domain.users.roles_schemas import RoleCreate, RoleResponse, UserRoleAssign
-from core.domain.users.roles_service import RolesService
-from core.domain.users.service import UsersService
+from guards.permissions import (
+    Permission,
+    get_effective_permissions,
+    load_role_permissions_cache,
+    require_permission,
+)
+from middlewares.auth import Auth
+from services.access_control import write_audit_log
+
+
+class RoleResponse(BaseModel):
+    id: UUID
+    slug: str
+    name: str
+    description: Optional[str] = None
+    is_system: bool
+    tenant_id: Optional[UUID] = None
+    permissions: list[str] = Field(default_factory=list)
+    user_count: int = 0
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class RoleCreateRequest(BaseModel):
+    slug: str = Field(..., max_length=100)
+    name: str = Field(..., max_length=100)
+    description: Optional[str] = None
+    permissions: list[str] = Field(default_factory=list)
+
+
+class RoleUpdateRequest(BaseModel):
+    name: Optional[str] = Field(None, max_length=100)
+    description: Optional[str] = None
+
+
+class RolePermissionsReplace(BaseModel):
+    permissions: list[str]
+
+
+def _require_auth(request: Request) -> Auth:
+    auth: Auth | None = request.scope.get("auth")
+    if auth is None:
+        raise PermissionDeniedException("Authentication required.")
+    return auth
+
+
+def _require_tenant_id(auth: Auth) -> UUID:
+    tenant_id = auth.tenant_id
+    if not tenant_id:
+        raise PermissionDeniedException("Tenant context required for role management.")
+    return UUID(tenant_id)
+
+
+async def _validate_permission_codes(session, codes: list[str]) -> set[str]:
+    """Return the subset of codes that exist in the catalog. Raise if any unknown."""
+    if not codes:
+        return set()
+    unique = set(codes)
+    result = await session.execute(
+        select(PermissionModel.code).where(PermissionModel.code.in_(unique))
+    )
+    found = {row[0] for row in result.all()}
+    missing = unique - found
+    if missing:
+        raise ValidationException(
+            f"Unknown permission code(s): {', '.join(sorted(missing))}"
+        )
+    return unique
+
+
+def _check_capability_ceiling(auth: Auth, requested: set[str]) -> None:
+    """Creator can't grant permissions they don't themselves have."""
+    user = getattr(auth, "user", None)
+    if user is not None and getattr(user, "is_superuser", False):
+        return  # platform superuser bypasses
+    effective = get_effective_permissions(auth)
+    not_allowed = requested - effective
+    if not_allowed:
+        raise PermissionDeniedException(
+            "Cannot grant permissions you don't hold yourself: "
+            + ", ".join(sorted(not_allowed))
+        )
+
+
+async def _serialize_role(session, role: Role) -> RoleResponse:
+    grants = await session.execute(
+        select(RolePermission.permission_code).where(RolePermission.role_id == role.id)
+    )
+    perm_codes = sorted(r[0] for r in grants.all())
+
+    user_count_row = await session.execute(
+        select(func.count()).select_from(UserRole).where(UserRole.role_id == role.id)
+    )
+    user_count = int(user_count_row.scalar() or 0)
+
+    return RoleResponse(
+        id=role.id,
+        slug=role.slug,
+        name=role.name,
+        description=role.description,
+        is_system=role.is_system,
+        tenant_id=role.tenant_id,
+        permissions=perm_codes,
+        user_count=user_count,
+        created_at=role.created_at,
+        updated_at=role.updated_at,
+    )
+
+
+def _get_actor_id(auth: Auth) -> Optional[UUID]:
+    user = getattr(auth, "user", None)
+    if user is None:
+        return None
+    return user.id if hasattr(user, "id") else None
 
 
 class RolesController(Controller):
     path = "/roles"
     tags = ["Admin / Roles"]
 
-    @get("/", summary="List all roles")
-    async def list_roles(self) -> list[RoleResponse]:
-        async with alchemy.get_session() as session:
-            service = RolesService(session=session)
-            roles = await service.list()
-            return [service.to_schema(r, schema_type=RoleResponse) for r in roles]
+    # ── List / Get ──────────────────────────────────────────────────────
 
-    @post("/", summary="Create a role")
-    async def create_role(self, data: RoleCreate) -> RoleResponse:
+    @get(
+        summary="List roles (system + own tenant custom)",
+        guards=[require_permission(Permission.ROLES_READ)],
+    )
+    async def list_roles(self, request: Request) -> list[RoleResponse]:
+        auth = _require_auth(request)
+        tenant_id = _require_tenant_id(auth)
+
         async with alchemy.get_session() as session:
-            service = RolesService(session=session)
-            role = await service.create(
-                Role(name=data.name, slug=data.slug, description=data.description),
-                auto_commit=True,
+            stmt = (
+                select(Role)
+                .where((Role.tenant_id == tenant_id) | (Role.tenant_id.is_(None)))
+                .order_by(Role.is_system.desc(), Role.slug)
             )
-            return service.to_schema(role, schema_type=RoleResponse)
+            roles = (await session.execute(stmt)).scalars().all()
+            return [await _serialize_role(session, r) for r in roles]
 
-    @post("/users/{target_user_id:uuid}/roles", summary="Assign role to user")
-    async def assign_role(self, target_user_id: UUID, data: UserRoleAssign) -> dict:
+    @get(
+        "/{role_id:uuid}",
+        summary="Get a role with permission codes and user count",
+        guards=[require_permission(Permission.ROLES_READ)],
+    )
+    async def get_role(self, request: Request, role_id: UUID) -> RoleResponse:
+        auth = _require_auth(request)
+        tenant_id = _require_tenant_id(auth)
+
         async with alchemy.get_session() as session:
-            users_service = UsersService(session=session)
-            roles_service = RolesService(session=session)
-
-            user = await users_service.get_one_or_none(id=target_user_id)
-            if not user:
-                raise NotFoundException("User not found")
-
-            role = await roles_service.get_one_or_none(id=data.role_id)
-            if not role:
+            role = (
+                await session.execute(select(Role).where(Role.id == role_id))
+            ).scalar_one_or_none()
+            if role is None or (
+                role.tenant_id is not None and role.tenant_id != tenant_id
+            ):
                 raise NotFoundException("Role not found")
+            return await _serialize_role(session, role)
 
-            from sqlalchemy import select
+    # ── Create ──────────────────────────────────────────────────────────
 
-            stmt = select(UserRole).where(
-                UserRole.user_id == target_user_id,
-                UserRole.role_id == data.role_id,
+    @post(
+        summary="Create a custom tenant role",
+        guards=[require_permission(Permission.ROLES_WRITE)],
+    )
+    async def create_role(
+        self, request: Request, data: RoleCreateRequest
+    ) -> RoleResponse:
+        auth = _require_auth(request)
+        tenant_id = _require_tenant_id(auth)
+
+        # System slugs are reserved.
+        if data.slug in {"admin", "user", "viewer"}:
+            raise ValidationException(
+                f"Slug '{data.slug}' is reserved for system roles"
             )
-            result = await session.execute(stmt)
-            if result.scalar_one_or_none():
-                return {"message": "Role already assigned"}
 
-            session.add(
-                UserRole(
-                    user_id=target_user_id,
-                    role_id=data.role_id,
-                    assigned_at=datetime.now(UTC),
-                )
+        async with alchemy.get_session() as session:
+            permission_codes = await _validate_permission_codes(
+                session, data.permissions
+            )
+            _check_capability_ceiling(auth, permission_codes)
+
+            role = Role(
+                slug=data.slug,
+                name=data.name,
+                description=data.description,
+                is_system=False,
+                tenant_id=tenant_id,
+            )
+            session.add(role)
+            try:
+                await session.flush()
+            except Exception as exc:
+                raise ValidationException(
+                    f"Could not create role (slug/name collision?): {exc}"
+                ) from exc
+
+            for code in permission_codes:
+                session.add(RolePermission(role_id=role.id, permission_code=code))
+
+            await write_audit_log(
+                session,
+                tenant_id=tenant_id,
+                actor_id=_get_actor_id(auth),
+                action="role.create",
+                target_type="role",
+                target_id=role.id,
+                payload={
+                    "slug": data.slug,
+                    "name": data.name,
+                    "permissions": sorted(permission_codes),
+                },
             )
             await session.commit()
-            return {"message": f"Role '{role.slug}' assigned to user"}
+            await load_role_permissions_cache(session=session)
+            return await _serialize_role(session, role)
+
+    # ── Update metadata ─────────────────────────────────────────────────
+
+    @patch(
+        "/{role_id:uuid}",
+        summary="Rename / re-describe a custom role",
+        guards=[require_permission(Permission.ROLES_WRITE)],
+    )
+    async def update_role(
+        self, request: Request, role_id: UUID, data: RoleUpdateRequest
+    ) -> RoleResponse:
+        auth = _require_auth(request)
+        tenant_id = _require_tenant_id(auth)
+
+        async with alchemy.get_session() as session:
+            role = await _load_tenant_custom_role(session, role_id, tenant_id)
+
+            before = {"name": role.name, "description": role.description}
+            if data.name is not None:
+                role.name = data.name
+            if data.description is not None:
+                role.description = data.description
+
+            await write_audit_log(
+                session,
+                tenant_id=tenant_id,
+                actor_id=_get_actor_id(auth),
+                action="role.update",
+                target_type="role",
+                target_id=role.id,
+                payload={
+                    "before": before,
+                    "after": data.model_dump(exclude_unset=True),
+                },
+            )
+            await session.commit()
+            return await _serialize_role(session, role)
+
+    # ── Replace permission set ──────────────────────────────────────────
+
+    @put(
+        "/{role_id:uuid}/permissions",
+        summary="Replace the permission set on a custom role",
+        guards=[require_permission(Permission.ROLES_WRITE)],
+    )
+    async def replace_permissions(
+        self,
+        request: Request,
+        role_id: UUID,
+        data: RolePermissionsReplace,
+    ) -> RoleResponse:
+        auth = _require_auth(request)
+        tenant_id = _require_tenant_id(auth)
+
+        async with alchemy.get_session() as session:
+            role = await _load_tenant_custom_role(session, role_id, tenant_id)
+
+            new_codes = await _validate_permission_codes(session, data.permissions)
+            _check_capability_ceiling(auth, new_codes)
+
+            existing_codes = {
+                r[0]
+                for r in (
+                    await session.execute(
+                        select(RolePermission.permission_code).where(
+                            RolePermission.role_id == role.id
+                        )
+                    )
+                ).all()
+            }
+
+            to_remove = existing_codes - new_codes
+            to_add = new_codes - existing_codes
+
+            if to_remove:
+                await session.execute(
+                    RolePermission.__table__.delete().where(
+                        (RolePermission.role_id == role.id)
+                        & (RolePermission.permission_code.in_(to_remove))
+                    )
+                )
+            for code in to_add:
+                session.add(RolePermission(role_id=role.id, permission_code=code))
+
+            await write_audit_log(
+                session,
+                tenant_id=tenant_id,
+                actor_id=_get_actor_id(auth),
+                action="role.permissions.replace",
+                target_type="role",
+                target_id=role.id,
+                payload={
+                    "added": sorted(to_add),
+                    "removed": sorted(to_remove),
+                    "final": sorted(new_codes),
+                },
+            )
+            await session.commit()
+            await load_role_permissions_cache(session=session)
+            return await _serialize_role(session, role)
+
+    # ── Delete ──────────────────────────────────────────────────────────
 
     @delete(
-        "/users/{target_user_id:uuid}/roles/{role_id:uuid}",
-        summary="Remove role from user",
+        "/{role_id:uuid}",
+        summary="Delete a custom role (fails if assignments exist)",
+        guards=[require_permission(Permission.ROLES_WRITE)],
     )
-    async def remove_role(self, target_user_id: UUID, role_id: UUID) -> None:
+    async def delete_role(self, request: Request, role_id: UUID) -> None:
+        auth = _require_auth(request)
+        tenant_id = _require_tenant_id(auth)
+
         async with alchemy.get_session() as session:
-            from sqlalchemy import select
+            role = await _load_tenant_custom_role(session, role_id, tenant_id)
 
-            stmt = select(UserRole).where(
-                UserRole.user_id == target_user_id,
-                UserRole.role_id == role_id,
+            count_row = await session.execute(
+                select(func.count())
+                .select_from(UserRole)
+                .where(UserRole.role_id == role.id)
             )
-            result = await session.execute(stmt)
-            user_role = result.scalar_one_or_none()
-            if not user_role:
-                raise NotFoundException("User-role assignment not found")
+            user_count = int(count_row.scalar() or 0)
+            if user_count > 0:
+                raise HTTPException(
+                    status_code=HTTP_409_CONFLICT,
+                    detail=(
+                        f"Cannot delete role: {user_count} user(s) still assigned. "
+                        "Reassign or revoke first."
+                    ),
+                )
 
-            await session.delete(user_role)
+            await write_audit_log(
+                session,
+                tenant_id=tenant_id,
+                actor_id=_get_actor_id(auth),
+                action="role.delete",
+                target_type="role",
+                target_id=role.id,
+                payload={"slug": role.slug, "name": role.name},
+            )
+
+            await session.delete(role)
             await session.commit()
+            await load_role_permissions_cache(session=session)
+
+
+async def _load_tenant_custom_role(session, role_id: UUID, tenant_id: UUID) -> Role:
+    role = (
+        await session.execute(select(Role).where(Role.id == role_id))
+    ).scalar_one_or_none()
+    if role is None:
+        raise NotFoundException("Role not found")
+    if role.is_system:
+        raise PermissionDeniedException("System roles cannot be modified")
+    if role.tenant_id != tenant_id:
+        raise NotFoundException("Role not found")
+    return role

@@ -2,22 +2,32 @@
   <div>
     <km-separator class="my-sm" />
     <div class="cluster">
+      <!-- Variant picker stays interactive even when read-only: switching
+           between variants is a *read* action so the user can see how
+           each one is configured. -->
       <div class="flex-none py-auto">
         <km-dropdown-select :model-value="selectedVariant" :options="variantOptions" @update:model-value="setSelectedVariant" />
       </div>
       <div class="flex-1 mx-sm">
-        <km-input-flat class="km-description full-width" :placeholder="m.common_description()" :model-value="variant_description" @change="variant_description = $event" />
+        <km-input-flat class="km-description full-width" :placeholder="m.common_description()" :model-value="variant_description" :readonly="agentReadonly" @change="variant_description = $event" />
       </div>
-      <div class="flex-none mr-sm">
-        <km-btn v-if="!isActive" class="width-100" :label="m.common_activate()" icon="check" interaction-tone="brand" label-class="km-title" flat icon-size="16px" @click="doActivateVariant" />
-        <km-chip v-if="isActive" class="mr-sm" :label="m.common_active()" tone="brand" />
+      <!-- "Active" badge — always visible (it's a read-only indicator). -->
+      <div v-if="isActive" class="flex-none mr-sm">
+        <km-chip class="mr-sm" :label="m.common_active()" tone="brand" />
       </div>
-      <km-separator vertical tone="inverse" />
-      <div class="flex-none text-white mx-md">
-        <km-btn :label="m.common_copyToNew()" icon="add" interaction-tone="brand" label-class="km-title" flat icon-size="16px" @click="addVariant" />
+      <!-- Activate — write action, hidden when read-only. Doubled with
+           :disable as belt-and-suspenders. -->
+      <div v-if="!agentReadonly && !isActive" class="flex-none mr-sm">
+        <km-btn class="width-100" :label="m.common_activate()" icon="check" interaction-tone="brand" label-class="km-title" flat icon-size="16px" :disable="agentReadonly" @click="doActivateVariant" />
       </div>
-      <div class="flex-none text-white mr-md">
-        <km-btn class="mx-xs" flat :icon="&quot;delete&quot;" icon-size="16px" size="13px" :disable="variantOptions?.length === 1" @click="doDeleteVariant" />
+      <km-separator v-if="!agentReadonly" vertical tone="inverse" />
+      <!-- Copy-to-new — write action. -->
+      <div v-if="!agentReadonly" class="flex-none text-white mx-md">
+        <km-btn :label="m.common_copyToNew()" icon="add" interaction-tone="brand" label-class="km-title" flat icon-size="16px" :disable="agentReadonly" @click="addVariant" />
+      </div>
+      <!-- Delete variant — write action. Disabled when only one variant. -->
+      <div v-if="!agentReadonly" class="flex-none text-white mr-md">
+        <km-btn class="mx-xs" flat :icon="&quot;delete&quot;" icon-size="16px" size="13px" :disable="agentReadonly || variantOptions?.length === 1" @click="doDeleteVariant" />
       </div>
       <prompts-create-new v-if="showNewDialog" :show-new-dialog="showNewDialog" copy @cancel="showNewDialog = false" />
       <km-inner-loading :showing="loading" />
@@ -26,7 +36,7 @@
 </template>
 
 <script>
-import { ref } from 'vue'
+import { computed, inject, ref } from 'vue'
 import { m } from '@/paraglide/messages'
 import { useCatalogOptions } from '@/queries/useCatalogOptions'
 import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
@@ -44,6 +54,11 @@ export default {
             createVariant, deleteVariant, activateVariant,
             save, revert } = useAgentEntityDetail()
 
+    // Read-only signal provided by Agents/details.vue. Default to false so
+    // standalone usage (e.g. tests, storybook) keeps working.
+    const agentReadonlyRef = inject('agentReadonly', null)
+    const agentReadonly = computed(() => Boolean(agentReadonlyRef?.value))
+
     return {
       m,
       draft,
@@ -60,6 +75,7 @@ export default {
       save,
       revert,
       items,
+      agentReadonly,
       loading: ref(false),
       showNewDialog: ref(false),
     }

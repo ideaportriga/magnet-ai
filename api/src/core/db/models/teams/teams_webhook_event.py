@@ -86,7 +86,9 @@ class TeamsWebhookEvent(CommonTableAttributes, AdvancedDeclarativeBase, AsyncAtt
     # Correlation id propagated from webhook receipt through STT, post-
     # processing, and integration publishes — see
     # docs/NOTE_TAKER_RELIABILITY_PLAN.md § P1-3.
-    trace_id: Mapped[Optional[str]] = mapped_column(Text, nullable=True, index=True)
+    # Index declared in __table_args__ above (ix_teams_webhook_event_trace_id);
+    # do not duplicate via index=True or metadata.create_all double-creates it.
+    trace_id: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # Retry counter for transient failures during download / Graph API.
     # See docs/NOTE_TAKER_RELIABILITY_PLAN.md § P0-4.

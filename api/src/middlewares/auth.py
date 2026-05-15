@@ -43,6 +43,20 @@ class Auth:
     type: Literal["api_key", "local_jwt"]
     user: User | None = field(default=None, repr=False)
 
+    @property
+    def tenant_id(self) -> str | None:
+        """Organization-tenant for the current principal, if known.
+
+        For JWT/session auth, sourced from the loaded `User.tenant_id`. For
+        API keys, sourced from `data["tenant_id"]` (populated when the key
+        record carries the column — see PR 4). Returns None if neither path
+        has a tenant yet (e.g., legacy cached key, request before backfill).
+        """
+        if self.user is not None and getattr(self.user, "tenant_id", None):
+            return str(self.user.tenant_id)
+        value = self.data.get("tenant_id") if self.data else None
+        return str(value) if value else None
+
 
 def create_auth_middleware(
     exclude_param: str | list[str] | None = None,
@@ -58,7 +72,19 @@ def create_auth_middleware(
             scope["auth"] = auth
             scope["user_id"] = auth.user_id  # type: ignore
 
-            await self.app(scope, receive, send)
+            # Propagate identity to the RLS contextvars so SQLAlchemy
+            # session events can emit `SET LOCAL app.tenant_id = ...`. PR 7
+            # of access-control-tenancy-plan-v2.
+            from core.db.rls_context import set_rls_context, reset_rls_context
+
+            tokens = set_rls_context(
+                tenant_id=auth.tenant_id,
+                user_id=auth.user_id,
+            )
+            try:
+                await self.app(scope, receive, send)
+            finally:
+                reset_rls_context(tokens)
 
     return AuthResponseMiddleware
 
@@ -146,6 +172,9 @@ def ensure_request_auth_data_api_key(api_key: str, api_user_id: str | None) -> A
         user_id += f":{api_user_id}"
 
     scopes = getattr(api_key_config, "scopes", None) if api_key_config else None
+    # Organization-tenant the key is scoped to. May be missing on legacy
+    # cached configs until cache reload picks up the migrated column.
+    tenant_id = getattr(api_key_config, "tenant_id", None) if api_key_config else None
 
     return Auth(
         type="api_key",
@@ -155,6 +184,7 @@ def ensure_request_auth_data_api_key(api_key: str, api_user_id: str | None) -> A
             "roles": {"user"},
             "preferred_username": api_client_code,
             "scopes": scopes,
+            "tenant_id": str(tenant_id) if tenant_id else None,
         },
         user_id=user_id,
     )

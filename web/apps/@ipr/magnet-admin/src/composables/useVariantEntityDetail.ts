@@ -142,6 +142,8 @@ export function useVariantEntityDetail<T extends VariantEntity>(
     id: base.id,
     bufferKey: base.bufferKey,
     isLoading: base.isLoading,
+    isError: base.isError,
+    error: base.error,
     isDirty: base.isDirty,
     // Variant state
     selectedVariant,

@@ -165,13 +165,13 @@ def _build_providers() -> dict[str, ProviderEntry]:
         and settings.MICROSOFT_ENTRA_ID_TENANT_ID
         and _is_provider_allowed("microsoft")
     ):
-        tenant = settings.MICROSOFT_ENTRA_ID_TENANT_ID
+        azure_tenant_id = settings.MICROSOFT_ENTRA_ID_TENANT_ID
         providers["microsoft"] = ProviderEntry(
             name="microsoft",
             strategy=OIDCStrategy(
                 OIDCProviderConfig(
                     name="microsoft",
-                    discovery_url=f"https://login.microsoftonline.com/{tenant}/v2.0/.well-known/openid-configuration",
+                    discovery_url=f"https://login.microsoftonline.com/{azure_tenant_id}/v2.0/.well-known/openid-configuration",
                     client_id=settings.MICROSOFT_ENTRA_ID_CLIENT_ID,
                     client_secret=settings.MICROSOFT_ENTRA_ID_CLIENT_SECRET,
                     redirect_uri=settings.MICROSOFT_ENTRA_ID_REDIRECT_URI
@@ -179,7 +179,7 @@ def _build_providers() -> dict[str, ProviderEntry]:
                     scopes=["openid", "profile", "email", "offline_access"],
                     user_id_claim="oid",
                     response_mode="form_post",
-                    expected_issuer=f"https://login.microsoftonline.com/{tenant}/v2.0",
+                    expected_issuer=f"https://login.microsoftonline.com/{azure_tenant_id}/v2.0",
                 )
             ),
             provider_type="oidc",

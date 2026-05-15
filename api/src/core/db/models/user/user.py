@@ -6,13 +6,16 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
+from uuid import UUID
 
 from advanced_alchemy.base import UUIDv7AuditBase
 from advanced_alchemy.types import DateTimeUTC, EncryptedText, JsonB
-from sqlalchemy import String
+from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
+    from core.db.models.tenant.tenant import Tenant
+
     from .role import Role
     from .user_oauth_account import UserOAuthAccount
     from .user_role import UserRole
@@ -27,6 +30,13 @@ class User(UUIDv7AuditBase):
 
     __tablename__ = "user_account"
     __table_args__ = {"comment": "User accounts for application access"}
+
+    tenant_id: Mapped[UUID] = mapped_column(
+        ForeignKey("tenant.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+        comment="Organization-tenant this user belongs to (our multi-tenancy)",
+    )
 
     email: Mapped[str] = mapped_column(
         String(320),
@@ -113,6 +123,11 @@ class User(UUIDv7AuditBase):
     )
 
     # Relationships
+    tenant: Mapped[Tenant] = relationship(
+        lazy="joined",  # tenant block is shipped on /me; one user → one tenant
+        innerjoin=True,
+    )
+
     oauth_accounts: Mapped[list[UserOAuthAccount]] = relationship(
         back_populates="user",
         lazy="noload",

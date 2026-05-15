@@ -47,7 +47,9 @@ class TeamsRuntimeCache:
         auth_config = AgentAuthConfiguration(
             client_id=credentials.audience,
             client_secret=credentials.client_secret,
-            tenant_id=credentials.tenant_id,
+            # Microsoft Agents SDK kwarg is `tenant_id` — keep on the wire;
+            # our Python field is azure_tenant_id (see ClientCredentials).
+            tenant_id=credentials.azure_tenant_id,
         )
         auth_config.AUTH_TYPE = AuthTypes.client_secret
         auth_config.SCOPES = SCOPE

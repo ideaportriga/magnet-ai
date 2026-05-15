@@ -5,6 +5,9 @@
 from .ai_app import AIApp
 from .ai_model import AIModel
 from .api_key import APIKey
+from .access_grant import ResourceAccessGrant
+from .audit import AccessAuditLog
+from .department import Department, UserDepartment
 
 # from .api_tool import APITool
 from .base import UUIDAuditEntityBase, UUIDAuditSimpleBase
@@ -18,6 +21,7 @@ from .job import Job
 from .metric import Metric
 from .provider import Provider
 from .teams.note_taker_settings import NoteTakerSettings
+from .tenant import Tenant
 from .trace import Trace
 from .user import (
     EmailVerificationToken,
@@ -37,6 +41,10 @@ __all__ = [
     "AIApp",
     "AIModel",
     "APIKey",
+    "AccessAuditLog",
+    "Department",
+    "ResourceAccessGrant",
+    "UserDepartment",
     "Collection",
     "DeepResearchConfig",
     "DeepResearchRun",
@@ -45,6 +53,7 @@ __all__ = [
     "Metric",
     "Provider",
     "NoteTakerSettings",
+    "Tenant",
     "Trace",
     # "AgentConversation",
     # "Agent",

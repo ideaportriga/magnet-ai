@@ -17,9 +17,12 @@
               <slot name="header-actions" />
             </div>
           </div>
-          <layouts-details-header v-else :name="name" :description="description" :system-name="systemName" :system-name-rules="systemNameRules" :info-text="infoText" :show-description="showDescription" :show-record-info="showRecordInfo" :created-at="createdAt" :updated-at="updatedAt" :created-by="createdBy" :updated-by="updatedBy" :updated-label="updatedLabel" @update:name="(value) =&gt; $emit(&quot;update:name&quot;, value)" @update:description="(value) =&gt; $emit(&quot;update:description&quot;, value)" @update:system-name="(value) =&gt; $emit(&quot;update:systemName&quot;, value)">
+          <layouts-details-header v-else :name="name" :description="description" :system-name="systemName" :system-name-rules="systemNameRules" :info-text="infoText" :show-description="showDescription" :show-record-info="showRecordInfo" :created-at="createdAt" :updated-at="updatedAt" :created-by="createdBy" :updated-by="updatedBy" :updated-label="updatedLabel" :readonly="readonly" @update:name="(value) =&gt; $emit(&quot;update:name&quot;, value)" @update:description="(value) =&gt; $emit(&quot;update:description&quot;, value)" @update:system-name="(value) =&gt; $emit(&quot;update:systemName&quot;, value)">
             <template v-if="$slots[&quot;header-actions&quot;]" #actions>
               <slot name="header-actions" />
+            </template>
+            <template v-if="$slots[&quot;record-info-extra&quot;]" #record-info-extra>
+              <slot name="record-info-extra" />
             </template>
           </layouts-details-header>
           <slot v-if="$slots.subheader || variants?.length &gt; 0" name="subheader">
@@ -110,6 +113,12 @@ const props = defineProps({
   contentContainerStyle: {
     type: Object,
     default: () => ({}),
+  },
+  // PR 9a: forwarded to the inner header so name/description/system-name
+  // inputs render as readonly when the user has no edit permission.
+  readonly: {
+    type: Boolean,
+    default: false,
   },
 })
 const emit = defineEmits([

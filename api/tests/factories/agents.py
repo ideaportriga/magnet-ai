@@ -8,6 +8,7 @@ from core.db.models.agent import Agent
 from core.db.models.agent_conversation import AgentConversation
 
 from .base import BaseFactory
+from .users import _resolve_default_tenant_id
 
 
 class AgentFactory(BaseFactory):
@@ -23,6 +24,8 @@ class AgentFactory(BaseFactory):
         lambda: [{"name": "default", "system_prompt": "You are a helpful assistant."}]
     )
     channels = factory.LazyFunction(dict)
+    # PR 7: agents are tenant-scoped; default to the seeded `default` tenant.
+    tenant_id = factory.LazyFunction(_resolve_default_tenant_id)
 
 
 class AgentConversationFactory(BaseFactory):

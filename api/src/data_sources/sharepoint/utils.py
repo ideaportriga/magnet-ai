@@ -20,7 +20,7 @@ def get_sharepoint_config() -> SharepointConfig | SharepointConfigWithCert:
             return SharepointConfig(client_id=client_id, client_secret=client_secret)
 
         sharepoint_config = SharepointConfigWithCert(
-            tenant=settings.SHAREPOINT_TENANT_ID,
+            azure_tenant_id=settings.SHAREPOINT_TENANT_ID,
             client_id=client_id,
             thumbprint=settings.SHAREPOINT_CLIENT_CERT_THUMBPRINT,
             private_key=settings.SHAREPOINT_CLIENT_CERT_PRIVATE_KEY.replace(
@@ -38,8 +38,9 @@ def get_sharepoint_context(
 ) -> ClientContext:
     auth_ctx = AuthenticationContext(url=sharepoint_site_url)
     if isinstance(sharepoint_config, SharepointConfigWithCert):
+        # `office365-rest-python-client` SDK kwarg is `tenant` — keep boundary.
         auth_ctx.with_client_certificate(
-            tenant=sharepoint_config.tenant,
+            tenant=sharepoint_config.azure_tenant_id,
             client_id=sharepoint_config.client_id,
             thumbprint=sharepoint_config.thumbprint,
             private_key=sharepoint_config.private_key,
@@ -104,7 +105,7 @@ def create_sharepoint_client_with_config(
     elif tenant and thumbprint and private_key:
         # Certificate-based authentication
         sharepoint_config = SharepointConfigWithCert(
-            tenant=tenant,
+            azure_tenant_id=tenant,
             client_id=client_id,
             thumbprint=thumbprint,
             private_key=private_key.replace("\\n", "\n"),

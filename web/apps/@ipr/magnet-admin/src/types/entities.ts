@@ -1,4 +1,24 @@
 /**
+ * Per-record permission flags shipped by the backend on tenant-scoped
+ * resources (PR 8 of the access-control plan). Frontend reads this block
+ * via `usePermissions().canOn(record, action)` and never re-computes from
+ * roles. Absent (`undefined`) means the resource has not yet been migrated
+ * onto the new pipeline — `canOn` falls through to global capability.
+ */
+export interface RecordPermissions {
+  view?: boolean
+  edit?: boolean
+  delete?: boolean
+  share?: boolean
+  execute?: boolean
+}
+
+/**
+ * Record-level visibility for tenant-scoped resources (PR 8).
+ */
+export type Visibility = 'private' | 'department' | 'tenant'
+
+/**
  * Base entity interface — common fields shared by most entities.
  * All fields are optional to avoid blocking migration from untyped Vuex.
  */
@@ -12,6 +32,12 @@ export interface BaseEntity {
   created_by?: string
   updated_by?: string
   _metadata?: Record<string, unknown>
+  // Record-level access fields (PR 7/8 — populated after rollout).
+  tenant_id?: string
+  owner_id?: string | null
+  department_id?: string | null
+  visibility?: Visibility
+  _permissions?: RecordPermissions
   [key: string]: unknown
 }
 

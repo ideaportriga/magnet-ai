@@ -29,6 +29,10 @@ export function useEntityDetail<T extends BaseEntity>(
     bufferKey: base.bufferKey,
     /** Loading state from TanStack Query */
     isLoading: base.isLoading,
+    /** True when the detail query errored (404/403 from RLS or ACL). */
+    isError: base.isError,
+    /** Error object from TanStack Query. */
+    error: base.error,
     /** Whether draft differs from original */
     isDirty: base.isDirty,
     /** Update a single field path in the draft */

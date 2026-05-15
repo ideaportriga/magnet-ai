@@ -26,9 +26,19 @@ class WebChannelUpdate(WebChannel):
 class MsTeamsChannelBase(BaseModel):
     """MS Teams channel base schema."""
 
+    # Wire format keeps the legacy `tenant_id` key so existing stored
+    # `agents.channels.ms_teams.tenant_id` JSON and frontend payloads keep
+    # working. Python-side reads/writes via `azure_tenant_id` to free the
+    # name `tenant_id` for our organization-tenant column (PR 4).
+    model_config = ConfigDict(populate_by_name=True)
+
     enabled: bool = Field(default=False, description="MS Teams channel enabled")
     client_id: str = Field(default="", description="MS Teams client ID")
-    tenant_id: str = Field(default="", description="MS Teams tenant ID")
+    azure_tenant_id: str = Field(
+        default="",
+        alias="tenant_id",
+        description="Azure AD tenant ID for the Teams app",
+    )
 
 
 class MsTeamsChannel(MsTeamsChannelBase):
@@ -82,7 +92,7 @@ class MsTeamsChannelUpdate(MsTeamsChannelBase):
             if not (self.client_id or "").strip():
                 missing_fields.append("client_id")
 
-            if not (self.tenant_id or "").strip():
+            if not (self.azure_tenant_id or "").strip():
                 missing_fields.append("tenant_id")
 
             if not self.secret_value:

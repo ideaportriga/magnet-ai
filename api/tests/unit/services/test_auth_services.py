@@ -664,8 +664,11 @@ class TestBootstrapSuperuser:
         from services.users.bootstrap import bootstrap_superuser
 
         admin_role = MagicMock(id=uuid4())
+        default_tenant_id = uuid4()
         session = _BootstrapSession(
-            scalar_responses=[admin_role, None],  # role exists, no UserRole yet
+            # PR 4: bootstrap_superuser now queries the default tenant first
+            # before creating a user, then the admin role + UserRole pair.
+            scalar_responses=[default_tenant_id, admin_role, None],
         )
 
         new_user = MagicMock(id=uuid4(), email="boot@example.com")

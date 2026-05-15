@@ -123,6 +123,10 @@ import { useDataTable } from '@/composables/useDataTable'
 import { textColumn, dateColumn } from '@/utils/columnHelpers'
 import { m } from '@/paraglide/messages'
 import type { Agent } from '@/types'
+// DsProgress isn't globally registered (the DS plugin install is a no-op);
+// import it explicitly from the barrel. Fixes the
+// "Failed to resolve component: ds-progress" warning.
+import { DsProgress } from '@ds/primitives'
 
 const router = useRouter()
 const showNewDialog = ref(false)

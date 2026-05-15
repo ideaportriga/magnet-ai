@@ -4,36 +4,62 @@ Group table definition.
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+from uuid import UUID
 
 from advanced_alchemy.base import UUIDv7AuditBase
-from sqlalchemy import String, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import ForeignKey, Index, String, Text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+if TYPE_CHECKING:
+    from core.db.models.tenant.tenant import Tenant
 
 
 class Group(UUIDv7AuditBase):
-    """Group for organizing users.
+    """Tenant-scoped group for ad-hoc sharing and grants.
 
-    Groups allow logical grouping of users for access control
-    and organizational purposes.
+    Slug and name are unique **within a tenant** — two tenants can each have
+    a group called "Project X". Migration `e7f8a9b0c1d2` (PR 6) replaces the
+    legacy global UNIQUE with partial indexes. SQLAlchemy `Index(...)`
+    entries mirror those so `metadata.create_all` produces a matching schema
+    for the test suite.
     """
 
     __tablename__ = "user_group"
-    __table_args__ = {"comment": "User groups for organizational access control"}
+    __table_args__ = (
+        Index(
+            "uq_user_group_slug_per_tenant",
+            "tenant_id",
+            "slug",
+            unique=True,
+        ),
+        Index(
+            "uq_user_group_name_per_tenant",
+            "tenant_id",
+            "name",
+            unique=True,
+        ),
+        {"comment": "Tenant-scoped user groups for sharing and grants"},
+    )
+
+    tenant_id: Mapped[UUID] = mapped_column(
+        ForeignKey("tenant.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Tenant scope — groups never cross tenant boundaries",
+    )
 
     name: Mapped[str] = mapped_column(
         String(255),
-        unique=True,
         nullable=False,
-        comment="Group name",
+        comment="Display name (unique within tenant)",
     )
 
     slug: Mapped[str] = mapped_column(
         String(255),
-        unique=True,
         index=True,
         nullable=False,
-        comment="URL-safe group identifier",
+        comment="URL-safe identifier (unique within tenant)",
     )
 
     description: Mapped[Optional[str]] = mapped_column(
@@ -42,6 +68,8 @@ class Group(UUIDv7AuditBase):
         default=None,
         comment="Group description",
     )
+
+    tenant: Mapped[Tenant] = relationship(lazy="noload")
 
     def __repr__(self) -> str:
         return f"<Group(slug='{self.slug}')>"

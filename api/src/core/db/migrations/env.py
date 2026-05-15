@@ -65,13 +65,22 @@ from core.db.models.user import (  # noqa: F401, E402
     EmailVerificationToken,
     Group,
     PasswordResetToken,
+    Permission,
     RefreshToken,
     Role,
+    RolePermission,
     User,
     UserGroup,
     UserOAuthAccount,
     UserRole,
 )
+
+# Access-control plan additions (PR 4–8).
+from core.db.models.tenant import Tenant  # noqa: F401, E402
+from core.db.models.audit import AccessAuditLog  # noqa: F401, E402
+from core.db.models.department import Department, UserDepartment  # noqa: F401, E402
+from core.db.models.access_grant import ResourceAccessGrant  # noqa: F401, E402
+
 from storage.models import StoredFile  # noqa: F401, E402
 
 # Add the src directory to the Python path

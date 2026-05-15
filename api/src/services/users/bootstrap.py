@@ -20,6 +20,7 @@ from uuid import UUID
 
 from sqlalchemy import select
 
+from core.db.models.tenant.tenant import Tenant
 from core.db.models.user.role import Role
 from core.db.models.user.user import User
 from core.db.models.user.user_role import UserRole
@@ -72,6 +73,16 @@ async def bootstrap_superuser(
     updated = False
 
     if user is None:
+        # Assign the default tenant — required NOT NULL since PR 4 of the
+        # access-control plan. A bootstrap superuser belongs to the platform
+        # tenant by convention (`slug='default'`).
+        default_tenant_id = (
+            await session.execute(select(Tenant.id).where(Tenant.slug == "default"))
+        ).scalar_one_or_none()
+        if default_tenant_id is None:
+            raise RuntimeError(
+                "bootstrap_superuser: default tenant not seeded — run migrations first"
+            )
         user = User(
             email=email,
             name=name,
@@ -79,6 +90,7 @@ async def bootstrap_superuser(
             is_active=True,
             is_superuser=True,
             is_verified=True,
+            tenant_id=default_tenant_id,
         )
         user = await service.create(user, auto_commit=False)
         created = True

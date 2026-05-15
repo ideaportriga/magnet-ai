@@ -1,12 +1,46 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
+export interface AuthRoleInfo {
+  id: string
+  slug: string
+  name: string
+  is_system: boolean
+}
+
+export interface AuthTenantInfo {
+  id: string
+  slug: string
+  name: string
+}
+
+export interface AuthDepartmentInfo {
+  id: string
+  slug: string
+  name: string
+  is_lead: boolean
+}
+
+export interface AuthGroupInfo {
+  id: string
+  slug: string
+  name: string
+  role: string
+}
+
 export interface AuthUserInfo {
+  id?: string
   user_id?: string
   email?: string
   preferred_username?: string
   name?: string
+  is_superuser?: boolean
   roles?: string[]
+  roles_detailed?: AuthRoleInfo[]
+  permissions?: string[]
+  tenant?: AuthTenantInfo | null
+  departments?: AuthDepartmentInfo[]
+  groups?: AuthGroupInfo[]
   is_verified?: boolean
   is_two_factor_enabled?: boolean
   last_login_at?: string

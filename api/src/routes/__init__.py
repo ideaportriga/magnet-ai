@@ -24,9 +24,10 @@ from core.domain.providers import ProvidersController
 from core.domain.rag_tools import RagToolsController
 from core.domain.retrieval_tools import RetrievalToolsController
 from core.domain.traces import TracesController
-from guards.role import UserRole, create_role_guard
+from routes.admin.access_log import AccessLogController
 from routes.admin.api_keys import ApiKeysController
 from routes.admin.groups import GroupsController
+from routes.admin.permissions import PermissionsController
 from routes.admin.roles import RolesController
 from routes.admin.users import UsersController
 from routes.user.telemetry import TelemetryController
@@ -175,7 +176,9 @@ def get_route_handlers(
         AiAppsController,  # Admin / AI Apps
         CatalogController,  # Admin / Catalog (global search)
         ApiKeysController,  # Admin / API Keys
+        AccessLogController,  # Admin / Access Log
         GroupsController,  # Admin / Groups
+        PermissionsController,  # Admin / Permissions
         RolesController,  # Admin / Roles
         ApiServersController,  # Admin / API Servers
         CollectionsController,  # Admin / Collections
@@ -256,7 +259,14 @@ def get_route_handlers(
     )
 
     if auth_enabled:
-        router_api_admin.guards = [create_role_guard(UserRole.ADMIN)]
+        # PR 1/5a/8 access-control plan: replace the blanket admin-role gate
+        # with a soft "must have at least one permission" filter. Each admin
+        # controller carries its own per-endpoint `require_permission(...)`
+        # gate (PR 1 onward); the router-level check just keeps unauthenticated
+        # / no-permission principals from probing the admin surface.
+        from guards.access import require_any_admin_capability
+
+        router_api_admin.guards = [require_any_admin_capability()]
 
     router_api_user = Router(
         path="/user",

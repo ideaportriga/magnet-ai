@@ -9,6 +9,7 @@ from __future__ import annotations
 from logging import getLogger
 
 from core.db.models.user.user import User
+from guards.permissions import get_effective_permissions
 from middlewares.auth import Auth
 
 logger = getLogger(__name__)
@@ -16,13 +17,34 @@ logger = getLogger(__name__)
 
 async def build_user_info(user: User, auth: Auth) -> dict:
     """Build a user info dict from a User object and Auth context."""
-    roles = []
+    role_slugs: list[str] = []
+    roles_detailed: list[dict] = []
     try:
-        roles = [r.slug for r in (user.roles or [])]
+        for r in user.roles or []:
+            role_slugs.append(r.slug)
+            roles_detailed.append(
+                {
+                    "id": str(r.id),
+                    "slug": r.slug,
+                    "name": r.name,
+                    "is_system": bool(getattr(r, "is_system", True)),
+                }
+            )
     except Exception:
         logger.warning("Failed to load roles for user %s", user.id, exc_info=True)
 
     oauth_accounts = await _load_oauth_accounts(user.id)
+
+    permissions = sorted(get_effective_permissions(auth))
+
+    tenant_block: dict | None = None
+    tenant = getattr(user, "tenant", None)
+    if tenant is not None:
+        tenant_block = {
+            "id": str(tenant.id),
+            "slug": tenant.slug,
+            "name": tenant.name,
+        }
 
     return {
         "id": str(user.id),
@@ -32,7 +54,13 @@ async def build_user_info(user: User, auth: Auth) -> dict:
         "is_verified": user.is_verified,
         "is_superuser": user.is_superuser,
         "is_two_factor_enabled": user.is_two_factor_enabled,
-        "roles": roles,
+        "roles": role_slugs,
+        "roles_detailed": roles_detailed,
+        "permissions": permissions,
+        "tenant": tenant_block,
+        # Placeholders for upcoming PRs (departments, groups).
+        "departments": [],
+        "groups": [],
         "auth_method": auth.type,
         "last_login_at": user.last_login_at.isoformat() if user.last_login_at else None,
         "oauth_accounts": oauth_accounts,

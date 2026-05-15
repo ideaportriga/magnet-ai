@@ -251,12 +251,18 @@ class KnowledgeGraphSourceScheduleSyncRequest(BaseModel):
 class SharePointSourceCreateRequest(BaseModel):
     """Request model for creating a SharePoint source."""
 
+    # Wire format keeps `tenant_id` (Azure AD tenant); Python identifier is
+    # `azure_tenant_id` to free `tenant_id` for our org-tenant column.
+    model_config = ConfigDict(populate_by_name=True)
+
     graph_id: str = Field(..., description="Target knowledge graph id")
     name: Optional[str] = Field(None, description="Optional display name")
     site_url: str = Field(..., description="SharePoint site URL")
     folder_path: Optional[str] = Field(None, description="Optional folder path")
     client_id: Optional[str] = Field(None, description="OAuth client id")
-    tenant_id: Optional[str] = Field(None, description="Azure tenant id")
+    azure_tenant_id: Optional[str] = Field(
+        None, alias="tenant_id", description="Azure tenant id"
+    )
     provider_system_name: Optional[str] = Field(
         None, description="Auth provider system name"
     )

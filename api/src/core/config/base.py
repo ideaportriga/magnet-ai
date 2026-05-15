@@ -455,7 +455,13 @@ class AuthSettings:
     MICROSOFT_ENTRA_ID_TENANT_ID: str = field(
         default_factory=get_env("MICROSOFT_ENTRA_ID_TENANT_ID", "")
     )
-    """Microsoft Entra ID tenant ID."""
+    """Azure AD tenant ID for the Microsoft Entra OIDC provider.
+
+    Naming note (access-control plan PR 3): this is the AZURE tenant, not our
+    organization-tenant. Setting/env var keep `_TENANT_ID` for ops continuity;
+    Python consumers should pass the value into variables named
+    `azure_tenant_id` to avoid collision with our future `tenant_id` column.
+    Renaming the setting/env var is deferred to PR 3b (ops coordination)."""
     MICROSOFT_ENTRA_ID_CLIENT_ID: str = field(
         default_factory=get_env("MICROSOFT_ENTRA_ID_CLIENT_ID", "")
     )
@@ -644,7 +650,11 @@ class KnowledgeSourceSettings:
     SHAREPOINT_TENANT_ID: str = field(
         default_factory=get_env("SHAREPOINT_TENANT_ID", "")
     )
-    """SharePoint tenant ID."""
+    """Azure AD tenant ID used for SharePoint cert-based auth.
+
+    Naming note (access-control plan PR 3): this is the AZURE tenant, not our
+    organization-tenant. Env var rename deferred to PR 3b — Python consumers
+    propagate the value as `azure_tenant_id`."""
     SHAREPOINT_CLIENT_ID: str = field(
         default_factory=get_env("SHAREPOINT_CLIENT_ID", "")
     )

@@ -25,6 +25,7 @@ from services.observability.services import get_analytics_by_id
 from services.observability.utils import observability_overrides
 
 from core.domain.agents import AgentsController as AgentsControllerBase
+from guards.permissions import Permission, require_permission
 
 
 class AgentTestResponse(AgentConversationMessageAssistant):
@@ -45,7 +46,11 @@ class AgentsController(AgentsControllerBase):
         channel="preview",
         source="preview",
     )
-    @post("/test", status_code=HTTP_200_OK)
+    @post(
+        "/test",
+        status_code=HTTP_200_OK,
+        guards=[require_permission(Permission.AGENTS_EXECUTE)],
+    )
     async def agent_test(
         self, data: Annotated[AgentTest, Body()], trace_id: str | None = None
     ) -> AgentTestResponse:
@@ -85,7 +90,11 @@ class AgentsController(AgentsControllerBase):
         description="User either started a new conversation or continued an existing one with an agent.",
         channel="production",
     )
-    @post("/execute", status_code=HTTP_200_OK)
+    @post(
+        "/execute",
+        status_code=HTTP_200_OK,
+        guards=[require_permission(Permission.AGENTS_EXECUTE)],
+    )
     async def agent_execute(
         self, data: Annotated[AgentExecute, Body()], request: Request
     ) -> AgentExecuteResponse:
@@ -116,6 +125,7 @@ class AgentsController(AgentsControllerBase):
         "/conversations/{id:str}",
         summary="RetrieveConversation",
         description="Retrieves the details of a specific conversation by id.",
+        guards=[require_permission(Permission.AGENTS_READ)],
     )
     async def get_conversation_route(
         self,
@@ -147,6 +157,7 @@ class AgentsController(AgentsControllerBase):
         status_code=HTTP_200_OK,
         summary="Post-process conversation",
         description="Runs post-processing for a conversation by conversation_id.",
+        guards=[require_permission(Permission.AGENTS_WRITE)],
     )
     async def post_process_conversation_route(
         self,

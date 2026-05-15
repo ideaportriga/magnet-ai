@@ -339,9 +339,16 @@ async def _send_expandable_section(
 
 @dataclass(frozen=True, slots=True)
 class NoteTakerSettings:
+    """Resolved settings for a Teams note-taker bot.
+
+    `azure_tenant_id` is the Azure AD tenant of the Teams app — NOT our
+    organization-tenant. Env var name stays `{ENV_PREFIX}tenantId` on the
+    boundary (renaming env vars is a separate ops coordination, deferred).
+    """
+
     client_id: str
     client_secret: str
-    tenant_id: str
+    azure_tenant_id: str
     auth_handler_id: str
     provider_system_name: str = ""
 
@@ -349,10 +356,11 @@ class NoteTakerSettings:
     def from_env(cls) -> "NoteTakerSettings | None":
         client_id = os.getenv(f"{ENV_PREFIX}clientId", "").strip()
         client_secret = os.getenv(f"{ENV_PREFIX}clientSecret", "").strip()
-        tenant_id = os.getenv(f"{ENV_PREFIX}tenantId", "").strip()
+        # Env var key stays `tenantId`; deferred to PR 3b (ops coordination).
+        azure_tenant_id = os.getenv(f"{ENV_PREFIX}tenantId", "").strip()
         auth_handler_id = os.getenv(f"{ENV_PREFIX}AUTH_HANDLER_ID", "").strip()
 
-        if not all([client_id, client_secret, tenant_id, auth_handler_id]):
+        if not all([client_id, client_secret, azure_tenant_id, auth_handler_id]):
             logger.info(
                 "Teams note-taker bot env vars missing; skipping bot initialization."
             )
@@ -361,7 +369,7 @@ class NoteTakerSettings:
         return cls(
             client_id=client_id,
             client_secret=client_secret,
-            tenant_id=tenant_id,
+            azure_tenant_id=azure_tenant_id,
             auth_handler_id=auth_handler_id,
         )
 
@@ -562,7 +570,7 @@ def _register_note_taker_handlers(
     *,
     adapter: CloudAdapter,
     bot_app_id: str,
-    bot_tenant_id: str,
+    bot_azure_tenant_id: str,
     provider_system_name: str = "",
 ) -> None:
     from .note_taker_handlers import (
@@ -578,7 +586,7 @@ def _register_note_taker_handlers(
         app=app,
         auth_handler_id=auth_handler_id,
         bot_app_id=bot_app_id,
-        bot_tenant_id=bot_tenant_id,
+        bot_azure_tenant_id=bot_azure_tenant_id,
         provider_system_name=provider_system_name,
         is_meeting_conversation=_is_meeting_conversation,
         is_personal_conversation=_is_personal_teams_conversation,
@@ -606,7 +614,9 @@ def build_note_taker_runtime(settings: NoteTakerSettings) -> NoteTakerRuntime:
     auth_config = AgentAuthConfiguration(
         client_id=settings.client_id,
         client_secret=settings.client_secret,
-        tenant_id=settings.tenant_id,
+        # MS Agents SDK kwarg stays `tenant_id` (boundary); our field is
+        # azure_tenant_id (see NoteTakerSettings).
+        tenant_id=settings.azure_tenant_id,
     )
     auth_config.AUTH_TYPE = AuthTypes.client_secret
     auth_config.SCOPES = SCOPE
@@ -675,7 +685,7 @@ def build_note_taker_runtime(settings: NoteTakerSettings) -> NoteTakerRuntime:
         settings.auth_handler_id,
         adapter=adapter,
         bot_app_id=settings.client_id,
-        bot_tenant_id=settings.tenant_id,
+        bot_azure_tenant_id=settings.azure_tenant_id,
         provider_system_name=settings.provider_system_name,
     )
 
@@ -889,20 +899,23 @@ async def handle_recordings_ready_notifications(
             )
             continuation.apply_conversation_reference(normalized_ref, is_incoming=True)
 
-            # ensure tenant id is present on continuation
-            tenant_id = getattr(normalized_ref, "tenant_id", None) or getattr(
+            # Ensure the Azure AD tenant id is propagated on the continuation.
+            # `normalized_ref.tenant_id` and `conv_obj.tenant_id` are Microsoft
+            # Bot Framework SDK attributes; keep those names. The local var is
+            # `azure_tenant_id` to avoid confusion with our org-tenant column.
+            azure_tenant_id = getattr(normalized_ref, "tenant_id", None) or getattr(
                 getattr(normalized_ref, "conversation", None), "tenant_id", None
             )
-            if tenant_id:
+            if azure_tenant_id:
                 continuation.channel_data = continuation.channel_data or {}
-                continuation.channel_data.setdefault("tenant", {"id": tenant_id})
+                continuation.channel_data.setdefault("tenant", {"id": azure_tenant_id})
                 conv_obj = getattr(continuation, "conversation", None)
                 if conv_obj is not None and getattr(conv_obj, "tenant_id", None) in (
                     None,
                     "",
                 ):
                     try:
-                        conv_obj.tenant_id = tenant_id
+                        conv_obj.tenant_id = azure_tenant_id
                     except Exception:
                         pass
 
@@ -1204,12 +1217,15 @@ class NoteTakerRegistry:
 
                 client_id = str(creds.get("client_id") or "").strip()
                 client_secret = str(creds.get("client_secret") or "").strip()
-                tenant_id = str(creds.get("tenant_id") or "").strip()
+                # DB-stored secrets/connection JSON keep the legacy
+                # `tenant_id` key (Azure AD tenant of the Teams bot).
+                # See `_resolve_credentials` below.
+                azure_tenant_id = str(creds.get("tenant_id") or "").strip()
                 auth_handler_id = str(
                     creds.get("auth_handler_id") or f"note_taker_{provider_sn}"
                 ).strip()
 
-                if not (client_id and client_secret and tenant_id):
+                if not (client_id and client_secret and azure_tenant_id):
                     logger.warning(
                         "[NoteTakerRegistry] Skipping provider %s — incomplete credentials.",
                         provider_sn,
@@ -1220,7 +1236,7 @@ class NoteTakerRegistry:
                     settings_obj = NoteTakerSettings(
                         client_id=client_id,
                         client_secret=client_secret,
-                        tenant_id=tenant_id,
+                        azure_tenant_id=azure_tenant_id,
                         auth_handler_id=auth_handler_id,
                         provider_system_name=provider_sn,
                     )

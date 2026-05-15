@@ -77,7 +77,8 @@ class NoteTakerHandlerDeps:
     app: AgentApplication[TurnState]
     auth_handler_id: str
     bot_app_id: str
-    bot_tenant_id: str
+    # Azure AD tenant of the Teams bot app (not our org-tenant).
+    bot_azure_tenant_id: str
     is_meeting_conversation: Callable[[TurnContext], bool]
     is_personal_conversation: Callable[[TurnContext], bool]
     resolve_meeting_details: Callable[[TurnContext], dict[str, Any]]
@@ -1904,7 +1905,7 @@ class NoteTakerHandlerState:
         handler_id: str,
         aad_object_id: str | None = None,
         user_id: str | None = None,
-        tenant_id: str | None = None,
+        azure_tenant_id: str | None = None,
         notify_if_missing: bool = True,
     ) -> str | None:
         continuation = Activity.create_event_activity()
@@ -1918,14 +1919,17 @@ class NoteTakerHandlerState:
         if user_id and getattr(continuation, "from_property", None):
             continuation.from_property.id = user_id
 
-        if tenant_id:
+        if azure_tenant_id:
+            # Bot Framework payload keys stay on the wire: channel_data has
+            # `tenant.id`, ConversationReference exposes `tenant_id` as an SDK
+            # attribute. Only the Python parameter name was renamed.
             continuation.channel_data = continuation.channel_data or {}
-            continuation.channel_data.setdefault("tenant", {"id": tenant_id})
+            continuation.channel_data.setdefault("tenant", {"id": azure_tenant_id})
 
             conv = getattr(continuation, "conversation", None)
             if conv is not None and getattr(conv, "tenant_id", None) in (None, ""):
                 try:
-                    conv.tenant_id = tenant_id
+                    conv.tenant_id = azure_tenant_id
                 except Exception:
                     pass
 
@@ -2014,7 +2018,7 @@ class NoteTakerHandlerState:
             handler_id=self.deps.auth_handler_id,
             aad_object_id=organizer_aad,
             user_id=organizer_id,
-            tenant_id=self.deps.bot_tenant_id,
+            azure_tenant_id=self.deps.bot_azure_tenant_id,
             notify_if_missing=False,
         )
 

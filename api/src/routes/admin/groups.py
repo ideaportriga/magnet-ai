@@ -1,29 +1,49 @@
-"""Admin endpoints for group management."""
+"""Admin endpoints for group management.
+
+Groups are tenant-scoped (PR 6 of access-control plan). Each call inherits
+the caller's tenant from `auth.tenant_id`; cross-tenant operations are not
+possible from this surface.
+"""
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
 from uuid import UUID
 
-from litestar import Controller, delete, get, post
-from litestar.exceptions import NotFoundException
+from litestar import Controller, Request, delete, get, post
+from litestar.exceptions import (
+    NotFoundException,
+    PermissionDeniedException,
+    ValidationException,
+)
 from sqlalchemy import select
 
 from core.config.app import alchemy
 from core.db.models.user.group import Group
+from core.db.models.user.user import User
 from core.db.models.user.user_group import UserGroup
 from core.domain.users.roles_schemas import GroupCreate, GroupMemberAdd, GroupResponse
-from core.domain.users.service import UsersService
+from middlewares.auth import Auth
+
+
+def _tenant_id_from_request(request: Request) -> UUID:
+    auth: Auth | None = request.scope.get("auth")
+    if auth is None or not auth.tenant_id:
+        raise PermissionDeniedException("Tenant context required for group management.")
+    return UUID(auth.tenant_id)
 
 
 class GroupsController(Controller):
     path = "/groups"
     tags = ["Admin / Groups"]
 
-    @get("/", summary="List all groups")
-    async def list_groups(self) -> list[GroupResponse]:
+    @get("/", summary="List groups in the caller's tenant")
+    async def list_groups(self, request: Request) -> list[GroupResponse]:
+        tenant_id = _tenant_id_from_request(request)
         async with alchemy.get_session() as session:
-            result = await session.execute(select(Group))
+            result = await session.execute(
+                select(Group).where(Group.tenant_id == tenant_id)
+            )
             groups = result.scalars().all()
             return [
                 GroupResponse(
@@ -37,12 +57,23 @@ class GroupsController(Controller):
                 for g in groups
             ]
 
-    @post("/", summary="Create a group")
-    async def create_group(self, data: GroupCreate) -> GroupResponse:
+    @post("/", summary="Create a group in the caller's tenant")
+    async def create_group(self, request: Request, data: GroupCreate) -> GroupResponse:
+        tenant_id = _tenant_id_from_request(request)
         async with alchemy.get_session() as session:
-            group = Group(name=data.name, slug=data.slug, description=data.description)
+            group = Group(
+                tenant_id=tenant_id,
+                name=data.name,
+                slug=data.slug,
+                description=data.description,
+            )
             session.add(group)
-            await session.commit()
+            try:
+                await session.commit()
+            except Exception as exc:
+                raise ValidationException(
+                    f"Could not create group (slug/name collision in tenant?): {exc}"
+                ) from exc
             await session.refresh(group)
             return GroupResponse(
                 id=group.id,
@@ -54,20 +85,21 @@ class GroupsController(Controller):
             )
 
     @post("/{group_id:uuid}/members", summary="Add user to group")
-    async def add_member(self, group_id: UUID, data: GroupMemberAdd) -> dict:
+    async def add_member(
+        self, request: Request, group_id: UUID, data: GroupMemberAdd
+    ) -> dict:
+        tenant_id = _tenant_id_from_request(request)
         async with alchemy.get_session() as session:
-            # Verify group exists
             group = await session.get(Group, group_id)
-            if not group:
+            if not group or group.tenant_id != tenant_id:
                 raise NotFoundException("Group not found")
 
-            # Verify user exists
-            users_service = UsersService(session=session)
-            user = await users_service.get_one_or_none(id=data.user_id)
-            if not user:
+            target_user = (
+                await session.execute(select(User).where(User.id == data.user_id))
+            ).scalar_one_or_none()
+            if not target_user or target_user.tenant_id != tenant_id:
                 raise NotFoundException("User not found")
 
-            # Check if already a member
             stmt = select(UserGroup).where(
                 UserGroup.user_id == data.user_id,
                 UserGroup.group_id == group_id,
@@ -90,8 +122,16 @@ class GroupsController(Controller):
     @delete(
         "/{group_id:uuid}/members/{member_id:uuid}", summary="Remove user from group"
     )
-    async def remove_member(self, group_id: UUID, member_id: UUID) -> None:
+    async def remove_member(
+        self, request: Request, group_id: UUID, member_id: UUID
+    ) -> None:
+        tenant_id = _tenant_id_from_request(request)
         async with alchemy.get_session() as session:
+            # Ensure the group is in the caller's tenant before touching it.
+            group = await session.get(Group, group_id)
+            if not group or group.tenant_id != tenant_id:
+                raise NotFoundException("Group not found")
+
             stmt = select(UserGroup).where(
                 UserGroup.user_id == member_id,
                 UserGroup.group_id == group_id,
