@@ -6,7 +6,7 @@
         <km-toggle v-model="sendTranscriptToSalesforce" />
       </div>
       <div class="km-description text-secondary-text pt-xs pl-sm">Push completed transcripts to Salesforce</div>
-      <div v-if="sendTranscriptToSalesforce" class="gap-md mt-md">
+      <div v-if="sendTranscriptToSalesforce" class="stack mt-md" data-gap="md">
         <div>
           <div class="km-field text-secondary-text pb-xs pl-sm">API Server</div>
           <div class="cluster" data-gap="sm">
@@ -40,7 +40,7 @@
         <km-toggle v-model="confluenceEnabled" />
       </div>
       <div class="km-description text-secondary-text pt-xs pl-sm">Push completed summaries to Confluence</div>
-      <div v-if="confluenceEnabled" class="gap-md mt-md">
+      <div v-if="confluenceEnabled" class="stack mt-md" data-gap="md">
         <div>
           <div class="km-field text-secondary-text pb-xs pl-sm">API Server</div>
           <div class="cluster" data-gap="sm">

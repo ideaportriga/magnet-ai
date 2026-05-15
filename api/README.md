@@ -3,45 +3,36 @@
 ### Developer environment
 
 - Install [Python 3.12](https://www.python.org/).
-- Install [Poetry 1.8](https://github.com/python-poetry/poetry) - tool for Python dependency management.
+- Install [uv](https://docs.astral.sh/uv/getting-started/installation/) — fast Python package & project manager.
 - Visual C++ Redistributable (optional) - you should install it if you get explicit errors about it during installation.
-- Update Python packages with `python -m pip install -U pip wheel setuptools`
 
 ### Install
 
-Once installed, from the project root directory run `poetry install`.
-It will install `magnet-ai` project and its dependencies.
+From the `api/` directory run `uv sync`.
+It will create `.venv/`, install all locked dependencies, and provision a Python interpreter for the project.
 
 ### Virtual environment
 
-To activate virtual environment run [shell](https://python-poetry.org/docs/1.8/cli/#shell) command:
-```
-poetry shell
-```
-or:
+`uv sync` puts the venv at `./.venv`. Activate it if you prefer to run commands directly:
 ```
 .venv\Scripts\activate  # Windows
-source .venv/bin/activate  # Linux
+source .venv/bin/activate  # Linux/macOS
 ```
 
 ### Executing commands
 
-If virtual environment is activated - just execute command/script, for example:
+If the virtual environment is activated - just execute the command/script, for example:
 ```
 python some_script.py
 uvicorn app:app
 pytest
-etc.
-
 ```
 
-otherwise - use [run](https://python-poetry.org/docs/1.8/cli/#run) command - it will automatically execute your command inside the project's virtualenv:
+Otherwise - prefix commands with `uv run` to execute inside the project's virtualenv:
 ```
-poetry run python some_script.py
-poetry run uvicorn app:app
-poetry run pytest
-etc.
-
+uv run python some_script.py
+uv run uvicorn app:app
+uv run pytest
 ```
 
 
@@ -52,17 +43,17 @@ Run app from src directory.
 
 With default parameters:
 ```
-uvicorn app:app --env-file="../.env"
+uv run uvicorn app:app --env-file="../.env"
 ```
 
 In reload mode:
 ```
-uvicorn app:app --env-file="../.env" --reload
+uv run uvicorn app:app --env-file="../.env" --reload
 ```
 
 In a different port:
 ```
-uvicorn app:app --env-file="../.env" --port="8001"
+uv run uvicorn app:app --env-file="../.env" --port="8001"
 ```
 
 ### Dockerized
@@ -95,13 +86,13 @@ TBD
 Run the Ruff linter over the project:
 
 ```
-ruff check
+uv run ruff check
 ```
 
 with automatic issue resolving:
 
 ```
-ruff check --fix
+uv run ruff check --fix
 ```
 
 
@@ -112,7 +103,7 @@ ruff check --fix
 
 To run tests:
 ```
-poetry run pytest
+uv run pytest
 
 # Or if virtual env is activated just:
 pytest
@@ -124,7 +115,7 @@ Tests are using different env file - `.env.test` which should not contain any ac
 To show print output in the output use command-line option `-s`:
 
 ```
-poetry run pytest -s
+uv run pytest -s
 ```
 [How to capture stdout/stderr output](https://docs.pytest.org/en/latest/how-to/capture-stdout-stderr.html)
 
@@ -134,7 +125,7 @@ To select tests use command-line option `-k`:
 
 Example:
 ```
-poetry run pytest -k stores
+uv run pytest -k stores
 ```
 [Using -k expr to select tests based on their name](https://docs.pytest.org/en/7.1.x/example/markers.html#using-k-expr-to-select-tests-based-on-their-name)
 

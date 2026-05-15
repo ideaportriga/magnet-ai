@@ -521,23 +521,6 @@ onMounted(() => {
   padding: 16px;
 }
 
-.messages-area::-webkit-scrollbar {
-  inline-size: 6px;
-}
-
-.messages-area::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.messages-area::-webkit-scrollbar-thumb {
-  background: var(--ds-color-gray-200);
-  border-radius: 3px;
-}
-
-.messages-area::-webkit-scrollbar-thumb:hover {
-  background: var(--ds-color-gray-300);
-}
-
 /* Empty State */
 .empty-state {
   display: flex;

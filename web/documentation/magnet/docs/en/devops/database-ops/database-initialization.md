@@ -28,7 +28,7 @@ Set `RUN_MIGRATIONS=true` in your deployment (Docker Compose / Kubernetes / Azur
 
 ### Option B: run migrations from the repo
 
-From the repo root (requires `npm` + `poetry` configured):
+From the repo root (requires `npm` + `uv` configured):
 
 ```bash
 npm run db:upgrade

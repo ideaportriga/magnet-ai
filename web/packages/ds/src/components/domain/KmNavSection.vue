@@ -17,6 +17,9 @@ import { DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenu
 import KmBtn from './KmBtn.vue'
 import KmSeparator from './KmSeparator.vue'
 import KmGlyph from './KmGlyph.vue'
+import DsCollapsible from '../primitives/Collapsible/DsCollapsible.vue'
+import DsCollapsibleTrigger from '../primitives/Collapsible/DsCollapsibleTrigger.vue'
+import DsCollapsibleContent from '../primitives/Collapsible/DsCollapsibleContent.vue'
 
 interface NavItem {
   label: string
@@ -48,10 +51,17 @@ const props = withDefaults(
   },
 )
 
-defineEmits<{
+const emit = defineEmits<{
   toggle: []
   navigate: [path: string]
 }>()
+
+// Reka's Collapsible emits update:open with the new boolean — we keep the
+// public `toggle` event contract (parent inverts state) so call-sites don't
+// need to change.
+function onOpenChange() {
+  emit('toggle')
+}
 
 function pathMatches(currentPath: string, candidate: string): boolean {
   if (!currentPath || !candidate) return false
@@ -110,44 +120,75 @@ const hasActiveItem = computed(() => props.items.some(isItemActive))
     </DropdownMenuPortal>
   </DropdownMenuRoot>
 
-  <div
+  <DsCollapsible
     v-else
-    class="km-nav-section stack"
-    :class="collapsed ? 'km-nav-section--tight' : 'km-nav-section--loose'"
+    :open="!collapsed"
+    class="km-nav-section"
     data-test="km-nav-section"
+    @update:open="onOpenChange"
   >
-    <button
-      type="button"
-      class="km-nav-section__header cluster"
-      data-align="center"
-      @click="$emit('toggle')"
-    >
-      <span class="km-nav-section__title">{{ label }}</span>
-      <span class="ms-auto">
-        <KmGlyph
-          :name="collapsed ? 'chevron-down' : 'chevron-up'"
-          size="14px"
-        />
-      </span>
-    </button>
-    <KmSeparator v-if="!collapsed" />
-    <div v-if="!collapsed" class="km-nav-section__body">
-      <slot />
-    </div>
-  </div>
+    <DsCollapsibleTrigger as-child>
+      <button
+        type="button"
+        class="km-nav-section__header cluster"
+        data-align="center"
+      >
+        <span class="km-nav-section__title">{{ label }}</span>
+        <span class="ms-auto">
+          <KmGlyph
+            class="km-nav-section__chevron"
+            name="chevron-up"
+            size="14px"
+          />
+        </span>
+      </button>
+    </DsCollapsibleTrigger>
+    <DsCollapsibleContent class="km-nav-section__content">
+      <KmSeparator />
+      <div class="km-nav-section__body">
+        <slot />
+      </div>
+    </DsCollapsibleContent>
+  </DsCollapsible>
 </template>
 
 <style>
 .km-nav-section { inline-size: 100%; }
-.km-nav-section--tight { gap: var(--ds-space-2xs); }
-.km-nav-section--loose { gap: var(--ds-space-xs); }
+
+.km-nav-section__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-2xs);
+  padding-block-start: var(--ds-space-2xs);
+}
+
+/* Separator reads as an underline of the section title:
+ * sits flush with the title (no top margin), small gap before items. */
+.km-nav-section .km-separator[data-orientation='horizontal'] {
+  margin-block: 0;
+}
 
 .km-nav-section__header {
   background: transparent;
   border: 0;
-  padding: 0 var(--ds-space-2xs);
+  padding: var(--ds-space-2xs) var(--ds-space-2xs);
   cursor: pointer;
   inline-size: 100%;
+}
+.km-nav-section__header:hover { background: var(--ds-color-light); border-radius: var(--ds-radius-sm); }
+.km-nav-section__header:focus-visible {
+  outline: 2px solid var(--ds-color-primary);
+  outline-offset: -2px;
+  border-radius: var(--ds-radius-sm);
+}
+
+/* Chevron mirrors collapsible state — points down when closed, up when open.
+ * `data-state` lands on the button via DsCollapsibleTrigger's `as-child`. */
+.km-nav-section__chevron {
+  transition: transform var(--ds-duration-fast) var(--ds-ease-out);
+}
+.km-nav-section__header[data-state='closed'] .km-nav-section__chevron {
+  transform: rotate(180deg);
 }
 .km-nav-section__title {
   font-size: var(--ds-font-size-xs);
@@ -184,8 +225,18 @@ const hasActiveItem = computed(() => props.items.some(isItemActive))
   text-transform: uppercase;
   color: var(--ds-color-secondary);
 }
+/* Hover/keyboard highlight. Reka sets `data-highlighted` on the item when
+ * pointer-over or arrow-keyed. We co-locate the rule here (instead of
+ * relying on DsDropdownMenu.vue) because that legacy wrapper isn't always
+ * loaded on pages where this nav popup appears. */
+.ds-menu__item[data-highlighted] {
+  background: var(--ds-color-light);
+}
 .ds-menu__item[data-active='true'] {
   color: var(--ds-color-primary);
+  background: var(--ds-color-primary-bg);
+}
+.ds-menu__item[data-active='true'][data-highlighted] {
   background: var(--ds-color-primary-bg);
 }
 </style>

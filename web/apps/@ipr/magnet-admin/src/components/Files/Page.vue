@@ -4,14 +4,14 @@
       <div class="flex-none collection-container mx-auto full-width px-md pt-lg">
         <div v-if="stats" class="cluster mb-lg" data-gap="lg">
           <div class="flex-1">
-            <div class="border border-radius-12 bg-white ba-border p-lg">
+            <div class="ba-border border-radius-12 bg-white p-lg">
               <div class="text-caption text-grey-7">{{ m.files_totalFiles() }}</div>
               <div class="text-h6">{{ stats.total_files }}</div>
               <div class="text-caption text-grey-7">{{ formatBytes(stats.total_size) }}</div>
             </div>
           </div>
           <div v-for="item in stats.by_entity_type" :key="item.entity_type" class="flex-1">
-            <div class="border border-radius-12 bg-white ba-border p-lg">
+            <div class="ba-border border-radius-12 bg-white p-lg">
               <div class="text-caption text-grey-7">{{ item.entity_type }}</div>
               <div class="text-h6">{{ item.count }}</div>
               <div class="text-caption text-grey-7">{{ formatBytes(item.total_size) }}</div>
@@ -20,7 +20,7 @@
         </div>
         <div v-if="stats &amp;&amp; stats.by_backend.length &gt; 1" class="cluster mb-lg" data-gap="lg">
           <div v-for="item in stats.by_backend" :key="item.backend_key" class="flex-1">
-            <div class="border border-radius-12 bg-white ba-border p-md">
+            <div class="ba-border border-radius-12 bg-white p-md">
               <div class="cluster" data-gap="sm">
                 <km-glyph name="storage" size="16px" tone="weak" />
                 <div class="text-caption text-grey-7">{{ item.backend_key }}</div>

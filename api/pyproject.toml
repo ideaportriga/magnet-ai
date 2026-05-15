@@ -1,101 +1,99 @@
-[tool.poetry]
+[project]
 name = "magnet-ai-api"
 version = "0.7.0a25"
 description = ""
-authors = []
 readme = "README.md"
-package-mode = false
+requires-python = ">=3.12,<4.0"
+dependencies = [
+    "langchain==0.3.27",
+    "office365-rest-python-client==2.6.2",
+    "requests==2.32.3",
+    "pypdf==6.1.1",
+    "aiofiles==23.2.1",
+    "atlassian-python-api==3.41.9",
+    "pymongo==4.12.0",
+    "python-dotenv==1.1.1",
+    "simple-salesforce==1.12.5",
+    "pydantic==2.11.0",
+    "cachetools==5.3.3",
+    "python-jose[cryptography]==3.3.0",
+    "opencensus-ext-azure==1.1.13",
+    "opencensus==0.11.4",
+    "openai>=2.18.0,<3.0.0",
+    "openpyxl==3.1.5",
+    "oracledb==2.4.1",
+    "oci==2.135.2",
+    "jsonref==1.1.0",
+    "azure-ai-inference==1.0.0b9",
+    "groq==0.12.0",
+    "litestar>=2.16.0,<3.0.0",
+    "uvicorn==0.32.0",
+    "taskiq>=0.12,<0.13",
+    "taskiq-postgres[asyncpg]>=0.7,<0.8 ; python_version >= '3.12' and python_version < '3.15'",
+    "taskiq-litestar>=0.2,<0.3",
+    "croniter>=2.0,<3.0",
+    "aiodebug==2.3.0",
+    "aiocache==0.12.3",
+    "motor==3.7.0",
+    "langchain-community==0.3.21",
+    "qdrant-client==1.13.3",
+    "pandas==2.2.3",
+    "yake>=0.4.8,<0.5.0",
+    "nest-asyncio>=1.6.0,<2.0.0",
+    "opentelemetry-api==1.35.0",
+    "opentelemetry-sdk==1.35.0",
+    "opentelemetry-exporter-otlp==1.35.0",
+    "azure-monitor-opentelemetry-exporter>=1.0.0b41,<2.0.0",
+    "mcp==1.23.0",
+    "cryptography==45.0.4",
+    "advanced-alchemy[dogpile]>=1.9.3,<2.0.0",
+    "pwdlib[argon2]>=0.3.0,<0.4.0",
+    "httpx-oauth>=0.16.0,<0.17.0",
+    "pyotp>=2.9.0,<3.0.0",
+    "qrcode[pil]>=7.4.0,<8.0.0",
+    "structlog>=25.4.0,<26.0.0",
+    "python-logging-loki>=0.3.1,<0.4.0",
+    "aiosqlite>=0.21.0,<0.22.0",
+    "asyncpg>=0.31.0,<0.32",
+    "psycopg2-binary>=2.9.10,<3.0.0",
+    "pgvector>=0.4.1,<0.5.0",
+    "mutagen>=1.47.0,<2.0.0",
+    "elevenlabs>=2.26.0,<3.0.0",
+    "microsoft-agents-hosting-aiohttp==0.6.1",
+    "microsoft-agents-authentication-msal==0.6.1",
+    "microsoft-agents-activity==0.6.1",
+    "uuid-utils>=0.11.0,<0.12.0",
+    "click>=8.1.0,<9.0.0",
+    "slack-sdk>=3.37.0,<4.0.0",
+    "slack-bolt>=1.26.0,<2.0.0",
+    "microsoft-agents-hosting-core==0.6.1",
+    "microsoft-agents-hosting-teams>=0.6.1,<0.7.0",
+    "azure-storage-blob>=12.27.1,<13.0.0",
+    "kreuzberg>=4.4,<5",
+    "litellm>=1.82.2,<2.0.0",
+    "obstore>=0.3.0,<1.0",
+]
 
-[tool.poetry.dependencies]
-python = "^3.12"
-langchain = "0.3.27"
-office365-rest-python-client = "2.6.2"
-requests = "2.32.3"
-pypdf = "6.1.1"  # Kept as fallback when USE_KREUZBERG=false
-aiofiles = "23.2.1"
-atlassian-python-api = "3.41.9"
-pymongo = "4.12.0"
-python-dotenv = "1.1.1"
-simple-salesforce = "1.12.5"
-pydantic = "2.11.0"
-cachetools = "5.3.3"
-python-jose = {extras = ["cryptography"], version = "3.3.0"}
-opencensus-ext-azure = "1.1.13"
-opencensus = "0.11.4"
-openai = "^2.18.0"
-openpyxl = "3.1.5"
-oracledb = "2.4.1"
-oci = "2.135.2"
-jsonref = "1.1.0"
-azure-ai-inference = "1.0.0b9"
-groq = "0.12.0"
-litestar = "^2.16.0"
-uvicorn = "0.32.0"
-taskiq = "^0.12"
-taskiq-postgres = {extras = ["asyncpg"], version = "^0.7", python = ">=3.12,<3.15"}
-taskiq-litestar = "^0.2"
-croniter = "^2.0"
-aiodebug = "2.3.0"
-aiocache = "0.12.3"
-motor = "3.7.0"
-langchain-community = "0.3.21"
-qdrant-client = "1.13.3"
-pandas = "2.2.3"
-yake = "^0.4.8"
-nest-asyncio = "^1.6.0"
-opentelemetry-api = "1.35.0"
-opentelemetry-sdk = "1.35.0"
-opentelemetry-exporter-otlp = "1.35.0"
-azure-monitor-opentelemetry-exporter = "^1.0.0b41"
-mcp = "1.23.0"
-cryptography = "45.0.4"
-advanced-alchemy = {extras = ["dogpile"], version = "^1.9.3"}
-pwdlib = {extras = ["argon2"], version = "^0.3.0"}
-httpx-oauth = "^0.16.0"
-pyotp = "^2.9.0"
-qrcode = {extras = ["pil"], version = "^7.4.0"}
-structlog = "^25.4.0"
-python-logging-loki = "^0.3.1"
-aiosqlite = "^0.21.0"
-asyncpg = ">=0.31.0,<0.32"
-psycopg2-binary = "^2.9.10"  # used by sync_engine for OTEL exporter + Slack SDK stores (sync-only callers). Not used by TaskIQ.
-pgvector = "^0.4.1"
-mutagen = "^1.47.0"
-elevenlabs = "^2.26.0"
-microsoft-agents-hosting-aiohttp = "0.6.1"
-microsoft-agents-authentication-msal = "0.6.1"
-microsoft-agents-activity = "0.6.1"
-uuid-utils = "^0.11.0"
-click = "^8.1.0"
-slack-sdk = "^3.37.0"
-slack-bolt = "^1.26.0"
-microsoft-agents-hosting-core = "0.6.1"
-microsoft-agents-hosting-teams = "^0.6.1"
-azure-storage-blob = "^12.27.1"
-kreuzberg = "^4.4"
-litellm = "^1.82.2"
-obstore = ">=0.3.0,<1.0"
+[dependency-groups]
+dev = [
+    "ruff==0.9.10",
+    "pytest>=8.3,<9.0",
+    "pytest-mock>=3.14,<4.0",
+    "pytest-cov>=6.0,<7.0",
+    "pytest-timeout>=2.3,<3.0",
+    "pytest-xdist>=3.5,<4.0",
+    "pytest-json-report>=1.5,<2.0",
+    "pytest-asyncio>=0.25,<0.26",
+    "factory-boy>=3.3,<4.0",
+    "pytest-factoryboy>=2.7,<3.0",
+    "testcontainers[postgres]>=4.8,<5.0",
+    "httpx>=0.28,<0.29",
+    "schemathesis>=3.38,<4.0",
+    "hypothesis>=6.120,<7.0",
+]
 
-[tool.poetry.group.dev.dependencies]
-ruff = "0.9.10"
-# Test framework
-pytest = "^8.3"
-pytest-mock = "^3.14"
-pytest-cov = "^6.0"
-pytest-timeout = "^2.3"
-pytest-xdist = "^3.5"
-pytest-json-report = "^1.5"
-pytest-asyncio = "^0.25"
-# Test data
-factory-boy = "^3.3"
-pytest-factoryboy = "^2.7"
-# Test DB
-testcontainers = {extras = ["postgres"], version = "^4.8"}
-# HTTP client for tests
-httpx = "^0.28"
-# Fuzz testing
-schemathesis = "^3.38"
-hypothesis = "^6.120"
+[tool.uv]
+package = false
 
 [tool.ruff]
 target-version = "py311"
@@ -103,7 +101,6 @@ target-version = "py311"
 [tool.ruff.lint]
 select = ["E", "F", "I", "ASYNC",  "LOG", "PIE", "E"]
 ignore = ["E501", "D401", "B006", 'C416', 'C418', 'UP007', 'S101', 'I001']
-# select = ["E", "F", "W", "B", "I", "C", "ASYNC", "UP", "S", "LOG", "PIE", "SLF", "SIM", "TC", "ARG", "N", "PERF", "E"]
 
 [tool.black]
 line-length = 150
@@ -113,10 +110,6 @@ include = '\.pyi?$'
 [tool.isort]
 profile = "black"
 multi_line_output = 3
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

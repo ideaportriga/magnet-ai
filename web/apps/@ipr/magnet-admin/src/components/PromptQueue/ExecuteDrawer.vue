@@ -12,7 +12,7 @@
         <div class="km-field text-secondary-text pb-xs">Test input set</div>
         <km-select :model-value="selectedTestInputId" :options="testInputOptions" option-label="label" option-value="value" emit-value map-options clearable :placeholder="m.promptQueue_selectSavedTestInput()" style="max-inline-size: 100%" @update:model-value="onSelectTestInput" />
       </div>
-      <div class="gap-sm mb-sm">
+      <div class="stack mb-sm" data-gap="sm">
         <div v-for="param in expectedInputParams" :key="param" class="cluster" data-gap="sm">
           <div class="flex-none km-field" style="min-inline-size: 120px">{{ param }}</div>
           <div class="flex-1">

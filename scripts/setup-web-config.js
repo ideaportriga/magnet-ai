@@ -6,18 +6,22 @@ const configs = [
     path: 'web/apps/@ipr/magnet-admin/public/config/main.json',
     content: {
       auth: {
-        enabled: false
+        enabled: true,
+        signupEnabled: false
       },
       api: {
         aiBridge: {
-          baseUrl: "http://localhost:8000"
+          // Empty baseUrl => frontend uses relative paths; Vite proxy in
+          // vite.config.ts routes /api/* to http://localhost:8000.
+          // Same-origin keeps auth cookies (SameSite=Lax + Secure) working.
+          baseUrl: ""
         }
       },
       panel: {
         baseUrl: "https://localhost:7002/panel/"
       },
       admin: {
-        baseUrl: "https://localhost:7000/admin/"
+        baseUrl: "https://localhost:7001/admin/"
       }
     }
   },
@@ -26,18 +30,22 @@ const configs = [
     content: {
       theme: "siebel",
       auth: {
-        enabled: false
+        enabled: true,
+        signupEnabled: false
       },
       api: {
         aiBridge: {
-          baseUrl: "http://localhost:8000"
+          // Empty baseUrl => frontend uses relative paths; Vite proxy in
+          // vite.config.ts routes /api/* to http://localhost:8000.
+          // Same-origin keeps auth cookies (SameSite=Lax + Secure) working.
+          baseUrl: ""
         }
       },
       panel: {
         baseUrl: "https://localhost:7002/panel/"
       },
       admin: {
-        baseUrl: "https://localhost:7000/admin/"
+        baseUrl: "https://localhost:7001/admin/"
       }
     }
   }

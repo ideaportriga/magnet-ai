@@ -8,9 +8,8 @@
               <km-tab name="import" :label="m.common_import()" />
               <km-tab name="export" :label="m.common_export()" />
             </km-tabs>
-            <div v-if="activeTab === &quot;import&quot;" class="border border-radius-12 bg-white ba-border my-lg p-lg gap-lg full-width relative-position">
+            <div v-if="activeTab === &quot;import&quot;" class="ba-border border-radius-12 bg-white my-lg p-lg full-width relative-position">
               <km-inner-loading :showing="loadingPreview || populating || checkingExists">
-                <km-loader size="40px" />
                 <div class="km-description text-primary mt-sm">{{ loadingPreview ? m.settings_loadingSeedRecords() : populating ? m.settings_importingRecords() : m.settings_checkingRecords() }}</div>
               </km-inner-loading>
               <div class="cluster mb-md" data-justify="between">
@@ -41,7 +40,10 @@
               <div v-if="selectedHasExisting" class="cluster mb-md bg-warning-low p-sm border-radius-6">
                 <div class="km-description text-primary">{{ m.settings_existingWillBeOverwritten() }}</div>
               </div>
-              <km-data-table :table="importTable" row-key="row_key" :loading="loadingPreview || populating" hide-pagination>
+              <km-data-table :table="importTable" row-key="row_key" hide-pagination>
+                <template #header-_select>
+                  <km-checkbox dense size="sm" :model-value="allImportSelected" :indeterminate="someImportSelected && !allImportSelected" :disable="filteredImportRows.length === 0" @update:model-value="toggleSelectAllSeedRows" @click.stop />
+                </template>
                 <template #cell-_select="{ row }">
                   <km-checkbox dense size="sm" :model-value="selectedKeySet.has(row.row_key)" @update:model-value="toggleImportRow(row, $event)" @click.stop />
                 </template>
@@ -70,9 +72,8 @@
                 </div>
               </div>
             </div>
-            <div v-if="activeTab === &quot;export&quot;" class="border border-radius-12 bg-white ba-border my-lg p-lg gap-lg full-width relative-position">
+            <div v-if="activeTab === &quot;export&quot;" class="ba-border border-radius-12 bg-white my-lg p-lg full-width relative-position">
               <km-inner-loading :showing="loadingExportPreview || exportingJson">
-                <km-loader size="40px" />
                 <div class="km-description text-primary mt-sm">{{ loadingExportPreview ? m.settings_loadingFromDb() : m.settings_exportingRecords() }}</div>
               </km-inner-loading>
               <div class="cluster mb-md" data-justify="between">
@@ -96,7 +97,10 @@
               <div v-if="exportRows.length === 0" class="cluster mb-md bg-light p-sm border-radius-6">
                 <div class="km-description text-secondary-text">{{ m.settings_exportListEmpty() }}</div>
               </div>
-              <km-data-table :table="exportTable" row-key="row_key" :loading="loadingExportPreview || exportingJson" hide-pagination>
+              <km-data-table :table="exportTable" row-key="row_key" hide-pagination>
+                <template #header-_select>
+                  <km-checkbox dense size="sm" :model-value="allExportSelected" :indeterminate="someExportSelected && !allExportSelected" :disable="filteredExportRows.length === 0" @update:model-value="toggleSelectAllExportRows" @click.stop />
+                </template>
                 <template #cell-_select="{ row }">
                   <km-checkbox dense size="sm" :model-value="selectedExportKeySet.has(row.row_key)" @update:model-value="toggleExportRow(row, $event)" @click.stop />
                 </template>
@@ -258,6 +262,21 @@ const filteredExportRows = computed(() => {
 const selectedKeySet = computed(() => new Set(selected.value.map((row) => row.row_key)))
 const selectedExportKeySet = computed(() => new Set(selectedExport.value.map((row) => row.row_key)))
 
+const allImportSelected = computed(() =>
+  filteredImportRows.value.length > 0 &&
+  filteredImportRows.value.every((row) => selectedKeySet.value.has(row.row_key))
+)
+const someImportSelected = computed(() =>
+  filteredImportRows.value.some((row) => selectedKeySet.value.has(row.row_key))
+)
+const allExportSelected = computed(() =>
+  filteredExportRows.value.length > 0 &&
+  filteredExportRows.value.every((row) => selectedExportKeySet.value.has(row.row_key))
+)
+const someExportSelected = computed(() =>
+  filteredExportRows.value.some((row) => selectedExportKeySet.value.has(row.row_key))
+)
+
 const displayRows = computed(() => {
   return rows.value.map((row) => {
     const progress = progressByKey.value[row.row_key] || {}
@@ -368,11 +387,6 @@ const clearList = () => {
   importEntityTypeFilter.value = 'all'
   importStatusFilter.value = 'all'
 }
-
-// §E.3.1 — kept for potential future toolbar "Select all filtered" button.
-// The header-level select-all is not exposed by km-data-table, but users
-// can still drive multi-selection via individual checkboxes; bulk actions
-// above the table should call this helper.
 
 const toggleSelectAllSeedRows = (value) => {
   if (value) {
