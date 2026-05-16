@@ -16,7 +16,10 @@
         <q-icon name="o_category" size="64px" color="grey-5" />
         <div class="km-heading-7 text-grey-7 q-mt-md">No entities defined yet</div>
         <div class="km-description text-grey-6">Create at least one entity definition so the prompt knows what to extract.</div>
-        <q-btn no-caps unelevated color="primary" label="Create First Entity" class="q-mt-lg" :disable="saving" @click="openCreateDialog" />
+        <div class="q-mt-lg q-gutter-sm">
+          <q-btn no-caps unelevated color="primary" label="Create First Entity" :disable="saving" @click="openCreateDialog" />
+          <q-btn no-caps flat color="primary" label="Import" icon="o_file_upload" :disable="saving" @click="triggerImport" />
+        </div>
       </div>
     </div>
 
