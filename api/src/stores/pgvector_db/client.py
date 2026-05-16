@@ -57,19 +57,21 @@ class PgVectorClient:
         self.connection_string = connection_string
         self.pool_size = pool_size
         self.pool: Pool | None = None
-        self._initialization_started = False
+        self._init_lock = asyncio.Lock()
 
     async def _ensure_pool_initialized(self) -> None:
         """Ensure the connection pool is initialized."""
-        if self.pool is None and not self._initialization_started:
-            await self.init_pool()
+        if self.pool is not None:
+            return
+        async with self._init_lock:
+            if self.pool is None:
+                await self.init_pool()
 
     async def init_pool(self) -> None:
         """Initialize the connection pool."""
-        if self._initialization_started or self.pool is not None:
+        if self.pool is not None:
             return
 
-        self._initialization_started = True
         logger.info("Initializing PostgreSQL connection pool")
 
         # Log connection string (without password for security)
@@ -95,7 +97,6 @@ class PgVectorClient:
             logger.info("PostgreSQL connection pool initialized successfully")
         except Exception as e:
             logger.error("Failed to initialize PostgreSQL connection pool: %s", e)
-            self._initialization_started = False
             raise
 
     async def _ensure_extension_standalone(self) -> None:
