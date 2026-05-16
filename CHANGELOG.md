@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.25](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.24...v0.7.0-dev.25) (2026-05-16)
+
+### 🐛 Bug Fixes
+
+* **evaluation:** fixed metadata filter use when running RAG evaluation ([50f50da](https://github.com/ideaportriga/magnet-ai/commit/50f50da26a4ac540fa3887ce1d86814c3940de08))
+* fixed evaluation tracing ([ad8de0b](https://github.com/ideaportriga/magnet-ai/commit/ad8de0b96a7b379bd4b783c71b636738ec6be1c5))
+
 ## [0.7.0-dev.24](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.23...v0.7.0-dev.24) (2026-05-15)
 
 ### ✨ Features
