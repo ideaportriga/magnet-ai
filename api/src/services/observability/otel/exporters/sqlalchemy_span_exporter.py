@@ -12,9 +12,12 @@ from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
 from opentelemetry.trace import format_span_id
 from opentelemetry.trace.status import StatusCode
+from litestar.serialization import decode_json
 from sqlalchemy import select, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from core.config.base import json_serializer_for_sqlalchemy
 from core.db.models.metric import Metric
 from core.db.models.trace import Trace
 from services.observability.models import (
@@ -45,6 +48,66 @@ from services.observability.utils import (
 )
 
 logger = getLogger(__name__)
+
+
+def _get_async_database_url(db_settings: Any) -> str:
+    """Return a SQLAlchemy async URL for span export."""
+    database_url = db_settings.effective_url
+    if not database_url:
+        raise ValueError(
+            "Database URL is empty. Set DATABASE_URL or configure DB_TYPE/DB_HOST/DB_NAME."
+        )
+
+    driver_replacements = {
+        "postgresql://": "postgresql+asyncpg://",
+        "postgres://": "postgresql+asyncpg://",
+        "postgresql+psycopg2://": "postgresql+asyncpg://",
+        "mysql://": "mysql+aiomysql://",
+        "mysql+pymysql://": "mysql+aiomysql://",
+        "sqlite://": "sqlite+aiosqlite://",
+        "oracle+cx_oracle://": "oracle+oracledb://",
+    }
+    for sync_driver, async_driver in driver_replacements.items():
+        if database_url.startswith(sync_driver):
+            return database_url.replace(sync_driver, async_driver, 1)
+
+    return database_url
+
+
+def _filter_new_spans(
+    existing_spans: list[dict[str, Any]], candidate_spans: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    existing_span_ids = {
+        span.get("id") for span in existing_spans if isinstance(span, dict)
+    }
+    return [
+        span
+        for span in candidate_spans
+        if not isinstance(span, dict) or span.get("id") not in existing_span_ids
+    ]
+
+
+def _get_costs_from_spans(spans: list[dict[str, Any]]) -> dict[str, float]:
+    costs = {"chat": 0.0, "embed": 0.0, "rerank": 0.0, "total": 0.0}
+    for span in spans:
+        if not isinstance(span, dict):
+            continue
+
+        cost_details = span.get("cost_details") or {}
+        span_cost = (cost_details.get("total") if cost_details else None) or 0.0
+        span_type = span.get("type")
+        span_type_value = getattr(span_type, "value", span_type)
+
+        if span_type_value == SpanType.CHAT_COMPLETION.value:
+            costs["chat"] += span_cost
+        elif span_type_value == SpanType.EMBEDDING.value:
+            costs["embed"] += span_cost
+        elif span_type_value == SpanType.RERANKING.value:
+            costs["rerank"] += span_cost
+
+        costs["total"] += span_cost
+
+    return costs
 
 
 def _sanitize_json_data(obj: Any) -> Any:
@@ -194,8 +257,10 @@ class SqlAlchemySpanExporter(SpanExporter):
         # Use a separate engine instance for span export to avoid conflicts
         # with the main application's database connections
         engine = create_async_engine(
-            url=settings.db.URL,
+            url=_get_async_database_url(settings.db),
             future=True,
+            json_serializer=json_serializer_for_sqlalchemy,
+            json_deserializer=decode_json,
             pool_pre_ping=True,
             pool_recycle=3600,
             pool_size=5,  # Smaller pool for background operations
@@ -507,9 +572,10 @@ class SqlAlchemySpanExporter(SpanExporter):
             # Merge spans
             existing_spans = existing_trace.spans or []
             new_spans = []
+            trace_spans_to_add = _filter_new_spans(existing_spans, trace_patch.spans)
 
             # Add idle span if needed
-            if trace_patch.root_span and existing_spans:
+            if trace_patch.root_span and existing_spans and trace_spans_to_add:
                 latest_existing_root_span_end_time = None
                 for existing_span in existing_spans:
                     if existing_span.get("parent_id") == trace_id:
@@ -550,7 +616,7 @@ class SqlAlchemySpanExporter(SpanExporter):
                     }
                     new_spans.append(idle_span)
 
-            new_spans.extend(trace_patch.spans)
+            new_spans.extend(trace_spans_to_add)
             all_spans = existing_spans + new_spans
 
             # Update cost details
@@ -560,15 +626,25 @@ class SqlAlchemySpanExporter(SpanExporter):
                 "rerank": 0.0,
                 "total": 0.0,
             }
+            costs_to_add = (
+                {
+                    "chat": trace_patch.chat_cost,
+                    "embed": trace_patch.embed_cost,
+                    "rerank": trace_patch.rerank_cost,
+                    "total": trace_patch.total_cost,
+                }
+                if len(trace_spans_to_add) == len(trace_patch.spans)
+                else _get_costs_from_spans(trace_spans_to_add)
+            )
 
             updated_cost_details = {
-                "chat": existing_cost_details.get("chat", 0.0) + trace_patch.chat_cost,
+                "chat": existing_cost_details.get("chat", 0.0) + costs_to_add["chat"],
                 "embed": existing_cost_details.get("embed", 0.0)
-                + trace_patch.embed_cost,
+                + costs_to_add["embed"],
                 "rerank": existing_cost_details.get("rerank", 0.0)
-                + trace_patch.rerank_cost,
+                + costs_to_add["rerank"],
                 "total": existing_cost_details.get("total", 0.0)
-                + trace_patch.total_cost,
+                + costs_to_add["total"],
             }
 
             # Update the existing trace
@@ -610,22 +686,33 @@ class SqlAlchemySpanExporter(SpanExporter):
             if trace_patch.spans:
                 spans.extend(trace_patch.spans)
 
-            new_trace = Trace(
-                id=trace_id,
-                name=trace_patch.name or "Unknown",
-                type=trace_patch.type or "unknown",
-                status=trace_patch.status or "success",
-                channel=trace_patch.channel,
-                source=trace_patch.source,
-                user_id=trace_patch.user_id,
-                start_time=trace_patch.start_time,
-                end_time=trace_patch.end_time,
-                latency=get_duration(trace_patch.start_time, trace_patch.end_time),
-                cost_details=cost_details,
-                extra_data=trace_patch.extra_data,
-                spans=spans,
-            )
-            session.add(new_trace)
+            trace_values = {
+                "id": trace_id,
+                "name": trace_patch.name or "Unknown",
+                "type": trace_patch.type or "unknown",
+                "status": trace_patch.status or "success",
+                "channel": trace_patch.channel,
+                "source": trace_patch.source,
+                "user_id": trace_patch.user_id,
+                "start_time": trace_patch.start_time,
+                "end_time": trace_patch.end_time,
+                "latency": get_duration(trace_patch.start_time, trace_patch.end_time),
+                "cost_details": cost_details,
+                "extra_data": trace_patch.extra_data,
+                "spans": spans,
+            }
+
+            if session.get_bind().dialect.name == "postgresql":
+                result = await session.execute(
+                    pg_insert(Trace)
+                    .values(**trace_values)
+                    .on_conflict_do_nothing(index_elements=["id"])
+                )
+                if result.rowcount == 0:
+                    await self._upsert_trace(session, trace_id, trace_patch)
+                return
+
+            session.add(Trace(**trace_values))
 
     async def _upsert_metrics(self, session: AsyncSession, metric_id: str, patch: dict):
         # Filter out None values
@@ -681,8 +768,19 @@ class SqlAlchemySpanExporter(SpanExporter):
                 if hasattr(Metric, key):
                     metric_data[key] = value
 
-            new_metric = Metric(**metric_data)
-            session.add(new_metric)
+            if session.get_bind().dialect.name == "postgresql":
+                result = await session.execute(
+                    pg_insert(Metric)
+                    .values(**metric_data)
+                    .on_conflict_do_nothing(index_elements=["id"])
+                )
+                if result.rowcount == 0:
+                    await self._upsert_metrics(
+                        session, metric_id, patch | {"cost": cost}
+                    )
+                return
+
+            session.add(Metric(**metric_data))
 
 
 def _get_error_message(span: ReadableSpan) -> str:

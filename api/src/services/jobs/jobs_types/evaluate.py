@@ -232,6 +232,12 @@ async def evaluate_variant(
     variant = evaluation_record.get("tool").get("variant_name")
     variant_object = evaluation_record.get("tool").get("variant_object")
 
+    logger.info(
+        f"evaluate_variant start: variant={variant} "
+        f"test_set_system_names={test_set_system_names!r} "
+        f"(types={[type(x).__name__ for x in test_set_system_names]})"
+    )
+
     # Pre-load all test set configs in a single session
     test_set_configs: dict = {}
     total_records = 0
@@ -241,9 +247,17 @@ async def evaluate_variant(
             configs = await evaluation_sets_service.list(system_name=test_set)
             if configs:
                 test_set_configs[test_set] = configs[0]
-                total_records += len(configs[0].items or [])
+                items_count = len(configs[0].items or [])
+                total_records += items_count
+                logger.info(
+                    f"  test_set={test_set!r} -> found id={configs[0].id} "
+                    f"system_name={configs[0].system_name!r} items_count={items_count}"
+                )
             else:
                 test_set_configs[test_set] = None
+                logger.warning(
+                    f"  test_set={test_set!r} -> NOT FOUND in evaluation_sets table"
+                )
 
     observability_context.update_current_span(
         input={

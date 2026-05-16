@@ -334,7 +334,10 @@ async def execute_evaluation(**kwargs):
         # Extract job information and parameters
         job_definition = kwargs.get("job_definition")
 
+        logger.info(f"execute_evaluation received: job_id={job_id} params={params!r}")
+
         observability_context.update_current_trace(
+            type="evaluation",
             extra_data={
                 "job_id": job_id,
                 "job_definition": job_definition,
