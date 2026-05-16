@@ -181,7 +181,11 @@ async def _sync_oidc_roles(
     oidc_role_slugs = oidc_role_slugs | {DEFAULT_ROLE_SLUG}
 
     # Get all known roles from DB matching the OIDC slugs
-    stmt = select(Role).where(Role.slug.in_(oidc_role_slugs))
+    stmt = select(Role).where(
+        Role.slug.in_(oidc_role_slugs),
+        Role.is_system == True,  # noqa: E712
+        Role.tenant_id.is_(None),
+    )
     result = await session.execute(stmt)
     target_roles = {r.slug: r.id for r in result.scalars().all()}
 
@@ -220,7 +224,11 @@ async def _assign_default_role(session: Any, user_id: UUID) -> None:
     """Assign the default role to a newly created user (best-effort)."""
     from sqlalchemy import select
 
-    stmt = select(Role).where(Role.slug == DEFAULT_ROLE_SLUG)
+    stmt = select(Role).where(
+        Role.slug == DEFAULT_ROLE_SLUG,
+        Role.is_system == True,  # noqa: E712
+        Role.tenant_id.is_(None),
+    )
     result = await session.execute(stmt)
     default_role = result.scalar_one_or_none()
 

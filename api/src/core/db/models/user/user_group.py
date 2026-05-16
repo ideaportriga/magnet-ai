@@ -18,8 +18,17 @@ class UserGroup(UUIDv7AuditBase):
 
     __tablename__ = "user_group_member"
     __table_args__ = (
-        UniqueConstraint("user_id", "group_id", name="uq_user_group_member"),
+        UniqueConstraint(
+            "tenant_id", "user_id", "group_id", name="uq_user_group_member"
+        ),
         {"comment": "User-group membership with role"},
+    )
+
+    tenant_id: Mapped[UUID] = mapped_column(
+        ForeignKey("tenant.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Tenant scope copied from user/group for enforceable integrity",
     )
 
     user_id: Mapped[UUID] = mapped_column(

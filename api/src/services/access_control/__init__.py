@@ -7,6 +7,7 @@ from .record_level import (
     enforce_action_or_403,
     enforce_view_or_404,
     force_create_fields,
+    tenant_system_name_filter,
     visibility_filter_for,
 )
 
@@ -17,6 +18,7 @@ __all__ = [
     "enforce_view_or_404",
     "force_create_fields",
     "record_visibility_filter",
+    "tenant_system_name_filter",
     "visibility_filter_for",
     "write_audit_log",
 ]

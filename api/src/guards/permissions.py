@@ -183,8 +183,8 @@ def _role_permissions(slug: str) -> frozenset[str]:
     that startup, tests, and auth-disabled flows continue to work.
     """
     cache = _ROLE_PERMISSIONS_CACHE
-    if cache is not None and slug in cache:
-        return cache[slug]
+    if cache is not None:
+        return cache.get(slug, frozenset())
     return SYSTEM_ROLE_DEFAULTS.get(slug, frozenset())
 
 
@@ -255,7 +255,7 @@ def get_effective_permissions(auth: "Auth | None") -> set[str]:
     1. Unauthenticated → empty.
     2. DB user with `is_superuser=True` → all permissions.
     3. API key auth → key scopes (capability ceiling; role perms NOT unioned).
-       Legacy key without scopes returns the `user` role default set.
+       Missing scopes fail closed.
     4. JWT/session user → union over user.roles via `_role_permissions()`,
        which reads from the DB cache (or SYSTEM_ROLE_DEFAULTS fallback);
        fallback to auth.data["roles"] if DB user is not loaded.
@@ -270,7 +270,7 @@ def get_effective_permissions(auth: "Auth | None") -> set[str]:
     if auth.type == "api_key":
         scopes = auth.data.get("scopes")
         if scopes is None:
-            return set(_role_permissions("user"))
+            return set()
         if isinstance(scopes, str):
             scopes = [scopes]
         return {str(s) for s in scopes}

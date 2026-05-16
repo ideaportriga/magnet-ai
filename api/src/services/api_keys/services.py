@@ -2,10 +2,15 @@ import asyncio
 import hashlib
 import secrets
 from logging import getLogger
+from uuid import UUID
 
 from core.config.app import alchemy
+from core.db.models.api_key import APIKey as APIKeyModel
 from core.domain.api_keys.schemas import APIKey, APIKeyCreate, APIKeyUpdate
 from core.domain.api_keys.service import APIKeysService
+from guards.permissions import Permission, get_effective_permissions
+from litestar.exceptions import PermissionDeniedException, ValidationException
+from sqlalchemy import select
 
 from .types import (
     ApiKeyConfigEntity,
@@ -16,6 +21,8 @@ from .types import (
 )
 
 logger = getLogger(__name__)
+
+_ALL_PERMISSION_CODES = frozenset(p.value for p in Permission)
 
 
 # Cache for API keys (protected by _cache_lock to prevent partial visibility
@@ -35,19 +42,10 @@ async def retrieve_api_keys() -> list[ApiKeyConfigEntity]:
     async with alchemy.get_session() as session:
         service = APIKeysService(session=session)
         api_keys = await service.list()
-        entities = []
-        for api_key in api_keys:
-            api_key_schema = service.to_schema(api_key, schema_type=APIKey)
-            # Convert to ApiKeyConfigEntity format (without hash)
-            entity_data = api_key_schema.model_dump()
-
-            # Convert UUID to string if present
-            if "id" in entity_data and entity_data["id"] is not None:
-                entity_data["id"] = str(entity_data["id"])
-
-            entity_data.pop("hash", None)  # Remove hash for security
-            entities.append(ApiKeyConfigEntity(**entity_data))
-        return entities
+        return [
+            ApiKeyConfigEntity(**_api_key_data(service, api_key, include_hash=False))
+            for api_key in api_keys
+        ]
 
 
 def get_api_key_config(api_key: str) -> ApiKeyConfigPersisted:
@@ -69,12 +67,7 @@ async def refresh_api_keys_caches() -> None:
             dict_by_hash: dict[str, ApiKeyConfigPersisted] = {}
 
             for api_key in api_keys:
-                api_key_schema = service.to_schema(api_key, schema_type=APIKey)
-                api_key_data = api_key_schema.model_dump()
-
-                # Convert UUID to string if present
-                if "id" in api_key_data and api_key_data["id"] is not None:
-                    api_key_data["id"] = str(api_key_data["id"])
+                api_key_data = _api_key_data(service, api_key, include_hash=True)
 
                 # Store in hash cache with hash
                 api_key_persisted = ApiKeyConfigPersisted(**api_key_data)
@@ -92,9 +85,9 @@ async def refresh_api_keys_caches() -> None:
             API_KEYS_PERSISTED_BY_HASH_CACHE = dict_by_hash
 
 
-async def list_api_keys() -> list[ApiKeyConfigEntity]:
-    """List all API keys without hash field for security."""
-    return API_KEYS_ENTITIES_CACHE
+async def list_api_keys(tenant_id: str) -> list[ApiKeyConfigEntity]:
+    """List API keys in one tenant without hash field for security."""
+    return [k for k in API_KEYS_ENTITIES_CACHE if str(k.tenant_id) == str(tenant_id)]
 
 
 def hash_api_key(api_key: str) -> str:
@@ -104,9 +97,15 @@ def hash_api_key(api_key: str) -> str:
 
 async def create_api_key(
     data: CreateApiKeyData,
+    tenant_id: str | None = None,
+    auth=None,
 ) -> CreateApiKeyResult:
     """Generates a new random API key and creates config record for it"""
     api_key = secrets.token_urlsafe(32)
+    if tenant_id is None:
+        tenant_id = getattr(auth, "tenant_id", None) if auth is not None else None
+    if tenant_id is None:
+        raise PermissionDeniedException("Tenant context required for API key creation")
 
     async with alchemy.get_session() as session:
         service = APIKeysService(session=session)
@@ -119,6 +118,8 @@ async def create_api_key(
             is_active=True,
             expires_at=None,
             notes=None,
+            tenant_id=_as_uuid(tenant_id),
+            scopes=_validate_scopes(data.scopes, auth=auth),
         )
 
         created_api_key = await service.create(create_data, auto_commit=True)
@@ -126,48 +127,95 @@ async def create_api_key(
         return CreateApiKeyResult(id=str(created_api_key.id), api_key=api_key)
 
 
-async def get_api_key(id: str) -> ApiKeyConfigEntity:
+async def get_api_key(id: str, tenant_id: str) -> ApiKeyConfigEntity:
     """Get a single API key by id."""
     async with alchemy.get_session() as session:
         service = APIKeysService(session=session)
-        api_key_obj = await service.get_one_or_none(id=id)
-        if not api_key_obj:
-            raise ValueError("API key not found")
-        api_key_data = service.to_schema(api_key_obj, schema_type=APIKey).model_dump()
-        if "id" in api_key_data and api_key_data["id"] is not None:
-            api_key_data["id"] = str(api_key_data["id"])
-        api_key_data.pop("hash", None)
+        api_key_obj = await _get_api_key_in_tenant(session, id=id, tenant_id=tenant_id)
+        api_key_data = _api_key_data(service, api_key_obj, include_hash=False)
         return ApiKeyConfigEntity(**api_key_data)
 
 
-async def update_api_key(id: str, data: UpdateApiKeyData) -> ApiKeyConfigEntity:
+async def update_api_key(
+    id: str, data: UpdateApiKeyData, tenant_id: str, auth=None
+) -> ApiKeyConfigEntity:
     """Update an existing API key."""
     async with alchemy.get_session() as session:
         service = APIKeysService(session=session)
 
-        api_key_obj = await service.get_one_or_none(id=id)
-        if not api_key_obj:
-            raise ValueError("API key not found")
+        await _get_api_key_in_tenant(session, id=id, tenant_id=tenant_id)
 
-        update_payload = APIKeyUpdate(**data.model_dump(exclude_unset=True))
+        payload = data.model_dump(exclude_unset=True)
+        if "scopes" in payload:
+            payload["scopes"] = _validate_scopes(payload["scopes"], auth=auth)
+        update_payload = APIKeyUpdate(**payload)
         await service.update(update_payload, item_id=id, auto_commit=True)
         await refresh_api_keys_caches()
 
-    return await get_api_key(id)
+    return await get_api_key(id, tenant_id)
 
 
-async def delete_api_key(id: str) -> None:
+async def delete_api_key(id: str, tenant_id: str) -> None:
     """Deletes API key"""
     async with alchemy.get_session() as session:
         service = APIKeysService(session=session)
 
         # Try to get the API key first to check if it exists
-        api_key_obj = await service.get_one_or_none(id=id)
-        if not api_key_obj:
-            raise ValueError("API key not found")
+        await _get_api_key_in_tenant(session, id=id, tenant_id=tenant_id)
 
         # Delete the API key
         await service.delete(id, auto_commit=True)
         await refresh_api_keys_caches()
 
     return None
+
+
+def _api_key_data(
+    service: APIKeysService, api_key: APIKeyModel, *, include_hash: bool
+) -> dict:
+    api_key_schema = service.to_schema(api_key, schema_type=APIKey)
+    data = api_key_schema.model_dump()
+    if data.get("id") is not None:
+        data["id"] = str(data["id"])
+    if data.get("tenant_id") is not None:
+        data["tenant_id"] = str(data["tenant_id"])
+    data["scopes"] = list(data.get("scopes") or [])
+    if not include_hash:
+        data.pop("hash", None)
+    return data
+
+
+async def _get_api_key_in_tenant(session, *, id: str, tenant_id: str) -> APIKeyModel:
+    result = await session.execute(
+        select(APIKeyModel).where(
+            APIKeyModel.id == _as_uuid(id),
+            APIKeyModel.tenant_id == _as_uuid(tenant_id),
+        )
+    )
+    api_key = result.scalar_one_or_none()
+    if api_key is None:
+        raise ValueError("API key not found")
+    return api_key
+
+
+def _validate_scopes(scopes: list[str] | None, *, auth=None) -> list[str]:
+    requested = {str(scope) for scope in (scopes or [])}
+    unknown = requested - _ALL_PERMISSION_CODES
+    if unknown:
+        raise ValidationException(
+            f"Unknown API key scope(s): {', '.join(sorted(unknown))}"
+        )
+
+    if auth is not None:
+        effective = get_effective_permissions(auth)
+        not_allowed = requested - effective
+        if not_allowed:
+            raise PermissionDeniedException(
+                "Cannot grant API key scopes you don't hold yourself: "
+                + ", ".join(sorted(not_allowed))
+            )
+    return sorted(requested)
+
+
+def _as_uuid(value: str | UUID) -> UUID:
+    return value if isinstance(value, UUID) else UUID(str(value))

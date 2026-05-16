@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Optional
 from uuid import UUID
 
 from advanced_alchemy.base import UUIDv7AuditBase
-from sqlalchemy import ForeignKey, Index, String, UniqueConstraint
+from sqlalchemy import CheckConstraint, ForeignKey, Index, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
@@ -42,6 +42,14 @@ class ResourceAccessGrant(UUIDv7AuditBase):
 
     __tablename__ = "resource_access_grant"
     __table_args__ = (
+        CheckConstraint(
+            "principal_type IN ('user', 'group', 'department')",
+            name="ck_resource_access_grant_principal_type",
+        ),
+        CheckConstraint(
+            "access_level IN ('read', 'write', 'admin')",
+            name="ck_resource_access_grant_access_level",
+        ),
         UniqueConstraint(
             "tenant_id",
             "resource_type",

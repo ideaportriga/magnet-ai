@@ -24,6 +24,7 @@ from services.access_control import (
     enforce_action_or_403,
     enforce_view_or_404,
     force_create_fields,
+    tenant_system_name_filter,
     visibility_filter_for,
 )
 from services.flow_retrieval_execute import flow_retrieval_execute
@@ -139,7 +140,13 @@ class RetrievalToolsController(Controller):
         request: Request,
     ) -> RetrievalTool:
         """Get a Retrieval tool by its system_name."""
-        obj = await retrieval_tools_service.get_one(system_name=code)
+        from core.db.models.retrieval_tool.retrieval_tool import (
+            RetrievalTool as RetrievalToolModel,
+        )
+
+        obj = await retrieval_tools_service.get_one(
+            tenant_system_name_filter(request, RetrievalToolModel, code)
+        )
         await enforce_view_or_404(
             retrieval_tools_service,
             request=request,

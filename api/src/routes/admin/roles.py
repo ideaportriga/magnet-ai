@@ -245,9 +245,10 @@ class RolesController(Controller):
                     "permissions": sorted(permission_codes),
                 },
             )
+            response = await _serialize_role(session, role)
             await session.commit()
-            await load_role_permissions_cache(session=session)
-            return await _serialize_role(session, role)
+            await load_role_permissions_cache()
+            return response
 
     # ── Update metadata ─────────────────────────────────────────────────
 
@@ -345,9 +346,10 @@ class RolesController(Controller):
                     "final": sorted(new_codes),
                 },
             )
+            response = await _serialize_role(session, role)
             await session.commit()
-            await load_role_permissions_cache(session=session)
-            return await _serialize_role(session, role)
+            await load_role_permissions_cache()
+            return response
 
     # ── Delete ──────────────────────────────────────────────────────────
 
@@ -390,7 +392,7 @@ class RolesController(Controller):
 
             await session.delete(role)
             await session.commit()
-            await load_role_permissions_cache(session=session)
+            await load_role_permissions_cache()
 
 
 async def _load_tenant_custom_role(session, role_id: UUID, tenant_id: UUID) -> Role:

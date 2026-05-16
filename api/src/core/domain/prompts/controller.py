@@ -20,6 +20,7 @@ from services.access_control import (
     enforce_action_or_403,
     enforce_view_or_404,
     force_create_fields,
+    tenant_system_name_filter,
     visibility_filter_for,
 )
 from services.observability import observability_context, observe
@@ -124,7 +125,11 @@ class PromptsController(Controller):
         self, prompts_service: PromptsService, code: str, request: Request
     ) -> Prompt:
         """Get a prompt by its system_name."""
-        obj = await prompts_service.get_one(system_name=code)
+        from core.db.models.prompt.prompt import Prompt as PromptModel
+
+        obj = await prompts_service.get_one(
+            tenant_system_name_filter(request, PromptModel, code)
+        )
         await enforce_view_or_404(
             prompts_service,
             request=request,

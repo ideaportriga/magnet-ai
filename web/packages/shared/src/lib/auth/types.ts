@@ -1,3 +1,5 @@
+import type { AuthDepartmentInfo, AuthGroupInfo, AuthRoleInfo, AuthTenantInfo } from '../stores/authStore'
+
 export interface UserInfo {
   id: string
   email: string
@@ -7,6 +9,11 @@ export interface UserInfo {
   is_superuser: boolean
   is_two_factor_enabled: boolean
   roles: string[]
+  roles_detailed?: AuthRoleInfo[]
+  permissions: string[]
+  tenant: AuthTenantInfo | null
+  departments: AuthDepartmentInfo[]
+  groups: AuthGroupInfo[]
   auth_method: string | null
   last_login_at: string | null
   preferred_username: string | null

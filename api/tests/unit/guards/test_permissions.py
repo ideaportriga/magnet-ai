@@ -74,10 +74,10 @@ def test_api_key_uses_scopes_as_ceiling_without_role_union():
     assert perms == {"read:agents"}
 
 
-def test_api_key_without_scopes_falls_back_to_user_defaults():
+def test_api_key_without_scopes_fails_closed():
     auth = _FakeAuth(type_="api_key", data={})
     perms = get_effective_permissions(auth)
-    assert perms == SYSTEM_ROLE_DEFAULTS["user"]
+    assert perms == set()
 
 
 def test_no_auth_returns_empty_set():
@@ -162,8 +162,8 @@ def test_cache_wins_over_in_code_defaults(monkeypatch):
         monkeypatch.setattr(perms, "_ROLE_PERMISSIONS_CACHE", None)
 
 
-def test_cache_miss_falls_back_to_defaults(monkeypatch):
-    """A role slug missing from the cache uses SYSTEM_ROLE_DEFAULTS."""
+def test_loaded_cache_miss_fails_closed(monkeypatch):
+    """After DB cache load, missing role grants do not resurrect defaults."""
     import guards.permissions as perms
 
     # Cache loaded but doesn't include `viewer`.
@@ -172,8 +172,7 @@ def test_cache_miss_falls_back_to_defaults(monkeypatch):
     try:
         auth = _FakeAuth(user=_FakeUser(roles=[_FakeRole("viewer")]))
         effective = perms.get_effective_permissions(auth)
-        # viewer not in cache → falls back to in-code viewer defaults (read:*)
-        assert effective == SYSTEM_ROLE_DEFAULTS["viewer"]
+        assert effective == set()
     finally:
         monkeypatch.setattr(perms, "_ROLE_PERMISSIONS_CACHE", None)
 

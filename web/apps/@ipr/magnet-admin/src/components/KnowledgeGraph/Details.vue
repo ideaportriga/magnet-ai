@@ -285,8 +285,8 @@ const { mutateAsync: updateGraphMutation } = queries.knowledge_graph.useUpdate()
 
 // PR 10 — record-level permission gating.
 const { can, canOn } = usePermissions()
-const canEdit = computed(() => canOn(graphDetails.value as any, 'edit', 'knowledge_graphs'))
-const canDelete = computed(() => canOn(graphDetails.value as any, 'delete', 'knowledge_graphs'))
+const canEdit = computed(() => canOn(graphDetails.value as any, 'edit', 'knowledge_graph'))
+const canDelete = computed(() => canOn(graphDetails.value as any, 'delete', 'knowledge_graph'))
 const canCreate = computed(() => can('write:knowledge_graph'))
 const recordReadonly = computed(() => {
   const g = graphDetails.value

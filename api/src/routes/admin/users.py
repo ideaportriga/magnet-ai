@@ -239,7 +239,7 @@ class UsersController(Controller):
 
             await session.commit()
             # Role membership changed → refresh process-wide permission cache.
-            await load_role_permissions_cache(session=session)
+            await load_role_permissions_cache()
 
             return UserRolesPatchResponse(
                 added=sorted(add_ids),

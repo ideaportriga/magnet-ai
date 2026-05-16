@@ -154,7 +154,11 @@ def _create_identity_link(
 
 async def _assign_default_role(session: Any, user_id: UUID) -> None:
     """Assign the default role to a newly created user."""
-    stmt = select(Role).where(Role.slug == DEFAULT_ROLE_SLUG)
+    stmt = select(Role).where(
+        Role.slug == DEFAULT_ROLE_SLUG,
+        Role.is_system == True,  # noqa: E712
+        Role.tenant_id.is_(None),
+    )
     result = await session.execute(stmt)
     default_role = result.scalar_one_or_none()
     if default_role is None:
@@ -174,7 +178,11 @@ async def _sync_suggested_roles(
     role_slugs = set(suggested_slugs) | {DEFAULT_ROLE_SLUG}
 
     # Get matching roles from DB
-    stmt = select(Role).where(Role.slug.in_(role_slugs))
+    stmt = select(Role).where(
+        Role.slug.in_(role_slugs),
+        Role.is_system == True,  # noqa: E712
+        Role.tenant_id.is_(None),
+    )
     result = await session.execute(stmt)
     target_roles = {r.slug: r.id for r in result.scalars().all()}
 

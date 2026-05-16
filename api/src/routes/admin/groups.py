@@ -23,6 +23,7 @@ from core.db.models.user.group import Group
 from core.db.models.user.user import User
 from core.db.models.user.user_group import UserGroup
 from core.domain.users.roles_schemas import GroupCreate, GroupMemberAdd, GroupResponse
+from guards.permissions import Permission, require_permission
 from middlewares.auth import Auth
 
 
@@ -37,7 +38,11 @@ class GroupsController(Controller):
     path = "/groups"
     tags = ["Admin / Groups"]
 
-    @get("/", summary="List groups in the caller's tenant")
+    @get(
+        "/",
+        summary="List groups in the caller's tenant",
+        guards=[require_permission(Permission.GROUPS_READ)],
+    )
     async def list_groups(self, request: Request) -> list[GroupResponse]:
         tenant_id = _tenant_id_from_request(request)
         async with alchemy.get_session() as session:
@@ -57,7 +62,11 @@ class GroupsController(Controller):
                 for g in groups
             ]
 
-    @post("/", summary="Create a group in the caller's tenant")
+    @post(
+        "/",
+        summary="Create a group in the caller's tenant",
+        guards=[require_permission(Permission.GROUPS_WRITE)],
+    )
     async def create_group(self, request: Request, data: GroupCreate) -> GroupResponse:
         tenant_id = _tenant_id_from_request(request)
         async with alchemy.get_session() as session:
@@ -84,7 +93,11 @@ class GroupsController(Controller):
                 updated_at=group.updated_at,
             )
 
-    @post("/{group_id:uuid}/members", summary="Add user to group")
+    @post(
+        "/{group_id:uuid}/members",
+        summary="Add user to group",
+        guards=[require_permission(Permission.GROUPS_WRITE)],
+    )
     async def add_member(
         self, request: Request, group_id: UUID, data: GroupMemberAdd
     ) -> dict:
@@ -101,6 +114,7 @@ class GroupsController(Controller):
                 raise NotFoundException("User not found")
 
             stmt = select(UserGroup).where(
+                UserGroup.tenant_id == tenant_id,
                 UserGroup.user_id == data.user_id,
                 UserGroup.group_id == group_id,
             )
@@ -110,6 +124,7 @@ class GroupsController(Controller):
 
             session.add(
                 UserGroup(
+                    tenant_id=tenant_id,
                     user_id=data.user_id,
                     group_id=group_id,
                     role_in_group=data.role_in_group,
@@ -120,7 +135,9 @@ class GroupsController(Controller):
             return {"message": f"User added to group '{group.slug}'"}
 
     @delete(
-        "/{group_id:uuid}/members/{member_id:uuid}", summary="Remove user from group"
+        "/{group_id:uuid}/members/{member_id:uuid}",
+        summary="Remove user from group",
+        guards=[require_permission(Permission.GROUPS_WRITE)],
     )
     async def remove_member(
         self, request: Request, group_id: UUID, member_id: UUID
@@ -133,6 +150,7 @@ class GroupsController(Controller):
                 raise NotFoundException("Group not found")
 
             stmt = select(UserGroup).where(
+                UserGroup.tenant_id == tenant_id,
                 UserGroup.user_id == member_id,
                 UserGroup.group_id == group_id,
             )

@@ -127,6 +127,12 @@ def schema_upgrades() -> None:
                 REFERENCES tenant (id) ON DELETE CASCADE,
             CONSTRAINT fk_resource_access_grant_granted_by_id FOREIGN KEY (granted_by_id)
                 REFERENCES user_account (id) ON DELETE SET NULL,
+            CONSTRAINT ck_resource_access_grant_principal_type CHECK (
+                principal_type IN ('user', 'group', 'department')
+            ),
+            CONSTRAINT ck_resource_access_grant_access_level CHECK (
+                access_level IN ('read', 'write', 'admin')
+            ),
             CONSTRAINT uq_resource_access_grant UNIQUE (
                 tenant_id, resource_type, resource_id, principal_type, principal_id
             )
@@ -201,6 +207,14 @@ def schema_downgrades() -> None:
     op.execute("DROP INDEX IF EXISTS ix_resource_access_grant_principal")
     op.execute("DROP INDEX IF EXISTS ix_resource_access_grant_lookup")
     op.execute("DROP INDEX IF EXISTS ix_resource_access_grant_tenant_id")
+    op.execute(
+        "ALTER TABLE resource_access_grant DROP CONSTRAINT IF EXISTS "
+        "ck_resource_access_grant_access_level"
+    )
+    op.execute(
+        "ALTER TABLE resource_access_grant DROP CONSTRAINT IF EXISTS "
+        "ck_resource_access_grant_principal_type"
+    )
     op.execute("DROP TABLE IF EXISTS resource_access_grant")
 
     op.execute("DROP INDEX IF EXISTS ix_user_department_department_id")

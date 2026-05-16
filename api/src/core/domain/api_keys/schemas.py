@@ -46,6 +46,13 @@ class APIKeyFieldsMixin(BaseModel):
 
     notes: Optional[str] = Field(None, description="Additional notes about the API key")
 
+    tenant_id: UUID = Field(..., description="Tenant this API key is scoped to")
+
+    scopes: Optional[list[str]] = Field(
+        default_factory=list,
+        description="Permission scopes granted to this API key",
+    )
+
 
 # Mixin for update operations with all fields optional
 class APIKeyUpdateFieldsMixin(BaseModel):
@@ -71,6 +78,11 @@ class APIKeyUpdateFieldsMixin(BaseModel):
     is_active: Optional[bool] = Field(None, description="Whether the API key is active")
 
     notes: Optional[str] = Field(None, description="Additional notes about the API key")
+
+    scopes: Optional[list[str]] = Field(
+        None,
+        description="Replacement permission scopes granted to this API key",
+    )
 
 
 # Pydantic schemas for API Keys

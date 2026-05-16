@@ -22,6 +22,7 @@ from services.access_control import (
     enforce_action_or_403,
     enforce_view_or_404,
     force_create_fields,
+    tenant_system_name_filter,
     visibility_filter_for,
 )
 from services.mcp_servers import services
@@ -138,7 +139,11 @@ class MCPServersController(Controller):
         self, mcp_servers_service: MCPServersService, code: str, request: Request
     ) -> MCPServerResponse:
         """Get an MCP server by its system_name."""
-        obj = await mcp_servers_service.get_one(system_name=code)
+        from core.db.models.mcp_server.mcp_server import MCPServer as MCPServerModel
+
+        obj = await mcp_servers_service.get_one(
+            tenant_system_name_filter(request, MCPServerModel, code)
+        )
         await enforce_view_or_404(
             mcp_servers_service,
             request=request,

@@ -28,7 +28,7 @@ import advanced_alchemy.types.json
 from sqlalchemy.dialects import postgresql
 
 # from advanced_alchemy.types import GUID
-from core.db.models.mcp_server.mcp_server import EncryptedJsonB
+from core.db.types import EncryptedJsonB
 # from sqlalchemy import Text
 # from sqlalchemy.dialects import postgresql
 # if TYPE_CHECKING:

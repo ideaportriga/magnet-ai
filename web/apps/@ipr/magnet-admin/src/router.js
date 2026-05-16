@@ -4,6 +4,7 @@ import { usePopupStore } from '@/stores/popupStore'
 import { useEditBufferStore } from '@/stores/editBufferStore'
 import { useKnowledgeGraphPageStore } from '@/stores/entityDetailStores'
 import { ROUTE_ENTITY_TO_BUFFER_TYPE } from '@/constants/entityMapping'
+import { useSharedAuthStore } from '@shared/stores/authStore'
 
 const routes = [
   {
@@ -603,6 +604,7 @@ const routes = [
     component: () => import('@/components/AdminAccess/Roles/Page_ai-claude.vue'),
     meta: {
       pageLabel: () => 'Roles',
+      permission: 'read:roles',
     },
   },
   {
@@ -611,6 +613,7 @@ const routes = [
     component: () => import('@/components/AdminAccess/Roles/Details_ai-claude.vue'),
     meta: {
       pageLabel: () => 'Role',
+      permission: 'read:roles',
     },
   },
   {
@@ -619,6 +622,7 @@ const routes = [
     component: () => import('@/components/AdminAccess/Users/Page_ai-claude.vue'),
     meta: {
       pageLabel: () => 'Users',
+      permission: 'read:users',
     },
   },
   {
@@ -627,6 +631,7 @@ const routes = [
     component: () => import('@/components/AdminAccess/Users/Details_ai-claude.vue'),
     meta: {
       pageLabel: () => 'User',
+      permission: 'read:users',
     },
   },
   {
@@ -635,6 +640,7 @@ const routes = [
     component: () => import('@/components/AdminAccess/AccessLog/Page_ai-claude.vue'),
     meta: {
       pageLabel: () => 'Access log',
+      permission: 'read:audit',
     },
   },
 ]
@@ -664,6 +670,16 @@ const INTERNAL_NAV_GROUPS = {
 }
 
 router.beforeEach((to, from, next) => {
+  const requiredPermission = to.meta?.permission
+  if (requiredPermission) {
+    const authStore = useSharedAuthStore()
+    const permissions = authStore.userInfo?.permissions ?? []
+    const isSuperuser = Boolean(authStore.userInfo?.is_superuser)
+    if (!isSuperuser && !permissions.includes(requiredPermission)) {
+      return next('/')
+    }
+  }
+
   const popupStore = usePopupStore()
 
   if (popupStore.showLeaveConfirm) {

@@ -24,6 +24,7 @@ from services.access_control import (
     enforce_action_or_403,
     enforce_view_or_404,
     force_create_fields,
+    tenant_system_name_filter,
     visibility_filter_for,
 )
 
@@ -195,7 +196,13 @@ class EvaluationSetsController(Controller):
         request: Request,
     ) -> EvaluationSet:
         """Get an evaluation set by its system_name."""
-        obj = await evaluation_sets_service.get_one(system_name=code)
+        from core.db.models.evaluation_set.evaluation_set import (
+            EvaluationSet as EvaluationSetModel,
+        )
+
+        obj = await evaluation_sets_service.get_one(
+            tenant_system_name_filter(request, EvaluationSetModel, code)
+        )
         await enforce_view_or_404(
             evaluation_sets_service,
             request=request,

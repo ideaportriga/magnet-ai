@@ -109,10 +109,6 @@ class PermissionService:
             return False
         user = getattr(auth, "user", None)
 
-        # 2. Platform superuser bypass.
-        if user is not None and getattr(user, "is_superuser", False):
-            return True
-
         principal_tenant_id = _principal_tenant_id(auth)
 
         # 3. Cross-tenant short-circuit (controllers should already return 404).
@@ -236,9 +232,12 @@ async def record_visibility_filter(
     """
     from sqlalchemy import and_, or_, true
 
+    effective = get_effective_permissions(auth)
+    required = _ACTION_TO_CAPABILITY.get((resource_type, "view"))
+    if required is None or required.value not in effective:
+        return _false_filter()
+
     user = getattr(auth, "user", None)
-    if user is not None and getattr(user, "is_superuser", False):
-        return true()
     if _is_tenant_admin(user):
         return true()
 
@@ -260,8 +259,14 @@ async def record_visibility_filter(
         visibility_or_owner.append(model.visibility == VISIBILITY_TENANT)
 
         # visibility='department' AND user is in that dept.
-        if user_id is not None and hasattr(model, "department_id"):
-            dept_ids = await _user_department_ids(session, user_id=user_id)
+        if (
+            tenant_id is not None
+            and user_id is not None
+            and hasattr(model, "department_id")
+        ):
+            dept_ids = await _user_department_ids(
+                session, tenant_id=str(tenant_id), user_id=user_id
+            )
             if dept_ids:
                 visibility_or_owner.append(
                     and_(
@@ -362,7 +367,10 @@ async def _highest_grant_level(
 
     # Group grants — fetch user's groups.
     group_rows = await session.execute(
-        select(UserGroup.group_id).where(UserGroup.user_id == _as_uuid(user_id))
+        select(UserGroup.group_id).where(
+            UserGroup.tenant_id == _as_uuid(tenant_id),
+            UserGroup.user_id == _as_uuid(user_id),
+        )
     )
     for (group_id,) in group_rows.all():
         principals.append((PRINCIPAL_GROUP, group_id))
@@ -370,7 +378,8 @@ async def _highest_grant_level(
     # Department grants — fetch user's departments.
     dept_rows = await session.execute(
         select(UserDepartment.department_id).where(
-            UserDepartment.user_id == _as_uuid(user_id)
+            UserDepartment.tenant_id == _as_uuid(tenant_id),
+            UserDepartment.user_id == _as_uuid(user_id),
         )
     )
     for (dept_id,) in dept_rows.all():
@@ -410,10 +419,13 @@ def _principal_disjunction(principals: Iterable[tuple[str, UUID]]):
     return or_(*clauses)
 
 
-async def _user_department_ids(session: AsyncSession, *, user_id: str) -> list[UUID]:
+async def _user_department_ids(
+    session: AsyncSession, *, tenant_id: str, user_id: str
+) -> list[UUID]:
     rows = await session.execute(
         select(UserDepartment.department_id).where(
-            UserDepartment.user_id == _as_uuid(user_id)
+            UserDepartment.tenant_id == _as_uuid(tenant_id),
+            UserDepartment.user_id == _as_uuid(user_id),
         )
     )
     return [r[0] for r in rows.all()]
@@ -432,13 +444,17 @@ async def _granted_resource_ids(
     # Build the principal disjunction across user / groups / departments.
     principals: list[tuple[str, UUID]] = [(PRINCIPAL_USER, _as_uuid(user_id))]
     group_rows = await session.execute(
-        select(UserGroup.group_id).where(UserGroup.user_id == _as_uuid(user_id))
+        select(UserGroup.group_id).where(
+            UserGroup.tenant_id == _as_uuid(tenant_id),
+            UserGroup.user_id == _as_uuid(user_id),
+        )
     )
     for (gid,) in group_rows.all():
         principals.append((PRINCIPAL_GROUP, gid))
     dept_rows = await session.execute(
         select(UserDepartment.department_id).where(
-            UserDepartment.user_id == _as_uuid(user_id)
+            UserDepartment.tenant_id == _as_uuid(tenant_id),
+            UserDepartment.user_id == _as_uuid(user_id),
         )
     )
     for (did,) in dept_rows.all():

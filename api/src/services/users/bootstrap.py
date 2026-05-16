@@ -138,7 +138,11 @@ async def _ensure_admin_role(session: Any, user_id: UUID) -> bool:
 
     Returns True if the role was newly assigned in this call.
     """
-    admin_role_stmt = select(Role).where(Role.slug == SUPERUSER_ROLE_SLUG)
+    admin_role_stmt = select(Role).where(
+        Role.slug == SUPERUSER_ROLE_SLUG,
+        Role.is_system == True,  # noqa: E712
+        Role.tenant_id.is_(None),
+    )
     admin_role = (await session.execute(admin_role_stmt)).scalar_one_or_none()
     if admin_role is None:
         logger.warning(

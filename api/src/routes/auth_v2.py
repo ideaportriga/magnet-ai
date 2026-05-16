@@ -557,8 +557,24 @@ class AuthV2Controller(Controller):
 
             return await build_user_info(user, auth)
 
-        # Fallback: return raw token/API-key data
-        return auth.data
+        from guards.permissions import get_effective_permissions
+
+        return {
+            "id": auth.user_id,
+            "email": None,
+            "name": auth.data.get("preferred_username"),
+            "is_superuser": False,
+            "roles": [],
+            "permissions": sorted(get_effective_permissions(auth)),
+            "tenant": (
+                {"id": auth.tenant_id, "slug": None, "name": None}
+                if auth.tenant_id
+                else None
+            ),
+            "departments": [],
+            "groups": [],
+            "auth_method": auth.type,
+        }
 
     # ── Logout ─────────────────────────────────────────────────────────
 

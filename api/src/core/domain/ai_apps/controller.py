@@ -17,6 +17,7 @@ from services.access_control import (
     enforce_action_or_403,
     enforce_view_or_404,
     force_create_fields,
+    tenant_system_name_filter,
     visibility_filter_for,
 )
 
@@ -111,7 +112,11 @@ class AiAppsController(Controller):
         self, ai_apps_service: AiAppsService, code: str, request: Request
     ) -> AiApp:
         """Get an AI app by its system_name."""
-        obj = await ai_apps_service.get_one(system_name=code)
+        from core.db.models.ai_app.ai_app import AIApp as AIAppModel
+
+        obj = await ai_apps_service.get_one(
+            tenant_system_name_filter(request, AIAppModel, code)
+        )
         await enforce_view_or_404(
             ai_apps_service,
             request=request,

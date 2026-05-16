@@ -42,6 +42,8 @@ def force_create_fields(
     auth: Auth | None = request.scope.get("auth")
     if auth is None:
         return payload
+    if not auth.tenant_id:
+        raise PermissionDeniedException("Tenant context required for this operation.")
     if auth.tenant_id:
         payload["tenant_id"] = auth.tenant_id
     user = getattr(auth, "user", None)
@@ -165,3 +167,13 @@ async def visibility_filter_for(
         # Conservative fallback: don't take the endpoint down — RLS still
         # enforces tenant boundary.
         return None
+
+
+def tenant_system_name_filter(request: Request, model: Any, code: str) -> Any:
+    """Filter lookup by tenant + system_name for tenant-scoped code routes."""
+    auth: Auth | None = request.scope.get("auth")
+    if auth is None:
+        return model.system_name == code
+    if not auth.tenant_id:
+        raise PermissionDeniedException("Tenant context required for this operation.")
+    return (model.tenant_id == auth.tenant_id) & (model.system_name == code)

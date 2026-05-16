@@ -138,7 +138,12 @@ class AgentsController(Controller):
         self, agents_service: AgentsService, code: str, request: Request
     ) -> Agent:
         """Get an agent by its system_name."""
-        obj = await agents_service.get_one(system_name=code)
+        from core.db.models.agent.agent import Agent as AgentModel
+        from services.access_control import tenant_system_name_filter
+
+        obj = await agents_service.get_one(
+            tenant_system_name_filter(request, AgentModel, code)
+        )
         return await _serialize_with_permissions(agents_service, obj, request=request)
 
     @get("/{agent_id:uuid}", guards=[require_permission(Permission.AGENTS_READ)])

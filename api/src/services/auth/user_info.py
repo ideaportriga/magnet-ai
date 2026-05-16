@@ -33,7 +33,7 @@ async def build_user_info(user: User, auth: Auth) -> dict:
     except Exception:
         logger.warning("Failed to load roles for user %s", user.id, exc_info=True)
 
-    oauth_accounts = await _load_oauth_accounts(user.id)
+    oauth_accounts, departments, groups = await _load_related_user_info(user)
 
     permissions = sorted(get_effective_permissions(auth))
 
@@ -58,31 +58,85 @@ async def build_user_info(user: User, auth: Auth) -> dict:
         "roles_detailed": roles_detailed,
         "permissions": permissions,
         "tenant": tenant_block,
-        # Placeholders for upcoming PRs (departments, groups).
-        "departments": [],
-        "groups": [],
+        "departments": departments,
+        "groups": groups,
         "auth_method": auth.type,
         "last_login_at": user.last_login_at.isoformat() if user.last_login_at else None,
         "oauth_accounts": oauth_accounts,
     }
 
 
-async def _load_oauth_accounts(user_id) -> list[dict]:
-    """Load OAuth accounts for a user (lazy='noload' requires explicit query)."""
+async def _load_related_user_info(
+    user: User,
+) -> tuple[list[dict], list[dict], list[dict]]:
+    """Load /me auxiliary lists from one tenant-scoped session."""
     try:
         from core.config.app import alchemy
+        from core.db.models.department import Department, UserDepartment
+        from core.db.models.user.group import Group
+        from core.db.models.user.user_group import UserGroup
         from core.db.models.user.user_oauth_account import UserOAuthAccount
         from sqlalchemy import select
 
         async with alchemy.get_session() as session:
-            stmt = select(UserOAuthAccount).where(UserOAuthAccount.user_id == user_id)
-            result = await session.execute(stmt)
-            return [
-                {"provider": oa.oauth_name, "email": oa.account_email}
-                for oa in result.scalars().all()
-            ]
+            oauth_rows = (
+                (
+                    await session.execute(
+                        select(UserOAuthAccount).where(
+                            UserOAuthAccount.user_id == user.id
+                        )
+                    )
+                )
+                .scalars()
+                .all()
+            )
+
+            department_rows = (
+                await session.execute(
+                    select(Department, UserDepartment.is_lead)
+                    .join(UserDepartment, UserDepartment.department_id == Department.id)
+                    .where(
+                        UserDepartment.user_id == user.id,
+                        UserDepartment.tenant_id == user.tenant_id,
+                    )
+                )
+            ).all()
+
+            group_rows = (
+                await session.execute(
+                    select(Group, UserGroup.role_in_group)
+                    .join(UserGroup, UserGroup.group_id == Group.id)
+                    .where(
+                        UserGroup.user_id == user.id,
+                        UserGroup.tenant_id == user.tenant_id,
+                    )
+                )
+            ).all()
+
+        oauth_accounts = [
+            {"provider": oa.oauth_name, "email": oa.account_email} for oa in oauth_rows
+        ]
+        departments = [
+            {
+                "id": str(dept.id),
+                "slug": dept.slug,
+                "name": dept.name,
+                "is_lead": bool(is_lead),
+            }
+            for dept, is_lead in department_rows
+        ]
+        groups = [
+            {
+                "id": str(group.id),
+                "slug": group.slug,
+                "name": group.name,
+                "role": role_in_group,
+            }
+            for group, role_in_group in group_rows
+        ]
+        return oauth_accounts, departments, groups
     except Exception:
         logger.warning(
-            "Failed to load OAuth accounts for user %s", user_id, exc_info=True
+            "Failed to load related /me info for user %s", user.id, exc_info=True
         )
-        return []
+        return [], [], []

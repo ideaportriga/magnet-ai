@@ -19,6 +19,7 @@ from services.access_control import (
     enforce_action_or_403,
     enforce_view_or_404,
     force_create_fields,
+    tenant_system_name_filter,
     visibility_filter_for,
 )
 from services.observability import observability_context, observe
@@ -116,7 +117,11 @@ class RagToolsController(Controller):
         self, rag_tools_service: RagToolsService, code: str, request: Request
     ) -> RagTool:
         """Get a RAG tool by its system_name."""
-        obj = await rag_tools_service.get_one(system_name=code)
+        from core.db.models.rag_tool.rag_tool import RagTool as RagToolModel
+
+        obj = await rag_tools_service.get_one(
+            tenant_system_name_filter(request, RagToolModel, code)
+        )
         await enforce_view_or_404(
             rag_tools_service,
             request=request,

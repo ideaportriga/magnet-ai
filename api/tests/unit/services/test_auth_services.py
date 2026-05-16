@@ -470,6 +470,8 @@ class TestApiKeyAuth:
             hash="hash",
             is_active=True,
             expires_at=None,
+            tenant_id="00000000-0000-0000-0000-000000000001",
+            scopes=["read:agents"],
         )
         defaults.update(kwargs)
         return ApiKeyConfigPersisted(**defaults)

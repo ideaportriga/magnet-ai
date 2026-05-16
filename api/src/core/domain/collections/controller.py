@@ -18,6 +18,7 @@ from services.access_control import (
     enforce_action_or_403,
     enforce_view_or_404,
     force_create_fields,
+    tenant_system_name_filter,
     visibility_filter_for,
 )
 from storage import StorageService
@@ -149,7 +150,11 @@ class CollectionsController(Controller):
         request: Request,
     ) -> Collection:
         """Get a Collection by its system_name."""
-        obj = await collections_service.get_one(system_name=code)
+        from core.db.models.collection.collection import Collection as CollectionModel
+
+        obj = await collections_service.get_one(
+            tenant_system_name_filter(request, CollectionModel, code)
+        )
         await enforce_view_or_404(
             collections_service,
             request=request,

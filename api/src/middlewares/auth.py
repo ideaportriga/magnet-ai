@@ -118,6 +118,18 @@ async def ensure_request_auth_data_local_jwt(token_str: str) -> Auth | None:
             from services.users.service import get_user_by_id
 
             user = await get_user_by_id(user_id)
+            if user is None:
+                logger.warning("JWT user not found: %s", user_id)
+                raise NotAuthorizedException("User not found")
+            if user is not None and not getattr(user, "is_active", True):
+                logger.warning("Inactive user denied for local JWT: %s", user_id)
+                raise NotAuthorizedException("Account is inactive")
+            tenant = getattr(user, "tenant", None) if user is not None else None
+            if tenant is not None and not getattr(tenant, "is_active", True):
+                logger.warning("Inactive tenant denied for local JWT: %s", user_id)
+                raise NotAuthorizedException("Tenant is inactive")
+        except NotAuthorizedException:
+            raise
         except Exception:
             logger.exception("Failed to load user for local JWT")
 
@@ -161,6 +173,11 @@ def ensure_request_auth_data_api_key(api_key: str, api_user_id: str | None) -> A
         if not getattr(api_key_config, "is_active", True):
             logger.warning("API key %s is inactive — denying", api_client_code)
             raise NotAuthorizedException("API key is inactive")
+
+        tenant_id_value = getattr(api_key_config, "tenant_id", None)
+        if tenant_id_value is None:
+            logger.warning("API key %s has no tenant — denying", api_client_code)
+            raise NotAuthorizedException("API key tenant is required")
 
         expires_at = getattr(api_key_config, "expires_at", None)
         if expires_at is not None and expires_at < datetime.now(UTC):

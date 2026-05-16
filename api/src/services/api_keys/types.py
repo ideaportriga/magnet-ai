@@ -1,6 +1,7 @@
 from datetime import datetime
+from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ApiKeyConfigBase(BaseModel):
@@ -13,6 +14,8 @@ class ApiKeyConfigBase(BaseModel):
     expires_at: datetime | None = None
     is_active: bool = True
     notes: str | None = None
+    tenant_id: str | UUID
+    scopes: list[str] = Field(default_factory=list)
 
 
 class ApiKeyConfigEntity(ApiKeyConfigBase):
@@ -25,6 +28,7 @@ class ApiKeyConfigPersisted(ApiKeyConfigEntity):
 
 class CreateApiKeyData(BaseModel):
     name: str
+    scopes: list[str] = Field(default_factory=list)
 
 
 class CreateApiKeyResult(BaseModel):
@@ -37,3 +41,4 @@ class UpdateApiKeyData(BaseModel):
     notes: str | None = None
     is_active: bool | None = None
     expires_at: datetime | None = None
+    scopes: list[str] | None = None

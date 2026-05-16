@@ -81,7 +81,10 @@ async def apply_session_rls(session, *, tenant_id: Optional[str]) -> None:
     keeping the contextvar consistent.
     """
     value = str(tenant_id) if tenant_id else ""
-    await session.execute(text(f"SET LOCAL app.tenant_id = '{value}'"))
+    await session.execute(
+        text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
+        {"tenant_id": value},
+    )
 
 
 @contextmanager
@@ -128,8 +131,14 @@ def install_session_guc_listener() -> None:
         # `SET LOCAL` requires being inside a transaction (we are, by
         # definition — this is `after_begin`). Postgres-only syntax.
         try:
-            connection.execute(text(f"SET LOCAL app.tenant_id = '{tenant_id}'"))
-            connection.execute(text(f"SET LOCAL app.user_id = '{user_id}'"))
+            connection.execute(
+                text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
+                {"tenant_id": tenant_id},
+            )
+            connection.execute(
+                text("SELECT set_config('app.user_id', :user_id, true)"),
+                {"user_id": user_id},
+            )
         except Exception:  # pragma: no cover
             # Non-Postgres backends (e.g. SQLite in some scripts) just no-op
             # — RLS isn't enforced there anyway. Log once at debug level so

@@ -44,14 +44,14 @@ def _run(coro):
 
 
 @pytest.fixture(autouse=True)
-def _no_oauth_load(monkeypatch):
-    """Short-circuit the OAuth account loader (DB-free)."""
+def _no_related_load(monkeypatch):
+    """Short-circuit the /me related-info loader (DB-free)."""
     import services.auth.user_info as mod
 
-    async def _empty(_user_id):
-        return []
+    async def _empty(_user):
+        return [], [], []
 
-    monkeypatch.setattr(mod, "_load_oauth_accounts", _empty)
+    monkeypatch.setattr(mod, "_load_related_user_info", _empty)
 
 
 def test_me_returns_tenant_block_when_user_has_tenant():

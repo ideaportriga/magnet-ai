@@ -42,7 +42,7 @@
           <km-btn class="px-xs" data-test="show-more-btn" flat icon="more-vertical" size="13px" />
         </ds-dropdown-menu-trigger>
         <ds-dropdown-menu-content side="bottom" align="end" :side-offset="4">
-          <ds-dropdown-menu-item data-test="clone-btn" @select="showNewDialog = true">{{ m.common_clone() }}</ds-dropdown-menu-item>
+          <ds-dropdown-menu-item v-if="canCreate" data-test="clone-btn" @select="showNewDialog = true">{{ m.common_clone() }}</ds-dropdown-menu-item>
           <ds-dropdown-menu-item v-if="canDelete" data-test="delete-btn" variant="destructive" @select="showDeleteDialog = true">{{ m.common_delete() }}</ds-dropdown-menu-item>
         </ds-dropdown-menu-content>
       </ds-dropdown-menu-root>
@@ -149,7 +149,8 @@ export default {
     // PR 9a: record-level permission gating. Reads `_permissions` from the
     // loaded agent (shipped by backend after PR 8). Falls through to global
     // capability for legacy records so existing UX doesn't regress.
-    const { canOn } = usePermissions()
+    const { can, canOn } = usePermissions()
+    const canCreate = computed(() => can('write:agents'))
     const canEdit = computed(() => canOn(draft?.value, 'edit', 'agents'))
     const canDelete = computed(() => canOn(draft?.value, 'delete', 'agents'))
     // Read-only state for the detail page: explicit `_permissions.edit=false`
@@ -183,6 +184,7 @@ export default {
       removeEntity,
       setSelectedVariant,
       canEdit,
+      canCreate,
       canDelete,
       recordReadonly,
       showLeaveDialog,

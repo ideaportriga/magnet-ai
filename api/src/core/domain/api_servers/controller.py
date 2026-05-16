@@ -25,6 +25,7 @@ from services.access_control import (
     enforce_action_or_403,
     enforce_view_or_404,
     force_create_fields,
+    tenant_system_name_filter,
     visibility_filter_for,
 )
 from services.api_servers import services
@@ -151,7 +152,11 @@ class ApiServersController(Controller):
         self, api_servers_service: ApiServersService, code: str, request: Request
     ) -> ApiServerResponse:
         """Get an API server by its system_name."""
-        obj = await api_servers_service.get_one(system_name=code)
+        from core.db.models.api_server.api_server import APIServer as APIServerModel
+
+        obj = await api_servers_service.get_one(
+            tenant_system_name_filter(request, APIServerModel, code)
+        )
         await enforce_view_or_404(
             api_servers_service,
             request=request,

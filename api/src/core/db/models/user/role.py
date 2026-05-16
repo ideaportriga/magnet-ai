@@ -14,6 +14,7 @@ from sqlalchemy import (
     Index,
     String,
     Text,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -52,27 +53,27 @@ class Role(UUIDv7AuditBase):
             "uq_role_slug_system",
             "slug",
             unique=True,
-            postgresql_where="tenant_id IS NULL",
+            postgresql_where=text("tenant_id IS NULL"),
         ),
         Index(
             "uq_role_name_system",
             "name",
             unique=True,
-            postgresql_where="tenant_id IS NULL",
+            postgresql_where=text("tenant_id IS NULL"),
         ),
         Index(
             "uq_role_slug_per_tenant",
             "tenant_id",
             "slug",
             unique=True,
-            postgresql_where="tenant_id IS NOT NULL",
+            postgresql_where=text("tenant_id IS NOT NULL"),
         ),
         Index(
             "uq_role_name_per_tenant",
             "tenant_id",
             "name",
             unique=True,
-            postgresql_where="tenant_id IS NOT NULL",
+            postgresql_where=text("tenant_id IS NOT NULL"),
         ),
         {"comment": "Roles for role-based access control"},
     )

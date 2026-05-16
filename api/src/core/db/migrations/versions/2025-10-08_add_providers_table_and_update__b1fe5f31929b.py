@@ -26,7 +26,7 @@ import advanced_alchemy.types
 import advanced_alchemy.types.datetime
 import advanced_alchemy.types.json
 from sqlalchemy.dialects import postgresql
-from core.db.models.mcp_server.mcp_server import EncryptedJsonB
+from core.db.types import EncryptedJsonB
 
 if TYPE_CHECKING:
     pass

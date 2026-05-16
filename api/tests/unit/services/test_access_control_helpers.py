@@ -128,6 +128,14 @@ class TestForceCreateFields:
         payload = force_create_fields({"name": "X"}, request=request)
         assert payload == {"name": "X"}
 
+    def test_auth_without_tenant_is_rejected(self):
+        from litestar.exceptions import PermissionDeniedException
+        from services.access_control import force_create_fields
+
+        request = _make_request(_make_auth(tenant_id=None, user_id=str(uuid4())))
+        with pytest.raises(PermissionDeniedException):
+            force_create_fields({"name": "X"}, request=request)
+
     def test_no_owner_id_when_user_missing(self):
         """An auth without a `.user` (e.g. API key auth without principal)
         still stamps tenant_id but cannot stamp owner_id."""
