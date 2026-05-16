@@ -14,7 +14,7 @@
             </div>
             <div class="km-space" />
             <div class="flex-none center-flex-y">
-              <km-btn class="mr-md" data-test="new-btn" :label="m.common_new()" @click="showCreateDialog = true" />
+              <km-btn v-if="canCreate" class="mr-md" data-test="new-btn" :label="m.common_new()" @click="showCreateDialog = true" />
             </div>
           </div>
           <div class="flex-1 kg-table-inner">
@@ -38,7 +38,7 @@
             <div class="km-heading-7 text-black">{{ m.knowledgeGraph_noGraphsYet() }}</div>
             <div class="km-description text-black">{{ m.knowledgeGraph_noGraphsYetDesc() }}</div>
             <div class="cluster mt-lg" data-justify="center">
-              <km-btn data-test="new-btn" :label="m.knowledgeGraph_createKnowledgeGraph()" @click="showCreateDialog = true" />
+              <km-btn v-if="canCreate" data-test="new-btn" :label="m.knowledgeGraph_createKnowledgeGraph()" @click="showCreateDialog = true" />
             </div>
           </div>
         </div>
@@ -50,9 +50,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useQueryClient } from '@tanstack/vue-query'
+import { usePermissions } from '@shared'
 import { useDataTable } from '@/composables/useDataTable'
 import { textColumn, dateColumn } from '@/utils/columnHelpers'
 import { entityKeys } from '@/queries/queryKeys'
@@ -63,6 +64,9 @@ import CreateGraphDialog from './CreateGraphDialog.vue'
 const router = useRouter()
 const queryClient = useQueryClient()
 const showCreateDialog = ref(false)
+
+const { can } = usePermissions()
+const canCreate = computed(() => can('write:knowledge_graph'))
 
 const columns = [
   textColumn<KnowledgeGraph>('name', m.common_name()),

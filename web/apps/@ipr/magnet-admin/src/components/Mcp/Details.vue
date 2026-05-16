@@ -1,17 +1,18 @@
 <template>
   <km-inner-loading :showing="loading" />
-  <layouts-details-layout v-if="!loading" :name="name" :system-name="system_name" :created-at="created_at" :updated-at="modified_at" :created-by="created_by" :updated-by="updated_by" show-record-info :show-description="false" @update:name="name = $event" @update:system-name="system_name = $event">
+  <layouts-details-layout v-if="!loading" :name="name" :system-name="system_name" :created-at="created_at" :updated-at="modified_at" :created-by="created_by" :updated-by="updated_by" show-record-info :show-description="false" :readonly="recordReadonly" @update:name="name = $event" @update:system-name="system_name = $event">
     <template #header-actions>
-      <km-btn v-if="isDirty" data-test="revert-btn" :label="m.common_revert()" icon="undo" icon-size="16px" flat @click="revert()" />
-      <km-btn data-test="save-btn" :label="m.common_save()" flat icon="save" icon-size="16px" :loading="saving" :disable="saving || !isDirty" @click="handleSave" />
-      <km-btn :label="m.common_saveAndSyncTools()" flat icon="refresh" icon-size="16px" :loading="syncing" :disable="syncing" @click="saveAndSync" />
+      <km-btn v-if="isDirty && !recordReadonly" data-test="revert-btn" :label="m.common_revert()" icon="undo" icon-size="16px" flat @click="revert()" />
+      <km-btn v-if="!recordReadonly" data-test="save-btn" :label="m.common_save()" flat icon="save" icon-size="16px" :loading="saving" :disable="saving || !isDirty" @click="handleSave" />
+      <km-btn v-if="!recordReadonly" :label="m.common_saveAndSyncTools()" flat icon="refresh" icon-size="16px" :loading="syncing" :disable="syncing" @click="saveAndSync" />
+      <km-glyph v-if="recordReadonly" name="lock" size="16px" tone="muted" :title="m.access_readOnlyTooltip()" data-test="mcp-readonly-icon" />
       <ds-dropdown-menu-root>
         <ds-dropdown-menu-trigger as-child>
           <km-btn class="px-xs" data-test="show-more-btn" flat icon="more-vertical" size="13px" />
         </ds-dropdown-menu-trigger>
         <ds-dropdown-menu-content side="bottom" align="end" :side-offset="4">
-          <ds-dropdown-menu-item data-test="clone-btn" @select="showNewDialog = true">{{ m.common_clone() }}</ds-dropdown-menu-item>
-          <ds-dropdown-menu-item data-test="delete-btn" variant="destructive" @select="showDeleteDialog = true">{{ m.common_delete() }}</ds-dropdown-menu-item>
+          <ds-dropdown-menu-item data-test="clone-btn" :disabled="!canCreate" @select="canCreate && (showNewDialog = true)">{{ m.common_clone() }}</ds-dropdown-menu-item>
+          <ds-dropdown-menu-item v-if="canDelete" data-test="delete-btn" variant="destructive" @select="showDeleteDialog = true">{{ m.common_delete() }}</ds-dropdown-menu-item>
         </ds-dropdown-menu-content>
       </ds-dropdown-menu-root>
       <km-popup-confirm :visible="showDeleteDialog" :confirm-button-label="m.deleteConfirm_deleteEntity({ entity: m.entity_mcpServer() })" :cancel-button-label="m.common_cancel()" notification-icon="warning" @confirm="confirmDelete" @cancel="showDeleteDialog = false">
@@ -21,7 +22,7 @@
     </template>
     <template #content>
       <km-tabs v-model="tab" :items="tabs" class="bb-border full-width" narrow-indicator dense align="left" no-caps content-class="km-tabs" />
-      <div class="stack overflow-auto pt-lg pb-lg" data-gap="lg">
+      <div :inert="recordReadonly" :class="recordReadonly ? 'mcp-readonly-zone' : null" class="stack overflow-auto pt-lg pb-lg" data-gap="lg">
         <mcp-tabs-settings v-if="tab == &quot;settings&quot;" />
         <mcp-tabs-tools v-if="tab == &quot;tools&quot;" />
       </div>
@@ -30,9 +31,10 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, provide } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { notify } from '@shared/utils/notify'
+import { usePermissions } from '@shared'
 import { useEntityQueries } from '@/queries/entities'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import { m } from '@/paraglide/messages'
@@ -42,6 +44,18 @@ const router = useRouter()
 
 const { draft, isLoading, isDirty, updateField, save, revert, remove } = useEntityDetail('mcp_servers')
 const queries = useEntityQueries()
+
+// PR 10 — record-level permission gating.
+const { can, canOn } = usePermissions()
+const canEdit = computed(() => canOn(draft?.value, 'edit', 'mcp_servers'))
+const canDelete = computed(() => canOn(draft?.value, 'delete', 'mcp_servers'))
+const canCreate = computed(() => can('write:mcp_servers'))
+const recordReadonly = computed(() => {
+  const m = draft?.value
+  if (!m) return false
+  return canEdit.value === false
+})
+provide('mcpReadonly', recordReadonly)
 
 const loading = computed(() => isLoading.value || !draft.value)
 
@@ -120,3 +134,13 @@ async function confirmDelete() {
   router.push('/mcp')
 }
 </script>
+
+<style scoped>
+.mcp-readonly-zone {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+.mcp-readonly-zone :where(input, textarea, select, button, [role='button']) {
+  cursor: not-allowed;
+}
+</style>

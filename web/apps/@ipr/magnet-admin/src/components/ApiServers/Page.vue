@@ -14,7 +14,7 @@
             </div>
             <div class="km-space" />
             <div class="flex-none center-flex-y">
-              <km-btn class="mr-md" data-test="new-btn" :label="m.common_new()" @click="showNewDialog = true" />
+              <km-btn v-if="canCreate" class="mr-md" data-test="new-btn" :label="m.common_new()" @click="showNewDialog = true" />
             </div>
           </div>
           <div class="flex-1" style="min-block-size: 0">
@@ -31,7 +31,7 @@
             <div class="km-heading-7 text-black">{{ m.apiServers_noApiServersYet() }}</div>
             <div class="km-description text-black">{{ m.apiServers_useApiServerManual() }}</div>
             <div class="cluster mt-lg" data-justify="center">
-              <km-btn data-test="new-btn" :label="m.common_addApiServer()" @click="showNewDialog = true" />
+              <km-btn v-if="canCreate" data-test="new-btn" :label="m.common_addApiServer()" @click="showNewDialog = true" />
             </div>
           </div>
         </div>
@@ -42,8 +42,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { usePermissions } from '@shared'
 import { useDataTable } from '@/composables/useDataTable'
 import { nameDescriptionColumn, chipCopyColumn, dateColumn } from '@/utils/columnHelpers'
 import { m } from '@/paraglide/messages'
@@ -51,6 +52,9 @@ import type { ApiServer } from '@/types'
 
 const router = useRouter()
 const showNewDialog = ref(false)
+
+const { can } = usePermissions()
+const canCreate = computed(() => can('write:api_servers'))
 
 const columns = [
   nameDescriptionColumn<ApiServer>(m.common_name()),

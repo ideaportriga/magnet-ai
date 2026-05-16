@@ -3,17 +3,18 @@
     <km-inner-loading :showing="loading" />
     <layouts-details-layout v-if="!loading">
       <template #header>
-        <layouts-details-header :name="name" :description="description" :system-name="system_name" :system-name-rules="[validSystemName()]" :created-at="entity?.created_at" :updated-at="entity?.updated_at" show-record-info @update:name="name = $event" @update:description="description = $event" @update:system-name="system_name = $event">
+        <layouts-details-header :name="name" :description="description" :system-name="system_name" :system-name-rules="[validSystemName()]" :created-at="entity?.created_at" :updated-at="entity?.updated_at" show-record-info :readonly="recordReadonly" @update:name="name = $event" @update:description="description = $event" @update:system-name="system_name = $event">
           <template #actions>
-            <km-btn v-if="isDirty" data-test="revert-btn" :label="m.common_revert()" icon="undo" icon-size="16px" flat @click="composableRevert()" />
-            <km-btn data-test="save-btn" :label="m.common_save()" flat icon="save" icon-size="16px" :loading="saving" :disable="saving || !isDirty" @click="save" />
+            <km-btn v-if="isDirty && !recordReadonly" data-test="revert-btn" :label="m.common_revert()" icon="undo" icon-size="16px" flat @click="composableRevert()" />
+            <km-btn v-if="!recordReadonly" data-test="save-btn" :label="m.common_save()" flat icon="save" icon-size="16px" :loading="saving" :disable="saving || !isDirty" @click="save" />
+            <km-glyph v-if="recordReadonly" name="lock" size="16px" tone="muted" :title="m.access_readOnlyTooltip()" data-test="prompt-readonly-icon" />
             <ds-dropdown-menu-root>
               <ds-dropdown-menu-trigger as-child>
                 <km-btn class="px-xs" data-test="show-more-btn" flat icon="more-vertical" size="13px" />
               </ds-dropdown-menu-trigger>
               <ds-dropdown-menu-content side="bottom" align="end" :side-offset="4">
-                <ds-dropdown-menu-item data-test="clone-btn" @select="showNewDialog = true">{{ m.common_clone() }}</ds-dropdown-menu-item>
-                <ds-dropdown-menu-item data-test="delete-btn" variant="destructive" @select="showDeleteDialog = true">{{ m.common_delete() }}</ds-dropdown-menu-item>
+                <ds-dropdown-menu-item data-test="clone-btn" :disabled="!canCreate" @select="canCreate && (showNewDialog = true)">{{ m.common_clone() }}</ds-dropdown-menu-item>
+                <ds-dropdown-menu-item v-if="canDelete" data-test="delete-btn" variant="destructive" @select="showDeleteDialog = true">{{ m.common_delete() }}</ds-dropdown-menu-item>
               </ds-dropdown-menu-content>
             </ds-dropdown-menu-root>
           </template>
@@ -29,29 +30,31 @@
         </layouts-details-header>
       </template>
       <template #content>
+        <!-- Tabs stay interactive so a read-only user can still switch tabs;
+             individual tab panels carry the inert + readonly-zone wrap. -->
         <km-tabs v-model="tab" class="prompt-details__tabs full-height" :items="tabs">
           <template #panel-promptTemplate>
-            <div class="prompt-details__tab-panel">
+            <div :inert="recordReadonly" :class="recordReadonly ? 'prompt-readonly-zone' : null" class="prompt-details__tab-panel">
               <prompts-prompttemplate />
             </div>
           </template>
           <template #panel-advancedSettings>
-            <div class="prompt-details__tab-panel">
+            <div :inert="recordReadonly" :class="recordReadonly ? 'prompt-readonly-zone' : null" class="prompt-details__tab-panel">
               <prompts-advancedsettings />
             </div>
           </template>
           <template #panel-responseFormat>
-            <div class="prompt-details__tab-panel">
+            <div :inert="recordReadonly" :class="recordReadonly ? 'prompt-readonly-zone' : null" class="prompt-details__tab-panel">
               <prompts-responseformat />
             </div>
           </template>
           <template #panel-samples>
-            <div class="prompt-details__tab-panel">
+            <div :inert="recordReadonly" :class="recordReadonly ? 'prompt-readonly-zone' : null" class="prompt-details__tab-panel">
               <prompts-sampleinput />
             </div>
           </template>
           <template #panel-testSets>
-            <div class="prompt-details__tab-panel">
+            <div :inert="recordReadonly" :class="recordReadonly ? 'prompt-readonly-zone' : null" class="prompt-details__tab-panel">
               <prompts-test-sets />
             </div>
           </template>
@@ -73,10 +76,11 @@
 import { categoryOptions } from '@/config/prompts/prompts'
 import { useEntityQueries } from '@/queries/entities'
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
-import { ref } from 'vue'
+import { computed, provide, ref } from 'vue'
 import { validSystemName } from '@/utils/validationRules'
 import { m } from '@/paraglide/messages'
 import { notify } from '@shared/utils/notify'
+import { usePermissions } from '@shared'
 import KmDropdownSelect from '@ds/components/domain/KmDropdownSelect.vue'
 
 export default {
@@ -87,6 +91,19 @@ export default {
     const { draft, isLoading, isDirty, updateField, setSelectedVariant,
             save, revert, remove, refetch, buildPayload } = useVariantEntityDetail('promptTemplates')
     const removeMutation = queries.promptTemplates.useRemove()
+
+    // PR 10 — record-level permission gating; same shape as Agents/details.
+    const { can, canOn } = usePermissions()
+    const canEdit = computed(() => canOn(draft?.value, 'edit', 'prompts'))
+    const canDelete = computed(() => canOn(draft?.value, 'delete', 'prompts'))
+    const canCreate = computed(() => can('write:prompts'))
+    const recordReadonly = computed(() => {
+      const p = draft?.value
+      if (!p) return false
+      return canEdit.value === false
+    })
+    provide('promptReadonly', recordReadonly)
+
     return {
       draft,
       isLoading,
@@ -98,6 +115,10 @@ export default {
       composableRemove: remove,
       refetch,
       buildPayload,
+      canEdit,
+      canDelete,
+      canCreate,
+      recordReadonly,
       m,
       tab: ref('promptTemplate'),
       tabs: ref([
@@ -220,5 +241,15 @@ export default {
 
 .wobble {
   animation: ds-attention-wobble var(--ds-duration-attention) infinite;
+}
+
+/* PR 10 readonly visual cue. `inert` blocks all interactivity; styles just
+ * dim the zone so the user understands it's not editable. */
+.prompt-readonly-zone {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+.prompt-readonly-zone :where(input, textarea, select, button, [role='button']) {
+  cursor: not-allowed;
 }
 </style>

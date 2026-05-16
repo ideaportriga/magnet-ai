@@ -8,7 +8,7 @@
           </div>
           <div class="km-space" />
           <div class="flex-none center-flex-y">
-            <km-btn class="mr-md" data-test="new-btn" :label="m.common_new()" @click="showNewDialog = true" />
+            <km-btn v-if="canCreate" class="mr-md" data-test="new-btn" :label="m.common_new()" @click="showNewDialog = true" />
           </div>
         </div>
         <div class="flex-1 overflow-auto relative-position" style="min-block-size: 0">
@@ -119,6 +119,7 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { formatDateTime } from '@shared/utils'
+import { usePermissions } from '@shared'
 import { useDataTable } from '@/composables/useDataTable'
 import { textColumn, dateColumn } from '@/utils/columnHelpers'
 import { m } from '@/paraglide/messages'
@@ -130,6 +131,9 @@ import { DsProgress } from '@ds/primitives'
 
 const router = useRouter()
 const showNewDialog = ref(false)
+
+const { can } = usePermissions()
+const canCreate = computed(() => can('write:agents'))
 
 // `useDataTable` owns the search-debounce + sort + pagination params and
 // returns a TanStack `table` instance plus the live row models. We don't

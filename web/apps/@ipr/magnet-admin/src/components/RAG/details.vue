@@ -1,19 +1,20 @@
 <template>
   <km-inner-loading :showing="loading" />
-  <layouts-details-layout v-if="!loading" :name="name" :description="description" :system-name="system_name" :system-name-rules="[validSystemName()]" :created-at="entity?.created_at" :updated-at="entity?.updated_at" :created-by="entity?.created_by" :updated-by="entity?.updated_by" show-record-info @update:name="name = $event" @update:description="description = $event" @update:system-name="system_name = $event">
+  <layouts-details-layout v-if="!loading" :name="name" :description="description" :system-name="system_name" :system-name-rules="[validSystemName()]" :created-at="entity?.created_at" :updated-at="entity?.updated_at" :created-by="entity?.created_by" :updated-by="entity?.updated_by" show-record-info :readonly="recordReadonly" @update:name="name = $event" @update:description="description = $event" @update:system-name="system_name = $event">
     <template #subheader>
       <rag-sub-header />
     </template>
     <template #header-actions>
-      <km-btn v-if="isDirty" data-test="revert-btn" :label="m.common_revert()" icon="undo" icon-size="16px" flat @click="revert()" />
-      <km-btn data-test="save-btn" :label="m.common_save()" flat icon="save" icon-size="16px" :loading="saving" :disable="saving || !isDirty" @click="handleSave" />
+      <km-btn v-if="isDirty && !recordReadonly" data-test="revert-btn" :label="m.common_revert()" icon="undo" icon-size="16px" flat @click="revert()" />
+      <km-btn v-if="!recordReadonly" data-test="save-btn" :label="m.common_save()" flat icon="save" icon-size="16px" :loading="saving" :disable="saving || !isDirty" @click="handleSave" />
+      <km-glyph v-if="recordReadonly" name="lock" size="16px" tone="muted" :title="m.access_readOnlyTooltip()" data-test="rag-readonly-icon" />
       <ds-dropdown-menu-root>
         <ds-dropdown-menu-trigger as-child>
           <km-btn class="px-xs" data-test="show-more-btn" flat icon="more-vertical" size="13px" />
         </ds-dropdown-menu-trigger>
         <ds-dropdown-menu-content side="bottom" align="end" :side-offset="4">
-          <ds-dropdown-menu-item data-test="clone-btn" @select="showNewDialog = true">{{ m.common_clone() }}</ds-dropdown-menu-item>
-          <ds-dropdown-menu-item data-test="delete-btn" variant="destructive" @select="showDeleteDialog = true">{{ m.common_delete() }}</ds-dropdown-menu-item>
+          <ds-dropdown-menu-item data-test="clone-btn" :disabled="!canCreate" @select="canCreate && (showNewDialog = true)">{{ m.common_clone() }}</ds-dropdown-menu-item>
+          <ds-dropdown-menu-item v-if="canDelete" data-test="delete-btn" variant="destructive" @select="showDeleteDialog = true">{{ m.common_delete() }}</ds-dropdown-menu-item>
         </ds-dropdown-menu-content>
       </ds-dropdown-menu-root>
       <km-popup-confirm :visible="showDeleteDialog" :confirm-button-label="m.deleteConfirm_deleteEntity({ entity: m.entity_ragTool() })" :cancel-button-label="m.common_cancel()" notification-icon="warning" @confirm="confirmDelete" @cancel="showDeleteDialog = false">
@@ -23,7 +24,7 @@
     </template>
     <template #content>
       <km-tabs v-model="tab" :items="tabs" />
-      <div class="stack full-height full-width overflow-auto mb-md mt-lg" data-gap="lg" style="min-block-size: 0">
+      <div :inert="recordReadonly" :class="recordReadonly ? 'rag-readonly-zone' : null" class="stack full-height full-width overflow-auto mb-md mt-lg" data-gap="lg" style="min-block-size: 0">
         <div class="cluster full-height full-width" data-gap="lg">
           <div class="flex-1 full-height full-width">
             <div class="stack items-center full-height full-width overflow-auto" data-gap="lg">
@@ -55,18 +56,21 @@
       </div>
     </template>
     <template #drawer>
-      <rag-drawer :open="openTest" @update:open="openTest = $event" />
+      <div :inert="recordReadonly" :class="recordReadonly ? 'rag-readonly-zone' : null" class="full-height">
+        <rag-drawer :open="openTest" @update:open="openTest = $event" />
+      </div>
     </template>
   </layouts-details-layout>
   <rag-create-new v-if="showNewDialog" :show-new-dialog="showNewDialog" copy @cancel="showNewDialog = false" />
 </template>
 
 <script>
-import { ref } from 'vue'
+import { computed, provide, ref } from 'vue'
 import { validSystemName } from '@/utils/validationRules'
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 import { m } from '@/paraglide/messages'
 import { notify } from '@shared/utils/notify'
+import { usePermissions } from '@shared'
 
 export default {
   emits: ['update:closeDrawer'],
@@ -78,8 +82,24 @@ export default {
       save, revert, refetch, buildPayload, remove,
     } = useVariantEntityDetail('rag_tools')
 
+    // PR 10 — record-level permission gating.
+    const { can, canOn } = usePermissions()
+    const canEdit = computed(() => canOn(draft?.value, 'edit', 'rag_tools'))
+    const canDelete = computed(() => canOn(draft?.value, 'delete', 'rag_tools'))
+    const canCreate = computed(() => can('write:rag_tools'))
+    const recordReadonly = computed(() => {
+      const r = draft?.value
+      if (!r) return false
+      return canEdit.value === false
+    })
+    provide('ragReadonly', recordReadonly)
+
     return {
       draft,
+      canEdit,
+      canDelete,
+      canCreate,
+      recordReadonly,
       isLoading,
       isDirty,
       updateField,
@@ -190,5 +210,12 @@ export default {
 <style>
 .wobble {
   animation: ds-attention-wobble var(--ds-duration-attention) infinite;
+}
+.rag-readonly-zone {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+.rag-readonly-zone :where(input, textarea, select, button, [role='button']) {
+  cursor: not-allowed;
 }
 </style>

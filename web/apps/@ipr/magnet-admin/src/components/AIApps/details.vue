@@ -6,13 +6,13 @@
         <div class="full-height pb-md relative-position px-md">
           <div class="cluster full-width mt-lg mb-sm bg-white border-radius-8 py-md px-lg" data-gap="md" data-wrap="no">
             <div class="flex-1">
-              <km-input-flat class="km-heading-4 full-width text-black" data-test="name-input" :placeholder="m.common_name()" :model-value="name" @change="name = $event" />
-              <km-input-flat class="km-description full-width text-black" data-test="description-input" :placeholder="m.common_description()" :model-value="description" @change="description = $event" />
+              <km-input-flat class="km-heading-4 full-width text-black" data-test="name-input" :placeholder="m.common_name()" :model-value="name" :readonly="recordReadonly" @change="name = $event" />
+              <km-input-flat class="km-description full-width text-black" data-test="description-input" :placeholder="m.common_description()" :model-value="description" :readonly="recordReadonly" @change="description = $event" />
               <div class="cluster pl-sm">
                 <km-glyph class="flex-none" name="info" tone="subtle">
                   <km-tooltip class="bg-white block-shadow text-secondary-text km-description" self="top middle" :offset="[-50, -50]">{{ m.tooltip_systemNameUniqueId() }}</km-tooltip>
                 </km-glyph>
-                <km-input-flat class="flex-1 km-description text-black full-width text-black" data-test="system-name-input" :placeholder="m.placeholder_enterSystemNameReadable()" :model-value="system_name" @change="system_name = $event" @focus="showInfo = true" @blur="showInfo = false" />
+                <km-input-flat class="flex-1 km-description text-black full-width text-black" data-test="system-name-input" :placeholder="m.placeholder_enterSystemNameReadable()" :model-value="system_name" :readonly="recordReadonly" @change="system_name = $event" @focus="showInfo = true" @blur="showInfo = false" />
               </div>
               <div v-if="showInfo" class="km-description text-secondary pl-sm">{{ m.hint_systemNameRecommendation() }}</div>
             </div>
@@ -39,15 +39,16 @@
                   </div>
                 </template>
               </km-btn>
-              <km-btn v-if="isDirty" data-test="revert-btn" :label="m.common_revert()" icon="undo" icon-size="16px" flat @click="revert()" />
-              <km-btn data-test="save-btn" :label="m.common_save()" flat icon="save" icon-size="16px" :loading="saving" :disable="saving || !isDirty" @click="save" />
+              <km-btn v-if="isDirty && !recordReadonly" data-test="revert-btn" :label="m.common_revert()" icon="undo" icon-size="16px" flat @click="revert()" />
+              <km-btn v-if="!recordReadonly" data-test="save-btn" :label="m.common_save()" flat icon="save" icon-size="16px" :loading="saving" :disable="saving || !isDirty" @click="save" />
+              <km-glyph v-if="recordReadonly" name="lock" size="16px" tone="muted" :title="m.access_readOnlyTooltip()" data-test="ai-app-readonly-icon" />
               <ds-dropdown-menu-root>
                 <ds-dropdown-menu-trigger as-child>
                   <km-btn class="px-xs" data-test="show-more-btn" flat icon="more-vertical" size="13px" />
                 </ds-dropdown-menu-trigger>
                 <ds-dropdown-menu-content side="bottom" align="end" :side-offset="4">
-                  <ds-dropdown-menu-item data-test="clone-btn" @select="showNewDialog = true">{{ m.common_clone() }}</ds-dropdown-menu-item>
-                  <ds-dropdown-menu-item data-test="delete-btn" variant="destructive" @select="showDeleteDialog = true">{{ m.common_delete() }}</ds-dropdown-menu-item>
+                  <ds-dropdown-menu-item data-test="clone-btn" :disabled="!canCreate" @select="canCreate && (showNewDialog = true)">{{ m.common_clone() }}</ds-dropdown-menu-item>
+                  <ds-dropdown-menu-item v-if="canDelete" data-test="delete-btn" variant="destructive" @select="showDeleteDialog = true">{{ m.common_delete() }}</ds-dropdown-menu-item>
                 </ds-dropdown-menu-content>
               </ds-dropdown-menu-root>
               <km-popup-confirm :visible="showDeleteDialog" :confirm-button-label="m.deleteConfirm_deleteEntity({ entity: m.entity_aiApp() })" :cancel-button-label="m.common_cancel()" notification-icon="warning" @confirm="confirmDelete" @cancel="showDeleteDialog = false">
@@ -62,7 +63,7 @@
                 <km-tab :name="t.name" :label="t.label" />
               </template>
             </km-tabs>
-            <div class="stack full-height full-width overflow-auto my-md km-scroll-area-lg" data-gap="lg" data-wrap="no">
+            <div :inert="recordReadonly" :class="recordReadonly ? 'ai-app-readonly-zone' : null" class="stack full-height full-width overflow-auto my-md km-scroll-area-lg" data-gap="lg" data-wrap="no">
               <div class="cluster full-height full-width" data-gap="lg">
                 <div class="flex-1 full-height full-width">
                   <div class="stack items-center full-height full-width overflow-auto" data-gap="lg">
@@ -90,13 +91,14 @@
 </template>
 
 <script>
-import { ref, computed } from 'vue'
+import { ref, computed, provide } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useSearchStore } from '@/stores/searchStore'
 import { storeToRefs } from 'pinia'
 import { m } from '@/paraglide/messages'
 import { notify } from '@shared/utils/notify'
+import { usePermissions } from '@shared'
 
 export default {
   emits: ['update:closeDrawer'],
@@ -110,9 +112,25 @@ export default {
     }
     const { mutateAsync: createEntity } = queries.ai_apps.useCreate()
 
+    // PR 10 — record-level permission gating.
+    const { can, canOn } = usePermissions()
+    const canEdit = computed(() => canOn(draft?.value, 'edit', 'ai_apps'))
+    const canDelete = computed(() => canOn(draft?.value, 'delete', 'ai_apps'))
+    const canCreate = computed(() => can('write:ai_apps'))
+    const recordReadonly = computed(() => {
+      const a = draft?.value
+      if (!a) return false
+      return canEdit.value === false
+    })
+    provide('aiAppReadonly', recordReadonly)
+
     return {
       m,
       draft,
+      canEdit,
+      canDelete,
+      canCreate,
+      recordReadonly,
       isLoading,
       isDirty,
       updateField,
@@ -260,5 +278,12 @@ export default {
   background: var(--ds-color-background);
   cursor: pointer;
   border-color: var(--ds-color-primary);
+}
+.ai-app-readonly-zone {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+.ai-app-readonly-zone :where(input, textarea, select, button, [role='button']) {
+  cursor: not-allowed;
 }
 </style>

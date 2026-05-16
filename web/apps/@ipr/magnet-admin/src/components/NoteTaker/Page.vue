@@ -13,7 +13,7 @@
             </div>
             <div class="km-space" />
             <div class="flex-none center-flex-y">
-              <km-btn class="mr-md" :label="m.common_new()" @click="showNewDialog = true" />
+              <km-btn v-if="canCreate" class="mr-md" :label="m.common_new()" @click="showNewDialog = true" />
             </div>
           </div>
           <div class="flex-1" style="min-block-size: 0">
@@ -30,6 +30,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, markRaw, h } from 'vue'
 import { useRouter } from 'vue-router'
+import { usePermissions } from '@shared'
 import { useLocalDataTable } from '@/composables/useLocalDataTable'
 import { textColumn, chipCopyColumn, dateColumn, componentColumn } from '@/utils/columnHelpers'
 import { m } from '@/paraglide/messages'
@@ -46,6 +47,9 @@ const tab = computed({
   set: (val: string) => { ntStore.activeListTab = val },
 })
 const showNewDialog = ref(false)
+
+const { can } = usePermissions()
+const canCreate = computed(() => can('write:note_taker'))
 
 const BotStatusChip = markRaw({
   props: ['row'],

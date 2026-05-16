@@ -1,15 +1,16 @@
 <template>
   <km-inner-loading :showing="loading" />
-  <layouts-details-layout v-if="!loading" :name="recordName" :description="recordDescription" :system-name="recordSystemName" :created-at="created_at" :updated-at="modified_at" :created-by="created_by" :updated-by="updated_by" show-record-info :content-container-style="{ maxWidth: &quot;1200px&quot;, minWidth: &quot;500px&quot; }" @update:name="recordName = $event" @update:description="recordDescription = $event" @update:system-name="recordSystemName = $event">
+  <layouts-details-layout v-if="!loading" :name="recordName" :description="recordDescription" :system-name="recordSystemName" :created-at="created_at" :updated-at="modified_at" :created-by="created_by" :updated-by="updated_by" show-record-info :content-container-style="{ maxWidth: &quot;1200px&quot;, minWidth: &quot;500px&quot; }" :readonly="recordReadonly" @update:name="recordName = $event" @update:description="recordDescription = $event" @update:system-name="recordSystemName = $event">
     <template #header-actions>
       <km-btn :label="m.common_reloadRuntime()" flat icon="refresh" icon-size="16px" :loading="reloading" @click="reloadRuntime" />
-      <km-btn :label="m.common_save()" flat icon="save" icon-size="16px" :loading="saving" @click="save" />
+      <km-btn v-if="!recordReadonly" :label="m.common_save()" flat icon="save" icon-size="16px" :loading="saving" @click="save" />
+      <km-glyph v-if="recordReadonly" name="lock" size="16px" tone="muted" :title="m.access_readOnlyTooltip()" data-test="note-taker-readonly-icon" />
       <ds-dropdown-menu-root>
         <ds-dropdown-menu-trigger as-child>
           <km-btn class="px-xs" flat icon="more-vertical" size="13px" />
         </ds-dropdown-menu-trigger>
         <ds-dropdown-menu-content side="bottom" align="end" :side-offset="4">
-          <ds-dropdown-menu-item variant="destructive" @select="showDeleteDialog = true">{{ m.common_delete() }}</ds-dropdown-menu-item>
+          <ds-dropdown-menu-item v-if="canDelete" variant="destructive" @select="showDeleteDialog = true">{{ m.common_delete() }}</ds-dropdown-menu-item>
         </ds-dropdown-menu-content>
       </ds-dropdown-menu-root>
       <km-popup-confirm :visible="showDeleteDialog" :confirm-button-label="m.deleteConfirm_deleteEntity({ entity: m.entity_noteTaker() })" :cancel-button-label="m.common_cancel()" notification-icon="warning" @confirm="confirmDelete" @cancel="showDeleteDialog = false">
@@ -19,7 +20,7 @@
     </template>
     <template #content>
       <km-tabs v-model="tab" :items="tabs" />
-      <div class="flex-1 overflow-auto mt-lg" style="min-block-size: 0">
+      <div :inert="recordReadonly" :class="recordReadonly ? 'note-taker-readonly-zone' : null" class="flex-1 overflow-auto mt-lg" style="min-block-size: 0">
         <template v-if="tab === &quot;transcription&quot;">
           <note-taker-tab-transcription />
         </template>
@@ -38,13 +39,16 @@
       </div>
     </template>
     <template #drawer>
-      <note-taker-drawer v-if="configId" :settings-id="configId" />
+      <div :inert="recordReadonly" :class="recordReadonly ? 'note-taker-readonly-zone' : null" class="full-height">
+        <note-taker-drawer v-if="configId" :settings-id="configId" />
+      </div>
     </template>
   </layouts-details-layout>
 </template>
 
 <script setup lang="ts">
-import { computed, watch, ref } from 'vue'
+import { computed, watch, ref, provide } from 'vue'
+import { usePermissions } from '@shared'
 import { useAppStore } from '@/stores/appStore'
 import { useNotify } from '@/composables/useNotify'
 import { useNoteTakerStore } from '@/stores/noteTakerStore'
@@ -86,6 +90,18 @@ const showDeleteDialog = ref(false)
 
 const configId = computed(() => route.params.id as string)
 const activeRecord = computed(() => ntStore.activeRecord)
+
+// PR 10 — record-level permission gating.
+const { can, canOn } = usePermissions()
+const canEdit = computed(() => canOn(activeRecord.value as any, 'edit', 'note_taker'))
+const canDelete = computed(() => canOn(activeRecord.value as any, 'delete', 'note_taker'))
+const canCreate = computed(() => can('write:note_taker'))
+const recordReadonly = computed(() => {
+  const r = activeRecord.value
+  if (!r) return false
+  return canEdit.value === false
+})
+provide('noteTakerReadonly', recordReadonly)
 const loading = computed(() => ntStore.loading || !activeRecord.value)
 const apiReady = computed(() => Boolean(appStore.config?.api?.aiBridge?.urlAdmin))
 
@@ -179,3 +195,13 @@ watch(
   { immediate: true }
 )
 </script>
+
+<style scoped>
+.note-taker-readonly-zone {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+.note-taker-readonly-zone :where(input, textarea, select, button, [role='button']) {
+  cursor: not-allowed;
+}
+</style>

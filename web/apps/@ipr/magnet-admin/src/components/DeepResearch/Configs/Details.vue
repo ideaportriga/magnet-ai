@@ -7,16 +7,16 @@
       <div class="cluster full-width mt-lg mb-sm bg-white border-radius-8 py-md px-lg" data-gap="md" data-wrap="no">
         <div class="flex-1">
           <div class="cluster">
-            <km-input-flat class="km-heading-4 full-width text-black" :placeholder="m.common_name()" :model-value="name" @change="name = $event" />
+            <km-input-flat class="km-heading-4 full-width text-black" :placeholder="m.common_name()" :model-value="name" :readonly="recordReadonly" @change="name = $event" />
           </div>
           <div class="cluster">
-            <km-input-flat class="km-description full-width text-black" :placeholder="m.common_description()" :model-value="description" @change="description = $event" />
+            <km-input-flat class="km-description full-width text-black" :placeholder="m.common_description()" :model-value="description" :readonly="recordReadonly" @change="description = $event" />
           </div>
           <div class="cluster pl-sm">
             <km-glyph class="flex-none" name="info" tone="subtle">
               <km-tooltip class="bg-white block-shadow text-black km-description" self="top middle" :offset="[-50, -50]">System name serves as unique record id</km-tooltip>
             </km-glyph>
-            <km-input-flat class="flex-1 km-flex-min-w-0 km-description full-width" :placeholder="m.placeholder_enterSystemNameReadable()" :model-value="system_name" @change="system_name = $event" @focus="showInfo = true" @blur="showInfo = false" />
+            <km-input-flat class="flex-1 km-flex-min-w-0 km-description full-width" :placeholder="m.placeholder_enterSystemNameReadable()" :model-value="system_name" :readonly="recordReadonly" @change="system_name = $event" @focus="showInfo = true" @blur="showInfo = false" />
           </div>
           <div v-if="showInfo" class="km-description text-secondary pl-sm">It is highly recommended to fill in system name only once and not change it later.</div>
         </div>
@@ -44,14 +44,15 @@
             </template>
           </km-btn>
           <km-btn :label="m.common_createRun()" flat icon="play" icon-size="16px" @click="showRunDialog = true" />
-          <km-btn :label="m.common_save()" flat icon="save" icon-size="16px" :loading="saving" :disable="saving" @click="save" />
+          <km-btn v-if="!recordReadonly" :label="m.common_save()" flat icon="save" icon-size="16px" :loading="saving" :disable="saving" @click="save" />
+          <km-glyph v-if="recordReadonly" name="lock" size="16px" tone="muted" :title="m.access_readOnlyTooltip()" data-test="deep-research-readonly-icon" />
           <ds-dropdown-menu-root>
             <ds-dropdown-menu-trigger as-child>
               <km-btn class="px-xs" flat icon="more-vertical" size="13px" />
             </ds-dropdown-menu-trigger>
             <ds-dropdown-menu-content side="bottom" align="end" :side-offset="4">
-              <ds-dropdown-menu-item @select="showCloneDialog = true">Clone</ds-dropdown-menu-item>
-              <ds-dropdown-menu-item variant="destructive" @select="showDeleteDialog = true">Delete</ds-dropdown-menu-item>
+              <ds-dropdown-menu-item :disabled="!canCreate" @select="canCreate && (showCloneDialog = true)">Clone</ds-dropdown-menu-item>
+              <ds-dropdown-menu-item v-if="canDelete" variant="destructive" @select="showDeleteDialog = true">Delete</ds-dropdown-menu-item>
             </ds-dropdown-menu-content>
           </ds-dropdown-menu-root>
           <km-popup-confirm :visible="showDeleteDialog" confirm-button-label="Delete Deep Research Config" :cancel-button-label="m.common_cancel()" notification-icon="warning" @confirm="confirmDelete" @cancel="showDeleteDialog = false">
@@ -88,7 +89,7 @@
           </div>
         </km-card>
       </km-dialog>
-      <div class="flex-1 ba-border bg-white border-radius-12 p-lg overflow-auto" style="min-block-size: 0">
+      <div :inert="recordReadonly" :class="recordReadonly ? 'deep-research-readonly-zone' : null" class="flex-1 ba-border bg-white border-radius-12 p-lg overflow-auto" style="min-block-size: 0">
         <div class="km-heading-6 mb-md">General Settings</div>
         <div class="gap-md">
           <div class="km-field">
@@ -195,9 +196,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onActivated, watch } from 'vue'
+import { ref, computed, onMounted, onActivated, watch, provide } from 'vue'
 import { m } from '@/paraglide/messages'
 import { useRouter, useRoute } from 'vue-router'
+import { usePermissions } from '@shared'
 import { useEntityQueries } from '@/queries/entities'
 import { useDeepResearchStore } from '@/stores/deepResearchStore'
 import { useNotify } from '@/composables/useNotify'
@@ -225,6 +227,18 @@ const runClientId = ref('')
 const creatingRun = ref(false)
 
 const loading = computed(() => !config.value)
+
+// PR 10 — record-level permission gating.
+const { can, canOn } = usePermissions()
+const canEdit = computed(() => canOn(config.value, 'edit', 'deep_research'))
+const canDelete = computed(() => canOn(config.value, 'delete', 'deep_research'))
+const canCreate = computed(() => can('write:deep_research'))
+const recordReadonly = computed(() => {
+  const c = config.value
+  if (!c) return false
+  return canEdit.value === false
+})
+provide('deepResearchReadonly', recordReadonly)
 
 // Computed properties for form fields
 const name = computed({
@@ -526,5 +540,15 @@ const navigateToTool = (serverSystemName: string, toolName: string) => {
   }
 }
 </script>
+
+<style scoped>
+.deep-research-readonly-zone {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+.deep-research-readonly-zone :where(input, textarea, select, button, [role='button']) {
+  cursor: not-allowed;
+}
+</style>
 
 

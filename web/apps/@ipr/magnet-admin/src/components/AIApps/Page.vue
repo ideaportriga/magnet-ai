@@ -8,7 +8,7 @@
           </div>
           <div class="km-space" />
           <div class="flex-none center-flex-y">
-            <km-btn class="mr-md" data-test="new-btn" :label="m.common_new()" @click="showNewDialog = true" />
+            <km-btn v-if="canCreate" class="mr-md" data-test="new-btn" :label="m.common_new()" @click="showNewDialog = true" />
           </div>
         </div>
         <div class="flex-1 overflow-auto relative-position" style="min-block-size: 0">
@@ -119,6 +119,7 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { formatDateTime } from '@shared/utils'
+import { usePermissions } from '@shared'
 import { useDataTable } from '@/composables/useDataTable'
 import { textColumn, dateColumn } from '@/utils/columnHelpers'
 import { beforeRouteEnter } from '@/guards'
@@ -132,6 +133,9 @@ defineOptions({ beforeRouteEnter })
 
 const router = useRouter()
 const showNewDialog = ref(false)
+
+const { can } = usePermissions()
+const canCreate = computed(() => can('write:ai_apps'))
 
 // Same card-grid pattern as Agents: TanStack-backed, columns drive server
 // search/sort, rendering is custom card-grid via CSS Grid auto-fill.

@@ -17,6 +17,7 @@
                       class="kg-name-input km-heading-4 text-black"
                       :placeholder="m.knowledgeGraph_namePlaceholder()"
                       :model-value="name"
+                      :readonly="recordReadonly"
                       @change="onNameChange"
                     />
                   </div>
@@ -25,6 +26,7 @@
                       class="kg-description-input km-description text-secondary-text"
                       :placeholder="m.knowledgeGraph_descriptionPlaceholder()"
                       :model-value="description"
+                      :readonly="recordReadonly"
                       @change="onDescriptionChange"
                     />
                   </div>
@@ -47,6 +49,7 @@
                     class="kg-system-name-input km-description text-black"
                     :placeholder="m.placeholder_enterSystemName()"
                     :model-value="systemName"
+                    :readonly="recordReadonly"
                     @change="onSystemNameChange"
                     @focus="showInfo = true"
                     @blur="showInfo = false"
@@ -105,7 +108,7 @@
               </km-tabs>
             </div>
 
-            <div class="flex-1 overflow-auto mt-lg" style="min-block-size: 0">
+            <div :inert="recordReadonly" :class="recordReadonly ? 'knowledge-graph-readonly-zone' : null" class="flex-1 overflow-auto mt-lg" style="min-block-size: 0">
               <sources-tab
                 v-show="activeTab === 'sources'"
                 v-if="graphDetails"
@@ -220,7 +223,7 @@
 </template>
 
 <script setup lang="ts">
-import { fetchData } from '@shared'
+import { fetchData, usePermissions } from '@shared'
 import { m } from '@/paraglide/messages'
 import { computed, onActivated, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
@@ -279,6 +282,18 @@ onActivated(() => {
 
 // TanStack Query: update mutation
 const { mutateAsync: updateGraphMutation } = queries.knowledge_graph.useUpdate()
+
+// PR 10 — record-level permission gating.
+const { can, canOn } = usePermissions()
+const canEdit = computed(() => canOn(graphDetails.value as any, 'edit', 'knowledge_graphs'))
+const canDelete = computed(() => canOn(graphDetails.value as any, 'delete', 'knowledge_graphs'))
+const canCreate = computed(() => can('write:knowledge_graph'))
+const recordReadonly = computed(() => {
+  const g = graphDetails.value
+  if (!g) return false
+  return canEdit.value === false
+})
+provide('knowledgeGraphReadonly', recordReadonly)
 
 // Check if the knowledge graph has an embedding model configured
 const hasEmbeddingModel = computed(() => {
@@ -916,5 +931,12 @@ const onDrop = async (event: DragEvent) => {
 .test-retrieval-btn:focus-visible {
   outline: 2px solid var(--ds-color-primary);
   outline-offset: 2px;
+}
+.knowledge-graph-readonly-zone {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+.knowledge-graph-readonly-zone :where(input, textarea, select, button, [role='button']) {
+  cursor: not-allowed;
 }
 </style>

@@ -6,7 +6,7 @@
       </div>
       <div class="km-space" />
       <div class="flex-none center-flex-y">
-        <km-btn class="mr-md" data-test="new-btn" :label="m.common_new()" @click="showNewDialog = true" />
+        <km-btn v-if="canCreate" class="mr-md" data-test="new-btn" :label="m.common_new()" @click="showNewDialog = true" />
       </div>
     </template>
     <km-data-table :table="table" :loading="isLoading" :fetching="isFetching" fill-height row-key="id" @row-click="openDetails" />
@@ -17,8 +17,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { usePermissions } from '@shared'
 import { useDataTable } from '@/composables/useDataTable'
 import { nameDescriptionColumn, chipCopyColumn, dateColumn } from '@/utils/columnHelpers'
 import { m } from '@/paraglide/messages'
@@ -26,6 +27,9 @@ import type { RetrievalTool } from '@/types'
 
 const router = useRouter()
 const showNewDialog = ref(false)
+
+const { can } = usePermissions()
+const canCreate = computed(() => can('write:retrieval_tools'))
 
 const columns = [
   nameDescriptionColumn<RetrievalTool>(m.common_name()),

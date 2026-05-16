@@ -1,17 +1,18 @@
 <template>
   <km-inner-loading :showing="loading" />
-  <layouts-details-layout v-if="!loading" :name="name" :description="description" :system-name="system_name" :system-name-rules="[validSystemName()]" :created-at="created_at" :updated-at="modified_at" :created-by="created_by" :updated-by="updated_by" :updated-label="m.common_lastSynced()" show-record-info @update:name="name = $event" @update:description="description = $event" @update:system-name="system_name = $event">
+  <layouts-details-layout v-if="!loading" :name="name" :description="description" :system-name="system_name" :system-name-rules="[validSystemName()]" :created-at="created_at" :updated-at="modified_at" :created-by="created_by" :updated-by="updated_by" :updated-label="m.common_lastSynced()" show-record-info :readonly="recordReadonly" @update:name="name = $event" @update:description="description = $event" @update:system-name="system_name = $event">
     <template #header-actions>
-      <km-btn v-if="isDirty" data-test="revert-btn" :label="m.common_revert()" icon="undo" icon-size="16px" flat @click="revert()" />
-      <km-btn data-test="save-btn" :label="m.common_save()" flat icon="save" icon-size="16px" :loading="saving" :disable="saving || !isDirty" @click="save" />
-      <km-btn data-test="save-and-sync-btn" :label="m.common_saveAndSync()" flat icon-size="16px" icon="fa-solid fa-rotate" @click="refreshCollection" />
+      <km-btn v-if="isDirty && !recordReadonly" data-test="revert-btn" :label="m.common_revert()" icon="undo" icon-size="16px" flat @click="revert()" />
+      <km-btn v-if="!recordReadonly" data-test="save-btn" :label="m.common_save()" flat icon="save" icon-size="16px" :loading="saving" :disable="saving || !isDirty" @click="save" />
+      <km-btn v-if="!recordReadonly" data-test="save-and-sync-btn" :label="m.common_saveAndSync()" flat icon-size="16px" icon="fa-solid fa-rotate" @click="refreshCollection" />
+      <km-glyph v-if="recordReadonly" name="lock" size="16px" tone="muted" :title="m.access_readOnlyTooltip()" data-test="collection-readonly-icon" />
       <ds-dropdown-menu-root>
         <ds-dropdown-menu-trigger as-child>
           <km-btn class="px-xs" data-test="show-more-btn" flat icon="more-vertical" size="13px" />
         </ds-dropdown-menu-trigger>
         <ds-dropdown-menu-content side="bottom" align="end" :side-offset="4">
-          <ds-dropdown-menu-item data-test="clone-btn" @select="showNewDialog = true">{{ m.common_clone() }}</ds-dropdown-menu-item>
-          <ds-dropdown-menu-item data-test="delete-btn" variant="destructive" @select="showDeleteDialog = true">{{ m.common_delete() }}</ds-dropdown-menu-item>
+          <ds-dropdown-menu-item data-test="clone-btn" :disabled="!canCreate" @select="canCreate && (showNewDialog = true)">{{ m.common_clone() }}</ds-dropdown-menu-item>
+          <ds-dropdown-menu-item v-if="canDelete" data-test="delete-btn" variant="destructive" @select="showDeleteDialog = true">{{ m.common_delete() }}</ds-dropdown-menu-item>
         </ds-dropdown-menu-content>
       </ds-dropdown-menu-root>
       <km-popup-confirm :visible="showDeleteDialog" :confirm-button-label="m.deleteConfirm_deleteEntity({ entity: m.entity_knowledgeSource() })" :cancel-button-label="m.common_cancel()" notification-icon="warning" @confirm="deleteKnowledge" @cancel="showDeleteDialog = false">
@@ -25,7 +26,7 @@
     </template>
     <template #content>
       <km-tabs v-model="tab" :items="tabs" />
-      <div class="stack full-height full-width overflow-auto mb-md mt-lg" data-gap="lg" style="min-block-size: 0">
+      <div :inert="recordReadonly" :class="recordReadonly ? 'collection-readonly-zone' : null" class="stack full-height full-width overflow-auto mb-md mt-lg" data-gap="lg" style="min-block-size: 0">
         <div class="cluster full-height full-width" data-gap="lg">
           <div class="flex-1 full-height full-width">
             <div class="stack full-height full-width overflow-auto" data-gap="lg">
@@ -48,13 +49,13 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, provide } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { notify } from '@ds/composables/useNotify'
 import { useEntityQueries } from '@/queries/entities'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import { validSystemName } from '@/utils/validationRules'
-import { fetchData } from '@shared'
+import { fetchData, usePermissions } from '@shared'
 import { useCollectionMetadataStore } from '@/stores/entityDetailStores'
 import { useSearchStore } from '@/stores/searchStore'
 import { useAppStore } from '@/stores/appStore'
@@ -96,6 +97,21 @@ function clearSemanticSearchAnswers() {
 }
 
 const items = computed(() => listData.value?.items || [])
+
+// PR 10 — record-level permission gating mirrors Agents/details.vue.
+// Reads `_permissions` from the loaded collection (shipped by backend
+// after PR 10). Falls through to global capability for legacy records
+// without `_permissions` so existing UX doesn't regress.
+const { can, canOn } = usePermissions()
+const canEdit = computed(() => canOn(draft?.value, 'edit', 'collections'))
+const canDelete = computed(() => canOn(draft?.value, 'delete', 'collections'))
+const canCreate = computed(() => can('write:collections'))
+const recordReadonly = computed(() => {
+  const c = draft?.value
+  if (!c) return false
+  return canEdit.value === false
+})
+provide('collectionReadonly', recordReadonly)
 
 const name = computed({
   get() { return draft.value?.name || '' },
@@ -267,5 +283,12 @@ function formatDate(date) {
 <style>
 .wobble {
   animation: ds-attention-wobble var(--ds-duration-attention) infinite;
+}
+.collection-readonly-zone {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+.collection-readonly-zone :where(input, textarea, select, button, [role='button']) {
+  cursor: not-allowed;
 }
 </style>
