@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.26](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.25...v0.7.0-dev.26) (2026-05-16)
+
+### ✨ Features
+
+* **kg:** added ability to import entity schemas when there are zero ([196df4a](https://github.com/ideaportriga/magnet-ai/commit/196df4a952f3e48020356b577dd080dc9269bf35))
+* **kg:** added filter pattern filtering for the sharepoint source ([c85f18e](https://github.com/ideaportriga/magnet-ai/commit/c85f18efbcf40c189803063b3be8484642d16d56))
+
+### 🐛 Bug Fixes
+
+* **evaluation:** fixed race condition in pgvector client initialization ([278df49](https://github.com/ideaportriga/magnet-ai/commit/278df493e6bd3a83e9573157f619aaa6c43e92c7))
+* **observability:** fixed OOM crashed when exporting spans ([14096f2](https://github.com/ideaportriga/magnet-ai/commit/14096f2bd9a96d83ebc6a50e0ebc07349720f036))
+
 ## [0.7.0-dev.25](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.24...v0.7.0-dev.25) (2026-05-16)
 
 ### 🐛 Bug Fixes
