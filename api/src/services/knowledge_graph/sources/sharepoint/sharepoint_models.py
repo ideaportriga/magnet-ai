@@ -45,6 +45,10 @@ class SharePointRuntimeConfig:
     thumbprint: str | None = None
     private_key: str | None = None
 
+    # Optional comma-separated globs (normalized to lowercase tuple) applied at
+    # listing time. Empty tuple means no source-level filtering.
+    file_patterns: tuple[str, ...] = ()
+
 
 @dataclass(frozen=True)
 class SharePointFileRef:

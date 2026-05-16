@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import fnmatch
 import logging
 from datetime import datetime
 from pathlib import PurePath
@@ -132,8 +133,25 @@ class SharePointSyncPipeline(
                     )
 
                 # Fetch metadata for all files in this folder for intelligent sync
+                file_patterns = self._sharepoint_config.file_patterns
                 for f in files:
                     await ctx.inc("total_found")
+
+                    if file_patterns:
+                        name_lower = (f.name or "").lower()
+                        if not any(
+                            fnmatch.fnmatch(name_lower, p) for p in file_patterns
+                        ):
+                            logger.debug(
+                                "Skipping SharePoint file (file_patterns mismatch)",
+                                extra=self._log_extra(
+                                    worker_id=worker_id,
+                                    file=f.name,
+                                    patterns=",".join(file_patterns),
+                                ),
+                            )
+                            await ctx.inc("skipped")
+                            continue
 
                     if f.unique_id:
                         await self.track_source_document_id(f.unique_id)
