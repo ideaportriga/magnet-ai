@@ -83,6 +83,22 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
         )
         return result.scalar_one_or_none() is not None
 
+    @staticmethod
+    async def _source_types_by_graph(
+        db_session: AsyncSession, graph_ids: list[UUID]
+    ) -> dict[UUID, list[str]]:
+        if not graph_ids:
+            return {}
+        result = await db_session.execute(
+            select(KnowledgeGraphSource.graph_id, KnowledgeGraphSource.type)
+            .where(KnowledgeGraphSource.graph_id.in_(graph_ids))
+            .distinct()
+        )
+        mapping: dict[UUID, list[str]] = {}
+        for graph_id, source_type in result.all():
+            mapping.setdefault(graph_id, []).append(source_type)
+        return mapping
+
     async def list_graphs(
         self, db_session: AsyncSession
     ) -> list[KnowledgeGraphExternalSchema]:
@@ -90,6 +106,9 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
             select(KnowledgeGraph).order_by(KnowledgeGraph.created_at.desc())
         )
         graphs = list(result.scalars().all())
+
+        graph_ids = [graph.id for graph in graphs]
+        source_types_map = await self._source_types_by_graph(db_session, graph_ids)
 
         schemas: list[KnowledgeGraphExternalSchema] = []
         for graph in graphs:
@@ -103,6 +122,7 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
                     system_name=getattr(graph, "system_name", None),
                     description=getattr(graph, "description", None),
                     documents_count=documents_count,
+                    source_types=source_types_map.get(graph.id, []),
                     created_at=graph.created_at.isoformat()
                     if graph.created_at
                     else None,

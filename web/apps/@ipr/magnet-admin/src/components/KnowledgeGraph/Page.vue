@@ -41,6 +41,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useStore } from 'vuex'
 import CreateGraphDialog from './CreateGraphDialog.vue'
+import SourceTypesCell from './SourceTypesCell.vue'
 
 const router = useRouter()
 const store = useStore()
@@ -63,6 +64,15 @@ const columns = [
     field: 'documents_count',
     align: 'right',
     sortable: true,
+  },
+  {
+    name: 'source_types',
+    label: 'Sources',
+    field: 'source_types',
+    align: 'left',
+    sortable: false,
+    type: 'component',
+    component: SourceTypesCell,
   },
   {
     name: 'created_at',
