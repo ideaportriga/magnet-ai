@@ -5,12 +5,13 @@ from uuid import UUID
 
 from advanced_alchemy.extensions.litestar import repository, service
 from litestar.exceptions import NotFoundException
-from sqlalchemy import func, select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db.models.knowledge_graph import (
     KnowledgeGraph,
     KnowledgeGraphSource,
+    docs_table_name,
     resolve_vector_size_for_embedding_model,
 )
 from core.domain.ai_models.service import AIModelsService
@@ -48,17 +49,28 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
     """Service for Knowledge Graph operations."""
 
     @staticmethod
-    def _documents_count_subquery():
-        return (
-            select(
-                KnowledgeGraphSource.graph_id.label("graph_id"),
-                func.coalesce(func.sum(KnowledgeGraphSource.documents_count), 0).label(
-                    "documents_count"
-                ),
+    async def _documents_count_for_graph(
+        db_session: AsyncSession, graph_id: UUID
+    ) -> int:
+        """Live document count for a single graph, computed on read.
+
+        Returns 0 when the per-graph docs table doesn't exist (e.g. graph has
+        no embedding model configured yet, so the table was never created).
+        """
+        try:
+            docs_table = docs_table_name(graph_id)
+            result = await db_session.execute(
+                text(f"SELECT COUNT(*) FROM {docs_table}")
             )
-            .group_by(KnowledgeGraphSource.graph_id)
-            .subquery()
-        )
+            return int(result.scalar_one() or 0)
+        except Exception:
+            # Roll back so the session remains usable for subsequent ops
+            # (e.g. the framework's auto-commit on response).
+            try:
+                await db_session.rollback()
+            except Exception:  # noqa: BLE001
+                pass
+            return 0
 
     async def _has_sources_of_type(
         self, db_session: AsyncSession, *, graph_id: UUID, source_type: str
@@ -74,55 +86,43 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
     async def list_graphs(
         self, db_session: AsyncSession
     ) -> list[KnowledgeGraphExternalSchema]:
-        documents_count_sq = self._documents_count_subquery()
-
         result = await db_session.execute(
-            select(
-                KnowledgeGraph,
-                func.coalesce(documents_count_sq.c.documents_count, 0).label(
-                    "documents_count"
-                ),
-            )
-            .outerjoin(
-                documents_count_sq, documents_count_sq.c.graph_id == KnowledgeGraph.id
-            )
-            .order_by(KnowledgeGraph.created_at.desc())
+            select(KnowledgeGraph).order_by(KnowledgeGraph.created_at.desc())
         )
-        rows = result.all()
+        graphs = list(result.scalars().all())
 
-        return [
-            KnowledgeGraphExternalSchema(
-                id=str(graph.id),
-                name=graph.name,
-                system_name=getattr(graph, "system_name", None),
-                description=getattr(graph, "description", None),
-                documents_count=int(documents_count or 0),
-                created_at=graph.created_at.isoformat() if graph.created_at else None,
-                updated_at=graph.updated_at.isoformat() if graph.updated_at else None,
+        schemas: list[KnowledgeGraphExternalSchema] = []
+        for graph in graphs:
+            documents_count = await self._documents_count_for_graph(
+                db_session, graph.id
             )
-            for graph, documents_count in rows
-        ]
+            schemas.append(
+                KnowledgeGraphExternalSchema(
+                    id=str(graph.id),
+                    name=graph.name,
+                    system_name=getattr(graph, "system_name", None),
+                    description=getattr(graph, "description", None),
+                    documents_count=documents_count,
+                    created_at=graph.created_at.isoformat()
+                    if graph.created_at
+                    else None,
+                    updated_at=graph.updated_at.isoformat()
+                    if graph.updated_at
+                    else None,
+                )
+            )
+        return schemas
 
     async def get_graph(
         self, db_session: AsyncSession, graph_id: UUID
     ) -> KnowledgeGraphExternalSchema:
-        documents_count_sq = self._documents_count_subquery()
         graph_res = await db_session.execute(
-            select(
-                KnowledgeGraph,
-                func.coalesce(documents_count_sq.c.documents_count, 0).label(
-                    "documents_count"
-                ),
-            )
-            .outerjoin(
-                documents_count_sq, documents_count_sq.c.graph_id == KnowledgeGraph.id
-            )
-            .where(KnowledgeGraph.id == graph_id)
+            select(KnowledgeGraph).where(KnowledgeGraph.id == graph_id)
         )
-        row = graph_res.one_or_none()
-        if not row:
+        graph = graph_res.scalar_one_or_none()
+        if not graph:
             raise NotFoundException("Graph not found")
-        graph, documents_count = row
+        documents_count = await self._documents_count_for_graph(db_session, graph.id)
         settings = (
             build_graph_settings_with_virtual_last_resort_profile(
                 getattr(graph, "settings", None)
@@ -135,7 +135,7 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
             name=graph.name,
             system_name=getattr(graph, "system_name", None),
             description=getattr(graph, "description", None),
-            documents_count=int(documents_count or 0),
+            documents_count=documents_count,
             settings=settings,
             state=getattr(graph, "state", None),
             created_at=graph.created_at.isoformat() if graph.created_at else None,

@@ -2,14 +2,15 @@ import logging
 import re
 import time
 from abc import ABC, abstractmethod
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
 from litestar.exceptions import ClientException
-from sqlalchemy import select, text
+from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.config.app import alchemy
 from core.db.models.knowledge_graph import (
     KnowledgeGraphChunk,
     KnowledgeGraphSource,
@@ -20,6 +21,7 @@ from core.domain.knowledge_graph.services import (
     KnowledgeGraphDocumentService,
 )
 from open_ai.utils_new import get_embeddings
+from utils.datetime_utils import utc_now_isoformat
 
 from ..content_config_services import get_graph_embedding_model
 from ..content_split_services import split_content
@@ -69,7 +71,6 @@ class AbstractDataSource(ABC):
                 graph_id=graph_id,
                 config={},
                 status=status,
-                documents_count=0,
             )
             db_session.add(source_entity)
             await db_session.commit()
@@ -601,7 +602,12 @@ class AbstractDataSource(ABC):
     async def _finalize(
         self, db_session: AsyncSession, *, counters: SyncCounters
     ) -> None:
-        """Finalize source status, timestamps, and document count after a sync run."""
+        """Finalize source status and timestamp after a sync run.
+
+        Uses a fresh, short-lived session for the final UPDATE so an
+        invalidated long-lived ``db_session`` (e.g. asyncpg connection dropped
+        mid-sync) does not prevent us from recording the outcome.
+        """
 
         # Determine final status based on sync results.
         #
@@ -610,27 +616,31 @@ class AbstractDataSource(ABC):
         # - partial: some succeeded, some failed
         # - failed: nothing succeeded and at least one failed
         if counters.synced > 0 and counters.failed == 0:
-            self.source.status = "completed"
+            final_status = "completed"
         elif counters.synced > 0 and counters.failed > 0:
-            self.source.status = "partial"
+            final_status = "partial"
         elif counters.synced == 0 and counters.failed > 0:
-            self.source.status = "failed"
-        elif counters.synced == 0 and counters.failed == 0:
-            # Nothing found or everything skipped
-            self.source.status = "completed"
+            final_status = "failed"
+        else:
+            final_status = "completed"
 
-        self.source.last_sync_at = datetime.now(timezone.utc).isoformat()
+        last_sync_at = utc_now_isoformat()
+
+        # Keep in-memory ORM attributes consistent for any caller still
+        # inspecting `self.source` after this method returns.
+        self.source.status = final_status
+        self.source.last_sync_at = last_sync_at
+
         try:
-            docs_table = docs_table_name(self.source.graph_id)
-            count_result = await db_session.execute(
-                text(f"SELECT COUNT(*) FROM {docs_table} WHERE source_id = :sid"),
-                {"sid": str(self.source.id)},
-            )
-            self.source.documents_count = int(count_result.scalar_one() or 0)
+            async with alchemy.get_session() as fresh:
+                await fresh.execute(
+                    update(KnowledgeGraphSource)
+                    .where(KnowledgeGraphSource.id == self.source.id)
+                    .values(status=final_status, last_sync_at=last_sync_at)
+                )
+                await fresh.commit()
         except Exception:
             logger.warning(
-                "Failed to recalculate documents_count for source %s",
+                "Failed to persist final source status for %s",
                 str(self.source.id),
             )
-
-        await db_session.commit()

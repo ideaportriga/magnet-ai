@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 from uuid import UUID
 
 from litestar.exceptions import ClientException, NotFoundException
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config.app import alchemy
@@ -13,26 +14,48 @@ from services.observability import observability_context, observe
 from services.observability.models import FeatureType
 from utils.datetime_utils import utc_now_isoformat
 
+logger = logging.getLogger(__name__)
+
+
+async def _record_source_failure(source_id: UUID) -> None:
+    """Persist a failure status on the source using a fresh session.
+
+    The long-lived sync session may be invalid (asyncpg connection dropped
+    mid-sync), so we cannot rely on it for the final status write.
+    """
+
+    try:
+        async with alchemy.get_session() as recovery:
+            await recovery.execute(
+                update(KnowledgeGraphSource)
+                .where(KnowledgeGraphSource.id == source_id)
+                .values(
+                    status="failed",
+                    last_sync_at=utc_now_isoformat(),
+                )
+            )
+            await recovery.commit()
+    except Exception:  # noqa: BLE001
+        logger.warning("Failed to record sync failure for source %s", str(source_id))
+
 
 async def sync_source_background(graph_id: UUID, source_id: UUID) -> None:
     """Run sync in background with its own database session.
 
     This method is called via asyncio.create_task() and should not raise exceptions
-    to the caller. All errors are logged and stored in the source status.
+    to the caller. All errors are logged and stored in the source status via a
+    fresh session, since the primary session may be invalidated by the failure.
     """
 
     try:
         async with alchemy.get_session() as db_session:
             await _sync_source_impl(db_session, graph_id, source_id)
     except Exception as e:  # noqa: BLE001
-        # Log the error but don't raise - this is running in background
-        import logging
-
-        logger = logging.getLogger(__name__)
         logger.error(
             f"Background sync failed for graph {graph_id} source {source_id}: {e}",
             exc_info=True,
         )
+        await _record_source_failure(source_id)
 
 
 async def sync_source(
@@ -94,13 +117,11 @@ async def _sync_source_impl(
                 f"Sync for source type '{source.type}' is not implemented"
             )
 
-        # Type-specific sync should set final status; update last_sync_at for visibility
-        source.last_sync_at = utc_now_isoformat()
-        await db_session.commit()
+        # `_finalize` (called inside `sync_source` on each concrete source)
+        # already persists `status` and `last_sync_at` via a fresh session.
         return summary
     except Exception as e:  # noqa: BLE001
-        source.status = "failed"
-        if hasattr(source, "status_message"):
-            setattr(source, "status_message", str(e))
-        await db_session.commit()
+        # The long-lived session is likely invalidated; use a fresh one so
+        # the failure is always recorded for both background and scheduled paths.
+        await _record_source_failure(source_id)
         raise ClientException(f"Sync failed: {e}")

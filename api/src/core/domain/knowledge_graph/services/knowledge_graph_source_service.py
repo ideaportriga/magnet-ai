@@ -43,6 +43,35 @@ class KnowledgeGraphSourceService(
         )
         return result.scalar_one_or_none() is not None
 
+    async def _counts_by_source(
+        self, db_session: AsyncSession, graph_id: UUID
+    ) -> dict[str, int]:
+        """Return the live document count per source for a graph.
+
+        Computed on read from the per-graph docs table so we don't have to
+        maintain a denormalized counter that drifts (and that breaks long
+        syncs when the COUNT runs on an invalidated connection). Returns an
+        empty dict if the docs table doesn't exist (e.g. graph has no
+        embedding model configured yet).
+        """
+        try:
+            docs_table = docs_table_name(graph_id)
+            result = await db_session.execute(
+                text(
+                    f"SELECT source_id::text, COUNT(*) FROM {docs_table} "
+                    f"GROUP BY source_id"
+                )
+            )
+            return {row[0]: int(row[1]) for row in result.all()}
+        except Exception:
+            # Roll back so the session remains usable for subsequent ops
+            # (e.g. the framework's auto-commit on response).
+            try:
+                await db_session.rollback()
+            except Exception:  # noqa: BLE001
+                pass
+            return {}
+
     async def set_source_status(
         self, db_session: AsyncSession, source_id: UUID, status: str
     ) -> None:
@@ -63,6 +92,7 @@ class KnowledgeGraphSourceService(
             .order_by(KnowledgeGraphSource.created_at.desc())
         )
         rows = result.all()
+        counts = await self._counts_by_source(db_session, graph_id)
 
         def build_schedule(
             job: JobModel | None,
@@ -84,7 +114,7 @@ class KnowledgeGraphSourceService(
                 type=source.type,
                 config=source.config,
                 status=source.status,
-                documents_count=int(source.documents_count or 0),
+                documents_count=counts.get(str(source.id), 0),
                 last_sync_at=source.last_sync_at,
                 created_at=source.created_at.isoformat() if source.created_at else None,
                 schedule=build_schedule(job),
@@ -120,7 +150,6 @@ class KnowledgeGraphSourceService(
                 "graph_id": graph_id,
                 "config": data.config or {},
                 "status": "not_synced",
-                "documents_count": 0,
             }
         )
 
@@ -166,13 +195,15 @@ class KnowledgeGraphSourceService(
 
         await db_session.commit()
 
+        counts = await self._counts_by_source(db_session, graph_id)
+
         return KnowledgeGraphSourceExternalSchema(
             id=str(source.id),
             name=source.name,
             type=source.type,
             config=source.config,
             status=source.status,
-            documents_count=int(source.documents_count or 0),
+            documents_count=counts.get(str(source.id), 0),
             last_sync_at=source.last_sync_at,
             created_at=source.created_at.isoformat() if source.created_at else None,
         )

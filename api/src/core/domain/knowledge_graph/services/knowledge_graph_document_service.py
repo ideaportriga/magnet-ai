@@ -584,8 +584,6 @@ class KnowledgeGraphDocumentService:
             document_id = res.scalar_one()
             await db_session.commit()
 
-        await self._refresh_documents_count(db_session, source)
-
         return {"id": document_id, "graph_id": str(source.graph_id), "name": base_name}
 
     async def update_document(
@@ -723,22 +721,6 @@ class KnowledgeGraphDocumentService:
             },
         )
         await db_session.commit()
-
-    async def _refresh_documents_count(
-        self, db_session: AsyncSession, source: KnowledgeGraphSource
-    ):
-        try:
-            table = docs_table_name(source.graph_id)
-            res = await db_session.execute(
-                text(f"SELECT COUNT(*) FROM {table} WHERE source_id = :sid"),
-                {"sid": str(source.id)},
-            )
-            source.documents_count = int(res.scalar_one() or 0)
-            await db_session.commit()
-        except Exception:
-            logger.warning(
-                "Failed to update documents_count for source %s", str(source.id)
-            )
 
     async def delete_document(
         self, db_session: AsyncSession, graph_id: UUID, id: UUID

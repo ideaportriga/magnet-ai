@@ -5,7 +5,7 @@ from uuid import UUID
 
 from advanced_alchemy.base import UUIDv7AuditBase
 from advanced_alchemy.types import GUID, JsonB
-from sqlalchemy import ForeignKey, Integer, String
+from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
@@ -65,14 +65,6 @@ class KnowledgeGraphSource(UUIDv7AuditBase):
         String(50),
         nullable=True,
         comment="Source status",
-    )
-
-    # Number of documents from this source
-    documents_count: Mapped[Optional[int]] = mapped_column(
-        Integer,
-        nullable=True,
-        default=0,
-        comment="Number of documents from this source",
     )
 
     # Last sync timestamp
