@@ -22,9 +22,29 @@
               :disable="!slotScope.row.external_link"
               @click.stop="emit('open-external-link', slotScope.row.external_link)"
             />
-            <q-btn dense flat color="dark" icon="more_vert" :disable="deletingIds.has(slotScope.row.id)" @click.stop>
+            <q-btn
+              dense
+              flat
+              color="dark"
+              icon="more_vert"
+              :disable="deletingIds.has(slotScope.row.id) || extractingMetadataIds.has(slotScope.row.id) || extractingEntityIds.has(slotScope.row.id)"
+              @click.stop
+            >
               <q-menu anchor="bottom right" self="top right" auto-close>
                 <q-list dense>
+                  <q-item clickable @click="emit('extract-metadata', slotScope.row)">
+                    <q-item-section thumbnail>
+                      <q-icon name="fact_check" color="primary" size="20px" class="q-ml-sm" />
+                    </q-item-section>
+                    <q-item-section>Run metadata extraction</q-item-section>
+                  </q-item>
+                  <q-item clickable @click="emit('extract-entities', slotScope.row)">
+                    <q-item-section thumbnail>
+                      <q-icon name="account_tree" color="primary" size="20px" class="q-ml-sm" />
+                    </q-item-section>
+                    <q-item-section>Run entity extraction</q-item-section>
+                  </q-item>
+                  <q-separator />
                   <q-item clickable @click="emit('delete-document', slotScope.row)">
                     <q-item-section thumbnail>
                       <q-icon name="delete" color="negative" size="20px" class="q-ml-sm" />
@@ -67,12 +87,16 @@ import type { Document } from './models'
 const props = defineProps<{
   documents: Document[]
   deletingIds: Set<string>
+  extractingMetadataIds: Set<string>
+  extractingEntityIds: Set<string>
 }>()
 
 const emit = defineEmits<{
   'document-click': [row: Document]
   'delete-document': [row: Document]
   'open-external-link': [url?: string]
+  'extract-metadata': [row: Document]
+  'extract-entities': [row: Document]
 }>()
 
 const pagination = ref({ rowsPerPage: 10, page: 1 })

@@ -310,13 +310,21 @@ class KnowledgeGraphMetadataService:
 
         schema_str = build_typescript_schema_from_field_definitions(extracted_defs)
 
-        # Reset aggregated stats so the UI reflects the current extraction run.
-        await db_session.execute(
-            update(KnowledgeGraphMetadataExtraction)
-            .where(KnowledgeGraphMetadataExtraction.graph_id == graph_id)
-            .values(sample_values=None, value_count=0, updated_at=func.now())
+        document_ids = (
+            [str(d).strip() for d in data.document_ids if str(d).strip()]
+            if getattr(data, "document_ids", None)
+            else None
         )
-        await db_session.commit()
+
+        # Reset aggregated stats only for full-graph runs; per-document runs
+        # should not wipe sample values collected from other documents.
+        if not document_ids:
+            await db_session.execute(
+                update(KnowledgeGraphMetadataExtraction)
+                .where(KnowledgeGraphMetadataExtraction.graph_id == graph_id)
+                .values(sample_values=None, value_count=0, updated_at=func.now())
+            )
+            await db_session.commit()
 
         result = await run_graph_llm_metadata_extraction(
             db_session,
@@ -327,6 +335,7 @@ class KnowledgeGraphMetadataService:
             schema=schema_str,
             segment_size=segment_size,
             segment_overlap=segment_overlap,
+            document_ids=document_ids,
         )
 
         return KnowledgeGraphMetadataExtractionRunResponse(status="ok", **result)

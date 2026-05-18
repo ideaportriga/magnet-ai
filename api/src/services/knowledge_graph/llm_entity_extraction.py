@@ -2179,6 +2179,7 @@ async def run_graph_llm_entity_extraction(
     document_coverage_coverage: float = 0.5,
     progress_callback: Any | None = None,
     cancel_check: Any | None = None,
+    document_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     prompt_template_system_name = str(prompt_template_system_name or "").strip()
     if not prompt_template_system_name:
@@ -2270,6 +2271,13 @@ async def run_graph_llm_entity_extraction(
     docs_tbl = docs_table_name(graph_id)
     chunks_tbl = chunks_table_name(graph_id)
 
+    doc_id_filter = (
+        "AND d.id = ANY(CAST(:document_ids AS uuid[]))"
+        if document_ids is not None
+        else ""
+    )
+    doc_id_params = {"document_ids": document_ids} if document_ids is not None else {}
+
     if approach == "document":
         # Count total documents for progress tracking
         total_docs_res = await db_session.execute(
@@ -2278,8 +2286,10 @@ async def run_graph_llm_entity_extraction(
                 SELECT COUNT(*) FROM {docs_tbl} d
                 WHERE d.pipeline_state->'entity_extraction'->>'status' IS DISTINCT FROM 'completed'
                   AND EXISTS (SELECT 1 FROM {chunks_tbl} c WHERE c.document_id = d.id)
+                  {doc_id_filter}
                 """
-            )
+            ),
+            doc_id_params,
         )
         total_docs = total_docs_res.scalar_one() or 0
         await db_session.commit()
@@ -2311,11 +2321,12 @@ async def run_graph_llm_entity_extraction(
                     FROM {docs_tbl} d
                     WHERE d.pipeline_state->'entity_extraction'->>'status' IS DISTINCT FROM 'completed'
                       AND EXISTS (SELECT 1 FROM {chunks_tbl} c WHERE c.document_id = d.id)
+                      {doc_id_filter}
                     ORDER BY d.created_at DESC
                     LIMIT :limit OFFSET :offset
                     """
                 ),
-                {"limit": int(batch_size), "offset": int(offset)},
+                {"limit": int(batch_size), "offset": int(offset), **doc_id_params},
             )
             batch = batch_res.mappings().all()
             await db_session.commit()
@@ -2434,9 +2445,11 @@ async def run_graph_llm_entity_extraction(
                 SELECT 1 FROM {chunks_tbl} c WHERE c.document_id = d.id
             )
             AND d.pipeline_state->'entity_extraction'->>'status' IS DISTINCT FROM 'completed'
+            {doc_id_filter}
             ORDER BY d.created_at DESC
             """
-        )
+        ),
+        doc_id_params,
     )
     docs_rows = docs_res.mappings().all()
     await db_session.commit()
@@ -2871,6 +2884,11 @@ async def run_entity_extraction(
         return await _is_extraction_cancelled(db_session, graph_id)
 
     try:
+        document_ids = (
+            [str(d).strip() for d in data.document_ids if str(d).strip()]
+            if getattr(data, "document_ids", None)
+            else None
+        )
         extraction_result = await run_graph_llm_entity_extraction(
             db_session,
             graph_id=graph_id,
@@ -2893,6 +2911,7 @@ async def run_entity_extraction(
             document_coverage_coverage=document_coverage_coverage,
             progress_callback=_progress_cb,
             cancel_check=_cancel_check,
+            document_ids=document_ids,
         )
         final_status = (
             "cancelled" if extraction_result.get("cancelled") else "completed"

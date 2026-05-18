@@ -128,6 +128,10 @@ class KnowledgeGraphMetadataExtractionRunRequest(BaseModel):
         le=0.9,
         description="Segment overlap ratio 0..0.9 (used when approach=document)",
     )
+    document_ids: Optional[list[str]] = Field(
+        default=None,
+        description="Optional list of document IDs to extract. If omitted, all documents are processed.",
+    )
 
 
 class KnowledgeGraphMetadataExtractionRunResponse(BaseModel):
@@ -557,6 +561,10 @@ class KnowledgeGraphEntityExtractionRunRequest(BaseModel):
             "When set, each chunk is classified by a lightweight LLM call and "
             "dropped if irrelevant before segmentation."
         ),
+    )
+    document_ids: Optional[list[str]] = Field(
+        default=None,
+        description="Optional list of document IDs to extract. If omitted, all documents are processed.",
     )
 
 

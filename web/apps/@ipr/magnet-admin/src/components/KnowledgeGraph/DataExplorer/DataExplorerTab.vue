@@ -78,9 +78,13 @@
         v-if="viewMode === 'documents' && !loading && filteredDocuments.length > 0"
         :documents="filteredDocuments"
         :deleting-ids="deletingIds"
+        :extracting-metadata-ids="extractingMetadataIds"
+        :extracting-entity-ids="extractingEntityIds"
         @document-click="onDocumentClick"
         @delete-document="confirmDelete"
         @open-external-link="openExternalLink"
+        @extract-metadata="onExtractMetadata"
+        @extract-entities="onExtractEntities"
       />
 
       <entities-table
@@ -139,6 +143,7 @@
 
 <script setup lang="ts">
 import { fetchData } from '@shared'
+import { useQuasar } from 'quasar'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useStore } from 'vuex'
@@ -154,9 +159,12 @@ const props = defineProps<{
 
 const router = useRouter()
 const store = useStore()
+const $q = useQuasar()
 
 const documents = ref<Document[]>([])
 const deletingIds = ref<Set<string>>(new Set())
+const extractingMetadataIds = ref<Set<string>>(new Set())
+const extractingEntityIds = ref<Set<string>>(new Set())
 const searchQuery = ref('')
 const loading = ref(false)
 const viewMode = ref<'documents' | 'entities'>('documents')
@@ -334,6 +342,58 @@ const openExternalLink = (url?: string) => {
   const target = (url || '').trim()
   if (!target) return
   window.open(target, '_blank', 'noopener')
+}
+
+const onExtractMetadata = async (doc: Document) => {
+  extractingMetadataIds.value = new Set([...extractingMetadataIds.value, doc.id])
+  try {
+    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const response = await fetchData({
+      endpoint,
+      service: `knowledge_graphs/${props.graphId}/metadata/extract`,
+      method: 'POST',
+      credentials: 'include',
+      body: JSON.stringify({ document_ids: [doc.id] }),
+    })
+    if (response.ok) {
+      $q.notify({ type: 'positive', message: `Metadata extraction completed for "${doc.title || doc.name}"` })
+    } else {
+      const err = await response.json().catch(() => ({}))
+      $q.notify({ type: 'negative', message: (err as any)?.detail || `Failed to extract metadata for "${doc.title || doc.name}"` })
+    }
+  } catch {
+    $q.notify({ type: 'negative', message: 'Metadata extraction failed' })
+  } finally {
+    const next = new Set(extractingMetadataIds.value)
+    next.delete(doc.id)
+    extractingMetadataIds.value = next
+  }
+}
+
+const onExtractEntities = async (doc: Document) => {
+  extractingEntityIds.value = new Set([...extractingEntityIds.value, doc.id])
+  try {
+    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const response = await fetchData({
+      endpoint,
+      service: `knowledge_graphs/${props.graphId}/entities/extract`,
+      method: 'POST',
+      credentials: 'include',
+      body: JSON.stringify({ document_ids: [doc.id] }),
+    })
+    if (response.ok) {
+      $q.notify({ type: 'positive', message: `Entity extraction started for "${doc.title || doc.name}"` })
+    } else {
+      const err = await response.json().catch(() => ({}))
+      $q.notify({ type: 'negative', message: (err as any)?.detail || `Failed to start entity extraction for "${doc.title || doc.name}"` })
+    }
+  } catch {
+    $q.notify({ type: 'negative', message: 'Entity extraction failed' })
+  } finally {
+    const next = new Set(extractingEntityIds.value)
+    next.delete(doc.id)
+    extractingEntityIds.value = next
+  }
 }
 
 const confirmDeleteEntityRecord = (row: EntityRecord) => {

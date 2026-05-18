@@ -360,6 +360,7 @@ async def run_graph_llm_metadata_extraction(
     schema: str | None = None,
     segment_size: int = 18000,
     segment_overlap: float = 0.1,
+    document_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     """Run LLM metadata extraction for all items in a knowledge graph.
 
@@ -408,6 +409,11 @@ async def run_graph_llm_metadata_extraction(
         offset = 0
 
         while True:
+            doc_id_filter = (
+                "AND d.id = ANY(CAST(:document_ids AS uuid[]))"
+                if document_ids is not None
+                else ""
+            )
             batch_res = await db_session.execute(
                 text(
                     f"""
@@ -417,11 +423,20 @@ async def run_graph_llm_metadata_extraction(
                     WHERE EXISTS (
                         SELECT 1 FROM {chunks_tbl} c WHERE c.document_id = d.id
                     )
+                    {doc_id_filter}
                     ORDER BY created_at DESC
                     LIMIT :limit OFFSET :offset
                     """
                 ),
-                {"limit": int(batch_size), "offset": int(offset)},
+                {
+                    "limit": int(batch_size),
+                    "offset": int(offset),
+                    **(
+                        {"document_ids": document_ids}
+                        if document_ids is not None
+                        else {}
+                    ),
+                },
             )
             batch = batch_res.mappings().all()
             # End the read transaction before any LLM calls
@@ -517,6 +532,11 @@ async def run_graph_llm_metadata_extraction(
     #
     # We intentionally process per-document (read chunks -> commit -> call LLM -> write -> commit)
     # to avoid long-running DB transactions and server-side cursors.
+    doc_id_filter_chunks = (
+        "AND d.id = ANY(CAST(:document_ids AS uuid[]))"
+        if document_ids is not None
+        else ""
+    )
     docs_res = await db_session.execute(
         text(
             f"""
@@ -526,9 +546,11 @@ async def run_graph_llm_metadata_extraction(
             WHERE EXISTS (
                 SELECT 1 FROM {chunks_tbl} c WHERE c.document_id = d.id
             )
+            {doc_id_filter_chunks}
             ORDER BY d.created_at DESC
             """
-        )
+        ),
+        {"document_ids": document_ids} if document_ids is not None else {},
     )
     docs_rows = docs_res.mappings().all()
     await db_session.commit()  # close read transaction before LLM work
