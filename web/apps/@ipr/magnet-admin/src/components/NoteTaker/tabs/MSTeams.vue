@@ -45,7 +45,7 @@
       </div>
       <div>
         <div class="km-field text-secondary-text pb-xs pl-sm">System Name</div>
-        <km-input v-if="showProviderDialog" v-model="providerForm.system_name" height="30px" :placeholder="m.noteTaker_myTeamsBotSystemName()" :rules="[required()]" :disable="!!editingProvider" />
+        <km-input v-if="showProviderDialog" v-model="providerForm.system_name" height="30px" :placeholder="m.noteTaker_myTeamsBotSystemName()" :rules="[required()]" :disabled="!!editingProvider" />
         <div v-if="!editingProvider" class="km-description text-secondary-text pt-2xs pl-sm">Auto-generated from name. Used in the messaging endpoint URL.</div>
       </div>
       <div v-if="providerForm.system_name">
@@ -157,11 +157,9 @@ const acceptCommandsFromNonOrganizer = computed({
   set: (v: boolean) => ntStore.updateSetting( { path: 'accept_commands_from_non_organizer', value: v }),
 })
 
-// ── Messaging endpoint (Azure Bot configuration) ──────────────────────
+// Messaging endpoint for Azure Bot configuration.
 // Path mirrors backend `/api/user/agents/teams/note-taker/{provider_system_name}/messages`
-// (see routes/user/agents.py:617). Operators paste this into the Bot
-// Channels Registration "Messaging endpoint" field so Azure routes
-// activities to the right runtime in NoteTakerRegistry.
+// so Azure routes activities to the right runtime in NoteTakerRegistry.
 const apiBase = computed(() => {
   const adminUrl: string = appStore.config?.api?.aiBridge?.urlAdmin || ''
   try {
@@ -230,7 +228,7 @@ const openEditProvider = () => {
     name: prov.name || '',
     system_name: prov.system_name || '',
     client_id: secrets.client_id || '',
-    client_secret: '', // never round-trip secret back — empty means "keep existing"
+    client_secret: '', // never round-trip secret back; empty means "keep existing"
     tenant_id: secrets.tenant_id || '',
     auth_handler_id: conn.auth_handler_id || '',
   })
@@ -246,15 +244,12 @@ const closeProviderDialog = () => {
 const saveProvider = async () => {
   if (!providerForm.name.trim() || !providerForm.system_name.trim()) return
 
-  // Build secrets payload. On edit, empty client_secret means "leave as-is",
-  // so we omit it from the JSONB; the encrypted column merges by key on the
-  // backend (see Provider model). On create, we always include all three.
+  // Build secrets payload. On edit, an empty value means "leave as-is";
+  // the backend preserves existing values only for keys that are present.
   const secrets: any = {
     client_id: providerForm.client_id,
+    client_secret: providerForm.client_secret,
     tenant_id: providerForm.tenant_id,
-  }
-  if (providerForm.client_secret) {
-    secrets.client_secret = providerForm.client_secret
   }
 
   if (editingProvider.value) {
@@ -272,7 +267,7 @@ const saveProvider = async () => {
       name: providerForm.name,
       system_name: providerForm.system_name,
       type: 'teams_note_taker',
-      secrets_encrypted: { ...secrets, client_secret: providerForm.client_secret },
+      secrets_encrypted: secrets,
       connection_config: { auth_handler_id: providerForm.auth_handler_id || '' },
     } as any)
     if (!success) return

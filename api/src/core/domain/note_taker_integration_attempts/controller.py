@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Annotated, Any, Optional
+from typing import Annotated, Any, Optional
 from uuid import UUID
 
 from advanced_alchemy.extensions.litestar import filters, providers, service
@@ -22,10 +22,6 @@ from .schemas import (
     NoteTakerIntegrationAttemptSchema,
 )
 
-if TYPE_CHECKING:
-    pass
-
-
 _KNOWN_KINDS = frozenset({"confluence", "salesforce", "knowledge_graph"})
 _KNOWN_STATUSES = frozenset({"pending", "done", "failed"})
 
@@ -36,10 +32,9 @@ class NoteTakerIntegrationAttemptsController(Controller):
     Read endpoint gives operators a way to see which integration
     publishes silently dropped (`status='failed'`, `error_class`, last
     `finished_at`) without dropping into psql. The retry endpoint
-    re-arms `next_retry_at` so the housekeeping sweeper picks the row
-    up on its next tick — works for integrations that have a replay
-    task (knowledge_graph today; Confluence + Salesforce remain
-    operator-driven via `note_taker_jobs/{settings_id}/rerun`).
+    re-arms `next_retry_at` so the housekeeping sweeper can pick the
+    row up on its next tick, and immediately enqueues a replay task
+    for integration kinds that have one.
     """
 
     path = "/note-taker/integration-attempts"
@@ -142,12 +137,9 @@ class NoteTakerIntegrationAttemptsController(Controller):
     ) -> IntegrationAttemptRetryResponse:
         """Force a retry of one failed integration attempt.
 
-        Sets `next_retry_at = now()` so the next sweeper tick picks it
-        up. For `knowledge_graph` we additionally kiq() the replay task
-        right away so operators don't have to wait for the cron beat;
-        for Confluence/Salesforce there's no extracted replay task yet
-        so we only re-arm — the operator can also use the heavier
-        `rerun_postprocessing` endpoint for a full pipeline replay.
+        Sets `next_retry_at = now()` so the next sweeper tick can pick
+        it up. If the integration kind has a replay task, kiq() it right
+        away so operators do not have to wait for the cron beat.
         """
         obj = await attempts_service.get(attempt_id)
         if obj.status != "failed":
