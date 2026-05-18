@@ -139,11 +139,17 @@ const pageSizeOptionItems = computed(() =>
               @keydown.space.prevent="header.column.getCanSort() ? header.column.toggleSorting() : undefined"
             >
               <span class="km-data-table__th-inner" :class="{ 'km-data-table__th-inner--sortable': header.column.getCanSort() }">
-                <FlexRender
+                <slot
                   v-if="!header.isPlaceholder"
-                  :render="header.column.columnDef.header"
-                  :props="header.getContext()"
-                />
+                  :name="`header-${header.column.id}`"
+                  :header="header"
+                  :column="header.column"
+                >
+                  <FlexRender
+                    :render="header.column.columnDef.header"
+                    :props="header.getContext()"
+                  />
+                </slot>
                 <KmGlyph
                   v-if="header.column.getIsSorted()"
                   :name="header.column.getIsSorted() === 'desc' ? 'arrow_downward' : 'arrow_upward'"

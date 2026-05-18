@@ -430,25 +430,4 @@ code {
   transform: translateX(12px);
 }
 
-/* Scrollbar */
-.errors-container::-webkit-scrollbar,
-.code-preview::-webkit-scrollbar {
-  inline-size: 6px;
-}
-
-.errors-container::-webkit-scrollbar-track,
-.code-preview::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.errors-container::-webkit-scrollbar-thumb,
-.code-preview::-webkit-scrollbar-thumb {
-  background: var(--ds-color-border-2);
-  border-radius: var(--ds-radius-xs);
-}
-
-.errors-container::-webkit-scrollbar-thumb:hover,
-.code-preview::-webkit-scrollbar-thumb:hover {
-  background: var(--ds-color-icon);
-}
 </style>

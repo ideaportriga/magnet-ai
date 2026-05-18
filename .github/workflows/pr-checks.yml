@@ -50,36 +50,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: 'api/uv.lock'
+
       - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      
-      - name: Cache Poetry
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/pypoetry
-            api/.venv
-          key: ${{ runner.os }}-poetry-${{ hashFiles('api/poetry.lock') }}
-      
-      - name: Install Poetry
-        run: |
-          curl -sSL https://install.python-poetry.org | python3 -
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
-      
+        run: uv python install 3.12
+
       - name: Install dependencies
-        run: |
-          poetry config virtualenvs.in-project true
-          poetry install --no-interaction --only main,dev
-      
+        run: uv sync --frozen
+
       - name: Run Ruff check
-        run: |
-          poetry run ruff check . --output-format=github --exit-non-zero-on-fix
-      
+        run: uv run ruff check . --output-format=github --exit-non-zero-on-fix
+
       - name: Run Ruff format check
-        run: |
-          poetry run ruff format --check . --diff
+        run: uv run ruff format --check . --diff
 
   api-test:
     name: API - Tests
@@ -94,32 +81,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: 'api/uv.lock'
+
       - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      
-      - name: Cache Poetry
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/pypoetry
-            api/.venv
-          key: ${{ runner.os }}-poetry-${{ hashFiles('api/poetry.lock') }}
-      
-      - name: Install Poetry
-        run: |
-          curl -sSL https://install.python-poetry.org | python3 -
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
-      
+        run: uv python install 3.12
+
       - name: Install dependencies
-        run: |
-          poetry config virtualenvs.in-project true
-          poetry install --no-interaction
-      
+        run: uv sync --frozen
+
       # - name: Run pytest
       #   run: |
-      #     poetry run pytest \
+      #     uv run pytest \
       #       --cov=src \
       #       --cov-report=term-missing \
       #       --cov-report=xml \

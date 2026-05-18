@@ -9,7 +9,7 @@ This guide will help you set up your development environment for Magnet AI.
 - **Node.js 18+**: Frontend development and project orchestration
 - **Python 3.12+**: Backend development
 - **Docker** & **Docker Compose**: For containerized database (PostgreSQL + pgvector)
-- **Poetry**: Python dependency management
+- **uv**: Python package & project manager ([install](https://docs.astral.sh/uv/getting-started/installation/))
 - **Git**: Version control
 
 ### Recommended Tools
@@ -90,18 +90,12 @@ If you prefer to run services individually or need more control.
 2. **Install Dependencies**:
 
    ```bash
-   poetry install
+   uv sync
    ```
 
-3. **Activate Virtual Environment**:
-
+3. **Run Server**:
    ```bash
-   poetry shell
-   ```
-
-4. **Run Server**:
-   ```bash
-   uvicorn app:app --reload --env-file="../.env"
+   uv run uvicorn app:app --reload --env-file="../.env"
    ```
 
 ### Frontend Setup (`web/`)
@@ -158,7 +152,7 @@ api/
 │   ├── services/           # Business logic
 │   └── plugins/            # Plugin system
 ├── tests/                  # Pytest tests
-└── pyproject.toml          # Poetry dependencies
+└── pyproject.toml          # uv project metadata & dependencies
 ```
 
 ### Frontend (`web/`)

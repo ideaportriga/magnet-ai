@@ -1,6 +1,6 @@
 <template>
-  <div class="gap-md">
-    <div class="cluster mb-sm">
+  <div class="stack" data-gap="md">
+    <div class="cluster">
       <div class="flex-1">
         <km-input v-model="searchString" :placeholder="m.common_search()" icon-before="search" clearable style="max-inline-size: 320px" />
       </div>

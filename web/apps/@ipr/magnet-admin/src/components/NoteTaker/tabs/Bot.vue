@@ -1,5 +1,5 @@
 <template>
-  <div class="gap-md">
+  <div class="stack" data-gap="md">
     <div class="km-field">
       <div class="text-secondary-text pb-xs km-title">Azure Bot Provider</div>
       <div class="cluster" data-gap="sm">

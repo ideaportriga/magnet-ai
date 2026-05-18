@@ -89,7 +89,7 @@
         />
       </div>
       <template v-if="showDebugInfo">
-        <div class="mt-sm border border-radius-12 bg-white p-lg p-lg">
+        <div class="mt-sm ba-border border-radius-12 bg-white p-lg">
           <div class="km-heading-2 mt-md">
             Text to JSON prompt template params:
             <km-codemirror
@@ -136,7 +136,7 @@
       </div>
     </template>
     <template v-if="answer">
-      <div class="mt-sm border border-radius-12 bg-white p-lg">
+      <div class="mt-sm ba-border border-radius-12 bg-white p-lg">
         <km-markdown :source="answer" />
       </div>
     </template>

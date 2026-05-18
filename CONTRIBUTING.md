@@ -11,10 +11,10 @@ Thank you for your interest in contributing to Magnet AI!
 ## Development Environment
 
 ### API (Python)
--   We use **Poetry** for dependency management.
--   Install dependencies: `cd api && poetry install`
--   Run tests: `poetry run pytest`
--   Linting: `poetry run ruff check .`
+-   We use **uv** for dependency management.
+-   Install dependencies: `cd api && uv sync`
+-   Run tests: `uv run pytest`
+-   Linting: `uv run ruff check .`
 
 ### Web (Node.js/Vue)
 -   We use **Yarn** and **Nx**.

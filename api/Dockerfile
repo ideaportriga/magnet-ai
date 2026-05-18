@@ -1,14 +1,17 @@
-# Stage 1: Build dependencies using Poetry
+# Stage 1: Build dependencies using uv
 FROM python:3.13-slim AS builder
+
+COPY --from=ghcr.io/astral-sh/uv:0.5.11 /uv /uvx /usr/local/bin/
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir poetry==1.8.3
+ENV UV_PROJECT_ENVIRONMENT=/app/.venv \
+    UV_LINK_MODE=copy \
+    UV_COMPILE_BYTECODE=1
 
+COPY pyproject.toml uv.lock ./
 
-COPY poetry.lock poetry.toml pyproject.toml ./
-
-RUN poetry install --no-interaction --no-root --only main
+RUN uv sync --frozen --no-install-project --no-dev
 
 # Stage 2: Create a smaller image with just the application
 FROM python:3.13-slim AS runner

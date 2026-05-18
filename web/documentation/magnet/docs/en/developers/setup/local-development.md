@@ -33,19 +33,20 @@ magnet-ai/
 
 ### Virtual Environment
 
-Always use a virtual environment:
+`uv sync` creates `api/.venv`. Activate it if you want to run commands without the `uv run` prefix:
 
 ```bash
 cd api
-poetry shell
+source .venv/bin/activate    # Linux/macOS
+# .venv\Scripts\activate     # Windows
 ```
 
 ### Installing Dependencies
 
-#### Using Poetry (Recommended)
+#### Using uv (Recommended)
 
 ```bash
-poetry install
+uv sync
 ```
 
 ### Running the Backend
@@ -53,7 +54,7 @@ poetry install
 #### Development Server
 
 ```bash
-uvicorn app:app --reload --env-file="../.env"
+uv run uvicorn app:app --reload --env-file="../.env"
 ```
 
 The server runs with:

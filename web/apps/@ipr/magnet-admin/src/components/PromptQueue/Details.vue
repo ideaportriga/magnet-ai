@@ -104,10 +104,8 @@
               <km-input :model-value="newParamName" :placeholder="m.promptQueue_exampleTaskQuery()" class="prompt-queue-details__input-200" @update:model-value="newParamName = $event" @keydown.enter.prevent="addExpectedInputParam" />
               <km-btn :label="m.common_add()" icon="add" flat dense @click="addExpectedInputParam" />
             </div>
-            <div class="gap-sm">
-              <div v-for="param in expectedInputParams" :key="param" class="cluster" data-gap="sm">
-                <km-chip dense :tone="isManuallyAddedParam(param) ? &quot;brand&quot; : &quot;neutral&quot;" removable @remove="removeExpectedInputParam(param)">{{ param }}</km-chip>
-              </div>
+            <div class="cluster" data-gap="sm">
+              <km-chip v-for="param in expectedInputParams" :key="param" dense :tone="isManuallyAddedParam(param) ? &quot;brand&quot; : &quot;neutral&quot;" removable @remove="removeExpectedInputParam(param)">{{ param }}</km-chip>
             </div>
             <div v-if="!expectedInputParams.length &amp;&amp; !newParamName" class="mt-sm">
               <div class="km-description text-secondary-text">No input parameters. Add above or reference input.task, input.query in prompts.</div>

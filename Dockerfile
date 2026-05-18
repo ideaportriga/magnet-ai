@@ -26,16 +26,20 @@ ENV WEB_HELP_PATH="help/"
 # Build docs only if BUILD_DOCS=true (can skip with --build-arg BUILD_DOCS=false)
 RUN yarn nx build magnet-docs;
 
-# Stage 2: Build API dependencies using Poetry
+# Stage 2: Build API dependencies using uv
 FROM python:3.12-slim AS api-builder
+
+COPY --from=ghcr.io/astral-sh/uv:0.5.11 /uv /uvx /usr/local/bin/
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir poetry==1.8.3
+ENV UV_PROJECT_ENVIRONMENT=/app/.venv \
+    UV_LINK_MODE=copy \
+    UV_COMPILE_BYTECODE=1
 
-COPY api/poetry.lock api/poetry.toml api/pyproject.toml ./
+COPY api/pyproject.toml api/uv.lock ./
 
-RUN poetry install --no-interaction --no-root --only main
+RUN uv sync --frozen --no-install-project --no-dev
 
 # Stage 3: Create a smaller image with just the application
 FROM python:3.12-slim as final
