@@ -25,8 +25,8 @@ from microsoft_agents.hosting.teams import TeamsInfo
 from core.db.models.teams import TeamsMeeting
 from core.db.session import async_session_maker
 
-from .. import note_taker_store
-from ..graph import (
+from ... import note_taker_store
+from ...graph import (
     create_and_persist_recordings_ready_subscription,
     create_graph_client_with_token,
     list_subscriptions,
@@ -34,12 +34,12 @@ from ..graph import (
     resolve_recordings_lifecycle_webhook_url,
     resolve_recordings_ready_webhook_url,
 )
-from ..note_taker_meeting import ensure_meeting_title
-from ..note_taker_utils import (
+from ...note_taker_meeting import ensure_meeting_title
+from ...note_taker_utils import (
     _format_duration,
     _format_iso_datetime,
 )
-from ..teams_user_store import normalize_bot_id
+from ...teams_user_store import normalize_bot_id
 
 
 class MeetingInfoMixin:

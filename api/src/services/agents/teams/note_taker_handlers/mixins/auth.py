@@ -12,7 +12,7 @@ from microsoft_agents.activity import Activity, ConversationReference
 from microsoft_agents.hosting.core import TurnContext
 from microsoft_agents.hosting.teams import TeamsInfo
 
-from .. import note_taker_store
+from ... import note_taker_store
 
 
 class AuthMixin:

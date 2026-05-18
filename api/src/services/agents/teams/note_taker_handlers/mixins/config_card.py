@@ -35,10 +35,10 @@ from services.integrations.salesforce.note_taker import (
     update_meeting_salesforce_account,
 )
 
-from .. import note_taker_store
-from ..note_taker_cards import create_note_taker_config_picker_card
-from ..note_taker_people import personal_config_store
-from ..teams_user_store import normalize_bot_id
+from ... import note_taker_store
+from ...note_taker_cards import create_note_taker_config_picker_card
+from ...note_taker_people import personal_config_store
+from ...teams_user_store import normalize_bot_id
 
 
 class ConfigCardMixin:

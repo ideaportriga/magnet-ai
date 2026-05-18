@@ -26,7 +26,7 @@ from microsoft_agents.hosting.core import TurnContext, TurnState
 from core.db.models.teams import TeamsMeeting
 from core.db.session import async_session_maker
 
-from ..graph import (
+from ...graph import (
     create_graph_client_with_token,
     get_meeting_recordings,
     get_online_meeting_title,
@@ -34,9 +34,9 @@ from ..graph import (
     get_recording_file_size,
     list_user_meetings_with_recordings,
 )
-from ..note_taker_cards import create_user_recordings_card
-from ..note_taker_meeting import ensure_meeting_title
-from ..note_taker_utils import (
+from ...note_taker_cards import create_user_recordings_card
+from ...note_taker_meeting import ensure_meeting_title
+from ...note_taker_utils import (
     _build_recording_filename,
     _format_duration,
     _format_file_size,
@@ -44,7 +44,7 @@ from ..note_taker_utils import (
     _format_recording_datetime,
     _format_recording_datetime_utc_label,
 )
-from ..teams_user_store import normalize_bot_id
+from ...teams_user_store import normalize_bot_id
 
 
 class RecordingsMixin:
