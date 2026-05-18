@@ -1,7 +1,7 @@
 # type: ignore
 """Roll out tenant + record-level access to rag_tools / retrieval_tools.
 
-PR 10 #4-5 of `docs/access-control-tenancy-plan-v2_ai-claude.md`.
+PR 10 #4-5 of `docs/access-control-tenancy-plan-v2.md`.
 
 Same template as the collections/prompts/ai_apps rollout — reused via
 the `_apply_to(table)` helper.

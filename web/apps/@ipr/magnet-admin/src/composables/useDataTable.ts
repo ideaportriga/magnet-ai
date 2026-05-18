@@ -15,11 +15,12 @@ import {
 import { computed, ref, type MaybeRef, unref } from 'vue'
 import type { BaseEntity } from '@/types'
 import { useEntityQueries } from '@/queries/entities'
+import type { EntityQueries } from '@/queries/createEntityQueries'
 import { useDebouncedWatch } from '@/composables/useDebouncedWatch'
 
 type EntityKeyName = keyof ReturnType<typeof useEntityQueries>
 
-export interface UseDataTableOptions {
+export interface UseDataTableOptions<T extends BaseEntity = BaseEntity> {
   defaultPageSize?: number
   defaultSort?: SortingState
   defaultColumnVisibility?: VisibilityState
@@ -43,10 +44,10 @@ function applyUpdater<T>(updater: Updater<T>, current: T): T {
 export function useDataTable<T extends BaseEntity>(
   entityKey: EntityKeyName,
   columns: ColumnDef<T, unknown>[],
-  options?: UseDataTableOptions,
+  options?: UseDataTableOptions<T>,
 ) {
   const queries = useEntityQueries()
-  const entityQ = queries[entityKey] as ReturnType<typeof queries[typeof entityKey]>
+  const entityQ = queries[entityKey] as EntityQueries<T>
 
   const {
     defaultPageSize = 20,

@@ -50,19 +50,41 @@ The default settings in `.env` are configured for local development with Docker.
 
 ### 4. Start Development Environment
 
-#### Option A: Local Development with Docker (Recommended)
+#### Option A: Fresh setup from scratch (Recommended for first run)
 
-This runs the API and Web frontend locally, and automatically starts the database in Docker.
+This one-shot script brings up Postgres in Docker, creates the
+database, applies all migrations, and bootstraps the superuser:
+
+```bash
+npm run setup:fresh
+```
+
+`setup:fresh` expands to: `docker:up` → `db:create` → `db:upgrade` →
+`bootstrap:superuser`. The superuser is created from the
+`BOOTSTRAP_SUPERUSER_*` env vars (default email
+`admin@local.dev`, password `magnet-dev-12345`).
+
+Then start the dev stack:
 
 ```bash
 npm run dev:docker
 ```
 
-This starts:
-- **Database** (Postgres + pgvector)
-- **API** at `http://localhost:8000`
-- **Web Panel** at `http://localhost:7000`
-- **Web Admin** at `http://localhost:7002`
+This launches four processes via `concurrently`:
+
+| Process | What it runs |
+|---|---|
+| **api** | Litestar API at `http://localhost:8000` (uvicorn, auto-reload) |
+| **worker** | Taskiq worker — background jobs (replaces APScheduler) |
+| **scheduler** | Taskiq scheduler — cron-style task firing |
+| **web** | Vite dev server: Admin at `https://localhost:7001/admin/`, Panel at `https://localhost:7000/` |
+
+::: tip Optional dev fixtures
+Run `cd api && poetry run python scripts/seed_dev_fixtures.py` to
+create the test users (`super@`, `admin@`, `user@`, `viewer@`,
+`curator@`), departments, and sample agents that the e2e tests
+also use. Idempotent.
+:::
 
 #### Option B: Local Development with External Database
 

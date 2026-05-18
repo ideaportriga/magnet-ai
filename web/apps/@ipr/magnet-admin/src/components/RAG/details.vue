@@ -65,12 +65,12 @@
 </template>
 
 <script>
-import { computed, provide, ref } from 'vue'
+import { ref } from 'vue'
 import { validSystemName } from '@/utils/validationRules'
+import { useEntityAccess } from '@/composables/useEntityAccess'
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 import { m } from '@/paraglide/messages'
 import { notify } from '@shared/utils/notify'
-import { usePermissions } from '@shared'
 
 export default {
   emits: ['update:closeDrawer'],
@@ -82,17 +82,8 @@ export default {
       save, revert, refetch, buildPayload, remove,
     } = useVariantEntityDetail('rag_tools')
 
-    // PR 10 — record-level permission gating.
-    const { can, canOn } = usePermissions()
-    const canEdit = computed(() => canOn(draft?.value, 'edit', 'rag_tools'))
-    const canDelete = computed(() => canOn(draft?.value, 'delete', 'rag_tools'))
-    const canCreate = computed(() => can('write:rag_tools'))
-    const recordReadonly = computed(() => {
-      const r = draft?.value
-      if (!r) return false
-      return canEdit.value === false
-    })
-    provide('ragReadonly', recordReadonly)
+    const { canEdit, canDelete, canCreate, recordReadonly, provideReadonly } = useEntityAccess('rag_tools', draft)
+    provideReadonly()
 
     return {
       draft,

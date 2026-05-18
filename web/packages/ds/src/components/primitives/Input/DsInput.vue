@@ -16,6 +16,9 @@ const props = defineProps<{
   defaultValue?: string | number
   type?: InputHTMLAttributes['type']
   size?: 'sm' | 'md' | 'lg'
+  name?: string
+  autocomplete?: InputHTMLAttributes['autocomplete']
+  inputmode?: InputHTMLAttributes['inputmode']
 }>()
 
 const emit = defineEmits<{
@@ -47,6 +50,9 @@ defineExpose({
     class="ds-input"
     :type="type ?? 'text'"
     :data-size="size ?? 'md'"
+    :name="name"
+    :autocomplete="autocomplete"
+    :inputmode="inputmode"
     data-test="ds-input"
   >
 </template>

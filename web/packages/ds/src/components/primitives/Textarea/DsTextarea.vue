@@ -13,6 +13,8 @@ import { useTemplateRef } from 'vue'
 const props = defineProps<{
   modelValue?: string | number
   defaultValue?: string | number
+  name?: string
+  autocomplete?: string
 }>()
 
 const emit = defineEmits<{
@@ -39,6 +41,8 @@ defineExpose({
     ref="textareaEl"
     v-model="model"
     class="ds-textarea"
+    :name="name"
+    :autocomplete="autocomplete"
     data-test="ds-textarea"
   />
 </template>

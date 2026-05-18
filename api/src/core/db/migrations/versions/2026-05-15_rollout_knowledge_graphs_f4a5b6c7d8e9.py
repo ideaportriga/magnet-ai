@@ -1,7 +1,7 @@
 # type: ignore
 """Roll out tenant + record-level access to knowledge_graphs root.
 
-PR 10 #6 of `docs/access-control-tenancy-plan-v2_ai-claude.md`.
+PR 10 #6 of `docs/access-control-tenancy-plan-v2.md`.
 
 Child tables (`knowledge_graph_sources`, `_documents`, `_chunks`, `_entities`,
 `_edges`, `_metadata_*`) inherit isolation transitively via their `graph_id`

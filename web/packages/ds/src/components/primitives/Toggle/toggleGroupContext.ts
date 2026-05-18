@@ -1,5 +1,5 @@
 import type { InjectionKey } from 'vue'
-import type { DsToggleSize, DsToggleVariant } from './DsToggle.vue'
+import type { DsToggleSize, DsToggleVariant } from '../types'
 
 export interface DsToggleGroupContext {
   variant: DsToggleVariant

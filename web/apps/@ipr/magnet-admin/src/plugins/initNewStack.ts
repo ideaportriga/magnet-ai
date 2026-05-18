@@ -7,6 +7,7 @@ import { initEntityQueries } from '@/queries/entities'
 import { setEntityQueriesOptions } from '@/queries/createEntityQueries'
 import { useSharedAuthStore } from '@shared/stores/authStore'
 import { createAuthFetch } from '@shared/auth'
+import type { AuthAppConfig } from '@shared/stores/authStore'
 
 /**
  * Initializes the Pinia + TanStack Query stack.
@@ -24,7 +25,7 @@ export async function initNewStack(app: App): Promise<void> {
 
   // 4. Sync config to shared auth store (used by useAuth composable)
   const authStore = useSharedAuthStore()
-  authStore.setConfig(config)
+  authStore.setConfig(config as unknown as AuthAppConfig)
   authStore.globalLoading = false
 
   // 5. Wire global error handler for mutations

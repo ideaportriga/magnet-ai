@@ -14,4 +14,11 @@ Navigate to the Default Models tab to select models which will be used by defaul
 
 You can change default model by clicking pencil icon next to its heading and selecting a different model from the dropdown. This action will not affect existing records where a model has already been set.
 
-![](../../../images/2025-11-07-16-43-33-image.png)
+![Model providers](../../../images/model-providers.png)
+
+::: tip
+Working with models requires the `read:providers` / `write:providers`
+and `read:ai_models` / `write:ai_models` permissions. See
+[Permissions reference](../../access/permissions-reference) for the
+full catalog.
+:::

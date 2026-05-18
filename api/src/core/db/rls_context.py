@@ -1,7 +1,7 @@
 """
 Row-level security context propagation.
 
-PR 7 of `docs/access-control-tenancy-plan-v2_ai-claude.md`.
+PR 7 of `docs/access-control-tenancy-plan-v2.md`.
 
 The contract:
 

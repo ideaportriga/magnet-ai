@@ -163,19 +163,25 @@ async function handleMfa() {
         v-if="localEnabled && !mfaRequired"
         class="stack"
         data-gap="sm"
+        name="login"
+        method="post"
+        action="/api/v2/auth/login"
         @submit.prevent="handleLogin"
       >
         <KmInput
           v-model="email"
           :label="t.email"
           type="email"
-          autocomplete="email"
+          name="email"
+          autocomplete="username"
+          inputmode="email"
         />
 
         <KmInput
           v-model="password"
           :label="t.password"
           :type="showPassword ? 'text' : 'password'"
+          name="password"
           autocomplete="current-password"
         >
           <template #append>
@@ -199,7 +205,6 @@ async function handleMfa() {
           type="submit"
           :label="t.login"
           :loading="loginInProgress"
-          @click="handleLogin"
         />
 
         <div class="cluster" data-justify="between">

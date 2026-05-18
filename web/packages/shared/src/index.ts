@@ -42,8 +42,8 @@ export {
 export { transformChromaRequest, transformChromaResponse } from './lib/utils/chromaUtils'
 export { formatDateTime } from './lib/utils/dateTime'
 export { transformFilterToMongoQuery } from './lib/utils/filterTransformation.js'
-export { default as getTabComponent } from './lib/utils/getTabComponent.ts'
-export { formatDuration, formatTraceType, convertFiltersToFilterObject } from './lib/utils/index.ts'
+export { default as getTabComponent } from './lib/utils/getTabComponent'
+export { formatDuration, formatTraceType, convertFiltersToFilterObject } from './lib/utils/index'
 export { notify } from './lib/utils/notify'
 export {
   mountLog,

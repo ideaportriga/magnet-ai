@@ -68,6 +68,11 @@ const props = withDefaults(
     /** Borderless / rounded inherit from legacy Quasar look. */
     borderless?: boolean
     rounded?: boolean
+    /** Native attributes forwarded to the inner <input>. Required for
+     *  password-manager autofill (e.g. autocomplete="current-password"). */
+    name?: string
+    autocomplete?: string
+    inputmode?: 'none' | 'text' | 'tel' | 'url' | 'email' | 'numeric' | 'decimal' | 'search'
   }>(),
   {
     type: 'text',
@@ -282,6 +287,8 @@ defineExpose({
         :rows="rows"
         :style="textareaStyle"
         :aria-invalid="finalError ? true : undefined"
+        :name="name"
+        :autocomplete="autocomplete"
         class="km-input__field"
         :class="[inputClass, { 'km-input__field--autogrow': autogrow }]"
         data-test="km-input"
@@ -305,6 +312,9 @@ defineExpose({
         :maxlength="maxLength || undefined"
         :aria-invalid="finalError ? true : undefined"
         :size="dense ? 'sm' : 'md'"
+        :name="name"
+        :autocomplete="autocomplete"
+        :inputmode="inputmode"
         class="km-input__field"
         :class="inputClass"
         data-test="km-input"

@@ -1,7 +1,7 @@
 # type: ignore
 """Tenant isolation for `agents`: tenant_id + partial unique + RLS.
 
-PR 7 of `docs/access-control-tenancy-plan-v2_ai-claude.md`.
+PR 7 of `docs/access-control-tenancy-plan-v2.md`.
 
 This is the architectural turning point of the plan — the first tenant-
 scoped resource table protected by Postgres Row-Level Security. After this

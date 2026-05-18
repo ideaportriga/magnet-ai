@@ -65,7 +65,7 @@ export const useAppStore = defineStore('app', () => {
   const credentials = computed<RequestCredentials>(() => config.value?.credentials ?? 'include')
 
   async function loadConfig(): Promise<AppConfig> {
-    const publicPath = (window as Record<string, unknown>).__publicPath ?? '/admin/'
+    const publicPath = (window as Window & { __publicPath?: string }).__publicPath ?? '/admin/'
     const response = await fetch(`${publicPath}config/main.json`)
     const raw = await response.json()
 

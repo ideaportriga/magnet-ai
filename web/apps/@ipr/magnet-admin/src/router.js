@@ -601,7 +601,7 @@ const routes = [
   {
     path: '/admin/roles',
     name: 'AdminRoles',
-    component: () => import('@/components/AdminAccess/Roles/Page_ai-claude.vue'),
+    component: () => import('@/components/AdminAccess/Roles/Page.vue'),
     meta: {
       pageLabel: () => 'Roles',
       permission: 'read:roles',
@@ -610,7 +610,7 @@ const routes = [
   {
     path: '/admin/roles/:id',
     name: 'AdminRoleDetails',
-    component: () => import('@/components/AdminAccess/Roles/Details_ai-claude.vue'),
+    component: () => import('@/components/AdminAccess/Roles/Details.vue'),
     meta: {
       pageLabel: () => 'Role',
       permission: 'read:roles',
@@ -619,7 +619,7 @@ const routes = [
   {
     path: '/admin/users',
     name: 'AdminUsers',
-    component: () => import('@/components/AdminAccess/Users/Page_ai-claude.vue'),
+    component: () => import('@/components/AdminAccess/Users/Page.vue'),
     meta: {
       pageLabel: () => 'Users',
       permission: 'read:users',
@@ -628,7 +628,7 @@ const routes = [
   {
     path: '/admin/users/:id',
     name: 'AdminUserDetails',
-    component: () => import('@/components/AdminAccess/Users/Details_ai-claude.vue'),
+    component: () => import('@/components/AdminAccess/Users/Details.vue'),
     meta: {
       pageLabel: () => 'User',
       permission: 'read:users',
@@ -637,7 +637,7 @@ const routes = [
   {
     path: '/admin/access-log',
     name: 'AdminAccessLog',
-    component: () => import('@/components/AdminAccess/AccessLog/Page_ai-claude.vue'),
+    component: () => import('@/components/AdminAccess/AccessLog/Page.vue'),
     meta: {
       pageLabel: () => 'Access log',
       permission: 'read:audit',

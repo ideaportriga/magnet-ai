@@ -1,7 +1,7 @@
 # type: ignore
 """Record-level access pilot: departments, grants, agents.{owner_id,department_id,visibility}.
 
-PR 8 of `docs/access-control-tenancy-plan-v2_ai-claude.md`.
+PR 8 of `docs/access-control-tenancy-plan-v2.md`.
 
   - department + user_department tables
   - resource_access_grant table

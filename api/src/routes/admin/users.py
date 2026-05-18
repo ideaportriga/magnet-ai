@@ -36,6 +36,18 @@ from middlewares.auth import Auth
 from services.access_control import write_audit_log
 
 
+class AdminUserResponse(UserSchema):
+    """User payload for the admin UI — adds role slugs."""
+
+    roles: list[str] = Field(default_factory=list)
+
+
+def _serialize_admin_user(service: UsersService, user: User) -> AdminUserResponse:
+    base = service.to_schema(user, schema_type=UserSchema).model_dump()
+    base["roles"] = sorted({r.slug for r in (user.roles or [])})
+    return AdminUserResponse.model_validate(base)
+
+
 class UserRolesPatch(BaseModel):
     add: list[UUID] = Field(default_factory=list)
     remove: list[UUID] = Field(default_factory=list)
@@ -84,7 +96,7 @@ class UsersController(Controller):
         summary="List users in the caller's tenant",
         guards=[require_permission(Permission.USERS_READ)],
     )
-    async def list_users(self, request: Request) -> list[UserSchema]:
+    async def list_users(self, request: Request) -> list[AdminUserResponse]:
         auth = _require_auth(request)
         tenant_id = _require_tenant_id(auth)
         async with alchemy.get_session() as session:
@@ -94,20 +106,20 @@ class UsersController(Controller):
                 .scalars()
                 .all()
             )
-            return [service.to_schema(u, schema_type=UserSchema) for u in users]
+            return [_serialize_admin_user(service, u) for u in users]
 
     @get(
         "/{id:uuid}",
         summary="Get user by ID (within caller's tenant)",
         guards=[require_permission(Permission.USERS_READ)],
     )
-    async def get_user(self, request: Request, id: UUID) -> UserSchema:
+    async def get_user(self, request: Request, id: UUID) -> AdminUserResponse:
         auth = _require_auth(request)
         tenant_id = _require_tenant_id(auth)
         async with alchemy.get_session() as session:
             user = await _load_target_user(session, id, tenant_id)
             service = UsersService(session=session)
-            return service.to_schema(user, schema_type=UserSchema)
+            return _serialize_admin_user(service, user)
 
     @patch(
         "/{id:uuid}",

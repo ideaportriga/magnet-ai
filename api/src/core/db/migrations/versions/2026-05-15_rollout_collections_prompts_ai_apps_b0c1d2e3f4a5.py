@@ -1,7 +1,7 @@
 # type: ignore
 """Roll out tenant + record-level access to collections / prompts / ai_apps.
 
-PR 10 #1-3 of `docs/access-control-tenancy-plan-v2_ai-claude.md`.
+PR 10 #1-3 of `docs/access-control-tenancy-plan-v2.md`.
 
 For each of the three tables we apply the same template proven on `agents`:
 

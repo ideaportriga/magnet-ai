@@ -36,7 +36,7 @@ export function useEntityConfig(entityName: string): EntityConfig {
     return configCache.get(entityName)!
   }
 
-  const entityDef = (chromaConfig as Record<string, { config?: Record<string, FieldConfig> }>)[entityName]
+  const entityDef = (chromaConfig as unknown as Record<string, { config?: Record<string, FieldConfig> }>)[entityName]
   const config = entityDef?.config ?? {}
 
   const requiredFields = Object.values(config)

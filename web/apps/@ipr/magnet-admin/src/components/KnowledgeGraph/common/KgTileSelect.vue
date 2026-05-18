@@ -31,12 +31,7 @@
 
 <script setup lang="ts">
 import { m } from '@/paraglide/messages'
-export interface TileOption {
-  value: string
-  label: string
-  icon?: string
-  description: string
-}
+import type { TileOption } from './types'
 
 const props = withDefaults(
   defineProps<{

@@ -1,7 +1,7 @@
 # type: ignore
 """DB-backed permission catalog: permission/role_permission tables + role.is_system.
 
-Implements PR 2 of `docs/access-control-tenancy-plan-v2_ai-claude.md`.
+Implements PR 2 of `docs/access-control-tenancy-plan-v2.md`.
 
 Adds:
   - role.is_system column (NOT NULL, default false)

@@ -1,7 +1,7 @@
 # type: ignore
 """Tenant base: tenant table + tenant_id on user_account, api_keys, role.
 
-Implements PR 4 of `docs/access-control-tenancy-plan-v2_ai-claude.md`:
+Implements PR 4 of `docs/access-control-tenancy-plan-v2.md`:
   - create `tenant` table
   - seed the `default` tenant
   - add `user_account.tenant_id` (nullable → backfill → NOT NULL)

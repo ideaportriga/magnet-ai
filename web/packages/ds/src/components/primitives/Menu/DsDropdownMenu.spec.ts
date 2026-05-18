@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { defineComponent, h, nextTick } from 'vue'
-import DsDropdownMenu, { type DsDropdownMenuItem } from './DsDropdownMenu.vue'
+import DsDropdownMenu from './DsDropdownMenu.vue'
+import type { DsDropdownMenuActionItem } from '../types'
 
 const flush = async () => {
   await nextTick()
@@ -10,9 +11,9 @@ const flush = async () => {
 }
 
 const Host = defineComponent({
-  props: { items: { type: Array as () => DsDropdownMenuItem[], required: true } },
+  props: { items: { type: Array as () => DsDropdownMenuActionItem[], required: true } },
   render() {
-    return h(DsDropdownMenu, { items: this.items as DsDropdownMenuItem[] }, {
+    return h(DsDropdownMenu, { items: this.items as DsDropdownMenuActionItem[] }, {
       trigger: () => h('button', { id: 'trigger', 'data-test': 'trigger' }, 'Open'),
     })
   },
@@ -39,7 +40,7 @@ describe('DsDropdownMenu', () => {
   })
 
   it('renders items when the menu is opened', async () => {
-    const items: DsDropdownMenuItem[] = [
+    const items: DsDropdownMenuActionItem[] = [
       { label: 'Edit' },
       { separator: true },
       { label: 'Delete', tone: 'danger' },
@@ -57,7 +58,7 @@ describe('DsDropdownMenu', () => {
 
   it('invokes onSelect with the item that was activated', async () => {
     const onSelect = vi.fn()
-    const items: DsDropdownMenuItem[] = [
+    const items: DsDropdownMenuActionItem[] = [
       { label: 'Edit', onSelect },
       { label: 'Delete' },
     ]
@@ -73,7 +74,7 @@ describe('DsDropdownMenu', () => {
 
   it('disabled items do not trigger onSelect', async () => {
     const onSelect = vi.fn()
-    const items: DsDropdownMenuItem[] = [
+    const items: DsDropdownMenuActionItem[] = [
       { label: 'Edit', onSelect, disabled: true },
     ]
     mount(Host, { props: { items }, attachTo: document.body })

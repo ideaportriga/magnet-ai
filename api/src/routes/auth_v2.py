@@ -157,12 +157,17 @@ class AuthV2Controller(Controller):
         if not is_local_enabled():
             raise ClientException("Email/password login is disabled")
         device_info = request.headers.get("user-agent")
+        from services.auth.audit import get_client_ip
+
+        ip_address = get_client_ip(request)
 
         async with alchemy.get_session() as session:
             user = await auth_service.authenticate(
                 session=session,
                 email=data.email,
                 password=data.password,
+                device_info=device_info,
+                ip_address=ip_address,
             )
 
             # Check if MFA is enabled
@@ -200,6 +205,7 @@ class AuthV2Controller(Controller):
                 user=user,
                 device_info=device_info,
                 auth_method="password",
+                ip_address=ip_address,
             )
             await session.commit()
 
@@ -340,6 +346,9 @@ class AuthV2Controller(Controller):
             raise NotAuthorizedException(f"SSO authentication failed: {e}") from e
 
         device_info = request.headers.get("user-agent")
+        from services.auth.audit import get_client_ip
+
+        ip_address = get_client_ip(request)
         async with alchemy.get_session() as session:
             user = await resolve_identity(session, identity)
             internal_session = await create_session(
@@ -347,6 +356,7 @@ class AuthV2Controller(Controller):
                 user=user,
                 device_info=device_info,
                 auth_method=f"sso:{provider}",
+                ip_address=ip_address,
             )
             await session.commit()
 
@@ -587,6 +597,28 @@ class AuthV2Controller(Controller):
                 await refresh_token_service.revoke_token_family(session, token_hash)
                 await session.commit()
 
+        auth: Auth | None = request.scope.get("auth")
+        if auth is None:
+            try:
+                auth = await ensure_request_auth_data(request, log_missing_auth=False)
+            except NotAuthorizedException:
+                auth = None
+
+        user = getattr(auth, "user", None) if auth else None
+        if user is not None:
+            from services.auth.audit import get_client_ip, record_login_event
+
+            await record_login_event(
+                tenant_id=user.tenant_id,
+                user_id=user.id,
+                action="logout",
+                payload={
+                    "email": user.email,
+                    "device_info": request.headers.get("user-agent"),
+                    "ip_address": get_client_ip(request),
+                },
+            )
+
         response = Response({"message": "Logged out"})
         clear_auth_cookies(response)
         return response
@@ -706,6 +738,11 @@ class AuthV2Controller(Controller):
         if not user_id:
             raise NotAuthorizedException("Invalid MFA challenge token")
 
+        from services.auth.audit import get_client_ip, record_login_event
+
+        device_info = request.headers.get("user-agent")
+        ip_address = get_client_ip(request)
+
         async with alchemy.get_session() as session:
             from core.domain.users.service import UsersService
 
@@ -718,13 +755,26 @@ class AuthV2Controller(Controller):
                 session=session, user=user, code=data.code
             )
             if not verified:
+                await record_login_event(
+                    tenant_id=user.tenant_id,
+                    user_id=user.id,
+                    action="login.failure",
+                    payload={
+                        "email": user.email,
+                        "auth_method": "mfa",
+                        "device_info": device_info,
+                        "ip_address": ip_address,
+                        "reason": "invalid_mfa_code",
+                    },
+                )
                 raise NotAuthorizedException("Invalid MFA code")
 
             internal_session = await create_session(
                 session=session,
                 user=user,
-                device_info=request.headers.get("user-agent"),
-                auth_method="password",
+                device_info=device_info,
+                auth_method="password+mfa",
+                ip_address=ip_address,
             )
             await session.commit()
 

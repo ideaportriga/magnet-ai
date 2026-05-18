@@ -17,7 +17,4 @@ export { default as KgToggleField } from './KgToggleField.vue'
 export { default as KgWarningBanner } from './KgWarningBanner.vue'
 
 // Re-export types
-export type { TileOption } from './KgTileSelect.vue'
-export type { DialogSize } from './KgDialogBase.vue'
-export type { ScheduleFormState, ScheduleInterval } from './KgDialogSourceBase.vue'
-export type { ControlOption } from './KgSectionControl.vue'
+export type { TileOption, DialogSize, ScheduleFormState, ScheduleInterval, ControlOption } from './types'

@@ -15,12 +15,12 @@ from core.domain.rag_tools.schemas import RagTool, RagToolCreate, RagToolUpdate
 from core.domain.rag_tools.service import RagToolsService
 from guards.permissions import Permission, require_permission
 from services.access_control import (
-    attach_permissions,
-    enforce_action_or_403,
-    enforce_view_or_404,
-    force_create_fields,
-    tenant_system_name_filter,
-    visibility_filter_for,
+    create_with_record_context,
+    delete_with_record_access,
+    get_by_code_with_record_access,
+    get_by_id_with_record_access,
+    list_with_record_permissions,
+    update_with_record_access,
 )
 from services.observability import observability_context, observe
 from services.rag_tools import execute_rag_tool
@@ -65,29 +65,14 @@ class RagToolsController(Controller):
         """List RAG tools — filtered by record-level visibility (PR 10)."""
         from core.db.models.rag_tool.rag_tool import RagTool as RagToolModel
 
-        extra_filters: list = list(filters)
-        where = await visibility_filter_for(
+        return await list_with_record_permissions(
             rag_tools_service,
+            filters,
             request=request,
             model=RagToolModel,
+            schema_type=RagTool,
             resource_type=_RESOURCE,
         )
-        if where is not None:
-            extra_filters.append(where)
-        results, total = await rag_tools_service.list_and_count(*extra_filters)
-        page = rag_tools_service.to_schema(
-            results, total, filters=filters, schema_type=RagTool
-        )
-        if request.scope.get("auth") is not None and page.items:
-            for item, model in zip(page.items, results):
-                await attach_permissions(
-                    rag_tools_service,
-                    item,
-                    model,
-                    request=request,
-                    resource_type=_RESOURCE,
-                )
-        return page
 
     @post(guards=[require_permission(Permission.RAG_TOOLS_WRITE)])
     async def create_rag_tool(
@@ -100,16 +85,14 @@ class RagToolsController(Controller):
         """Create a new RAG tool. tenant_id + owner_id forced from auth."""
         from core.db.models.rag_tool.rag_tool import RagTool as RagToolModel
 
-        data.created_by = audit_username
-        data.updated_by = audit_username
-        payload = data.model_dump(exclude_unset=True)
-        payload = force_create_fields(payload, request=request)
-        payload["created_by"] = audit_username
-        payload["updated_by"] = audit_username
-        obj = await rag_tools_service.create(RagToolModel(**payload), auto_commit=True)
-        schema = rag_tools_service.to_schema(obj, schema_type=RagTool)
-        return await attach_permissions(
-            rag_tools_service, schema, obj, request=request, resource_type=_RESOURCE
+        return await create_with_record_context(
+            rag_tools_service,
+            data,
+            model=RagToolModel,
+            schema_type=RagTool,
+            request=request,
+            resource_type=_RESOURCE,
+            audit_username=audit_username,
         )
 
     @get("/code/{code:str}", guards=[require_permission(Permission.RAG_TOOLS_READ)])
@@ -119,18 +102,13 @@ class RagToolsController(Controller):
         """Get a RAG tool by its system_name."""
         from core.db.models.rag_tool.rag_tool import RagTool as RagToolModel
 
-        obj = await rag_tools_service.get_one(
-            tenant_system_name_filter(request, RagToolModel, code)
-        )
-        await enforce_view_or_404(
+        return await get_by_code_with_record_access(
             rag_tools_service,
+            code,
+            model=RagToolModel,
+            schema_type=RagTool,
             request=request,
-            resource=obj,
             resource_type=_RESOURCE,
-        )
-        schema = rag_tools_service.to_schema(obj, schema_type=RagTool)
-        return await attach_permissions(
-            rag_tools_service, schema, obj, request=request, resource_type=_RESOURCE
         )
 
     @get("/{rag_tool_id:uuid}", guards=[require_permission(Permission.RAG_TOOLS_READ)])
@@ -144,16 +122,12 @@ class RagToolsController(Controller):
         ),
     ) -> RagTool:
         """Get a RAG tool by its ID. 404 if caller can't view it."""
-        obj = await rag_tools_service.get(rag_tool_id)
-        await enforce_view_or_404(
+        return await get_by_id_with_record_access(
             rag_tools_service,
+            rag_tool_id,
+            schema_type=RagTool,
             request=request,
-            resource=obj,
             resource_type=_RESOURCE,
-        )
-        schema = rag_tools_service.to_schema(obj, schema_type=RagTool)
-        return await attach_permissions(
-            rag_tools_service, schema, obj, request=request, resource_type=_RESOURCE
         )
 
     @patch(
@@ -171,29 +145,24 @@ class RagToolsController(Controller):
         audit_username: str | None = None,
     ) -> RagTool:
         """Update a RAG tool. 404/403 per record-level access rules."""
-        existing = await rag_tools_service.get(rag_tool_id)
-        await enforce_action_or_403(
-            rag_tools_service,
-            request=request,
-            action="edit",
-            resource=existing,
-            resource_type=_RESOURCE,
-        )
-        update_data = data.model_dump(exclude_unset=True)
-        for forbidden in ("tenant_id", "owner_id"):
-            update_data.pop(forbidden, None)
-        if "variants" in update_data:
+
+        def log_variants(update_data: dict) -> None:
+            if "variants" not in update_data:
+                return
             logger.info(
                 "update_rag_tool: variants type=%s",
                 type(update_data["variants"]).__name__,
             )
-        update_data["updated_by"] = audit_username
-        obj = await rag_tools_service.update(
-            update_data, item_id=rag_tool_id, auto_commit=True
-        )
-        schema = rag_tools_service.to_schema(obj, schema_type=RagTool)
-        return await attach_permissions(
-            rag_tools_service, schema, obj, request=request, resource_type=_RESOURCE
+
+        return await update_with_record_access(
+            rag_tools_service,
+            rag_tool_id,
+            data,
+            schema_type=RagTool,
+            request=request,
+            resource_type=_RESOURCE,
+            audit_username=audit_username,
+            update_payload_hook=log_variants,
         )
 
     @delete(
@@ -209,15 +178,12 @@ class RagToolsController(Controller):
         ),
     ) -> None:
         """Delete a RAG tool. 404/403 per record-level access rules."""
-        existing = await rag_tools_service.get(rag_tool_id)
-        await enforce_action_or_403(
+        await delete_with_record_access(
             rag_tools_service,
+            rag_tool_id,
             request=request,
-            action="delete",
-            resource=existing,
             resource_type=_RESOURCE,
         )
-        _ = await rag_tools_service.delete(rag_tool_id)
 
     @observe(name="Previewing RAG Tool", channel="preview")
     @post("/test", status_code=HTTP_200_OK)

@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { convertFiltersToFilterObject } from '@shared'
+import type { Filter } from '@shared/types'
 import { useAppStore } from './appStore'
 import { getApiClient } from '@/api'
 
@@ -9,7 +10,7 @@ export const useSearchStore = defineStore('search', () => {
 
   // --- UI State ---
   const searchPrompt = ref('')
-  const metadataFilter = ref<Record<string, unknown>[]>([])
+  const metadataFilter = ref<Filter[]>([])
   const collectionList = ref<Record<string, unknown>[]>([])
   const collection = ref<string[]>([])
   const answersLoading = ref(false)

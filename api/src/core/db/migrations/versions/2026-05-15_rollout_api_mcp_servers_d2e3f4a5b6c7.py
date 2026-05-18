@@ -1,7 +1,7 @@
 # type: ignore
 """Roll out tenant + record-level access to api_servers / mcp_servers.
 
-PR 10 #7 of `docs/access-control-tenancy-plan-v2_ai-claude.md`.
+PR 10 #7 of `docs/access-control-tenancy-plan-v2.md`.
 
 Revision ID: d2e3f4a5b6c7
 Revises: c1d2e3f4a5b6

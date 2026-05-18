@@ -6,13 +6,18 @@ Idempotent — safe to re-run. Creates everything inside the `default` tenant
 
 Test accounts (all use the same dev password — see DEFAULT_PASSWORD below):
 
-    admin@local.dev     — system `admin` role, can do anything in the tenant.
-    user@local.dev      — system `user` role, basic read + write on own agents.
-    viewer@local.dev    — system `viewer` role, read-only.
-    curator@local.dev   — custom role `kg-curator` (full collections + KG, read agents).
+    super@local.dev     — is_superuser=True, cross-tenant god mode.
+    admin@local.dev     — system `admin` role, dept `executive` (lead).
+    user@local.dev      — system `user` role, dept `platform`.
+    viewer@local.dev    — system `viewer` role, dept `qa`.
+    curator@local.dev   — custom role `kg-curator`, dept `knowledge`.
+
+All sit in the `default` tenant (= "organization" in this schema —
+Tenant IS the org boundary; there is no separate Organization table).
 
 Sample data (after a fresh run):
-  - Department `platform` with `user@local.dev` as a member.
+  - Tenant `default` (created here if migrations did not).
+  - Departments: `executive`, `platform`, `qa`, `knowledge`.
   - Three agents:
       `agent-public`  — visibility=tenant, owner=admin
       `agent-team`    — visibility=department(platform), owner=admin
@@ -70,26 +75,47 @@ DEFAULT_PASSWORD = os.environ.get("DEV_SEED_PASSWORD", "magnet-dev-12345")
 
 TEST_USERS = [
     {
+        "email": "super@local.dev",
+        "name": "Dev Superuser",
+        "role_slug": "admin",  # role membership is moot — superuser bypasses
+        "is_superuser": True,  # cross-tenant god mode
+        "department_slug": "executive",
+        "is_lead": True,
+    },
+    {
         "email": "admin@local.dev",
         "name": "Dev Admin",
         "role_slug": "admin",
         "is_superuser": False,  # NOT a platform superuser — tenant admin.
+        "department_slug": "executive",
+        "is_lead": True,
     },
     {
         "email": "user@local.dev",
         "name": "Dev User",
         "role_slug": "user",
+        "department_slug": "platform",
     },
     {
         "email": "viewer@local.dev",
         "name": "Dev Viewer",
         "role_slug": "viewer",
+        "department_slug": "qa",
     },
     {
         "email": "curator@local.dev",
         "name": "Knowledge Curator",
         "role_slug": "kg-curator",  # custom role created below
+        "department_slug": "knowledge",
     },
+]
+
+
+DEPARTMENTS = [
+    {"slug": "executive", "name": "Executive"},
+    {"slug": "platform", "name": "Platform"},
+    {"slug": "qa", "name": "QA"},
+    {"slug": "knowledge", "name": "Knowledge"},
 ]
 
 
@@ -109,20 +135,29 @@ CUSTOM_ROLE = {
 }
 
 
-async def _get_default_tenant(session) -> Tenant:
+async def _get_or_create_default_tenant(session) -> tuple[Tenant, bool]:
     tenant = (
         await session.execute(select(Tenant).where(Tenant.slug == "default"))
     ).scalar_one_or_none()
-    if tenant is None:
-        raise RuntimeError("Default tenant not seeded — run migrations first.")
-    return tenant
+    if tenant is not None:
+        return tenant, False
+    tenant = Tenant(slug="default", name="Default", is_active=True)
+    session.add(tenant)
+    await session.flush()
+    return tenant, True
 
 
-async def _get_or_create_user(session, *, email, name, tenant_id) -> tuple[User, bool]:
+async def _get_or_create_user(
+    session, *, email, name, tenant_id, is_superuser: bool = False
+) -> tuple[User, bool]:
     user = (
         await session.execute(select(User).where(User.email == email))
     ).scalar_one_or_none()
     if user is not None:
+        # Keep the superuser flag in sync with the spec on re-runs.
+        if user.is_superuser != is_superuser:
+            user.is_superuser = is_superuser
+            await session.flush()
         return user, False
     user = User(
         email=email,
@@ -130,7 +165,7 @@ async def _get_or_create_user(session, *, email, name, tenant_id) -> tuple[User,
         hashed_password=await hash_password_async(DEFAULT_PASSWORD),
         is_active=True,
         is_verified=True,
-        is_superuser=False,
+        is_superuser=is_superuser,
         tenant_id=tenant_id,
     )
     session.add(user)
@@ -199,22 +234,24 @@ async def _get_or_create_custom_role(session, *, tenant_id) -> Role:
     return role
 
 
-async def _ensure_department(session, *, tenant_id) -> Department:
+async def _ensure_department(session, *, tenant_id, slug: str, name: str) -> Department:
     dept = (
         await session.execute(
             select(Department).where(
-                Department.tenant_id == tenant_id, Department.slug == "platform"
+                Department.tenant_id == tenant_id, Department.slug == slug
             )
         )
     ).scalar_one_or_none()
     if dept is None:
-        dept = Department(tenant_id=tenant_id, slug="platform", name="Platform")
+        dept = Department(tenant_id=tenant_id, slug=slug, name=name)
         session.add(dept)
         await session.flush()
     return dept
 
 
-async def _ensure_membership(session, *, tenant_id, user_id, department_id):
+async def _ensure_membership(
+    session, *, tenant_id, user_id, department_id, is_lead: bool = False
+):
     membership = (
         await session.execute(
             select(UserDepartment).where(
@@ -229,9 +266,12 @@ async def _ensure_membership(session, *, tenant_id, user_id, department_id):
                 tenant_id=tenant_id,
                 user_id=user_id,
                 department_id=department_id,
-                is_lead=False,
+                is_lead=is_lead,
             )
         )
+        await session.flush()
+    elif membership.is_lead != is_lead:
+        membership.is_lead = is_lead
         await session.flush()
 
 
@@ -314,8 +354,9 @@ async def main() -> None:
     print("Seeding dev fixtures…")
     print(f"  password = {DEFAULT_PASSWORD!r}")
     async with alchemy.get_session() as session:
-        tenant = await _get_default_tenant(session)
-        print(f"  tenant   = {tenant.slug} ({tenant.id})")
+        tenant, tenant_created = await _get_or_create_default_tenant(session)
+        tag = "created" if tenant_created else "exists"
+        print(f"  tenant   = {tenant.slug} ({tenant.id}) [{tag}]")
 
         # RLS is on for agents — we need a GUC. Use the default tenant.
         await apply_session_rls(session, tenant_id=str(tenant.id))
@@ -341,7 +382,16 @@ async def main() -> None:
                 )
             roles_by_slug[slug] = role
 
-        # 2. Test users.
+        # 2. Departments.
+        depts_by_slug: dict[str, Department] = {}
+        for spec in DEPARTMENTS:
+            dept = await _ensure_department(
+                session, tenant_id=tenant.id, slug=spec["slug"], name=spec["name"]
+            )
+            depts_by_slug[dept.slug] = dept
+        print(f"  depts    = {', '.join(depts_by_slug)}")
+
+        # 3. Test users — each gets tenant + role + department membership.
         users_by_email: dict[str, User] = {}
         for spec in TEST_USERS:
             user, created = await _get_or_create_user(
@@ -349,31 +399,34 @@ async def main() -> None:
                 email=spec["email"],
                 name=spec["name"],
                 tenant_id=tenant.id,
+                is_superuser=spec.get("is_superuser", False),
             )
             users_by_email[user.email] = user
             role = roles_by_slug[spec["role_slug"]]
             assigned = await _ensure_role_assigned(
                 session, user_id=user.id, role_id=role.id
             )
-            tag = "created" if created else "exists"
-            print(
-                f"  user     = {user.email} [{tag}] role={spec['role_slug']}"
-                f"{' (assigned)' if assigned else ''}"
+            dept = depts_by_slug[spec["department_slug"]]
+            await _ensure_membership(
+                session,
+                tenant_id=tenant.id,
+                user_id=user.id,
+                department_id=dept.id,
+                is_lead=spec.get("is_lead", False),
             )
-
-        # 3. Department + membership for `user@local.dev`.
-        dept = await _ensure_department(session, tenant_id=tenant.id)
-        await _ensure_membership(
-            session,
-            tenant_id=tenant.id,
-            user_id=users_by_email["user@local.dev"].id,
-            department_id=dept.id,
-        )
-        print(f"  dept     = {dept.slug} (member: user@local.dev)")
+            tag = "created" if created else "exists"
+            super_tag = " superuser" if spec.get("is_superuser") else ""
+            lead_tag = " (lead)" if spec.get("is_lead") else ""
+            print(
+                f"  user     = {user.email} [{tag}] role={spec['role_slug']} "
+                f"dept={dept.slug}{lead_tag}{super_tag}"
+                f"{' (role assigned)' if assigned else ''}"
+            )
 
         # 4. Sample agents with different visibility.
         admin = users_by_email["admin@local.dev"]
         viewer = users_by_email["viewer@local.dev"]
+        platform_dept = depts_by_slug["platform"]
 
         a_public = await _ensure_agent(
             session,
@@ -390,7 +443,7 @@ async def main() -> None:
             name="Team Agent",
             owner_id=admin.id,
             visibility="department",
-            department_id=dept.id,
+            department_id=platform_dept.id,
         )
         a_private = await _ensure_agent(
             session,
@@ -428,7 +481,8 @@ async def main() -> None:
     print("Try logging in via /api/v2/auth/login with any of:")
     for spec in TEST_USERS:
         print(
-            f"  {spec['email']:24s} password={DEFAULT_PASSWORD!r}  role={spec['role_slug']}"
+            f"  {spec['email']:24s} password={DEFAULT_PASSWORD!r}  "
+            f"role={spec['role_slug']:10s} dept={spec['department_slug']}"
         )
 
 

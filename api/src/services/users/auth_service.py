@@ -87,6 +87,8 @@ async def authenticate(
     session: Any,
     email: str,
     password: str,
+    device_info: str | None = None,
+    ip_address: str | None = None,
 ) -> User:
     """Authenticate a user by email and password.
 
@@ -94,6 +96,8 @@ async def authenticate(
         session: SQLAlchemy async session.
         email: User email.
         password: Plaintext password.
+        device_info: User-agent string, recorded in failure audit entries.
+        ip_address: Client IP, recorded in failure audit entries.
 
     Returns:
         The authenticated User.
@@ -101,26 +105,50 @@ async def authenticate(
     Raises:
         AuthError: If credentials are invalid or account inactive.
     """
+    from services.auth.audit import record_login_event
+
     service = UsersService(session=session)
 
     user = await service.get_one_or_none(email=email)
     if user is None:
+        # Unknown email — cannot attribute to a tenant, so do not write an
+        # audit row. Account-enumeration considerations also argue against
+        # persisting these attempts here.
         raise AuthError("Invalid email or password")
+
+    failure_payload_base = {
+        "email": email,
+        "auth_method": "password",
+        "device_info": device_info,
+        "ip_address": ip_address,
+    }
+
+    async def _record_failure(reason: str) -> None:
+        await record_login_event(
+            tenant_id=user.tenant_id,
+            user_id=user.id,
+            action="login.failure",
+            payload={**failure_payload_base, "reason": reason},
+        )
 
     # Load deferred password field
     await session.refresh(user, attribute_names=["hashed_password"])
 
     if not user.hashed_password:
+        await _record_failure("no_local_password")
         raise AuthError("Invalid email or password")
 
     if not await verify_password_async(password, user.hashed_password):
+        await _record_failure("invalid_password")
         raise AuthError("Invalid email or password")
 
     if not user.is_active:
+        await _record_failure("inactive_account")
         raise AuthError("Account is inactive")
 
     settings = get_auth_settings()
     if settings.REQUIRE_EMAIL_VERIFICATION and not user.is_verified:
+        await _record_failure("email_not_verified")
         raise AuthError("Email not verified — please confirm your email first")
 
     # Update last_login_at

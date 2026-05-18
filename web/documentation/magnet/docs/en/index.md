@@ -13,11 +13,15 @@ hero:
       link: /docs/en/devops/deployment/
     - theme: alt
       text: Admin Guide
-      link: /docs/en/admin/connect/models/overview
+      link: /docs/en/admin/access/overview
     - theme: alt
       text: Developer Guide
       link: /docs/en/developers/overview
 features:
+  - icon: 🔐
+    title: Access control (RBAC)
+    details: Roles, permissions, and record-level access — new in the alpha release
+    link: /docs/en/admin/access/overview
   - icon: 🛠️
     title: Use cases
     details: Explore Magnet AI capabilities

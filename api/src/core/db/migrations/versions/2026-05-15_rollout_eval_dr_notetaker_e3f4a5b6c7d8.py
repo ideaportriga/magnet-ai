@@ -1,7 +1,7 @@
 # type: ignore
 """Roll out tenant + record-level access to evaluation_sets / deep_research_configs / note_taker_settings.
 
-PR 10 #8 of `docs/access-control-tenancy-plan-v2_ai-claude.md`.
+PR 10 #8 of `docs/access-control-tenancy-plan-v2.md`.
 
 Revision ID: e3f4a5b6c7d8
 Revises: d2e3f4a5b6c7

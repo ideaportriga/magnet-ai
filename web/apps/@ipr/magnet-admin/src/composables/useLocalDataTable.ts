@@ -35,7 +35,7 @@ function applyUpdater<T>(updater: Updater<T>, current: T): T {
  */
 export function useLocalDataTable<T>(
   data: MaybeRef<T[]>,
-  columns: ColumnDef<T, unknown>[],
+  columns: MaybeRef<ColumnDef<T, unknown>[]>,
   options?: UseLocalDataTableOptions,
 ) {
   const {
@@ -52,10 +52,13 @@ export function useLocalDataTable<T>(
   const globalFilter = ref('')
 
   const rows = computed(() => unref(data))
+  // Re-read columns reactively so callers can pass a `computed(() => […])`
+  // that depends on async-loaded data (e.g. a catalog from useQuery).
+  const columnDefs = computed(() => unref(columns))
 
   const table = useVueTable<T>({
     get data() { return rows.value },
-    columns,
+    get columns() { return columnDefs.value },
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),

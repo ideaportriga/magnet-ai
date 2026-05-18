@@ -1,7 +1,7 @@
 # type: ignore
 """Tenant-scope user_group: add tenant_id and partial unique indexes.
 
-PR 6 of `docs/access-control-tenancy-plan-v2_ai-claude.md`.
+PR 6 of `docs/access-control-tenancy-plan-v2.md`.
 
   - Add `user_group.tenant_id` (nullable → backfill default → NOT NULL → FK)
   - Drop global UNIQUE on (slug) and (name)

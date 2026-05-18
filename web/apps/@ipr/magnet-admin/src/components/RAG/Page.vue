@@ -21,9 +21,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { usePermissions } from '@shared'
+import { useEntityAccess } from '@/composables/useEntityAccess'
 import { useDataTable } from '@/composables/useDataTable'
 import { nameDescriptionColumn, chipCopyColumn, dateColumn } from '@/utils/columnHelpers'
 import { m } from '@/paraglide/messages'
@@ -32,8 +32,7 @@ import type { RagTool } from '@/types'
 const router = useRouter()
 const showNewDialog = ref(false)
 
-const { can } = usePermissions()
-const canCreate = computed(() => can('write:rag_tools'))
+const { canCreate } = useEntityAccess('rag_tools')
 
 const columns = [
   nameDescriptionColumn<RagTool>(m.common_name()),
@@ -50,4 +49,3 @@ const openDetails = async (row: RagTool) => {
   await router.push(`/rag-tools/${row.id}`)
 }
 </script>
-

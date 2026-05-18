@@ -336,15 +336,18 @@ export { default as DsSidebarMenuSubButton } from './Sidebar/DsSidebarMenuSubBut
 export { useSidebar, SIDEBAR_KEYBOARD_SHORTCUT } from './Sidebar/utils'
 
 /* ===== Re-exported types ===== */
-export type { DsDialogSize } from './Dialog/DsDialog.vue'
-export type { DsTooltipPlacement } from './Tooltip/DsTooltip.vue'
-export type { DsDropdownMenuItem } from './Menu/DsDropdownMenu.vue'
-export type { DsRadioOption } from './Radio/DsRadioGroup.vue'
-export type { DsTabItem } from './Tabs/DsTabs.vue'
-export type { DsAccordionItem } from './Accordion/DsAccordion.vue'
-export type { DsSelectOption } from './Select/DsSelect.vue'
-
-export type { DsButtonVariant, DsButtonSize } from './Button/DsButton.vue'
-export type { DsBadgeVariant } from './Badge/DsBadge.vue'
-export type { DsAlertVariant } from './Alert/DsAlert.vue'
-export type { DsToggleVariant, DsToggleSize } from './Toggle/DsToggle.vue'
+export type {
+  DsDialogSize,
+  DsTooltipPlacement,
+  DsDropdownMenuActionItem,
+  DsRadioOption,
+  DsTabItem,
+  DsAccordionItem,
+  DsSelectOption,
+  DsButtonVariant,
+  DsButtonSize,
+  DsBadgeVariant,
+  DsAlertVariant,
+  DsToggleVariant,
+  DsToggleSize,
+} from './types'

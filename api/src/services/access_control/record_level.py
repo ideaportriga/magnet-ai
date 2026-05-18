@@ -15,6 +15,7 @@ two helpers below; ~50% of the per-entity boilerplate goes away.
 
 from __future__ import annotations
 
+from logging import getLogger
 from typing import Any
 
 from litestar import Request
@@ -25,6 +26,11 @@ from services.access_control.permissions import (
     PermissionService,
     record_visibility_filter,
 )
+
+logger = getLogger(__name__)
+
+
+IDENTITY_FIELDS = ("tenant_id", "owner_id")
 
 
 def force_create_fields(
@@ -52,6 +58,13 @@ def force_create_fields(
     # Sanitize client-supplied identity fields that must come from auth.
     payload.pop("created_by", None)
     payload.pop("updated_by", None)
+    return payload
+
+
+def strip_identity_fields(payload: dict[str, Any]) -> dict[str, Any]:
+    """Remove client-controlled ownership fields from update payloads."""
+    for field in IDENTITY_FIELDS:
+        payload.pop(field, None)
     return payload
 
 
@@ -127,18 +140,200 @@ async def attach_permissions(
     auth: Auth | None = request.scope.get("auth")
     if auth is None or not hasattr(schema, "permissions"):
         return schema
+    session = service.repository.session
     try:
-        schema.permissions = await PermissionService.compute_record_permissions(
-            service.repository.session,
-            auth=auth,
-            resource_type=resource_type,
-            resource=obj,
-        )
+        # SAVEPOINT — if compute_record_permissions raises, only the inner
+        # work is rolled back; the outer txn keeps serving the list query.
+        async with session.begin_nested():
+            schema.permissions = await PermissionService.compute_record_permissions(
+                session,
+                auth=auth,
+                resource_type=resource_type,
+                resource=obj,
+            )
     except Exception:
-        # Failing closed on permission compute is worse than no _permissions
-        # block — the UI will simply not show advanced affordances.
-        pass
+        logger.exception(
+            "compute_record_permissions failed; omitting _permissions block",
+            extra={"resource_type": resource_type},
+        )
     return schema
+
+
+async def serialize_with_permissions(
+    service: Any,
+    obj: Any,
+    *,
+    schema_type: Any,
+    request: Request,
+    resource_type: str,
+) -> Any:
+    schema = service.to_schema(obj, schema_type=schema_type)
+    return await attach_permissions(
+        service,
+        schema,
+        obj,
+        request=request,
+        resource_type=resource_type,
+    )
+
+
+async def list_with_record_permissions(
+    service: Any,
+    filters: list[Any],
+    *,
+    request: Request,
+    model: Any,
+    schema_type: Any,
+    resource_type: str,
+) -> Any:
+    """List records with record visibility filtering and `_permissions`."""
+    extra_filters: list[Any] = list(filters)
+    where = await visibility_filter_for(
+        service,
+        request=request,
+        model=model,
+        resource_type=resource_type,
+    )
+    if where is not None:
+        extra_filters.append(where)
+
+    results, total = await service.list_and_count(*extra_filters)
+    page = service.to_schema(results, total, filters=filters, schema_type=schema_type)
+    if request.scope.get("auth") is not None and page.items:
+        for item, obj in zip(page.items, results):
+            await attach_permissions(
+                service,
+                item,
+                obj,
+                request=request,
+                resource_type=resource_type,
+            )
+    return page
+
+
+async def create_with_record_context(
+    service: Any,
+    data: Any,
+    *,
+    model: Any,
+    schema_type: Any,
+    request: Request,
+    resource_type: str,
+    audit_username: str | None,
+) -> Any:
+    """Create a tenant-scoped record with tenant/owner from auth context."""
+    payload = data.model_dump(exclude_unset=True)
+    payload = force_create_fields(payload, request=request)
+    payload["created_by"] = audit_username
+    payload["updated_by"] = audit_username
+    obj = await service.create(model(**payload), auto_commit=True)
+    return await serialize_with_permissions(
+        service,
+        obj,
+        schema_type=schema_type,
+        request=request,
+        resource_type=resource_type,
+    )
+
+
+async def get_by_code_with_record_access(
+    service: Any,
+    code: str,
+    *,
+    model: Any,
+    schema_type: Any,
+    request: Request,
+    resource_type: str,
+) -> Any:
+    obj = await service.get_one(tenant_system_name_filter(request, model, code))
+    await enforce_view_or_404(
+        service,
+        request=request,
+        resource=obj,
+        resource_type=resource_type,
+    )
+    return await serialize_with_permissions(
+        service,
+        obj,
+        schema_type=schema_type,
+        request=request,
+        resource_type=resource_type,
+    )
+
+
+async def get_by_id_with_record_access(
+    service: Any,
+    item_id: Any,
+    *,
+    schema_type: Any,
+    request: Request,
+    resource_type: str,
+) -> Any:
+    obj = await service.get(item_id)
+    await enforce_view_or_404(
+        service,
+        request=request,
+        resource=obj,
+        resource_type=resource_type,
+    )
+    return await serialize_with_permissions(
+        service,
+        obj,
+        schema_type=schema_type,
+        request=request,
+        resource_type=resource_type,
+    )
+
+
+async def update_with_record_access(
+    service: Any,
+    item_id: Any,
+    data: Any,
+    *,
+    schema_type: Any,
+    request: Request,
+    resource_type: str,
+    audit_username: str | None,
+    update_payload_hook: Any | None = None,
+) -> Any:
+    existing = await service.get(item_id)
+    await enforce_action_or_403(
+        service,
+        request=request,
+        action="edit",
+        resource=existing,
+        resource_type=resource_type,
+    )
+    update_data = strip_identity_fields(data.model_dump(exclude_unset=True))
+    if update_payload_hook is not None:
+        update_payload_hook(update_data)
+    update_data["updated_by"] = audit_username
+    obj = await service.update(update_data, item_id=item_id, auto_commit=True)
+    return await serialize_with_permissions(
+        service,
+        obj,
+        schema_type=schema_type,
+        request=request,
+        resource_type=resource_type,
+    )
+
+
+async def delete_with_record_access(
+    service: Any,
+    item_id: Any,
+    *,
+    request: Request,
+    resource_type: str,
+) -> None:
+    existing = await service.get(item_id)
+    await enforce_action_or_403(
+        service,
+        request=request,
+        action="delete",
+        resource=existing,
+        resource_type=resource_type,
+    )
+    _ = await service.delete(item_id)
 
 
 async def visibility_filter_for(
@@ -156,16 +351,24 @@ async def visibility_filter_for(
     auth: Auth | None = request.scope.get("auth")
     if auth is None:
         return None
+    session = service.repository.session
     try:
-        return await record_visibility_filter(
-            service.repository.session,
-            auth=auth,
-            model=model,
-            resource_type=resource_type,
-        )
+        # SAVEPOINT — without it a failing sub-query (e.g. against
+        # user_departments / resource_access_grants) aborts the outer txn,
+        # and every subsequent statement in this request fails with
+        # InFailedSQLTransactionError.
+        async with session.begin_nested():
+            return await record_visibility_filter(
+                session,
+                auth=auth,
+                model=model,
+                resource_type=resource_type,
+            )
     except Exception:
-        # Conservative fallback: don't take the endpoint down — RLS still
-        # enforces tenant boundary.
+        logger.exception(
+            "record_visibility_filter failed; falling back to RLS only",
+            extra={"resource_type": resource_type},
+        )
         return None
 
 

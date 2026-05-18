@@ -20,12 +20,12 @@ from core.domain.retrieval_tools.service import (
 )
 from guards.permissions import Permission, require_permission
 from services.access_control import (
-    attach_permissions,
-    enforce_action_or_403,
-    enforce_view_or_404,
-    force_create_fields,
-    tenant_system_name_filter,
-    visibility_filter_for,
+    create_with_record_context,
+    delete_with_record_access,
+    get_by_code_with_record_access,
+    get_by_id_with_record_access,
+    list_with_record_permissions,
+    update_with_record_access,
 )
 from services.flow_retrieval_execute import flow_retrieval_execute
 from services.flow_retrieval_test import RetrievalToolTestResult, flow_retrieval_test
@@ -74,29 +74,14 @@ class RetrievalToolsController(Controller):
             RetrievalTool as RetrievalToolModel,
         )
 
-        extra_filters: list = list(filters)
-        where = await visibility_filter_for(
+        return await list_with_record_permissions(
             retrieval_tools_service,
+            filters,
             request=request,
             model=RetrievalToolModel,
+            schema_type=RetrievalTool,
             resource_type=_RESOURCE,
         )
-        if where is not None:
-            extra_filters.append(where)
-        results, total = await retrieval_tools_service.list_and_count(*extra_filters)
-        page = retrieval_tools_service.to_schema(
-            results, total, filters=filters, schema_type=RetrievalTool
-        )
-        if request.scope.get("auth") is not None and page.items:
-            for item, model in zip(page.items, results):
-                await attach_permissions(
-                    retrieval_tools_service,
-                    item,
-                    model,
-                    request=request,
-                    resource_type=_RESOURCE,
-                )
-        return page
 
     @post(guards=[require_permission(Permission.RETRIEVAL_TOOLS_WRITE)])
     async def create_retrieval_tool(
@@ -111,22 +96,14 @@ class RetrievalToolsController(Controller):
             RetrievalTool as RetrievalToolModel,
         )
 
-        data.created_by = audit_username
-        data.updated_by = audit_username
-        payload = data.model_dump(exclude_unset=True)
-        payload = force_create_fields(payload, request=request)
-        payload["created_by"] = audit_username
-        payload["updated_by"] = audit_username
-        obj = await retrieval_tools_service.create(
-            RetrievalToolModel(**payload), auto_commit=True
-        )
-        schema = retrieval_tools_service.to_schema(obj, schema_type=RetrievalTool)
-        return await attach_permissions(
+        return await create_with_record_context(
             retrieval_tools_service,
-            schema,
-            obj,
+            data,
+            model=RetrievalToolModel,
+            schema_type=RetrievalTool,
             request=request,
             resource_type=_RESOURCE,
+            audit_username=audit_username,
         )
 
     @get(
@@ -144,20 +121,11 @@ class RetrievalToolsController(Controller):
             RetrievalTool as RetrievalToolModel,
         )
 
-        obj = await retrieval_tools_service.get_one(
-            tenant_system_name_filter(request, RetrievalToolModel, code)
-        )
-        await enforce_view_or_404(
+        return await get_by_code_with_record_access(
             retrieval_tools_service,
-            request=request,
-            resource=obj,
-            resource_type=_RESOURCE,
-        )
-        schema = retrieval_tools_service.to_schema(obj, schema_type=RetrievalTool)
-        return await attach_permissions(
-            retrieval_tools_service,
-            schema,
-            obj,
+            code,
+            model=RetrievalToolModel,
+            schema_type=RetrievalTool,
             request=request,
             resource_type=_RESOURCE,
         )
@@ -176,18 +144,10 @@ class RetrievalToolsController(Controller):
         ),
     ) -> RetrievalTool:
         """Get a Retrieval tool by its ID. 404 if caller can't view it."""
-        obj = await retrieval_tools_service.get(retrieval_tool_id)
-        await enforce_view_or_404(
+        return await get_by_id_with_record_access(
             retrieval_tools_service,
-            request=request,
-            resource=obj,
-            resource_type=_RESOURCE,
-        )
-        schema = retrieval_tools_service.to_schema(obj, schema_type=RetrievalTool)
-        return await attach_permissions(
-            retrieval_tools_service,
-            schema,
-            obj,
+            retrieval_tool_id,
+            schema_type=RetrievalTool,
             request=request,
             resource_type=_RESOURCE,
         )
@@ -208,28 +168,14 @@ class RetrievalToolsController(Controller):
         audit_username: str | None = None,
     ) -> RetrievalTool:
         """Update a Retrieval tool. 404/403 per record-level access rules."""
-        existing = await retrieval_tools_service.get(retrieval_tool_id)
-        await enforce_action_or_403(
+        return await update_with_record_access(
             retrieval_tools_service,
-            request=request,
-            action="edit",
-            resource=existing,
-            resource_type=_RESOURCE,
-        )
-        update_data = data.model_dump(exclude_unset=True)
-        for forbidden in ("tenant_id", "owner_id"):
-            update_data.pop(forbidden, None)
-        update_data["updated_by"] = audit_username
-        obj = await retrieval_tools_service.update(
-            update_data, item_id=retrieval_tool_id, auto_commit=True
-        )
-        schema = retrieval_tools_service.to_schema(obj, schema_type=RetrievalTool)
-        return await attach_permissions(
-            retrieval_tools_service,
-            schema,
-            obj,
+            retrieval_tool_id,
+            data,
+            schema_type=RetrievalTool,
             request=request,
             resource_type=_RESOURCE,
+            audit_username=audit_username,
         )
 
     @delete(
@@ -246,15 +192,12 @@ class RetrievalToolsController(Controller):
         ),
     ) -> None:
         """Delete a Retrieval tool. 404/403 per record-level access rules."""
-        existing = await retrieval_tools_service.get(retrieval_tool_id)
-        await enforce_action_or_403(
+        await delete_with_record_access(
             retrieval_tools_service,
+            retrieval_tool_id,
             request=request,
-            action="delete",
-            resource=existing,
             resource_type=_RESOURCE,
         )
-        _ = await retrieval_tools_service.delete(retrieval_tool_id)
 
     @observe(name="Previewing Retrieval Tool", channel="preview")
     @post("/test", status_code=HTTP_200_OK)

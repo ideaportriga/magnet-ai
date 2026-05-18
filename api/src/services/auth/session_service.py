@@ -83,6 +83,7 @@ async def create_session(
     auth_method: str = "password",
     audience: str | None = None,
     client_id: str | None = None,
+    ip_address: str | None = None,
 ) -> InternalSession:
     """Create an internal session for any auth flow.
 
@@ -95,6 +96,7 @@ async def create_session(
             refresh rotations. Used by the MCP OAuth flow.
         client_id: If set, persisted on the refresh-token row to identify
             the OAuth client (e.g. "claude") that owns this session.
+        ip_address: Client IP, recorded in the login audit-log payload.
     """
     access_token = create_access_token(user, auth_method=auth_method, audience=audience)
 
@@ -104,6 +106,21 @@ async def create_session(
         device_info=device_info,
         client_id=client_id,
         audience=audience,
+    )
+
+    from services.auth.audit import record_login_event
+
+    await record_login_event(
+        tenant_id=user.tenant_id,
+        user_id=user.id,
+        action="login.success",
+        payload={
+            "email": user.email,
+            "auth_method": auth_method,
+            "device_info": device_info,
+            "ip_address": ip_address,
+            "client_id": client_id,
+        },
     )
 
     return InternalSession(

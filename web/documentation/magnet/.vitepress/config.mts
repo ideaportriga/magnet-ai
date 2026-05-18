@@ -34,8 +34,9 @@ export default withMermaid(
         themeConfig: {
           nav: [
             { text: 'Home', link: '/docs/en/' },
+            { text: "What's new", link: '/docs/en/whats-new-alpha' },
             { text: 'Quickstarts', link: '/docs/en/quickstarts/introduction/what-is-magnet-ai' },
-            { text: 'Admin Guide', link: '/docs/en/admin/connect/models/overview' },
+            { text: 'Admin Guide', link: '/docs/en/admin/access/overview' },
             { text: 'Developer Guide', link: '/docs/en/developers/overview' },
             { text: 'DevOps Guide', link: '/docs/en/devops/overview' },
           ],
@@ -169,8 +170,42 @@ export default withMermaid(
                   { text: 'Backup/Restore', link: '/docs/en/devops/database-ops/backup-restore' },
                 ],
               },
+              {
+                text: 'Background tasks',
+                items: [
+                  { text: 'Taskiq', link: '/docs/en/devops/taskiq' },
+                ],
+              },
             ],
             '/docs/en/admin/': [
+              {
+                text: 'Authentication',
+                items: [
+                  { text: 'Overview', link: '/docs/en/admin/authentication/overview' },
+                  { text: 'Sign-in providers', link: '/docs/en/admin/authentication/providers' },
+                  { text: 'Multi-factor authentication', link: '/docs/en/admin/authentication/mfa' },
+                  { text: 'Sessions and tokens', link: '/docs/en/admin/authentication/sessions' },
+                  { text: 'API keys', link: '/docs/en/admin/authentication/api-keys' },
+                ],
+              },
+              {
+                text: 'Access control',
+                items: [
+                  { text: 'Overview', link: '/docs/en/admin/access/overview' },
+                  { text: 'Managing users', link: '/docs/en/admin/access/users' },
+                  { text: 'Managing roles', link: '/docs/en/admin/access/roles' },
+                  { text: 'Permissions reference', link: '/docs/en/admin/access/permissions-reference' },
+                  { text: 'Record-level access', link: '/docs/en/admin/access/record-level' },
+                  { text: 'Access log', link: '/docs/en/admin/access/access-log' },
+                ],
+              },
+              {
+                text: 'Integrations',
+                items: [
+                  { text: 'MCP server', link: '/docs/en/admin/integrations/mcp-server' },
+                  { text: 'Note Taker', link: '/docs/en/admin/integrations/note-taker' },
+                ],
+              },
               {
                 text: 'Connect',
                 items: [
@@ -267,6 +302,7 @@ export default withMermaid(
                   { text: 'Git Workflow', link: '/docs/en/developers/guides/git-workflow' },
                   { text: 'Logging', link: '/docs/en/developers/guides/logging' },
                   { text: 'Security', link: '/docs/en/developers/guides/security' },
+                  { text: 'Access control', link: '/docs/en/developers/guides/access-control' },
                   { text: 'API Structure', link: '/docs/en/developers/guides/api-structure' },
                   { text: 'Plugins Guide', link: '/docs/en/developers/guides/plugins' },
                 ],

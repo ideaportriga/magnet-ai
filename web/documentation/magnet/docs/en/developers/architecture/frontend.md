@@ -31,9 +31,17 @@ web/
 
 ### UI Components
 
-- **PrimeVue**: Comprehensive UI component library.
-- **Tailwind CSS**: Utility-first CSS framework (if used, or custom CSS).
-- **Custom Components**: Located in `packages/ui-comp`.
+- **Reka UI**: Unstyled, accessible Vue primitive library that backs the
+  Magnet design system. Replaces PrimeVue from previous releases.
+- **CUBE CSS**: Composition, Utility, Block, Exception — the layered
+  CSS methodology used across the apps. Style tokens (colors,
+  typography, spacing, elevation) live in
+  `web/packages/themes/`.
+- **`@ds` components**: Magnet design-system components built on top
+  of Reka, prefixed `Km*` (e.g. `KmBtn`, `KmChip`, `KmDataTable`).
+  Source in `web/packages/ui-comp/src`.
+- **TanStack Table + Vue Query**: data tables (`useLocalDataTable`,
+  `useDataTable`) and server-state caching for every admin page.
 
 ### State Management
 

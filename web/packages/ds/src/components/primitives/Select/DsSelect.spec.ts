@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { defineComponent, h, nextTick } from 'vue'
-import DsSelect, { type DsSelectOption } from './DsSelect.vue'
+import DsSelect from './DsSelect.vue'
+import type { DsSelectOption } from '../types'
 
 const flush = async () => {
   await nextTick()

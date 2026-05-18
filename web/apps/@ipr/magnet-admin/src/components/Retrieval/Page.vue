@@ -17,9 +17,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { usePermissions } from '@shared'
+import { useEntityAccess } from '@/composables/useEntityAccess'
 import { useDataTable } from '@/composables/useDataTable'
 import { nameDescriptionColumn, chipCopyColumn, dateColumn } from '@/utils/columnHelpers'
 import { m } from '@/paraglide/messages'
@@ -28,8 +28,7 @@ import type { RetrievalTool } from '@/types'
 const router = useRouter()
 const showNewDialog = ref(false)
 
-const { can } = usePermissions()
-const canCreate = computed(() => can('write:retrieval_tools'))
+const { canCreate } = useEntityAccess('retrieval')
 
 const columns = [
   nameDescriptionColumn<RetrievalTool>(m.common_name()),
@@ -46,4 +45,3 @@ const openDetails = async (row: RetrievalTool) => {
   await router.push(`/retrieval/${row.id}`)
 }
 </script>
-

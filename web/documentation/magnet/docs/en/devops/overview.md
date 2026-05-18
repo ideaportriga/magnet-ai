@@ -6,9 +6,16 @@ Run Magnet AI in production: deployment patterns, environment configuration, and
 
 Most production setups consist of:
 
-- **Magnet AI application**: one container image bundling the API + Admin UI + Panel UI + built-in Help docs
-- **PostgreSQL + pgvector**: your primary application database
-- **Ingress / reverse proxy**: TLS termination and routing (Kubernetes Ingress, OpenShift Route, Nginx, etc.)
+- **Magnet AI application**: one container image bundling the API
+  + Admin UI + Panel UI + built-in Help docs. The same image runs
+  the **Taskiq worker** and **scheduler** as in-process asyncio
+  tasks by default — see [Background tasks](./taskiq) for the
+  multi-process layout.
+- **PostgreSQL + pgvector**: primary application database; doubles
+  as the Taskiq broker out of the box — no separate Redis /
+  RabbitMQ required.
+- **Ingress / reverse proxy**: TLS termination and routing
+  (Kubernetes Ingress, OpenShift Route, Nginx, etc.).
 
 Key paths:
 
@@ -26,5 +33,9 @@ Key paths:
 
 ## Where to go next
 
-- [Get Started](/docs/en/devops/get-started) - Quick path to get Magnet AI running quickly in a production-like setup.
-- [Deployment Options](/docs/en/devops/deployment/) - Different options for Magnet AI deployment.
+- [Get Started](/docs/en/devops/get-started) — Quick path to get
+  Magnet AI running in a production-like setup.
+- [Deployment Options](/docs/en/devops/deployment/) — Different
+  options for Magnet AI deployment.
+- [Background tasks (Taskiq)](/docs/en/devops/taskiq) — Worker
+  and scheduler topology, tuning, and migration from APScheduler.

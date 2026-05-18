@@ -14,10 +14,7 @@
 
 <script setup lang="ts">
 import { m } from '@/paraglide/messages'
-export type ControlOption = {
-  label: string
-  value: string
-}
+import type { ControlOption } from './types'
 
 interface Props {
   modelValue: string

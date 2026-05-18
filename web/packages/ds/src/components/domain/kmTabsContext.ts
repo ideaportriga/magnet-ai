@@ -5,7 +5,7 @@
  */
 
 import type { ComputedRef, InjectionKey } from 'vue'
-import type { DsTabItem } from '../primitives/Tabs/DsTabs.vue'
+import type { DsTabItem } from '../primitives/types'
 
 export interface TabsContext {
   active: ComputedRef<string | undefined>

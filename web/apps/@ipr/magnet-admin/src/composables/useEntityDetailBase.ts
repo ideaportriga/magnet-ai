@@ -1,6 +1,7 @@
 import { computed, ref, watch, onMounted, onActivated, onBeforeUnmount, type Ref, type ComputedRef } from 'vue'
 import { useRoute } from 'vue-router'
 import { useEntityQueries, type AllEntityQueries } from '@/queries/entities'
+import type { EntityQueries } from '@/queries/createEntityQueries'
 import { useEditBufferStore } from '@/stores/editBufferStore'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
 import type { BaseEntity } from '@/types'
@@ -54,7 +55,7 @@ export interface UseEntityDetailBaseReturn<T extends BaseEntity> {
   /** Access to underlying stores/queries for advanced usage */
   editBuffer: ReturnType<typeof useEditBufferStore>
   workspace: ReturnType<typeof useWorkspaceStore>
-  entityQueries: ReturnType<typeof useEntityQueries>[keyof AllEntityQueries]
+  entityQueries: EntityQueries<T>
 }
 
 /**
@@ -106,7 +107,7 @@ export function useEntityDetailBase<T extends BaseEntity>(
   const bufferKey = computed(() => `${entityKey}:${id.value}`)
 
   // 1. Fetch entity + prepare mutations
-  const entityQueries = queries[entityKey]
+  const entityQueries = queries[entityKey] as EntityQueries<T>
   const { data, isLoading, isError, error, refetch } = entityQueries.useDetail(id)
   const { mutateAsync: updateEntity } = entityQueries.useUpdate()
   const { mutateAsync: removeEntity } = entityQueries.useRemove()
@@ -117,7 +118,7 @@ export function useEntityDetailBase<T extends BaseEntity>(
     (newData) => {
       if (!newData || !id.value) return
       const key = bufferKey.value
-      const entity = newData as Record<string, unknown>
+      const entity = newData as unknown as Record<string, unknown>
 
       if (!editBuffer.hasBuffer(key)) {
         editBuffer.initBuffer(key, entityKey as string, id.value, entity)

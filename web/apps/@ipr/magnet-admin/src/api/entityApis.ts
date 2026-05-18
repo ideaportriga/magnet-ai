@@ -86,7 +86,7 @@ export function createEntityApis(
 
   _apis = {} as EntityApis
   for (const [key, path] of Object.entries(SERVICE_PATHS)) {
-    ;(_apis as Record<string, EntityApi<unknown>>)[key] = createEntityApi(_client, path)
+    ;(_apis as unknown as Record<string, EntityApi<unknown>>)[key] = createEntityApi(_client, path)
   }
 
   // evaluation_jobs: list uses the aggregated /evaluations/list endpoint,
