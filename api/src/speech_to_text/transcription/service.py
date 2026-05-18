@@ -101,12 +101,23 @@ async def submit(
     meeting_id: str | None = None,
     chat_id: str | None = None,
     initiated_by: str | None = None,
+    tenant_id: str | None = None,
 ) -> str:
     if bytes_ is None and object_key is None:
         raise ValueError("submit(): supply either bytes_ or object_key")
     if not stt_model_system_name:
         stt_model_system_name = "ELEVENLABS2_SCRIBE_V1"
     _assert_supported(f".{ext}")
+
+    # If the caller didn't pass tenant_id explicitly, fall back to the
+    # async-context RLS var. HTTP routes have it populated by auth
+    # middleware; taskiq workers must set it before calling submit() —
+    # see `note_taker_preview_bg_task` / `process_teams_recording_*`
+    # for how they derive tenant from the related job/meeting record.
+    if tenant_id is None:
+        from core.db.rls_context import current_tenant_id
+
+        tenant_id = current_tenant_id.get()
 
     file_data = FileData(
         file_name=name,
@@ -116,6 +127,7 @@ async def submit(
         meeting_id=meeting_id,
         chat_id=chat_id,
         initiated_by=initiated_by,
+        tenant_id=tenant_id,
     )
 
     # Decide where to read the bytes from

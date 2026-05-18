@@ -15,7 +15,10 @@ class NoteTakerJobSchema(BaseModel):
 
     id: UUID
     settings_id: Optional[UUID] = None
+    tenant_id: Optional[UUID] = None
+    owner_id: Optional[UUID] = None
     user_id: Optional[str] = None
+    visibility: Optional[str] = None
     source_url: Optional[str] = None
     participants: Optional[list[str]] = None
     status: str = JobStatus.PENDING
@@ -51,10 +54,19 @@ class NoteTakerJobSchema(BaseModel):
 
 
 class NoteTakerJobCreate(BaseModel):
-    """Schema for creating a new preview job."""
+    """Schema for creating a new preview job.
+
+    `tenant_id`, `owner_id`, and `visibility` are stamped by the controller
+    from the auth context (see `_stamp_owner_fields`); they aren't accepted
+    from the wire payload but live on the schema so the service can persist
+    them. Any client-supplied value is overwritten.
+    """
 
     settings_id: Optional[UUID] = None
+    tenant_id: Optional[UUID] = None
+    owner_id: Optional[UUID] = None
     user_id: Optional[str] = None
+    visibility: Optional[str] = None
     source_url: Optional[str] = None
     participants: list[str] = Field(default_factory=list)
     stt_model_system_name: Optional[str] = None

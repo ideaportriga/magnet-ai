@@ -368,7 +368,11 @@ async def maybe_publish_confluence_notes(
         await context.send_activity(
             f"Failed to publish meeting notes to Confluence: {getattr(err, 'message', str(err))}"
         )
-        return
+        # Re-raise so the upstream `integration_attempt` journal records
+        # `failed` (with the exception class/message) instead of
+        # silently marking the row `done` once we return. The user-facing
+        # error message above has already been sent.
+        raise
 
 
 async def _maybe_send_debug(

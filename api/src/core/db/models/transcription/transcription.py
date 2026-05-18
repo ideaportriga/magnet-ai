@@ -5,7 +5,7 @@ from typing import Optional
 from advanced_alchemy.base import AdvancedDeclarativeBase, CommonTableAttributes
 from advanced_alchemy.mixins import AuditColumns
 from advanced_alchemy.types import JsonB
-from sqlalchemy import Float, String, Text
+from sqlalchemy import Float, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import Mapped, mapped_column
@@ -21,6 +21,22 @@ class Transcription(
         UUID(as_uuid=False),
         primary_key=True,
         server_default=text("gen_random_uuid()"),
+        index=True,
+    )
+
+    # Tenant boundary. Populated by `_insert_shell_if_missing` from the
+    # `current_tenant_id` contextvar (set by auth middleware on HTTP
+    # entry, by `rls_context_scope` on the taskiq side). Migration
+    # j4k5l6m7n8o9 keeps the column NULLABLE during the transition
+    # window — RLS still excludes NULL rows because the policy compares
+    # against `NULLIF(current_setting('app.tenant_id'), '')::uuid` and
+    # `NULL = ...` is `NULL` (not `true`). A follow-up migration will
+    # flip NOT NULL once telemetry shows zero NULL inserts. See
+    # NOTE_TAKER_REVISION_PLAN.md §3.4 P3-b.
+    tenant_id: Mapped[Optional[str]] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("tenant.id", ondelete="RESTRICT"),
+        nullable=True,
         index=True,
     )
 

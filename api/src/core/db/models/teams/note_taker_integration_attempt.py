@@ -23,10 +23,11 @@ See docs/NOTE_TAKER_RELIABILITY_PLAN.md § P1-4.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 from uuid import UUID
 
 from advanced_alchemy.base import AdvancedDeclarativeBase, CommonTableAttributes
+from advanced_alchemy.types import JsonB
 from sqlalchemy import DateTime, Index, Integer, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.ext.asyncio import AsyncAttrs
@@ -82,4 +83,20 @@ class NoteTakerIntegrationAttempt(
     )
     finished_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+
+    # Outbox/retry support (see NOTE_TAKER_REVISION_PLAN.md §3.3 P2-a).
+    # `retry_payload` is the kwargs blob a retry worker passes to the
+    # appropriate background task to replay the publish. `next_retry_at`
+    # is set on failure via exponential backoff; the housekeeping cron
+    # only picks up rows where `now() >= next_retry_at`.
+    retry_payload: Mapped[Optional[dict[str, Any]]] = mapped_column(
+        JsonB,
+        nullable=True,
+        comment="Kwargs to replay the integration publish if it failed.",
+    )
+    next_retry_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="When the outbox sweeper is allowed to re-enqueue this row.",
     )

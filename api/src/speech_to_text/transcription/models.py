@@ -32,6 +32,7 @@ class FileData:
     meeting_id: Optional[str] = None
     chat_id: Optional[str] = None
     initiated_by: Optional[str] = None
+    tenant_id: Optional[str] = None
 
     @property
     def filename_with_ext(self) -> str:

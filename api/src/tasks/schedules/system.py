@@ -99,6 +99,22 @@ async def cleanup_teams_webhook_events_cron() -> None:
     await cleanup_teams_webhook_events_task()
 
 
+# -- 4d. outbox retry for failed note-taker integrations: every 5 min ------
+# Sweeper picks up `note_taker_integration_attempt` rows whose backoff
+# slot is due (see integration_journal._RETRY_BACKOFF_SECONDS). At most
+# 50 rows per tick — overflow is handled by the next cron beat.
+@broker.task(
+    task_name="retry_failed_note_taker_integrations_cron",
+    schedule=[{"cron": "*/5 * * * *"}],
+)
+async def retry_failed_note_taker_integrations_cron() -> None:
+    from tasks.definitions.housekeeping import (
+        retry_failed_note_taker_integrations_task,
+    )
+
+    await retry_failed_note_taker_integrations_task()
+
+
 # -- 5. recover stuck PROCESSING jobs: every 5 min -------------------------
 @broker.task(
     task_name="recover_stuck_processing_jobs",

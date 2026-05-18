@@ -168,6 +168,41 @@ async def _upload_stream_to_object(
     content_type: str,
     filename: str,
 ) -> str:
+    import asyncio as _asyncio
+
+    from .notetaker_metrics import (
+        file_size_bucket,
+        record_file_transfer_duration,
+    )
+
+    _started = _asyncio.get_event_loop().time()
+    _size_bucket = file_size_bucket(size)
+    _outcome = "failed"
+    try:
+        result = await _do_upload_stream_to_object(
+            stream=stream,
+            size=size,
+            content_type=content_type,
+            filename=filename,
+        )
+        _outcome = "completed"
+        return result
+    finally:
+        record_file_transfer_duration(
+            stage="upload",
+            outcome=_outcome,
+            seconds=_asyncio.get_event_loop().time() - _started,
+            size_bucket=_size_bucket,
+        )
+
+
+async def _do_upload_stream_to_object(
+    *,
+    stream: AsyncIterator[bytes],
+    size: int,
+    content_type: str,
+    filename: str,
+) -> str:
     session = await upload_handler.make_multipart_session(
         filename=filename,
         size=size,

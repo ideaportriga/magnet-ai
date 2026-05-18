@@ -43,7 +43,10 @@ from services.agents.teams.note_taker import (
 )
 from services.agents.teams.notetaker_metrics import record_webhook_received
 from services.agents.teams.runtime_cache import TeamsRuntimeCache
-from services.agents.teams.trace_context import bind_trace_id, generate_trace_id
+from services.agents.teams.trace_context import (
+    bind_trace_id,
+    current_or_new_trace_id,
+)
 from services.agents.teams.webhook_intake import record_webhook_notification
 from services.agents.teams.webhook_rate_limit import (
     allow as webhook_rate_limit_allow,
@@ -786,7 +789,7 @@ class UserAgentsController(Controller):
         )
 
         for item in items:
-            trace_id = generate_trace_id()
+            trace_id = current_or_new_trace_id()
             with bind_trace_id(trace_id):
                 intake = await record_webhook_notification(
                     notification=item,
@@ -870,7 +873,7 @@ class UserAgentsController(Controller):
         )
 
         for item in items:
-            trace_id = generate_trace_id()
+            trace_id = current_or_new_trace_id()
             try:
                 intake = await record_webhook_notification(
                     notification=item,

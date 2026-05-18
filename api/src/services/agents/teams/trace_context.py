@@ -43,6 +43,35 @@ def generate_trace_id() -> str:
     return secrets.token_urlsafe(16)
 
 
+def current_or_new_trace_id() -> str:
+    """Return the active OTel trace_id (hex), or a fresh URL-safe token.
+
+    Pipeline entry points (webhook handler, admin preview run, manual
+    `/process-file` command) used to call :func:`generate_trace_id` —
+    producing a string disconnected from any OpenTelemetry span. Once
+    the trace_id was persisted onto jobs / transcriptions / journal rows,
+    operators had two parallel correlation ids: the DB string and the
+    OTel span tree. They never joined.
+
+    This helper closes the gap: when called inside a recording span
+    (HTTP request, taskiq task body — both have a span open via
+    `@observe` and the `TraceContextMiddleware`), the returned id is the
+    OTel ``trace_id`` formatted as a 32-char lowercase hex string. Logs
+    and DB rows then carry the same identifier Grafana shows on the
+    span, so one click links them.
+
+    When no span is active (worker spawned outside the broker middleware,
+    test scaffolding, ad-hoc scripts) we fall back to the URL-safe token
+    so the column never ends up null.
+    """
+    from opentelemetry import trace as otel_trace
+
+    span_ctx = otel_trace.get_current_span().get_span_context()
+    if span_ctx.is_valid and span_ctx.trace_id:
+        return otel_trace.format_trace_id(span_ctx.trace_id)
+    return generate_trace_id()
+
+
 def set_trace_id(trace_id: str | None) -> Token:
     """Bind ``trace_id`` to the current async context.
 

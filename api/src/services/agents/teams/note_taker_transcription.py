@@ -2,8 +2,6 @@ import asyncio
 import datetime as dt
 import os
 import re
-from types import SimpleNamespace
-from uuid import UUID, uuid4
 from logging import getLogger
 from typing import Any, Awaitable, Callable
 
@@ -11,13 +9,6 @@ import httpx
 from microsoft_agents.activity import Activity, Attachment
 from microsoft_agents.hosting.core import TurnContext
 
-from core.db.models.knowledge_graph import KnowledgeGraph
-from core.db.session import async_session_maker
-from sqlalchemy import select
-from services.knowledge_graph.sources.api_ingest.api_ingest_source import (
-    ApiIngestDataSource,
-    run_background_ingest,
-)
 from services.observability import observe
 from speech_to_text.transcription import service as transcription_service
 from services.prompt_templates import execute_prompt_template
@@ -101,11 +92,51 @@ async def _start_transcription_from_object_key(
     meeting_id: str | None = None,
     chat_id: str | None = None,
     initiated_by: str | None = None,
+    tenant_id: str | None = None,
 ) -> tuple[str, dict | None]:
     from .notetaker_metrics import record_stt_duration
 
     submit_started = asyncio.get_event_loop().time()
     ext_no_dot = ext.lstrip(".")
+
+    # Teams webhook → bg task path has no auth-driven tenant context.
+    # Resolve lazily here from meeting_id → TeamsMeeting →
+    # note_taker_settings_system_name → NoteTakerSettings.tenant_id.
+    # Leave as None (RLS excludes the row from per-tenant reads) if any
+    # link in the chain is missing — admin/superuser paths still get
+    # through. See NOTE_TAKER_REVISION_PLAN.md §3.4 P3-b.
+    if tenant_id is None and meeting_id:
+        try:
+            from sqlalchemy import select
+
+            from core.db.models.teams.note_taker_settings import NoteTakerSettings
+            from core.db.models.teams.teams_meeting import TeamsMeeting
+            from core.db.session import async_session_maker
+
+            async with async_session_maker() as _session:
+                _mt = (
+                    await _session.execute(
+                        select(TeamsMeeting.note_taker_settings_system_name)
+                        .where(TeamsMeeting.meeting_id == meeting_id)
+                        .limit(1)
+                    )
+                ).scalar_one_or_none()
+                if _mt:
+                    _ts = (
+                        await _session.execute(
+                            select(NoteTakerSettings.tenant_id).where(
+                                NoteTakerSettings.system_name == _mt
+                            )
+                        )
+                    ).scalar_one_or_none()
+                    if _ts:
+                        tenant_id = str(_ts)
+        except Exception:
+            logger.debug(
+                "transcription submit: tenant lookup failed for meeting_id=%s",
+                meeting_id,
+                exc_info=True,
+            )
 
     job_id = await transcription_service.submit(
         name=name,
@@ -119,6 +150,7 @@ async def _start_transcription_from_object_key(
         meeting_id=meeting_id,
         chat_id=chat_id,
         initiated_by=initiated_by,
+        tenant_id=tenant_id,
     )
     if on_submit and job_id:
         try:
@@ -173,8 +205,21 @@ async def _ingest_knowledge_graph_sections(
     job_id: str | None,
     conversation_date: str | None,
     sections: dict[str, str],
+    trace_id: str | None = None,
 ) -> int:
+    """Enqueue KG embedding of post-processing sections via taskiq.
+
+    Returns the number of non-empty sections handed to the worker (one
+    `ingest_text` call per section). The actual ingest, the
+    `integration_attempt` journal, and retry-on-failure all live in
+    `note_taker_kg_ingest_bg_task` — see NOTE_TAKER_REVISION_PLAN.md
+    §3.1 P0-d and §3.3 P2-a.
+    """
     if not graph_system_name or not sections:
+        return 0
+
+    non_empty = {k: v for k, v in sections.items() if v}
+    if not non_empty:
         return 0
 
     date_part = _format_recording_date_compact(conversation_date) or dt.datetime.now(
@@ -185,54 +230,18 @@ async def _ingest_knowledge_graph_sections(
     )
     item_id = job_id or "transcription"
 
-    async with async_session_maker() as session:
-        stmt = select(KnowledgeGraph).where(
-            KnowledgeGraph.system_name == graph_system_name
-        )
-        graph = (await session.execute(stmt)).scalars().first()
-        if not graph:
-            logger.warning(
-                "Knowledge graph %s not found for note taker embedding.",
-                graph_system_name,
-            )
-            return 0
+    from tasks.definitions import note_taker_kg_ingest_bg_task
 
-        data_source = ApiIngestDataSource(source_name="Note Taker")
-        source = await data_source.get_or_create_source(session, graph.id)
-
-        items = []
-        for kind, content in sections.items():
-            if not content:
-                continue
-            filename = _build_note_taker_filename(
-                kind=kind,
-                meeting_id=meeting_part,
-                item_id=item_id,
-                date_part=date_part,
-                ext=".txt",
-            )
-            items.append(
-                SimpleNamespace(
-                    kind="text",
-                    filename=filename,
-                    text=content,
-                    file_bytes=None,
-                )
-            )
-
-        if not items:
-            return 0
-
-        ingestion_id = str(uuid4())
-        asyncio.create_task(
-            run_background_ingest(
-                ingestion_id=ingestion_id,
-                graph_id=graph.id,
-                source_id=UUID(str(source.id)),
-                items=items,
-            )
-        )
-        return len(items)
+    await note_taker_kg_ingest_bg_task.kiq(
+        graph_system_name=graph_system_name,
+        sections=non_empty,
+        meeting_part=meeting_part,
+        item_id=item_id,
+        date_part=date_part,
+        job_id=job_id,
+        trace_id=trace_id,
+    )
+    return len(non_empty)
 
 
 @observe(
@@ -249,6 +258,20 @@ async def _execute_transcription_prompt_templates(
     keyterms: list[str] | None = None,
     meeting_notes: str | None = None,
 ) -> list[Any]:
+    """Run post-processing templates in parallel.
+
+    Each template failure is logged at the source with the template's
+    system_name AND emitted as a `notetaker.pipeline.stage_failures`
+    metric (stage="postprocessing_template", error_class=<exc type>).
+    Exceptions still propagate up through `asyncio.gather(return_exceptions=True)`
+    so callers can render per-template error messages to the user — but
+    they're no longer silent: every failure is visible in logs + Grafana.
+    """
+    from .notetaker_metrics import (
+        record_pipeline_stage_failure,
+        record_postprocessing_template_duration,
+    )
+
     async def _run_template(system_name: str):
         values: dict[str, Any] = {
             "transcription": transcription,
@@ -258,10 +281,33 @@ async def _execute_transcription_prompt_templates(
             "keyterms": ", ".join(keyterms) if keyterms else "",
             "meeting_notes": meeting_notes or "",
         }
-        return await execute_prompt_template(
-            system_name_or_config=system_name,
-            template_values=values,
+        started = asyncio.get_event_loop().time()
+        try:
+            result = await execute_prompt_template(
+                system_name_or_config=system_name,
+                template_values=values,
+            )
+        except Exception as exc:
+            record_postprocessing_template_duration(
+                template_system_name=system_name,
+                outcome="failed",
+                seconds=asyncio.get_event_loop().time() - started,
+            )
+            logger.exception(
+                "Post-processing template failed: %s",
+                system_name,
+            )
+            record_pipeline_stage_failure(
+                stage="postprocessing_template",
+                error_class=type(exc).__name__,
+            )
+            raise
+        record_postprocessing_template_duration(
+            template_system_name=system_name,
+            outcome="completed",
+            seconds=asyncio.get_event_loop().time() - started,
         )
+        return result
 
     return await asyncio.gather(
         *(_run_template(system_name) for system_name in template_system_names),
@@ -650,29 +696,29 @@ async def _send_transcription_summary(
             )
             if embedding_enabled and knowledge_graph_name and knowledge_graph_sections:
                 meeting_for_ingest = meeting_context or resolve_meeting_details(context)
-                async with integration_attempt(
-                    job_id=job_id or "",
-                    integration_kind="knowledge_graph",
-                    trace_id=_trace_id,
-                ) as proceed:
-                    if proceed:
-                        try:
-                            ingested = await _ingest_knowledge_graph_sections(
-                                graph_system_name=knowledge_graph_name,
-                                meeting=meeting_for_ingest,
-                                job_id=job_id,
-                                conversation_date=conversation_date,
-                                sections=knowledge_graph_sections,
-                            )
-                            if ingested:
-                                await context.send_activity(
-                                    f"Embedded {ingested} item(s) into knowledge graph {knowledge_graph_name}."
-                                )
-                        except Exception:
-                            logger.exception(
-                                "KG ingest failed for job %s — recorded in integration_attempt",
-                                job_id,
-                            )
+                # `_ingest_knowledge_graph_sections` only kiq()s the taskiq
+                # task; the integration_attempt journal lives **inside**
+                # `note_taker_kg_ingest_bg_task` so it reflects the real
+                # ingest outcome rather than the enqueue outcome. See
+                # NOTE_TAKER_REVISION_PLAN.md §3.3 P2-a.
+                try:
+                    enqueued = await _ingest_knowledge_graph_sections(
+                        graph_system_name=knowledge_graph_name,
+                        meeting=meeting_for_ingest,
+                        job_id=job_id,
+                        conversation_date=conversation_date,
+                        sections=knowledge_graph_sections,
+                        trace_id=_trace_id,
+                    )
+                    if enqueued:
+                        await context.send_activity(
+                            f"Scheduled {enqueued} section(s) for embedding into knowledge graph {knowledge_graph_name}."
+                        )
+                except Exception:
+                    logger.exception(
+                        "KG ingest enqueue failed for job %s",
+                        job_id,
+                    )
 
         return
 
@@ -935,29 +981,26 @@ async def _run_postprocessing_body(
     ).strip()
     embedding_enabled = bool(settings.get("create_knowledge_graph_embedding"))
     if embedding_enabled and knowledge_graph_name and knowledge_graph_sections:
-        async with integration_attempt(
-            job_id=job_id or "",
-            integration_kind="knowledge_graph",
-            trace_id=_trace_id,
-        ) as proceed:
-            if proceed:
-                try:
-                    ingested = await _ingest_knowledge_graph_sections(
-                        graph_system_name=knowledge_graph_name,
-                        meeting=_mc,
-                        job_id=job_id,
-                        conversation_date=conversation_date,
-                        sections=knowledge_graph_sections,
-                    )
-                    if ingested:
-                        await context.send_activity(
-                            f"Embedded {ingested} item(s) into knowledge graph {knowledge_graph_name}."
-                        )
-                except Exception:
-                    logger.exception(
-                        "KG ingest failed for job %s — recorded in integration_attempt",
-                        job_id,
-                    )
+        # See note above (KG ingest at end of stage_2_internal): the
+        # integration_attempt journal is owned by `note_taker_kg_ingest_bg_task`.
+        try:
+            enqueued = await _ingest_knowledge_graph_sections(
+                graph_system_name=knowledge_graph_name,
+                meeting=_mc,
+                job_id=job_id,
+                conversation_date=conversation_date,
+                sections=knowledge_graph_sections,
+                trace_id=_trace_id,
+            )
+            if enqueued:
+                await context.send_activity(
+                    f"Scheduled {enqueued} section(s) for embedding into knowledge graph {knowledge_graph_name}."
+                )
+        except Exception:
+            logger.exception(
+                "KG ingest enqueue failed for job %s",
+                job_id,
+            )
 
 
 async def run_transcription_pipeline(

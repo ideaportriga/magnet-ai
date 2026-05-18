@@ -44,6 +44,17 @@ class PgDataStorage:
     )
 
     async def _insert_shell_if_missing(self, data: FileData) -> None:
+        # Resolve tenant_id: prefer the value explicitly stamped on
+        # FileData (set by `submit()` from its caller), fall back to the
+        # async-context RLS var. Either populates the row's tenant
+        # boundary so RLS lets the owning tenant read it back; rows that
+        # end up with NULL are admin/system-only by virtue of the
+        # tenant_isolation policy (NULL never equals current_setting).
+        # See NOTE_TAKER_REVISION_PLAN.md §3.4 P3-b.
+        from core.db.rls_context import current_tenant_id
+
+        tenant_value = data.tenant_id or current_tenant_id.get() or None
+
         now = datetime.now(timezone.utc)
         stmt = (
             pg_insert(Transcription)
@@ -57,6 +68,7 @@ class PgDataStorage:
                 meeting_id=data.meeting_id,
                 chat_id=data.chat_id,
                 initiated_by=data.initiated_by,
+                tenant_id=tenant_value,
                 created_at=now,
                 updated_at=now,
             )

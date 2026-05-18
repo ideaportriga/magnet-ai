@@ -237,3 +237,139 @@ async def cleanup_teams_webhook_events_task() -> None:
             deleted,
             _TEAMS_WEBHOOK_EVENT_RETENTION_DAYS,
         )
+
+
+# Outbox retry sweeper for failed note-taker integration publishes. The
+# sweeper only resurrects rows that the journal explicitly armed for
+# retry (retry_payload + next_retry_at), and only those whose backoff
+# slot is due. Re-enqueueing dispatches by `integration_kind` to the
+# matching `*_bg_task` so the worker can replay the publish.
+# See NOTE_TAKER_REVISION_PLAN.md §3.3 P2-a.
+@broker.task(task_name="retry_failed_note_taker_integrations", timeout=600)
+async def retry_failed_note_taker_integrations_task() -> int:
+    """Re-enqueue failed note-taker integration publishes whose backoff is due.
+
+    Returns the number of attempts re-enqueued (for tests / metrics).
+    Idempotent — concurrent sweepers won't double-fire because we mark
+    `next_retry_at = NULL` inside the same transaction that selects the
+    row, so a second sweeper sees the row as no-longer-ready.
+    """
+    from sqlalchemy import select, update
+
+    from core.db.models.teams.note_taker_integration_attempt import (
+        NoteTakerIntegrationAttempt,
+    )
+    from core.db.session import async_session_maker
+    from services.agents.teams.integration_journal import RETRY_MAX_ATTEMPTS
+
+    requeued = 0
+    async with async_session_maker() as session:
+        now = datetime.now(UTC)
+        # Pull a bounded batch so a single sweeper run can't get stuck
+        # behind hundreds of failed rows. The next cron tick handles the rest.
+        batch_size = 50
+        rows = (
+            (
+                await session.execute(
+                    select(NoteTakerIntegrationAttempt)
+                    .where(
+                        NoteTakerIntegrationAttempt.status == "failed",
+                        NoteTakerIntegrationAttempt.retry_payload.is_not(None),
+                        NoteTakerIntegrationAttempt.next_retry_at.is_not(None),
+                        NoteTakerIntegrationAttempt.next_retry_at <= now,
+                        NoteTakerIntegrationAttempt.attempt_count < RETRY_MAX_ATTEMPTS,
+                    )
+                    .order_by(NoteTakerIntegrationAttempt.next_retry_at.asc())
+                    .limit(batch_size)
+                )
+            )
+            .scalars()
+            .all()
+        )
+
+        if not rows:
+            return 0
+
+        # Claim every row in this batch in one statement so a parallel
+        # sweeper picks none of them up.
+        ids = [r.id for r in rows]
+        await session.execute(
+            update(NoteTakerIntegrationAttempt)
+            .where(NoteTakerIntegrationAttempt.id.in_(ids))
+            .values(next_retry_at=None)
+        )
+        await session.commit()
+
+    from services.agents.teams.notetaker_metrics import (
+        record_integration_retry_attempt,
+    )
+
+    # Rows whose kiq() failed need their next_retry_at restored so a
+    # later sweeper picks them up again. We collect those ids and update
+    # in one round-trip at the end.
+    failed_ids: list = []
+    no_replay_ids: list = []
+
+    for row in rows:
+        payload = row.retry_payload or {}
+        kind = row.integration_kind
+        try:
+            if kind == "knowledge_graph":
+                from tasks.definitions import note_taker_kg_ingest_bg_task
+
+                await note_taker_kg_ingest_bg_task.kiq(**payload)
+            else:
+                # Confluence / Salesforce retry tasks aren't extracted
+                # yet — log so operators can manually replay. Don't
+                # re-arm next_retry_at: there's no point looping back
+                # to the same dead end every 5 min. Operators clear by
+                # running rerun_postprocessing.
+                logger.warning(
+                    "retry_failed_note_taker_integrations: no replay task "
+                    "for kind=%s, job_id=%s (id=%s) — manual retry required",
+                    kind,
+                    row.job_id,
+                    row.id,
+                )
+                no_replay_ids.append(row.id)
+                record_integration_retry_attempt(
+                    integration=kind, outcome="no_replay_task"
+                )
+                continue
+            requeued += 1
+            record_integration_retry_attempt(integration=kind, outcome="requeued")
+        except Exception:
+            logger.exception(
+                "retry_failed_note_taker_integrations: replay kiq failed "
+                "for kind=%s, job_id=%s (id=%s)",
+                kind,
+                row.job_id,
+                row.id,
+            )
+            failed_ids.append(row.id)
+            record_integration_retry_attempt(integration=kind, outcome="kiq_failed")
+
+    # Re-arm rows whose kiq() failed: short fallback (5 min) so a later
+    # sweeper retries once the broker is healthy. Without this the row
+    # sits next_retry_at=NULL forever (the claim-update we did upfront
+    # cleared it). See NOTE_TAKER_REVISION_PLAN.md §3.3 P2-a follow-up.
+    if failed_ids:
+        from sqlalchemy import update
+
+        async with async_session_maker() as session:
+            await session.execute(
+                update(NoteTakerIntegrationAttempt)
+                .where(NoteTakerIntegrationAttempt.id.in_(failed_ids))
+                .values(next_retry_at=datetime.now(UTC) + timedelta(minutes=5))
+            )
+            await session.commit()
+
+    if requeued or failed_ids or no_replay_ids:
+        logger.info(
+            "retry_failed_note_taker_integrations: requeued=%d kiq_failed=%d "
+            "no_replay=%d",
+            requeued,
+            len(failed_ids),
+            len(no_replay_ids),
+        )
+    return requeued

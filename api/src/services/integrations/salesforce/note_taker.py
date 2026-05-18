@@ -224,7 +224,10 @@ async def send_stt_recording_to_salesforce(
             content=getattr(err, "message", str(err)),
             preserve_newlines=True,
         )
-        return
+        # Re-raise so the upstream `integration_attempt` journal records
+        # this as `failed` instead of falsely marking it `done` once we
+        # return normally. The Teams UI already saw the error above.
+        raise
 
     if isinstance(result, (dict, list)):
         response_json = json.dumps(result, indent=2, ensure_ascii=True)

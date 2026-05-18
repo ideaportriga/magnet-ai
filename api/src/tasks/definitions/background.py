@@ -398,3 +398,118 @@ async def api_ingest_bg_task(
         source_id=UUID(source_id),
         items=items,
     )
+
+
+@broker.task(task_name="note_taker_kg_ingest_background", timeout=3600)
+@observe(name="Note-taker KG ingest (bg)", channel="Background")
+async def note_taker_kg_ingest_bg_task(
+    graph_system_name: str,
+    sections: dict[str, str],
+    meeting_part: str,
+    item_id: str,
+    date_part: str,
+    job_id: str | None = None,
+    trace_id: str | None = None,
+) -> None:
+    """Background KG ingestion for note-taker post-processing outputs.
+
+    Replaces the previous `asyncio.create_task(run_background_ingest(...))`
+    fire-and-forget call (see NOTE_TAKER_REVISION_PLAN.md §3.1 P0-d).
+
+    The `integration_attempt(...)` journal lives **inside** the task body,
+    not at the call site — the call site only enqueues, so its outcome is
+    "kiq succeeded" which is uninteresting. Wrapping the real work here
+    means `note_taker_integration_attempt` status reflects whether the
+    embedding actually ran, and failed attempts are eligible for the
+    outbox retry sweep.
+    """
+    from types import SimpleNamespace
+    from uuid import uuid4
+
+    from sqlalchemy import select
+
+    from core.db.models.knowledge_graph import KnowledgeGraph
+    from core.db.session import async_session_maker
+    from services.agents.teams.integration_journal import integration_attempt
+    from services.agents.teams.note_taker_utils import _build_note_taker_filename
+    from services.knowledge_graph.sources.api_ingest.api_ingest_source import (
+        ApiIngestDataSource,
+        run_background_ingest,
+    )
+
+    if not graph_system_name or not sections:
+        return
+
+    async def _do_ingest() -> int:
+        async with async_session_maker() as session:
+            stmt = select(KnowledgeGraph).where(
+                KnowledgeGraph.system_name == graph_system_name
+            )
+            graph = (await session.execute(stmt)).scalars().first()
+            if graph is None:
+                logger.warning(
+                    "Knowledge graph %s not found for note-taker embedding.",
+                    graph_system_name,
+                )
+                return 0
+
+            data_source = ApiIngestDataSource(source_name="Note Taker")
+            source = await data_source.get_or_create_source(session, graph.id)
+            graph_id = graph.id
+            source_id = UUID(str(source.id))
+
+        items: list[SimpleNamespace] = []
+        for kind, content in sections.items():
+            if not content:
+                continue
+            items.append(
+                SimpleNamespace(
+                    kind="text",
+                    filename=_build_note_taker_filename(
+                        kind=kind,
+                        meeting_id=meeting_part,
+                        item_id=item_id,
+                        date_part=date_part,
+                        ext=".txt",
+                    ),
+                    text=content,
+                    file_bytes=None,
+                    source_metadata=None,
+                    stored_file_id=None,
+                )
+            )
+
+        if not items:
+            return 0
+
+        await run_background_ingest(
+            ingestion_id=str(uuid4()),
+            graph_id=graph_id,
+            source_id=source_id,
+            items=items,
+        )
+        return len(items)
+
+    # Skip the journal wrapper when there's no job_id (admin-preview /
+    # ad-hoc calls bypass job tracking). The work still runs.
+    if not job_id:
+        await _do_ingest()
+        return
+
+    retry_payload = {
+        "graph_system_name": graph_system_name,
+        "sections": sections,
+        "meeting_part": meeting_part,
+        "item_id": item_id,
+        "date_part": date_part,
+        "job_id": job_id,
+        "trace_id": trace_id,
+    }
+    async with integration_attempt(
+        job_id=job_id,
+        integration_kind="knowledge_graph",
+        trace_id=trace_id,
+        retry_payload=retry_payload,
+    ) as proceed:
+        if proceed:
+            await _do_ingest()

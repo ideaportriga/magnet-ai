@@ -6,7 +6,7 @@ from uuid import UUID
 
 import httpx
 from advanced_alchemy.extensions.litestar import providers
-from litestar import Controller, delete, get, post, put
+from litestar import Controller, Request, delete, get, post, put
 from litestar.params import Body
 from litestar.exceptions import HTTPException
 from sqlalchemy import select
@@ -25,6 +25,14 @@ from core.domain.note_taker_settings.schemas import (
     PromptSettingSchema,
 )
 from core.domain.note_taker_settings.service import NoteTakerSettingsService
+from guards.permissions import Permission, require_permission
+from services.access_control.record_level import (
+    enforce_action_or_403,
+    enforce_view_or_404,
+    visibility_filter_for,
+)
+
+NOTE_TAKER_RESOURCE_TYPE = "note_taker"
 
 logger = logging.getLogger(__name__)
 
@@ -107,36 +115,70 @@ class NoteTakerSettingsController(Controller):
         },
     )
 
-    @get()
+    @get(guards=[require_permission(Permission.NOTE_TAKER_READ)])
     async def list_settings(
         self,
         settings_service: NoteTakerSettingsService,
+        request: Request,
     ) -> list[dict[str, Any]]:
+        extra_filters: list[Any] = []
+        where = await visibility_filter_for(
+            settings_service,
+            request=request,
+            model=NoteTakerSettings,
+            resource_type=NOTE_TAKER_RESOURCE_TYPE,
+        )
+        if where is not None:
+            extra_filters.append(where)
+
         results, _ = await settings_service.list_and_count(
+            *extra_filters,
             order_by=[(NoteTakerSettings.created_at, False)],
         )
         return [_settings_to_payload(item) for item in results]
 
-    @get("/{settings_id:str}")
+    @get(
+        "/{settings_id:str}",
+        guards=[require_permission(Permission.NOTE_TAKER_READ)],
+    )
     async def get_settings(
         self,
         settings_service: NoteTakerSettingsService,
         settings_id: str,
+        request: Request,
     ) -> dict[str, Any]:
         settings = await _get_settings_by_id_or_system_name(
             settings_service, settings_id
         )
         if settings is None:
-            return {}
+            raise HTTPException(
+                status_code=404, detail="Note taker settings not found."
+            )
+        await enforce_view_or_404(
+            settings_service,
+            request=request,
+            resource=settings,
+            resource_type=NOTE_TAKER_RESOURCE_TYPE,
+        )
         return _settings_to_payload(settings)
 
-    @post()
+    @post(guards=[require_permission(Permission.NOTE_TAKER_WRITE)])
     async def create_settings(
         self,
         settings_service: NoteTakerSettingsService,
+        request: Request,
         data: NoteTakerSettingsRecordCreateSchema = Body(),
-        request: Any = None,
     ) -> dict[str, Any]:
+        # Stamp tenant_id / owner_id from auth — never trust client payload
+        # for identity fields (matches `force_create_fields` pattern but the
+        # construction here is positional, so we set attributes directly).
+        auth = request.scope.get("auth")
+        tenant_id = getattr(auth, "tenant_id", None) if auth is not None else None
+        owner_id = None
+        user = getattr(auth, "user", None) if auth is not None else None
+        if user is not None and getattr(user, "id", None):
+            owner_id = user.id
+
         settings = NoteTakerSettings(
             name=data.name,
             system_name=data.system_name,
@@ -146,10 +188,14 @@ class NoteTakerSettingsController(Controller):
             superuser_id=data.superuser_id or None,
             settings_revision=CURRENT_SETTINGS_REVISION,
         )
+        if tenant_id is not None:
+            settings.tenant_id = tenant_id
+        if owner_id is not None:
+            settings.owner_id = owner_id
         obj = await settings_service.create(settings, auto_commit=True)
         return _settings_to_payload(obj)
 
-    @put()
+    @put(guards=[require_permission(Permission.NOTE_TAKER_WRITE)])
     async def update_settings(
         self,
         settings_service: NoteTakerSettingsService,
@@ -175,13 +221,16 @@ class NoteTakerSettingsController(Controller):
         await settings_service.repository.session.refresh(obj)
         return _settings_to_payload(obj)
 
-    @put("/{settings_id:str}")
+    @put(
+        "/{settings_id:str}",
+        guards=[require_permission(Permission.NOTE_TAKER_WRITE)],
+    )
     async def update_settings_by_id(
         self,
         settings_service: NoteTakerSettingsService,
         settings_id: str,
+        request: Request,
         data: NoteTakerSettingsRecordUpdateSchema = Body(),
-        request: Any = None,
     ) -> dict[str, Any]:
         settings = await _get_settings_by_id_or_system_name(
             settings_service, settings_id
@@ -190,6 +239,13 @@ class NoteTakerSettingsController(Controller):
             raise HTTPException(
                 status_code=404, detail="Note taker settings not found."
             )
+        await enforce_action_or_403(
+            settings_service,
+            request=request,
+            action="edit",
+            resource=settings,
+            resource_type=NOTE_TAKER_RESOURCE_TYPE,
+        )
 
         if data.config is not None:
             settings.config = data.config.model_dump()
@@ -209,12 +265,16 @@ class NoteTakerSettingsController(Controller):
         await settings_service.repository.session.refresh(settings)
         return _settings_to_payload(settings)
 
-    @delete("/{settings_id:str}", status_code=200)
+    @delete(
+        "/{settings_id:str}",
+        status_code=200,
+        guards=[require_permission(Permission.NOTE_TAKER_WRITE)],
+    )
     async def delete_settings(
         self,
         settings_service: NoteTakerSettingsService,
         settings_id: str,
-        request: Any = None,
+        request: Request,
     ) -> dict[str, Any]:
         """Delete a note taker settings record and unregister its runtime from the registry."""
         settings = await _get_settings_by_id_or_system_name(
@@ -224,6 +284,17 @@ class NoteTakerSettingsController(Controller):
             raise HTTPException(
                 status_code=404, detail="Note taker settings not found."
             )
+        # No `delete:note_taker` permission exists in the catalogue yet — see
+        # NOTE_TAKER_REVISION_PLAN.md §2.3. Treat deletion as a write op and
+        # gate it on the `edit` action (i.e. NOTE_TAKER_WRITE + record-level
+        # edit rights).
+        await enforce_action_or_403(
+            settings_service,
+            request=request,
+            action="edit",
+            resource=settings,
+            resource_type=NOTE_TAKER_RESOURCE_TYPE,
+        )
         payload = _settings_to_payload(settings)
         provider_sn = str(settings.provider_system_name or "").strip()
         deleted_id = settings.id
@@ -260,12 +331,16 @@ class NoteTakerSettingsController(Controller):
 
         return payload
 
-    @post("/{settings_id:str}/reload", status_code=200)
+    @post(
+        "/{settings_id:str}/reload",
+        status_code=200,
+        guards=[require_permission(Permission.NOTE_TAKER_WRITE)],
+    )
     async def reload_runtime(
         self,
         settings_service: NoteTakerSettingsService,
         settings_id: str,
-        request: Any = None,
+        request: Request,
     ) -> dict[str, Any]:
         """
         Reload the runtime for a note taker settings record.
@@ -286,6 +361,13 @@ class NoteTakerSettingsController(Controller):
             raise HTTPException(
                 status_code=404, detail="Note taker settings not found."
             )
+        await enforce_action_or_403(
+            settings_service,
+            request=request,
+            action="edit",
+            resource=settings,
+            resource_type=NOTE_TAKER_RESOURCE_TYPE,
+        )
 
         # Resolve credentials from Provider (still a raw select — Provider
         # has no domain service in core/domain/ yet).
@@ -361,12 +443,16 @@ class NoteTakerSettingsController(Controller):
             "client_id": client_id,
         }
 
-    @get("/{settings_id:str}/status", status_code=200)
+    @get(
+        "/{settings_id:str}/status",
+        status_code=200,
+        guards=[require_permission(Permission.NOTE_TAKER_READ)],
+    )
     async def get_runtime_status(
         self,
         settings_service: NoteTakerSettingsService,
         settings_id: str,
-        request: Any = None,
+        request: Request,
     ) -> dict[str, Any]:
         """Check if the runtime for this settings record is loaded in the registry."""
         settings = await _get_settings_by_id_or_system_name(
@@ -376,6 +462,12 @@ class NoteTakerSettingsController(Controller):
             raise HTTPException(
                 status_code=404, detail="Note taker settings not found."
             )
+        await enforce_view_or_404(
+            settings_service,
+            request=request,
+            resource=settings,
+            resource_type=NOTE_TAKER_RESOURCE_TYPE,
+        )
 
         has_credentials = bool(settings.provider_system_name)
         runtime_loaded = False
@@ -546,25 +638,33 @@ async def _run_preview_job_background(
                         filename=f"{name}{ext}",
                     )
 
-        # Resolve STT model: explicit param > note taker settings > default
+        # Resolve STT model AND tenant_id from the linked settings record.
+        # Tenant is propagated onto the transcription row (see
+        # NOTE_TAKER_REVISION_PLAN.md §3.4 P3-b) so RLS lets the owning
+        # tenant read its own transcripts back via the admin recordings
+        # endpoint without leaking across tenants.
         effective_stt_model = stt_model_system_name or None
-        if not effective_stt_model:
-            try:
-                async with async_session_maker() as session:
-                    nt_settings = await _get_settings_by_id_or_system_name(
-                        session, settings_id
-                    )
-                    if nt_settings is not None:
+        tenant_id_for_transcription: str | None = None
+        try:
+            async with async_session_maker() as session:
+                nt_settings = await _get_settings_by_id_or_system_name(
+                    session, settings_id
+                )
+                if nt_settings is not None:
+                    if not effective_stt_model:
                         cfg = nt_settings.config or {}
                         effective_stt_model = (
                             str(cfg.get("pipeline_id") or "").strip() or None
                         )
-            except Exception as cfg_err:
-                logger.warning(
-                    "Preview job %s: failed to load settings for pipeline_id: %s",
-                    job_id,
-                    cfg_err,
-                )
+                    tenant_id_for_transcription = (
+                        str(nt_settings.tenant_id) if nt_settings.tenant_id else None
+                    )
+        except Exception as cfg_err:
+            logger.warning(
+                "Preview job %s: failed to load settings for pipeline_id/tenant: %s",
+                job_id,
+                cfg_err,
+            )
 
         transcription_job_id = await transcription_service.submit(
             name=name,
@@ -574,6 +674,7 @@ async def _run_preview_job_background(
             content_type=content_type,
             stt_model_system_name=effective_stt_model,
             keyterms=participants or None,
+            tenant_id=tenant_id_for_transcription,
         )
 
         async def _poll_transcription() -> str:
@@ -819,8 +920,14 @@ async def _rerun_postprocessing_background(
                     content = str(res)
                 postprocessing_results[key] = str(content)
             except Exception as exc:
-                logger.warning(
-                    "Postprocessing template %s failed: %s", template_name, exc
+                logger.exception(
+                    "Rerun postprocessing template %s failed", template_name
+                )
+                from .notetaker_metrics import record_pipeline_stage_failure
+
+                record_pipeline_stage_failure(
+                    stage="rerun_postprocessing_template",
+                    error_class=type(exc).__name__,
                 )
                 postprocessing_results[key] = f"[Error: {exc}]"
 
