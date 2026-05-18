@@ -400,6 +400,125 @@ async def api_ingest_bg_task(
     )
 
 
+@broker.task(task_name="note_taker_confluence_publish_background", timeout=1800)
+@observe(name="Note-taker Confluence publish (bg)", channel="Background")
+async def note_taker_confluence_publish_bg_task(
+    job_id: str,
+    settings: dict[str, Any],
+    sections: dict[str, str],
+    meeting_context: dict[str, Any] | None,
+    participants: list[str] | None,
+    conversation_date: str | None,
+    conversation_time: str | None,
+    duration: str | None,
+    pipeline_id: str | None,
+    transcript: str | None = None,
+    keyterms: list[str] | None = None,
+    invited_people: list[dict[str, str]] | None = None,
+    trace_id: str | None = None,
+) -> None:
+    """Headless Confluence publish — invoked by the outbox sweeper.
+
+    Mirrors `note_taker_salesforce_publish_bg_task` for Confluence. The
+    user-facing first-attempt path lives in the post-processing pipeline
+    and passes the live `TurnContext` so Teams sees "Published meeting
+    notes to Confluence: <url>". This task is the retry counterpart:
+    no UI feedback, just the page create/update wrapped in
+    `integration_attempt` so the journal records the outcome and the
+    sweeper backoff extends on continued failure.
+
+    The retry_payload is sized in the caller — passing the full
+    `sections` (summary + chapters markdown) and `transcript` text is
+    intentional; rebuilding them would require re-running the LLM
+    templates, which is expensive and non-deterministic.
+
+    See NOTE_TAKER_REVISION_PLAN.md §3.3 P2-a follow-up.
+    """
+    from services.agents.teams.integration_journal import integration_attempt
+    from services.integrations.confluence.note_taker import (
+        maybe_publish_confluence_notes,
+    )
+
+    retry_payload = {
+        "job_id": job_id,
+        "settings": settings,
+        "sections": sections,
+        "meeting_context": meeting_context,
+        "participants": participants,
+        "conversation_date": conversation_date,
+        "conversation_time": conversation_time,
+        "duration": duration,
+        "pipeline_id": pipeline_id,
+        "transcript": transcript,
+        "keyterms": keyterms,
+        "invited_people": invited_people,
+        "trace_id": trace_id,
+    }
+    async with integration_attempt(
+        job_id=job_id,
+        integration_kind="confluence",
+        trace_id=trace_id,
+        retry_payload=retry_payload,
+    ) as proceed:
+        if proceed:
+            await maybe_publish_confluence_notes(
+                None,  # headless: no Teams context
+                settings=settings,
+                job_id=job_id,
+                pipeline_id=pipeline_id,
+                meeting_context=meeting_context,
+                participants=participants,
+                conversation_date=conversation_date,
+                conversation_time=conversation_time,
+                duration=duration,
+                sections=sections,
+                transcript=transcript,
+                keyterms=keyterms,
+                invited_people=invited_people,
+                send_expandable_section=None,
+            )
+
+
+@broker.task(task_name="note_taker_salesforce_publish_background", timeout=600)
+@observe(name="Note-taker Salesforce publish (bg)", channel="Background")
+async def note_taker_salesforce_publish_bg_task(
+    job_id: str,
+    payload: dict[str, Any],
+    api_server: str,
+    api_tool: str,
+    trace_id: str | None = None,
+) -> None:
+    """Headless Salesforce publish — invoked by the outbox sweeper.
+
+    The user-facing first-attempt path lives in
+    `services.agents.teams.note_taker._send_stt_recording_to_salesforce`
+    and sends Teams UI feedback alongside the API call. This task is
+    its retry counterpart: no UI, just the HTTP call wrapped in
+    `integration_attempt` so failures continue to extend the backoff
+    schedule (5m → 15m → 1h → 4h, up to RETRY_MAX_ATTEMPTS).
+
+    See NOTE_TAKER_REVISION_PLAN.md §3.3 P2-a follow-up.
+    """
+    from services.agents.teams.integration_journal import integration_attempt
+    from services.integrations.salesforce.note_taker import post_stt_recording
+
+    retry_payload = {
+        "job_id": job_id,
+        "payload": payload,
+        "api_server": api_server,
+        "api_tool": api_tool,
+        "trace_id": trace_id,
+    }
+    async with integration_attempt(
+        job_id=job_id,
+        integration_kind="salesforce",
+        trace_id=trace_id,
+        retry_payload=retry_payload,
+    ) as proceed:
+        if proceed:
+            await post_stt_recording(payload, server=api_server, tool=api_tool)
+
+
 @broker.task(task_name="note_taker_kg_ingest_background", timeout=3600)
 @observe(name="Note-taker KG ingest (bg)", channel="Background")
 async def note_taker_kg_ingest_bg_task(

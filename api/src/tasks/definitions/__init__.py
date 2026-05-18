@@ -13,9 +13,11 @@ from tasks.definitions.background import (
     api_ingest_bg_task,
     deep_research_bg_task,
     entity_extraction_bg_task,
+    note_taker_confluence_publish_bg_task,
     note_taker_kg_ingest_bg_task,
     note_taker_preview_bg_task,
     note_taker_rerun_bg_task,
+    note_taker_salesforce_publish_bg_task,
     sync_kg_source_bg_task,
 )
 from tasks.definitions.custom import custom_function_task
@@ -46,9 +48,11 @@ __all__ = [
     "deep_research_bg_task",
     "entity_extraction_bg_task",
     "evaluate_task",
+    "note_taker_confluence_publish_bg_task",
     "note_taker_kg_ingest_bg_task",
     "note_taker_preview_bg_task",
     "note_taker_rerun_bg_task",
+    "note_taker_salesforce_publish_bg_task",
     "post_process_conversation_task",
     "sync_collection_task",
     "sync_kg_source_bg_task",

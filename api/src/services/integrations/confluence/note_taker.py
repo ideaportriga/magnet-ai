@@ -30,7 +30,7 @@ logger = getLogger(__name__)
 
 
 async def maybe_publish_confluence_notes(
-    context: TurnContext,
+    context: TurnContext | None,
     *,
     settings: dict[str, Any],
     job_id: str | None,
@@ -46,6 +46,15 @@ async def maybe_publish_confluence_notes(
     invited_people: list[dict[str, str]] | None = None,
     send_expandable_section: Callable[..., Awaitable[None]] | None = None,
 ) -> None:
+    """Publish meeting notes to Confluence.
+
+    `context` is the Teams `TurnContext` for the user-facing first-attempt
+    path; pass ``None`` from the outbox-retry taskiq path where there's
+    no live conversation. UI feedback (`context.send_activity`,
+    `_maybe_send_debug`) is gated on a non-None context. The headless
+    branch logs and re-raises on failure, leaving the journal to record
+    the outcome. See NOTE_TAKER_REVISION_PLAN.md §3.3 P2-a follow-up.
+    """
     integration = settings.get("integration") if isinstance(settings, dict) else None
     confluence = (
         integration.get("confluence") if isinstance(integration, dict) else None
@@ -80,11 +89,16 @@ async def maybe_publish_confluence_notes(
     parent_id = str(confluence.get("parent_id") or "").strip()
 
     if invited_people is None:
-        try:
-            invited_people = await get_invited_people(context)
-        except Exception as err:
-            logger.debug("[teams note-taker] failed to load invited people: %s", err)
+        if context is None:
             invited_people = []
+        else:
+            try:
+                invited_people = await get_invited_people(context)
+            except Exception as err:
+                logger.debug(
+                    "[teams note-taker] failed to load invited people: %s", err
+                )
+                invited_people = []
 
     if keyterms is None:
         keyterms = merge_unique_strings(
@@ -319,14 +333,15 @@ async def maybe_publish_confluence_notes(
             ).strip()
             page_url = _extract_confluence_page_url(result_payload or {})
 
-            if page_url:
-                await context.send_activity(
-                    f"{published_action} meeting notes to Confluence: {page_url}"
-                )
-            else:
-                await context.send_activity(
-                    f"{published_action} meeting notes to Confluence."
-                )
+            if context is not None:
+                if page_url:
+                    await context.send_activity(
+                        f"{published_action} meeting notes to Confluence: {page_url}"
+                    )
+                else:
+                    await context.send_activity(
+                        f"{published_action} meeting notes to Confluence."
+                    )
 
             if transcript and str(transcript).strip() and page_id:
                 try:
@@ -343,46 +358,48 @@ async def maybe_publish_confluence_notes(
                         "[teams note-taker] failed to attach transcript to Confluence page_id=%s",
                         page_id,
                     )
-                    await context.send_activity(
-                        "Meeting notes were published to Confluence, but attaching the transcript failed: "
-                        f"{getattr(err, 'message', str(err))}"
-                    )
+                    if context is not None:
+                        await context.send_activity(
+                            "Meeting notes were published to Confluence, but attaching the transcript failed: "
+                            f"{getattr(err, 'message', str(err))}"
+                        )
     except Exception as err:
         logger.exception(
             "[teams note-taker] failed to publish Confluence page (server=%s tool=%s)",
             api_tool_system_name,
             api_server_system_name,
         )
-        await _maybe_send_debug(
-            send_expandable_section,
-            context,
-            title="Confluence publish debug",
-            payload=debug_payload,
-        )
-        await _maybe_send_debug(
-            send_expandable_section,
-            context,
-            title="Confluence error details",
-            payload=_exception_debug_details(err),
-        )
-        await context.send_activity(
-            f"Failed to publish meeting notes to Confluence: {getattr(err, 'message', str(err))}"
-        )
+        if context is not None:
+            await _maybe_send_debug(
+                send_expandable_section,
+                context,
+                title="Confluence publish debug",
+                payload=debug_payload,
+            )
+            await _maybe_send_debug(
+                send_expandable_section,
+                context,
+                title="Confluence error details",
+                payload=_exception_debug_details(err),
+            )
+            await context.send_activity(
+                f"Failed to publish meeting notes to Confluence: {getattr(err, 'message', str(err))}"
+            )
         # Re-raise so the upstream `integration_attempt` journal records
         # `failed` (with the exception class/message) instead of
         # silently marking the row `done` once we return. The user-facing
-        # error message above has already been sent.
+        # error message above (when context was present) has already been sent.
         raise
 
 
 async def _maybe_send_debug(
     send_expandable_section: Callable[..., Awaitable[None]] | None,
-    context: TurnContext,
+    context: TurnContext | None,
     *,
     title: str,
     payload: dict[str, Any],
 ) -> None:
-    if send_expandable_section is None:
+    if send_expandable_section is None or context is None:
         return
     try:
         await send_expandable_section(

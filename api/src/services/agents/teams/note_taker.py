@@ -219,13 +219,42 @@ async def _send_stt_recording_to_salesforce(
         )
         return
 
+    from services.integrations.salesforce.note_taker import (
+        get_salesforce_api_server,
+        get_salesforce_stt_recording_tool,
+    )
+
     from .integration_journal import integration_attempt
     from .trace_context import get_trace_id
+
+    # Compute the retry_payload up front so a failure of the user-facing
+    # path leaves enough state for the outbox sweeper to replay the API
+    # call via `note_taker_salesforce_publish_bg_task` — see
+    # NOTE_TAKER_REVISION_PLAN.md §3.3 P2-a.
+    _trace_id = get_trace_id()
+    _api_server = get_salesforce_api_server(settings) or ""
+    _api_tool = get_salesforce_stt_recording_tool(settings) or ""
+    _retry_payload: dict[str, Any] | None = None
+    if _api_server and _api_tool and account_id and job_id:
+        _retry_payload = {
+            "job_id": job_id,
+            "payload": {
+                "external_job_id": job_id,
+                "conversation_date": conversation_date or "",
+                "source_file_name": source_file_name,
+                "source_file_type": source_file_type,
+                "account_id": account_id,
+            },
+            "api_server": _api_server,
+            "api_tool": _api_tool,
+            "trace_id": _trace_id,
+        }
 
     async with integration_attempt(
         job_id=job_id,
         integration_kind="salesforce",
-        trace_id=get_trace_id(),
+        trace_id=_trace_id,
+        retry_payload=_retry_payload,
     ) as proceed:
         if not proceed:
             return

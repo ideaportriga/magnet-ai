@@ -40,6 +40,9 @@ from .admin.knowledge_sources import (
     knowledge_sources_router,
     knowledge_sources_router_deprecated,
 )
+from core.domain.note_taker_integration_attempts import (
+    NoteTakerIntegrationAttemptsController,
+)
 from core.domain.note_taker_jobs import NoteTakerJobsController
 from services.agents.teams.note_taker_settings import NoteTakerSettingsController
 from .admin.observability import observability_router
@@ -195,6 +198,7 @@ def get_route_handlers(
         OAuthClientsController,  # Admin / OAuth Clients (for the MCP server)
         NoteTakerSettingsController,  # Admin / Note Taker Settings
         NoteTakerJobsController,  # Admin / Note Taker Preview Jobs
+        NoteTakerIntegrationAttemptsController,  # Admin / Note Taker Outbox
         AIModelsController,  # Admin / Models
         observability_router,  # Admin / Observability
         PromptsController,  # Admin / Prompt Templates

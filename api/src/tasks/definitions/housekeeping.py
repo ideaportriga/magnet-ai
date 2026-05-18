@@ -318,12 +318,17 @@ async def retry_failed_note_taker_integrations_task() -> int:
                 from tasks.definitions import note_taker_kg_ingest_bg_task
 
                 await note_taker_kg_ingest_bg_task.kiq(**payload)
+            elif kind == "salesforce":
+                from tasks.definitions import note_taker_salesforce_publish_bg_task
+
+                await note_taker_salesforce_publish_bg_task.kiq(**payload)
+            elif kind == "confluence":
+                from tasks.definitions import note_taker_confluence_publish_bg_task
+
+                await note_taker_confluence_publish_bg_task.kiq(**payload)
             else:
-                # Confluence / Salesforce retry tasks aren't extracted
-                # yet — log so operators can manually replay. Don't
-                # re-arm next_retry_at: there's no point looping back
-                # to the same dead end every 5 min. Operators clear by
-                # running rerun_postprocessing.
+                # Unknown integration_kind — defensive. Should never hit
+                # given the journal only writes the three known kinds.
                 logger.warning(
                     "retry_failed_note_taker_integrations: no replay task "
                     "for kind=%s, job_id=%s (id=%s) — manual retry required",

@@ -50,10 +50,41 @@ _TRANSCRIPTION_TIMEOUT_SECONDS = int(
 # Initial poll cadence — kept short so completed jobs surface quickly.
 # The loop applies exponential backoff up to ``_TRANSCRIPTION_POLL_MAX_SECONDS``
 # so long-running jobs aren't hammering ``get_status`` every 5s for 15 minutes.
-_TRANSCRIPTION_POLL_SECONDS = 5
+_TRANSCRIPTION_POLL_SECONDS = int(
+    os.environ.get("NOTE_TAKER_STT_POLL_INITIAL_SECONDS") or 5
+)
 _TRANSCRIPTION_POLL_MAX_SECONDS = int(
     os.environ.get("NOTE_TAKER_STT_POLL_MAX_SECONDS") or 60
 )
+
+
+# Adaptive cadence based on file size: known_size in bytes → minimum
+# seconds before the first poll fires. Spares the STT service from
+# get_status floods during the obvious "still uploading / encoding"
+# window on long recordings.
+#
+# Source: empirical STT wall-time ≈ 0.10–0.20× audio duration on fast
+# providers (ElevenLabs, Azure Speech). For a 1-hour recording (~120MB
+# at 256kbps) we'd expect 6-12 min; polling every 5s for the first 3
+# min is pure waste. The skew estimates below trade poll noise for ~5%
+# latency overhead in the worst case (job finishes early).
+def _initial_poll_delay(known_size_bytes: int | None) -> float:
+    """Pick a sensible initial poll delay from file size.
+
+    Falls back to the small env-configurable default when size is unknown
+    (admin upload path) or the size is suspiciously tiny (< 5MB —
+    transcribed in seconds; the default cadence finds it immediately).
+    Cap is half the loop's max-cadence so the user still gets responsive
+    status updates on completion.
+    """
+    base = float(_TRANSCRIPTION_POLL_SECONDS)
+    if not known_size_bytes or known_size_bytes < 5 * 1024 * 1024:
+        return base
+    # Rough audio duration estimate: 32 kB/s ≈ 256 kbps audio. Long-
+    # recording skew = duration × 0.10 (lower bound of provider speed).
+    estimated_duration_s = known_size_bytes / 32_000.0
+    skew = estimated_duration_s * 0.10
+    return float(min(max(base, skew), _TRANSCRIPTION_POLL_MAX_SECONDS / 2))
 
 
 def _build_transcription_keyterms(
@@ -93,6 +124,7 @@ async def _start_transcription_from_object_key(
     chat_id: str | None = None,
     initiated_by: str | None = None,
     tenant_id: str | None = None,
+    known_size_bytes: int | None = None,
 ) -> tuple[str, dict | None]:
     from .notetaker_metrics import record_stt_duration
 
@@ -162,10 +194,14 @@ async def _start_transcription_from_object_key(
 
     deadline = asyncio.get_event_loop().time() + _TRANSCRIPTION_TIMEOUT_SECONDS
     status: str | None = None
-    # Exponential backoff: 5s, 7s, 10s, 15s, 22s, 33s, 49s, 60s, 60s, …
-    # Cuts ``get_status`` traffic by ~10× on a typical 15-minute job
-    # while still surfacing a "completed" within the first cadence step.
-    poll_delay = float(_TRANSCRIPTION_POLL_SECONDS)
+    # Exponential backoff (1.5×) capped at `_TRANSCRIPTION_POLL_MAX_SECONDS`.
+    # Initial delay adapts to file size — see `_initial_poll_delay`. For an
+    # unknown / small file this is the env-configurable default (5s by
+    # default); for a long recording the loop sleeps longer first, then
+    # tightens up as completion approaches. Cuts `get_status` traffic by
+    # ~10× on a typical 15-minute job while still surfacing a "completed"
+    # within the first cadence step.
+    poll_delay = _initial_poll_delay(known_size_bytes)
     while True:
         status = await transcription_service.get_status(job_id)
         if status in {"completed", "transcribed", "diarized", "failed"}:
@@ -654,10 +690,31 @@ async def _send_transcription_summary(
             from .trace_context import get_trace_id
 
             _trace_id = get_trace_id()
+            _meeting_for_payload = meeting_context or resolve_meeting_details(context)
+            _confluence_retry_payload = (
+                {
+                    "job_id": job_id or "",
+                    "settings": settings,
+                    "sections": confluence_sections,
+                    "meeting_context": _meeting_for_payload,
+                    "participants": participant_names,
+                    "conversation_date": conversation_date,
+                    "conversation_time": conversation_time,
+                    "duration": duration_str,
+                    "pipeline_id": pipeline_id,
+                    "transcript": full_text,
+                    "keyterms": keyterms,
+                    "invited_people": invited_people,
+                    "trace_id": _trace_id,
+                }
+                if job_id
+                else None
+            )
             async with integration_attempt(
                 job_id=job_id or "",
                 integration_kind="confluence",
                 trace_id=_trace_id,
+                retry_payload=_confluence_retry_payload,
             ) as proceed:
                 if proceed:
                     try:
@@ -666,8 +723,7 @@ async def _send_transcription_summary(
                             settings=settings,
                             job_id=job_id,
                             pipeline_id=pipeline_id,
-                            meeting_context=meeting_context
-                            or resolve_meeting_details(context),
+                            meeting_context=_meeting_for_payload,
                             participants=participant_names,
                             conversation_date=conversation_date,
                             conversation_time=conversation_time,
@@ -945,11 +1001,34 @@ async def _run_postprocessing_body(
     from .trace_context import get_trace_id
 
     _trace_id = get_trace_id()
+    # `duration_str` isn't in scope inside _run_postprocessing_body — the
+    # outer `_send_transcription_summary` computes it. Matching the
+    # existing publish call below (which passes `duration=None`).
+    _confluence_retry_payload = (
+        {
+            "job_id": job_id or "",
+            "settings": settings,
+            "sections": confluence_sections,
+            "meeting_context": _mc,
+            "participants": participant_names,
+            "conversation_date": conversation_date,
+            "conversation_time": conversation_time,
+            "duration": None,
+            "pipeline_id": pipeline_id,
+            "transcript": full_text,
+            "keyterms": keyterms,
+            "invited_people": invited_people,
+            "trace_id": _trace_id,
+        }
+        if job_id
+        else None
+    )
 
     async with integration_attempt(
         job_id=job_id or "",
         integration_kind="confluence",
         trace_id=_trace_id,
+        retry_payload=_confluence_retry_payload,
     ) as proceed:
         if proceed:
             try:
@@ -1164,6 +1243,7 @@ async def run_transcription_pipeline(
                 meeting_id=_mc.get("id") if _mc else None,
                 chat_id=_mc.get("conversationId") if _mc else None,
                 initiated_by=_initiated_by,
+                known_size_bytes=known_size,
             )
         except Exception as err:
             logger.exception("Failed to start transcription for streamed file")
