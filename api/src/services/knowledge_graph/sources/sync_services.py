@@ -10,6 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config.app import alchemy
 from core.db.models.knowledge_graph import KnowledgeGraph, KnowledgeGraphSource
+from services.knowledge_graph.logging_settings import (
+    resolve_tracing_level,
+    tracing_level_to_export_method,
+)
 from services.observability import observability_context, observe
 from services.observability.models import FeatureType
 from utils.datetime_utils import utc_now_isoformat
@@ -86,6 +90,11 @@ async def _sync_source_impl(
 
     observability_context.update_current_trace(
         name=graph.name, type=FeatureType.KNOWLEDGE_GRAPH.value
+    )
+
+    tracing_level = resolve_tracing_level(graph.settings, "sync_tracing_level")
+    observability_context.update_current_config(
+        span_export_method=tracing_level_to_export_method(tracing_level)
     )
 
     source.status = "syncing"

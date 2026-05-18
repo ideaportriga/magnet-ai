@@ -27,6 +27,10 @@ from core.domain.knowledge_graph.services.knowledge_graph_entity_service import 
     normalize_record_identifier,
 )
 from prompt_templates.prompt_templates import get_prompt_template_by_system_name_flat
+from services.knowledge_graph.logging_settings import (
+    resolve_tracing_level,
+    tracing_level_to_export_method,
+)
 from services.knowledge_graph.readers import ChunkDocumentReader
 from services.observability import observability_context, observe
 from services.prompt_templates import execute_prompt_template
@@ -2627,6 +2631,11 @@ async def _is_extraction_cancelled(db_session: AsyncSession, graph_id: UUID) -> 
         return False
 
 
+@observe(
+    name="Knowledge graph entity extraction",
+    channel="production",
+    source="production",
+)
 async def run_entity_extraction(
     db_session: AsyncSession,
     graph_id: UUID,
@@ -2642,6 +2651,11 @@ async def run_entity_extraction(
         raise NotFoundException("Graph not found")
 
     settings = getattr(graph, "settings", None) or {}
+    observability_context.update_current_config(
+        span_export_method=tracing_level_to_export_method(
+            resolve_tracing_level(settings, "entity_extraction_tracing_level")
+        )
+    )
     entity_settings = (
         settings.get("entity_extraction") if isinstance(settings, dict) else {}
     ) or {}

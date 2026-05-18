@@ -34,6 +34,56 @@
                 :option-meta="formatVectorSize"
                 :show-error="true"
                 :clearable="true"
+                dense
+              />
+            </div>
+          </div>
+        </km-section>
+
+        <q-separator class="q-my-lg" />
+
+        <km-section title="Logging" sub-title="Configure tracing detail level for each long-running operation">
+          <div class="column q-gap-16">
+            <div class="col">
+              <div class="row items-center q-gutter-xs q-mb-xs">
+                <span class="km-input-label">Sync tracing level</span>
+              </div>
+              <kg-dropdown-field
+                v-model="syncTracingLevel"
+                :options="tracingLevelOptions"
+                placeholder="Select tracing level"
+                option-value="value"
+                option-label="label"
+                option-description="description"
+                dense
+              />
+            </div>
+            <div class="col">
+              <div class="row items-center q-gutter-xs q-mb-xs">
+                <span class="km-input-label">Metadata extraction tracing level</span>
+              </div>
+              <kg-dropdown-field
+                v-model="metadataTracingLevel"
+                :options="tracingLevelOptions"
+                placeholder="Select tracing level"
+                option-value="value"
+                option-label="label"
+                option-description="description"
+                dense
+              />
+            </div>
+            <div class="col">
+              <div class="row items-center q-gutter-xs q-mb-xs">
+                <span class="km-input-label">Entity extraction tracing level</span>
+              </div>
+              <kg-dropdown-field
+                v-model="entityExtractionTracingLevel"
+                :options="tracingLevelOptions"
+                placeholder="Select tracing level"
+                option-value="value"
+                option-label="label"
+                option-description="description"
+                dense
               />
             </div>
           </div>
@@ -66,7 +116,20 @@ const store = useStore()
 const $q = useQuasar()
 
 const embeddingModel = ref<string>('')
+const syncTracingLevel = ref<string>('totals_only')
+const metadataTracingLevel = ref<string>('totals_only')
+const entityExtractionTracingLevel = ref<string>('totals_only')
 const saving = ref(false)
+
+const tracingLevelOptions = [
+  { value: 'off', label: 'Off', description: 'No tracing at all — spans are completely skipped' },
+  {
+    value: 'totals_only',
+    label: 'Totals only',
+    description: 'Individual step spans are not stored but contribute to cost and usage totals (default)',
+  },
+  { value: 'full', label: 'Full', description: 'All individual step spans are stored for detailed inspection' },
+]
 
 const embeddingModelOptions = computed(() => {
   return (store.getters['chroma/model']?.items || []).filter((el: any) => el.type === 'embeddings')
@@ -80,15 +143,27 @@ const formatVectorSize = (opt: any): string | undefined => {
 const originalValues = ref<Record<string, any>>({})
 
 const initializeForm = () => {
+  const loggingSettings = props.graphDetails.settings?.logging ?? {}
   embeddingModel.value = props.graphDetails.settings?.indexing?.embedding_model ?? ''
+  syncTracingLevel.value = loggingSettings.sync_tracing_level ?? 'totals_only'
+  metadataTracingLevel.value = loggingSettings.metadata_tracing_level ?? 'totals_only'
+  entityExtractionTracingLevel.value = loggingSettings.entity_extraction_tracing_level ?? 'totals_only'
 
   originalValues.value = {
     embeddingModel: embeddingModel.value,
+    syncTracingLevel: syncTracingLevel.value,
+    metadataTracingLevel: metadataTracingLevel.value,
+    entityExtractionTracingLevel: entityExtractionTracingLevel.value,
   }
 }
 
 const hasChanges = computed(() => {
-  return embeddingModel.value !== originalValues.value.embeddingModel
+  return (
+    embeddingModel.value !== originalValues.value.embeddingModel ||
+    syncTracingLevel.value !== originalValues.value.syncTracingLevel ||
+    metadataTracingLevel.value !== originalValues.value.metadataTracingLevel ||
+    entityExtractionTracingLevel.value !== originalValues.value.entityExtractionTracingLevel
+  )
 })
 
 const resetForm = () => {
@@ -102,11 +177,18 @@ const saveSettings = async () => {
 
     const currentSettings = props.graphDetails?.settings && typeof props.graphDetails.settings === 'object' ? props.graphDetails.settings : {}
     const currentIndexing = currentSettings?.indexing && typeof currentSettings.indexing === 'object' ? currentSettings.indexing : {}
+    const currentLogging = currentSettings?.logging && typeof currentSettings.logging === 'object' ? currentSettings.logging : {}
 
     const payload = {
       settings: {
         ...currentSettings,
         indexing: { ...currentIndexing, embedding_model: embeddingModel.value || null },
+        logging: {
+          ...currentLogging,
+          sync_tracing_level: syncTracingLevel.value,
+          metadata_tracing_level: metadataTracingLevel.value,
+          entity_extraction_tracing_level: entityExtractionTracingLevel.value,
+        },
       },
     }
     const res = await fetchData({
@@ -124,7 +206,12 @@ const saveSettings = async () => {
     }
 
     // Immediately clear local "unsaved" state; parent refresh will reconcile server values.
-    originalValues.value = { embeddingModel: embeddingModel.value }
+    originalValues.value = {
+      embeddingModel: embeddingModel.value,
+      syncTracingLevel: syncTracingLevel.value,
+      metadataTracingLevel: metadataTracingLevel.value,
+      entityExtractionTracingLevel: entityExtractionTracingLevel.value,
+    }
     emit('refresh')
   } catch (error) {
     console.error('Error saving settings:', error)

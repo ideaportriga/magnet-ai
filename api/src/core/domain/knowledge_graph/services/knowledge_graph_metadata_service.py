@@ -21,6 +21,11 @@ from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphMetadataExtractionRunResponse,
     KnowledgeGraphSourceLinkExternalSchema,
 )
+from services.knowledge_graph.logging_settings import (
+    resolve_tracing_level,
+    tracing_level_to_export_method,
+)
+from services.observability import observability_context
 
 
 class KnowledgeGraphMetadataService:
@@ -236,6 +241,11 @@ class KnowledgeGraphMetadataService:
             raise NotFoundException("Graph not found")
 
         settings = getattr(graph, "settings", None) or {}
+        observability_context.update_current_config(
+            span_export_method=tracing_level_to_export_method(
+                resolve_tracing_level(settings, "metadata_tracing_level")
+            )
+        )
         metadata_settings = (
             settings.get("metadata") if isinstance(settings, dict) else {}
         )
