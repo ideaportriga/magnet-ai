@@ -10,13 +10,16 @@ from advanced_alchemy.types import JsonB
 from sqlalchemy import Boolean, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from core.audit.mixin import Auditable
+
 from ..base import UUIDAuditSimpleBase
 
 if TYPE_CHECKING:
     from ..provider import Provider
 
 
-class AIModel(UUIDAuditSimpleBase):
+class AIModel(UUIDAuditSimpleBase, Auditable):
+    __audit_entity_type__ = "ai_model"
     """
     AI Model entity for storing AI model configurations and pricing information.
 

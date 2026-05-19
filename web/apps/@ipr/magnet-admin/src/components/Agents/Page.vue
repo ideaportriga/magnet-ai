@@ -25,14 +25,31 @@
             class="agents-fetching-bar"
           />
           <template v-if="rows.length">
-            <div class="agents-grid" :data-fetching="isFetching || undefined">
-              <button
+            <div
+              class="agents-grid"
+              :data-fetching="isFetching || undefined"
+              :aria-busy="isFetching || undefined"
+            >
+              <!--
+                role="button" (not a real <button>) — the card embeds a
+                <km-chip-copy> which itself renders a <button>. Nested
+                <button> elements are invalid HTML; browsers silently
+                restructure the DOM during parsing and clicks on the
+                outer surface become unreliable (the reported "click
+                works only on the 2nd or 3rd try"). A div with
+                role=button + Enter/Space keyboard handler preserves
+                a11y without the parser collision.
+              -->
+              <div
                 v-for="row in rows"
                 :key="row.original.id"
-                type="button"
+                role="button"
+                tabindex="0"
                 class="agent-card"
                 data-test="table-row"
                 @click="openDetails(row.original)"
+                @keydown.enter.prevent="openDetails(row.original)"
+                @keydown.space.prevent="openDetails(row.original)"
               >
                 <div class="agent-card__header">
                   <div class="agent-card__title-block">
@@ -67,7 +84,7 @@
                     <span class="agent-card__meta-value">{{ formatDate(row.original.updated_at) }}</span>
                   </span>
                 </div>
-              </button>
+              </div>
             </div>
           </template>
           <template v-else-if="!isLoading">
@@ -187,12 +204,15 @@ function openDetails(agent: Agent) {
   z-index: var(--ds-z-raised);
   opacity: 0.7;
 }
-/* Subtle dimming + click-through-disable while a background fetch is in
- * flight. Tells the user the cards they see are about to change without
- * blocking the whole surface like a full-overlay loader does. */
+/* Subtle dimming while a background fetch is in flight. Tells the user
+ * the cards are about to change. We deliberately do NOT set
+ * `pointer-events: none` — react-query refetches on window-focus / stale
+ * timeouts / post-mutation invalidations are frequent and silently
+ * eating clicks here made navigation feel broken (user reported "click
+ * works only on the 2nd or 3rd try" with no console error). Cards keep
+ * their original ids during refetch, so navigation is always safe. */
 .agents-grid[data-fetching] {
-  opacity: 0.55;
-  pointer-events: none;
+  opacity: 0.7;
   transition: opacity var(--ds-duration-fast) var(--ds-ease-out);
 }
 .agents-page-size {

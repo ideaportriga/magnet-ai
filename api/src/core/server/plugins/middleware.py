@@ -58,6 +58,16 @@ class MiddlewarePlugin(InitPluginProtocol):
             except ImportError:
                 pass
 
+        # Audit context propagation — runs AFTER auth so it can read
+        # `scope["auth"]`. Runs even without auth (anonymous actor) so a
+        # mutation on a public-write endpoint still ends up in the log.
+        try:
+            from middlewares.audit_context import AuditContextMiddleware
+
+            middlewares.append(AuditContextMiddleware)
+        except ImportError:
+            pass
+
         # Combine with existing middleware
         existing_middleware = list(app_config.middleware or [])
         app_config.middleware = existing_middleware + middlewares

@@ -7,6 +7,7 @@ from advanced_alchemy.types import JsonB
 from sqlalchemy import CheckConstraint, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from core.audit.mixin import Auditable
 from core.config.base import get_general_settings
 from core.db.types import EncryptedJsonB
 
@@ -18,7 +19,9 @@ if TYPE_CHECKING:
     from ..user.user import User
 
 
-class MCPServer(UUIDAuditSimpleBase):
+class MCPServer(UUIDAuditSimpleBase, Auditable):
+    __audit_entity_type__ = "mcp_server"
+    __audit_secret_fields__ = frozenset({"secrets_encrypted"})
     """Tenant + record-level scoped MCP server (PR 10 rollout)."""
 
     __tablename__ = "mcp_servers"

@@ -7,6 +7,8 @@ from advanced_alchemy.types import JsonB
 from sqlalchemy import CheckConstraint, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from core.audit.mixin import Auditable
+
 from ..base import UUIDAuditSimpleBase
 
 if TYPE_CHECKING:
@@ -15,7 +17,8 @@ if TYPE_CHECKING:
     from ..user.user import User
 
 
-class EvaluationSet(UUIDAuditSimpleBase):
+class EvaluationSet(UUIDAuditSimpleBase, Auditable):
+    __audit_entity_type__ = "evaluation_set"
     """Tenant + record-level scoped evaluation set (PR 10 rollout)."""
 
     __tablename__ = "evaluation_sets"

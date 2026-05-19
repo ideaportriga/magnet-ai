@@ -133,6 +133,7 @@ class Permission(StrEnum):
 
     RESOURCE_ACCESS_MANAGE = "manage:resource_access"
     AUDIT_READ = "read:audit"
+    AUDIT_RESTORE = "restore:audit"
 
 
 _ALL_PERMISSIONS: frozenset[str] = frozenset(p.value for p in Permission)

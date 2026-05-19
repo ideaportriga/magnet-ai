@@ -82,5 +82,14 @@ withDefaults(
 .km-inner-loading-leave-to {
   opacity: 0;
 }
+/* While fading out, the overlay is still in the DOM and would otherwise
+ * intercept clicks against the content underneath — users reported "the
+ * first click does nothing, the second works" on lists like Agents/AIApps
+ * after a navigation/refetch because the fading overlay swallowed the
+ * mousedown. Disable hit-testing during the leave phase. */
+.km-inner-loading-leave-active,
+.km-inner-loading-leave-to {
+  pointer-events: none;
+}
 
 </style>

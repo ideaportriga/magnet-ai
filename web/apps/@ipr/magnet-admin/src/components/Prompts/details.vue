@@ -58,6 +58,17 @@
               <prompts-test-sets />
             </div>
           </template>
+          <template #panel-history>
+            <div class="prompt-details__tab-panel">
+              <entity-audit-history
+                v-if="entity?.id"
+                entity-type="prompt_template"
+                :entity-id="entity.id"
+                :invalidate-query-keys="historyInvalidateKeys"
+                @restored="onRestored"
+              />
+            </div>
+          </template>
         </km-tabs>
       </template>
       <template #drawer>
@@ -84,9 +95,11 @@ import { m } from '@/paraglide/messages'
 import { notify } from '@shared/utils/notify'
 import { usePermissions } from '@shared'
 import KmDropdownSelect from '@ds/components/domain/KmDropdownSelect.vue'
+import EntityAuditHistory from '@/components/shared/EntityAuditHistory.vue'
+import { entityKeys } from '@/queries/queryKeys'
 
 export default {
-  components: { KmDropdownSelect },
+  components: { KmDropdownSelect, EntityAuditHistory },
   emits: ['update:closeDrawer'],
   setup() {
     const queries = useEntityQueries()
@@ -129,6 +142,7 @@ export default {
         { value: 'responseFormat', label: m.common_responseFormat() },
         { value: 'samples', label: m.common_notes() },
         { value: 'testSets', label: m.common_testSets() },
+        { value: 'history', label: 'History' },
       ]),
       showNewDialog: ref(false),
       showDeleteDialog: ref(false),
@@ -181,6 +195,12 @@ export default {
     entity() {
       return this.draft
     },
+    historyInvalidateKeys() {
+      const id = this.entity?.id
+      return id
+        ? [entityKeys.promptTemplates.detail(id), entityKeys.promptTemplates.lists()]
+        : [entityKeys.promptTemplates.lists()]
+    },
   },
 
   mounted() {
@@ -218,6 +238,11 @@ export default {
       this.$emit('update:closeDrawer', null)
       notify.success(m.notify_entityDeleted({ entity: m.entity_promptTemplate() }))
       this.navigate('/prompt-templates')
+    },
+    async onRestored() {
+      try {
+        await this.refetch?.()
+      } catch { /* refetch may be a no-op */ }
     },
   },
 }

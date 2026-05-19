@@ -6,6 +6,8 @@ from uuid import UUID
 from sqlalchemy import CheckConstraint, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from core.audit.mixin import Auditable
+
 from ..base import UUIDAuditEntityBase
 
 if TYPE_CHECKING:
@@ -14,7 +16,8 @@ if TYPE_CHECKING:
     from ..user.user import User
 
 
-class RagTool(UUIDAuditEntityBase):
+class RagTool(UUIDAuditEntityBase, Auditable):
+    __audit_entity_type__ = "rag_tool"
     """Tenant + record-level scoped RAG tool (PR 10 rollout)."""
 
     __tablename__ = "rag_tools"

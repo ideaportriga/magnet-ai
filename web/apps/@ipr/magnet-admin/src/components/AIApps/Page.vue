@@ -26,13 +26,20 @@
           />
           <template v-if="rows.length">
             <div class="agents-grid" :data-fetching="isFetching || undefined">
-              <button
+              <!-- See Agents/Page.vue for why this is a div+role=button:
+                   nested <button>s (the inner km-chip-copy renders one)
+                   make the outer <button> swallow clicks intermittently
+                   after Vue re-renders. -->
+              <div
                 v-for="row in rows"
                 :key="row.original.id ?? row.original.system_name"
-                type="button"
+                role="button"
+                tabindex="0"
                 class="agent-card"
                 data-test="table-row"
                 @click="openDetails(row.original)"
+                @keydown.enter.prevent="openDetails(row.original)"
+                @keydown.space.prevent="openDetails(row.original)"
               >
                 <div class="agent-card__header">
                   <div class="agent-card__title-block">
@@ -67,7 +74,7 @@
                     <span class="agent-card__meta-value">{{ formatDate(row.original.updated_at) }}</span>
                   </span>
                 </div>
-              </button>
+              </div>
             </div>
           </template>
           <template v-else-if="!isLoading">
@@ -186,12 +193,11 @@ function openDetails(app: AiApp) {
   z-index: var(--ds-z-raised);
   opacity: 0.7;
 }
-/* Subtle dimming + click-through-disable while a background fetch is in
- * flight. Tells the user the cards they see are about to change without
- * blocking the whole surface like a full-overlay loader does. */
+/* Subtle dimming while a background fetch is in flight. No
+ * `pointer-events: none` — see Agents/Page.vue for why (it ate clicks
+ * silently during react-query auto-refetches). */
 .agents-grid[data-fetching] {
-  opacity: 0.55;
-  pointer-events: none;
+  opacity: 0.7;
   transition: opacity var(--ds-duration-fast) var(--ds-ease-out);
 }
 .ai-apps-page-size {

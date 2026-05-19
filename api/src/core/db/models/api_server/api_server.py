@@ -7,6 +7,7 @@ from advanced_alchemy.types import JsonB
 from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from core.audit.mixin import Auditable
 from core.config.base import get_general_settings
 from core.db.types import EncryptedJsonB
 
@@ -18,7 +19,9 @@ if TYPE_CHECKING:
     from ..user.user import User
 
 
-class APIServer(UUIDAuditSimpleBase):
+class APIServer(UUIDAuditSimpleBase, Auditable):
+    __audit_entity_type__ = "api_server"
+    __audit_secret_fields__ = frozenset({"secrets_encrypted"})
     """Tenant + record-level scoped API server (PR 10 rollout)."""
 
     __tablename__ = "api_servers"

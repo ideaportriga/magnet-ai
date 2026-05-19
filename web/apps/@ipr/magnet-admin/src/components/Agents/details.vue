@@ -76,6 +76,13 @@
           <agents-notes v-if="tab == &quot;notes&quot;" />
           <agents-test-sets v-if="tab == &quot;testSets&quot;" />
           <agents-channels v-if="tab == &quot;channels&quot;" />
+          <entity-audit-history
+            v-if="tab == &quot;history&quot; && entity?.id"
+            entity-type="agent"
+            :entity-id="entity.id"
+            :invalidate-query-keys="historyInvalidateKeys"
+            @restored="onRestored"
+          />
         </div>
       </template>
     </template>
@@ -100,9 +107,11 @@ import { m } from '@/paraglide/messages'
 import { notify } from '@shared/utils/notify'
 import { usePermissions } from '@shared'
 import AgentsAccessInfo from './AccessInfo.vue'
+import EntityAuditHistory from '@/components/shared/EntityAuditHistory.vue'
+import { entityKeys } from '@/queries/queryKeys'
 
 export default {
-  components: { AgentsAccessInfo },
+  components: { AgentsAccessInfo, EntityAuditHistory },
   emits: ['update:closeDrawer'],
   setup() {
     const route = useRoute()
@@ -180,6 +189,7 @@ export default {
       isDirty,
       updateField,
       saveEntity,
+      refetch,
       revert,
       removeEntity,
       setSelectedVariant,
@@ -199,6 +209,7 @@ export default {
         { value: 'conversations', label: m.common_conversations() },
         { value: 'notes', label: m.common_notes() },
         { value: 'testSets', label: m.common_testSets() },
+        { value: 'history', label: 'History' },
       ]),
       showNewDialog: ref(false),
       showDeleteDialog: ref(false),
@@ -240,6 +251,15 @@ export default {
     entity() {
       return this.draft
     },
+    historyInvalidateKeys() {
+      // After a restore the agent's own detail/list caches go stale.
+      // Invalidate both so the form re-renders with the restored state
+      // and any open list view shows the new updated_at.
+      const id = this.entity?.id
+      return id
+        ? [entityKeys.agents.detail(id), entityKeys.agents.lists()]
+        : [entityKeys.agents.lists()]
+    },
   },
 
   mounted() {
@@ -277,6 +297,13 @@ export default {
       this.$emit('update:closeDrawer', null)
       notify.success(m.agents_agentDeleted())
       this.navigate('/agents')
+    },
+    async onRestored() {
+      // The audit history component already invalidated the agent's
+      // detail/list cache; pull the new state into the local edit buffer.
+      try {
+        await this.refetch?.()
+      } catch { /* refetch may not be available on stub */ }
     },
   },
 }

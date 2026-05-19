@@ -8,6 +8,8 @@ from advanced_alchemy.types import DateTimeUTC, JsonB
 from sqlalchemy import CheckConstraint, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from core.audit.mixin import Auditable
+
 from ..base import UUIDAuditSimpleBase
 
 if TYPE_CHECKING:
@@ -17,7 +19,8 @@ if TYPE_CHECKING:
     from ..user.user import User
 
 
-class Collection(UUIDAuditSimpleBase):
+class Collection(UUIDAuditSimpleBase, Auditable):
+    __audit_entity_type__ = "collection"
     """Tenant + record-level scoped collection (PR 10 rollout).
 
     Mirrors the pattern proven in `agents`:

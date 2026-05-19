@@ -6,6 +6,8 @@ from uuid import UUID
 from sqlalchemy import CheckConstraint, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from core.audit.mixin import Auditable
+
 from ..base import UUIDAuditEntityBase
 
 if TYPE_CHECKING:
@@ -14,7 +16,8 @@ if TYPE_CHECKING:
     from ..user.user import User
 
 
-class Prompt(UUIDAuditEntityBase):
+class Prompt(UUIDAuditEntityBase, Auditable):
+    __audit_entity_type__ = "prompt_template"
     """Tenant + record-level scoped prompt template (PR 10 rollout).
 
     Same pattern as `agents`: tenant isolation via RLS, record-level access

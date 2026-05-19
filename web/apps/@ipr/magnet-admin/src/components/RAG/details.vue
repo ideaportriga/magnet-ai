@@ -48,6 +48,15 @@
                   <template v-if="tab == &quot;testSets&quot;">
                     <rag-test-sets />
                   </template>
+                  <template v-if="tab == &quot;history&quot;">
+                    <entity-audit-history
+                      v-if="entity?.id"
+                      entity-type="rag_tool"
+                      :entity-id="entity.id"
+                      :invalidate-query-keys="historyInvalidateKeys"
+                      @restored="onRestored"
+                    />
+                  </template>
                 </div>
               </template>
             </div>
@@ -71,8 +80,11 @@ import { useEntityAccess } from '@/composables/useEntityAccess'
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 import { m } from '@/paraglide/messages'
 import { notify } from '@shared/utils/notify'
+import EntityAuditHistory from '@/components/shared/EntityAuditHistory.vue'
+import { entityKeys } from '@/queries/queryKeys'
 
 export default {
+  components: { EntityAuditHistory },
   emits: ['update:closeDrawer'],
   setup() {
     const {
@@ -117,6 +129,7 @@ export default {
         { value: 'postProcess', label: m.common_postProcess() },
         { value: 'uiSettings', label: m.common_uiSettings() },
         { value: 'testSets', label: m.common_testSets() },
+        { value: 'history', label: 'History' },
       ]),
       showNewDialog: ref(false),
       showDeleteDialog: ref(false),
@@ -159,6 +172,12 @@ export default {
     entity() {
       return this.draft
     },
+    historyInvalidateKeys() {
+      const id = this.entity?.id
+      return id
+        ? [entityKeys.rag_tools.detail(id), entityKeys.rag_tools.lists()]
+        : [entityKeys.rag_tools.lists()]
+    },
   },
 
   mounted() {
@@ -193,6 +212,11 @@ export default {
       this.$emit('update:closeDrawer', null)
       notify.success('RAG Tool has been deleted.')
       this.navigate('/rag-tools')
+    },
+    async onRestored() {
+      try {
+        await this.refetch?.()
+      } catch { /* refetch may be a no-op */ }
     },
   },
 }

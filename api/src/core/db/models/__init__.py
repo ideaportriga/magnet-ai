@@ -8,6 +8,7 @@ from .api_key import APIKey
 from .access_grant import ResourceAccessGrant
 from .audit import AccessAuditLog
 from .department import Department, UserDepartment
+from .entity_audit_log import EntityAuditLog
 
 # from .api_tool import APITool
 from .base import UUIDAuditEntityBase, UUIDAuditSimpleBase
@@ -42,6 +43,7 @@ __all__ = [
     "AIModel",
     "APIKey",
     "AccessAuditLog",
+    "EntityAuditLog",
     "Department",
     "ResourceAccessGrant",
     "UserDepartment",

@@ -7,6 +7,8 @@ from advanced_alchemy.types import JsonB
 from sqlalchemy import CheckConstraint, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from core.audit.mixin import Auditable
+
 from ..base import UUIDAuditSimpleBase
 
 if TYPE_CHECKING:
@@ -18,7 +20,8 @@ if TYPE_CHECKING:
     from .knowledge_graph_source import KnowledgeGraphSource
 
 
-class KnowledgeGraph(UUIDAuditSimpleBase):
+class KnowledgeGraph(UUIDAuditSimpleBase, Auditable):
+    __audit_entity_type__ = "knowledge_graph"
     """Tenant + record-level scoped knowledge graph (PR 10 rollout)."""
 
     __tablename__ = "knowledge_graphs"

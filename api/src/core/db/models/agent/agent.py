@@ -7,6 +7,8 @@ from sqlalchemy import CheckConstraint, ForeignKey, Index, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from core.audit.mixin import Auditable
+
 from ..base import UUIDAuditEntityBase
 
 if TYPE_CHECKING:
@@ -15,7 +17,8 @@ if TYPE_CHECKING:
     from core.db.models.user.user import User
 
 
-class Agent(UUIDAuditEntityBase):
+class Agent(UUIDAuditEntityBase, Auditable):
+    __audit_entity_type__ = "agent"
     """Tenant + record-level scoped agent table.
 
     Tenant scope (PR 7):

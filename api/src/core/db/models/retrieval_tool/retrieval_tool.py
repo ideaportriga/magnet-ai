@@ -6,6 +6,8 @@ from uuid import UUID
 from sqlalchemy import CheckConstraint, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from core.audit.mixin import Auditable
+
 from ..base import UUIDAuditEntityBase
 
 if TYPE_CHECKING:
@@ -14,7 +16,8 @@ if TYPE_CHECKING:
     from ..user.user import User
 
 
-class RetrievalTool(UUIDAuditEntityBase):
+class RetrievalTool(UUIDAuditEntityBase, Auditable):
+    __audit_entity_type__ = "retrieval_tool"
     """Tenant + record-level scoped retrieval tool (PR 10 rollout)."""
 
     __tablename__ = "retrieval_tools"

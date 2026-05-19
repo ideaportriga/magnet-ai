@@ -10,6 +10,7 @@ from advanced_alchemy.types import JsonB
 from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from core.audit.mixin import Auditable
 from core.config.base import get_general_settings
 from core.db.types import EncryptedJsonB
 
@@ -20,7 +21,9 @@ if TYPE_CHECKING:
     from ..collection import Collection
 
 
-class Provider(UUIDAuditSimpleBase):
+class Provider(UUIDAuditSimpleBase, Auditable):
+    __audit_entity_type__ = "provider"
+    __audit_secret_fields__ = frozenset({"secrets_encrypted"})
     """
     Provider entity for storing external connection configurations.
 

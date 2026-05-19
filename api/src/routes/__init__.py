@@ -12,6 +12,7 @@ from core.domain.catalog import CatalogController
 from core.domain.ai_models.controller import AIModelsController
 from core.domain.api_servers import ApiServersController
 from core.domain.collections import CollectionsController
+from core.domain.entity_audit_log import EntityAuditLogController
 from core.domain.evaluation_sets import EvaluationSetsController
 from core.domain.evaluations import EvaluationsController
 from core.domain.jobs import JobsController
@@ -180,6 +181,7 @@ def get_route_handlers(
         CatalogController,  # Admin / Catalog (global search)
         ApiKeysController,  # Admin / API Keys
         AccessLogController,  # Admin / Access Log
+        EntityAuditLogController,  # Admin / Entity Audit Trail
         GroupsController,  # Admin / Groups
         PermissionsController,  # Admin / Permissions
         RolesController,  # Admin / Roles
