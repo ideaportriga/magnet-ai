@@ -15,7 +15,7 @@
   roles, which the backend refuses to mutate).
 -->
 <template>
-  <div class="stack" data-gap="sm">
+  <div class="stack flex-1" data-gap="sm" style="min-block-size: 0">
     <div class="cluster" data-align="center" data-gap="sm" data-wrap="yes">
       <km-input
         data-test="permission-search"
@@ -44,14 +44,16 @@
       />
     </div>
 
-    <km-data-table
-      :table="table"
-      :loading="false"
-      fill-height
-      row-key="resource"
-      no-records-label="No resources match the filter."
-      hide-pagination
-    />
+    <div class="flex-1" style="min-block-size: 0">
+      <km-data-table
+        :table="table"
+        :loading="false"
+        fill-height
+        row-key="resource"
+        no-records-label="No resources match the filter."
+        hide-pagination
+      />
+    </div>
   </div>
 </template>
 

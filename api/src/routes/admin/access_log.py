@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
+from logging import getLogger
 from typing import Any, Optional
 from uuid import UUID
 
@@ -15,6 +17,35 @@ from core.config.app import alchemy
 from core.db.models.audit import AccessAuditLog
 from guards.permissions import Permission, require_permission
 from middlewares.auth import Auth
+
+logger = getLogger(__name__)
+
+
+def _normalize_payload(raw: Any) -> dict[str, Any]:
+    """Make the JSONB payload safe for the response schema.
+
+    Legacy rows (written before ``engine_factory._jsonb_encoder`` became
+    idempotent) hold a JSON-stringified-dict instead of a JSONB object,
+    because asyncpg's codec re-encoded an already-serialized string.
+    On read they come back as ``str`` and break ``dict[str, Any]``
+    validation, which used to crash the whole list with HTTP 500.
+
+    Parse strings; pass dicts through; coerce anything else to an empty
+    dict so a single bad row never hides the rest of the audit trail.
+    """
+    if raw is None:
+        return {}
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, str):
+        try:
+            parsed = json.loads(raw)
+        except (json.JSONDecodeError, ValueError):
+            return {"_raw": raw}
+        if isinstance(parsed, dict):
+            return parsed
+        return {"_raw": parsed}
+    return {"_raw": raw}
 
 
 class AccessAuditLogEntry(BaseModel):
@@ -79,7 +110,7 @@ class AccessLogController(Controller):
                 action=r.action,
                 target_type=r.target_type,
                 target_id=r.target_id,
-                payload=r.payload or {},
+                payload=_normalize_payload(r.payload),
                 created_at=r.created_at,
             )
             for r in rows

@@ -92,7 +92,11 @@
         </div>
       </div>
 
-      <div class="stack" data-gap="sm">
+      <div
+        class="stack flex-1 ba-border border-radius-8 bg-white p-md"
+        data-gap="sm"
+        style="min-block-size: 0"
+      >
         <h3 class="km-h3">Permissions</h3>
         <div v-if="!catalog.length" class="km-description text-grey p-md">
           Loading permission catalog…
