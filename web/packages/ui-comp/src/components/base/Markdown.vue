@@ -1,6 +1,6 @@
 <!-- eslint-disable vue/no-v-html -->
 <template>
-  <div v-html="renderedMarkdown" />
+  <div style="min-width: 0; max-width: 100%; overflow-x: auto" v-html="renderedMarkdown" />
   <!-- <div>
     <q-btn
       label="Copy to clipboard"
@@ -140,5 +140,21 @@ const renderedMarkdown = computed(() => {
 
 :deep(a:hover) {
   text-decoration: underline;
+}
+
+:deep(pre) {
+  overflow-x: auto;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+:deep(code) {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+:deep(pre code) {
+  white-space: pre;
+  word-break: normal;
 }
 </style>
