@@ -104,6 +104,7 @@ import {
   PhUpload,
   PhUser,
   PhUserCircle,
+  PhUsers,
   PhVideo,
   PhWarning,
   PhWarningCircle,
@@ -292,6 +293,7 @@ const phosphorIconAliases: Record<string, Component> = {
   undo: PhArrowCounterClockwise,
   upload: PhUpload,
   user: PhUser,
+  users: PhUsers,
   verified: PhCheckCircle,
   video: PhVideo,
   'video-file': PhVideo,
@@ -300,6 +302,7 @@ const phosphorIconAliases: Record<string, Component> = {
   visibility_off: PhEyeSlash,
   warning: PhWarning,
   wrench: PhWrench,
+  close: PhX,
   x: PhX,
 
   'fa fa-arrow-right-arrow-left': PhArrowsLeftRight,

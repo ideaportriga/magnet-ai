@@ -15,6 +15,7 @@
 
 import { computed } from 'vue'
 import DsBadge, { type DsBadgeDisplay, type DsBadgeShape, type DsBadgeTone } from '../primitives/Badge/DsBadge.vue'
+import DsButton from '../primitives/Button/DsButton.vue'
 import KmGlyph from './KmGlyph.vue'
 import KmTooltip from './KmTooltip.vue'
 import { resolveDsColor } from '../../utils/resolveDsColor'
@@ -145,17 +146,17 @@ const iconTone = computed<KmGlyphTone>(() => (props.iconColor ? 'default' : 'cur
     </span>
     <span v-if="label" class="km-chip__label" :class="labelClass">{{ label }}</span>
 
-    <button
+    <DsButton
       v-if="removable"
       type="button"
       class="km-chip__remove"
+      variant="ghost"
+      size="icon-xs"
       aria-label="Remove"
       @click.stop="$emit('remove', $event)"
     >
-      <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
-        <path d="M2 2 L8 8 M8 2 L2 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-      </svg>
-    </button>
+      <KmGlyph name="close" size="10px" tone="current" />
+    </DsButton>
 
     <KmTooltip v-if="tooltip" :label="tooltip" />
   </DsBadge>
@@ -214,7 +215,7 @@ const iconTone = computed<KmGlyphTone>(() => (props.iconColor ? 'default' : 'cur
  * produces a zero-width flex item — the chip's `gap` then pushes the
  * label off-centre, making horizontal padding look asymmetric. */
 .km-chip__slot { display: contents; }
-.km-chip__remove {
+.km-chip__remove.ds-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -230,8 +231,8 @@ const iconTone = computed<KmGlyphTone>(() => (props.iconColor ? 'default' : 'cur
   opacity: 0.6;
   transition: opacity var(--ds-duration-fast) var(--ds-ease-out), background var(--ds-duration-fast) var(--ds-ease-out);
 }
-.km-chip__remove:hover {
+.km-chip__remove.ds-button:hover {
   opacity: 1;
-  background: rgba(0, 0, 0, 0.08);
+  background: var(--ds-color-control-hover-bg);
 }
 </style>

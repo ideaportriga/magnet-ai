@@ -200,6 +200,7 @@ App-level compositions that codify repeating page structures. Use these instead 
 | DeepResearch/Configs/Page.vue | — | create-new dialog |
 | DeepResearch/Runs/Page.vue | — | create-run dialog |
 | Retrieval/Page.vue | — | create-new dialog |
+| RAG/Page.vue | — | create-new dialog |
 | PromptQueue/Page.vue | — | create-new dialog |
 | Observability/Traces/Page.vue | — | — |
 | ApiKeys/Page.vue | — | create-new, delete confirm |
@@ -219,7 +220,8 @@ App-level compositions that codify repeating page structures. Use these instead 
 | Settings/Page.vue | Completely different layout (scroll area + multi-table) |
 | CollectionItems/Page.vue | Sidebar drawer layout |
 | Files/Page.vue | Stats section + scroll area |
-| Mcp/Page.vue | Conditional empty state vs. table layout |
+| ApiServers/Page.vue | Conditional loading/empty state vs. table layout |
+| Mcp/Page.vue | Conditional loading/empty state vs. table layout |
 | Configuration/Page.vue | Custom layout |
 
 ---

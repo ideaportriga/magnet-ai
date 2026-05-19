@@ -5,6 +5,7 @@
  */
 
 import KmGlyph from './KmGlyph.vue'
+import KmBtn from './KmBtn.vue'
 
 withDefaults(
   defineProps<{
@@ -34,14 +35,13 @@ defineEmits<{
     <h3 class="km-empty-state__title">{{ label }}</h3>
     <p class="km-empty-state__description">{{ description }}</p>
     <div v-if="actionLabel" class="cluster" data-justify="center">
-      <button
+      <KmBtn
         class="km-empty-state__action"
-        type="button"
+        variant="primary"
         :data-test="actionLabel"
+        :label="actionLabel"
         @click="$emit('click')"
-      >
-        {{ actionLabel }}
-      </button>
+      />
     </div>
   </div>
 </template>
@@ -57,7 +57,7 @@ defineEmits<{
 }
 
 .km-empty-state__icon {
-  background: linear-gradient(121.5deg, var(--ds-color-primary) 9.69%, #e30052 101.29%);
+  background: var(--ds-color-gradient);
   background-clip: text;
   -webkit-text-fill-color: transparent;
   color: transparent;
@@ -75,15 +75,5 @@ defineEmits<{
   margin: 0;
 }
 
-.km-empty-state__action {
-  padding: var(--ds-space-xs) var(--ds-space-md);
-  background: var(--ds-color-btn-primary-bg);
-  color: var(--ds-color-btn-primary-text);
-  border: 0;
-  border-radius: var(--ds-radius-md);
-  font-size: var(--ds-font-size-label);
-  font-weight: var(--ds-font-weight-medium);
-  cursor: pointer;
-}
-.km-empty-state__action:hover { background: var(--ds-color-btn-primary-hover-bg); }
+.km-empty-state__action { flex: none; }
 </style>

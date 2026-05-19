@@ -41,7 +41,7 @@
             <km-glyph name="info" size="16px" tone="subtle">
               <km-tooltip class="bg-white block-shadow text-secondary-text km-description" self="top middle" :offset="[-50, -50]">If marked as Default, model will be selected by default on related tools</km-tooltip>
             </km-glyph>
-            <div class="q-ml">
+            <div class="ml-sm">
               <km-btn flat :label="m.modelProviders_editDefaults()" tone="brand" @click="goToDefaultModels" />
             </div>
           </div>

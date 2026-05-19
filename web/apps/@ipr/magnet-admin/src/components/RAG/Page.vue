@@ -1,23 +1,21 @@
 <template>
-  <div class="stack full-height" data-gap="0">
-    <div class="collection-container mx-auto full-width stack full-height px-md pt-lg" data-gap="0">
-      <div class="flex-1 ba-border border-radius-12 bg-white p-lg stack" data-gap="0" style="min-block-size: 0">
-        <div class="cluster mb-md">
-          <div class="flex-none center-flex-y">
-            <km-input data-test="search-input" :placeholder="m.common_search()" icon-before="search" :model-value="globalFilter" clearable @input="globalFilter = $event" />
-          </div>
-          <div class="km-space" />
-          <div class="flex-none center-flex-y">
-            <km-btn v-if="canCreate" class="mr-md" data-test="new-btn" :label="m.common_new()" @click="showNewDialog = true" />
-          </div>
-        </div>
-        <div class="flex-1" style="min-block-size: 0">
-          <km-data-table :table="table" :loading="isLoading" :fetching="isFetching" fill-height row-key="id" @row-click="openDetails" />
-        </div>
+  <km-list-page>
+    <template #toolbar>
+      <div class="flex-none center-flex-y">
+        <km-input data-test="search-input" :placeholder="m.common_search()" icon-before="search" :model-value="globalFilter" clearable @input="globalFilter = $event" />
       </div>
+      <div class="km-space" />
+      <div class="flex-none center-flex-y">
+        <km-btn v-if="canCreate" class="mr-md" data-test="new-btn" :label="m.common_new()" @click="showNewDialog = true" />
+      </div>
+    </template>
+
+    <km-data-table :table="table" :loading="isLoading" :fetching="isFetching" fill-height row-key="id" @row-click="openDetails" />
+
+    <template #overlays>
       <rag-create-new :show-new-dialog="showNewDialog" @cancel="showNewDialog = false" />
-    </div>
-  </div>
+    </template>
+  </km-list-page>
 </template>
 
 <script setup lang="ts">

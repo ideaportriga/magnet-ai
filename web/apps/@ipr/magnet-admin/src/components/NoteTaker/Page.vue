@@ -6,7 +6,7 @@
         <km-tab name="providers" :label="m.noteTaker_botProviders()" />
       </km-tabs>
       <template v-if="tab === &quot;configurations&quot;">
-        <div class="flex-1 ba-border border-radius-12 bg-white p-lg stack" style="min-block-size: 0" data-gap="0">
+        <div class="flex-1 ba-border border-radius-12 bg-white p-lg stack min-h-0" data-gap="0">
           <div class="cluster mb-md">
             <div class="flex-none center-flex-y">
               <km-input :placeholder="m.common_search()" icon-before="search" :model-value="globalFilter" clearable @input="globalFilter = $event" />
@@ -16,7 +16,7 @@
               <km-btn v-if="canCreate" class="mr-md" :label="m.common_new()" @click="showNewDialog = true" />
             </div>
           </div>
-          <div class="flex-1" style="min-block-size: 0">
+          <div class="flex-1 min-h-0">
             <km-data-table fill-height :table="table" row-key="key" @row-click="openDetails" />
           </div>
         </div>
@@ -35,6 +35,7 @@ import { useLocalDataTable } from '@/composables/useLocalDataTable'
 import { textColumn, chipCopyColumn, dateColumn, componentColumn } from '@/utils/columnHelpers'
 import { m } from '@/paraglide/messages'
 import { useNoteTakerStore } from '@/stores/noteTakerStore'
+import KmChip from '@ds/components/domain/KmChip.vue'
 import NoteTakerCreateNew from './CreateNew.vue'
 import NoteTakerProviders from './NoteTakerProviders.vue'
 
@@ -57,12 +58,12 @@ const BotStatusChip = markRaw({
     return () => {
       const value = props.row?.bot_credentials
       if (!value) return h('span', { class: 'text-grey-5' }, '\u2014')
-      return h('q-chip', {
-        color: value.client_id ? 'positive' : 'grey-4',
-        textColor: value.client_id ? 'white' : 'grey-7',
+      return h(KmChip, {
+        tone: value.client_id ? 'success' : 'neutral',
         dense: true,
         icon: 'robot',
-      }, value.client_id ? 'Configured' : 'Not set')
+        label: value.client_id ? 'Configured' : 'Not set',
+      })
     }
   },
 })

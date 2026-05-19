@@ -7,7 +7,7 @@
         </div>
       </template>
       <template v-else-if="rows.length">
-        <div class="flex-1 ba-border border-radius-12 bg-white p-lg stack" data-gap="0" style="min-block-size: 0">
+        <div class="flex-1 ba-border border-radius-12 bg-white p-lg stack min-h-0" data-gap="0">
           <div class="cluster mb-md">
             <div class="flex-none center-flex-y">
               <km-input data-test="search-input" :placeholder="m.common_search()" icon-before="search" :model-value="globalFilter" clearable @input="globalFilter = $event" />
@@ -17,23 +17,20 @@
               <km-btn v-if="canCreate" class="mr-md" data-test="new-btn" :label="m.common_new()" @click="showNewDialog = true" />
             </div>
           </div>
-          <div class="flex-1" style="min-block-size: 0">
+          <div class="flex-1 min-h-0">
             <km-data-table :table="table" :loading="isLoading" :fetching="isFetching" fill-height row-key="system_name" @row-click="openDetails" />
           </div>
         </div>
       </template>
       <template v-else>
         <div class="cluster" data-justify="center">
-          <div class="flex-none p-xl bg-light border-radius-12">
-            <div class="cluster mb-md" data-justify="center">
-              <km-glyph name="swap" size="48px" tone="brand" />
-            </div>
-            <div class="km-heading-7 text-black">{{ m.apiServers_noApiServersYet() }}</div>
-            <div class="km-description text-black">{{ m.apiServers_useApiServerManual() }}</div>
-            <div class="cluster mt-lg" data-justify="center">
-              <km-btn v-if="canCreate" data-test="new-btn" :label="m.common_addApiServer()" @click="showNewDialog = true" />
-            </div>
-          </div>
+          <km-empty-state
+            icon="swap"
+            :label="m.apiServers_noApiServersYet()"
+            :description="m.apiServers_useApiServerManual()"
+            :action-label="canCreate ? m.common_addApiServer() : ''"
+            @click="showNewDialog = true"
+          />
         </div>
       </template>
     </div>
