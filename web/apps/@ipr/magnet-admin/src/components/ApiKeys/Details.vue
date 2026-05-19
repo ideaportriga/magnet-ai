@@ -9,17 +9,19 @@
     :updated-by="updated_by"
     show-record-info
     :show-description="false"
+    :readonly="recordReadonly"
     @update:name="name = $event"
   >
     <template #header-actions>
-      <km-btn v-if="isDirty" data-test="revert-btn" :label="m.common_revert()" icon="undo" icon-size="16px" flat @click="revert()" />
-      <km-btn data-test="save-btn" :label="m.common_save()" flat icon="save" icon-size="16px" :loading="saving" :disable="saving || !isDirty" @click="handleSave" />
+      <km-btn v-if="isDirty && !recordReadonly" data-test="revert-btn" :label="m.common_revert()" icon="undo" icon-size="16px" flat @click="revert()" />
+      <km-btn v-if="!recordReadonly" data-test="save-btn" :label="m.common_save()" flat icon="save" icon-size="16px" :loading="saving" :disable="saving || !isDirty" @click="handleSave" />
+      <km-glyph v-if="recordReadonly" name="lock" size="16px" tone="muted" :title="m.access_readOnlyTooltip()" data-test="api-key-readonly-icon" />
       <ds-dropdown-menu-root>
         <ds-dropdown-menu-trigger as-child>
           <km-btn class="px-xs" data-test="show-more-btn" flat icon="more-vertical" size="13px" />
         </ds-dropdown-menu-trigger>
         <ds-dropdown-menu-content side="bottom" align="end" :side-offset="4">
-          <ds-dropdown-menu-item data-test="delete-btn" variant="destructive" @select="showDeleteDialog = true">{{ m.common_delete() }}</ds-dropdown-menu-item>
+          <ds-dropdown-menu-item v-if="canDelete" data-test="delete-btn" variant="destructive" @select="showDeleteDialog = true">{{ m.common_delete() }}</ds-dropdown-menu-item>
         </ds-dropdown-menu-content>
       </ds-dropdown-menu-root>
       <km-popup-confirm
@@ -35,7 +37,7 @@
       </km-popup-confirm>
     </template>
     <template #content>
-      <div class="stack full-height overflow-auto" data-gap="16" style="min-block-size: 0; padding-block: 16px">
+      <div :inert="recordReadonly" :class="recordReadonly ? 'api-key-readonly-zone' : null" class="stack full-height overflow-auto" data-gap="16" style="min-block-size: 0; padding-block: 16px">
         <div class="cluster" data-gap="sm" data-wrap="no">
           <div class="km-description text-secondary-text">{{ m.common_key() }}:&nbsp;</div>
           <div class="km-description text-secondary-text">{{ maskedDisplay }}</div>
@@ -62,11 +64,14 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { notify } from '@shared/utils/notify'
 import { useEntityDetail } from '@/composables/useEntityDetail'
+import { useEntityAccess } from '@/composables/useEntityAccess'
 import { m } from '@/paraglide/messages'
 
 const router = useRouter()
 
 const { draft, data: api_key, isDirty, isLoading, updateField, save, remove, revert } = useEntityDetail('api_keys')
+const { canDelete, recordReadonly, provideReadonly } = useEntityAccess('api_keys', draft)
+provideReadonly()
 
 const loading = computed(() => isLoading.value || !api_key.value)
 

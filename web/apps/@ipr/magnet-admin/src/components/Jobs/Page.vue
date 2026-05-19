@@ -6,7 +6,7 @@
           <km-filter-bar v-model:config="filterConfig" v-model:filter-object="filterObject" />
           <div class="km-space" />
           <km-btn class="mr-md" icon="refresh" :label="m.common_refreshList()" interaction-tone="brand" label-class="km-title" flat icon-size="16px" @click="refetch" />
-          <km-btn data-test="new-btn" :label="m.common_new()" @click="showNewDialog = true" />
+          <km-btn v-if="canCreate" data-test="new-btn" :label="m.common_new()" @click="showNewDialog = true" />
         </div>
         <div class="flex-1 pt-lg" style="min-block-size: 0">
           <km-data-table :table="table" :loading="isLoading" :fetching="isFetching" fill-height dense row-key="id" @row-click="openDetails" />
@@ -21,15 +21,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useDataTable } from '@/composables/useDataTable'
 import { useDebouncedWatch } from '@/composables/useDebouncedWatch'
 import { textColumn, dateColumn, componentColumn } from '@/utils/columnHelpers'
 import { m } from '@/paraglide/messages'
+import { usePermissions } from '@shared'
 import type { Job } from '@/types'
 
 const route = useRoute()
+const { can } = usePermissions()
+const canCreate = computed(() => can('write:jobs'))
 const showDrawer = ref(false)
 const selectedJob = ref<Job | null>(null)
 const showNewDialog = ref(false)
@@ -127,4 +130,3 @@ const openDetails = (row: Job) => {
   showDrawer.value = true
 }
 </script>
-

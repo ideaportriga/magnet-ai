@@ -2,14 +2,15 @@
   <div v-if="loading" class="cluster overflow-hidden full-height prompt-queue-details__viewport" data-wrap="no">
     <km-inner-loading :showing="loading" />
   </div>
-  <layouts-details-layout v-else :name="name" :description="description" :system-name="system_name" class="mx-auto" :content-container-style="{ maxWidth: &quot;1200px&quot;, minWidth: &quot;600px&quot;, margin: &quot;0 auto&quot; }" @update:name="name = $event" @update:description="description = $event" @update:system-name="system_name = $event">
+  <layouts-details-layout v-else :name="name" :description="description" :system-name="system_name" class="mx-auto" :content-container-style="{ maxWidth: &quot;1200px&quot;, minWidth: &quot;600px&quot;, margin: &quot;0 auto&quot; }" :readonly="recordReadonly" @update:name="name = $event" @update:description="description = $event" @update:system-name="system_name = $event">
     <template #header-actions>
       <km-btn :label="m.common_execute()" flat icon="play" icon-size="16px" @click="pqStore.executeDrawerOpen = true" />
-      <km-btn :label="m.common_save()" flat icon="save" icon-size="16px" :loading="saving" :disable="saving" @click="save" />
+      <km-btn v-if="canEdit" :label="m.common_save()" flat icon="save" icon-size="16px" :loading="saving" :disable="saving" @click="save" />
+      <km-glyph v-if="recordReadonly" name="lock" size="16px" tone="muted" :title="m.access_readOnlyTooltip()" data-test="prompt-queue-readonly-icon" />
     </template>
     <template #content>
       <km-tabs v-model="tab" :items="tabs" class="bb-border full-width" narrow-indicator dense align="left" no-caps />
-      <div class="stack full-height full-width overflow-auto mb-sm mt-sm min-h-0" data-gap="sm">
+      <div :inert="recordReadonly" :class="recordReadonly ? 'prompt-queue-details__readonly-zone' : null" class="stack full-height full-width overflow-auto mb-sm mt-sm min-h-0" data-gap="sm">
         <template v-if="tab === &quot;steps&quot;">
           <div class="full-width">
             <div class="cluster mb-sm" data-justify="between">
@@ -150,6 +151,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
+import { usePermissions } from '@shared'
 import { useEntityQueries } from '@/queries/entities'
 import { usePromptQueueStore } from '@/stores/promptQueueStore'
 import { useNotify } from '@/composables/useNotify'
@@ -159,6 +161,7 @@ const pqStore = usePromptQueueStore()
 const route = useRoute()
 const { notifySuccess, notifyError } = useNotify()
 const queries = useEntityQueries()
+const { can } = usePermissions()
 
 const { data: promptTemplatesListData } = queries.promptTemplates.useList()
 const { data: apiServersListData } = queries.api_servers.useList()
@@ -180,6 +183,8 @@ const promptInputMode = ref({})
 const apiToolCallBodyDrafts = ref({})
 
 const config = ref(null)
+const canEdit = computed(() => can('write:prompt_queue'))
+const recordReadonly = computed(() => !canEdit.value)
 
 const promptInputKey = (stepIdx, promptIdx) => `${stepIdx}-${promptIdx}`
 
@@ -190,6 +195,7 @@ const getPromptInputMode = (stepIdx, promptIdx) => {
 }
 
 const setPromptInputMode = (stepIdx, promptIdx, mode) => {
+  if (recordReadonly.value) return
   const key = promptInputKey(stepIdx, promptIdx)
   if (mode === 'keyed') delete promptInputDrafts.value[key]
   promptInputMode.value[key] = mode
@@ -198,6 +204,7 @@ const setPromptInputMode = (stepIdx, promptIdx, mode) => {
 const name = computed({
   get: () => config.value?.name ?? '',
   set: (v) => {
+    if (recordReadonly.value) return
     if (config.value) config.value.name = v
   },
 })
@@ -205,6 +212,7 @@ const name = computed({
 const description = computed({
   get: () => config.value?.description ?? '',
   set: (v) => {
+    if (recordReadonly.value) return
     if (config.value) config.value.description = v
   },
 })
@@ -212,6 +220,7 @@ const description = computed({
 const system_name = computed({
   get: () => config.value?.system_name ?? '',
   set: (v) => {
+    if (recordReadonly.value) return
     if (config.value) config.value.system_name = v
   },
 })
@@ -269,6 +278,7 @@ const getPromptInputValue = (stepIdx, promptIdx, key) => {
 }
 
 const updatePromptInputValue = (stepIdx, promptIdx, key, val) => {
+  if (recordReadonly.value) return
   ensurePrompts(stepIdx)
   if (!config.value?.config?.steps?.[stepIdx]?.prompts?.[promptIdx]) return
   const prompt = config.value.config.steps[stepIdx].prompts[promptIdx]
@@ -296,10 +306,12 @@ const getPromptInputText = (stepIdx, promptIdx) => {
 }
 
 const setPromptInputDraft = (stepIdx, promptIdx, val) => {
+  if (recordReadonly.value) return
   promptInputDrafts.value[promptInputKey(stepIdx, promptIdx)] = val ?? ''
 }
 
 const commitPromptInput = (stepIdx, promptIdx) => {
+  if (recordReadonly.value) return
   const key = promptInputKey(stepIdx, promptIdx)
   const val = promptInputDrafts.value[key]
   const trimmed = val?.trim()
@@ -338,12 +350,14 @@ const commitPromptInput = (stepIdx, promptIdx) => {
 }
 
 const updatePromptTemplate = (stepIdx, promptIdx, val) => {
+  if (recordReadonly.value) return
   ensurePrompts(stepIdx)
   if (!config.value?.config?.steps?.[stepIdx]?.prompts?.[promptIdx]) return
   config.value.config.steps[stepIdx].prompts[promptIdx].prompt_template_id = val ?? ''
 }
 
 const updatePromptOutputKey = (stepIdx, promptIdx, val) => {
+  if (recordReadonly.value) return
   ensurePrompts(stepIdx)
   if (!config.value?.config?.steps?.[stepIdx]?.prompts?.[promptIdx]) return
   config.value.config.steps[stepIdx].prompts[promptIdx].output_key = val?.trim() || null
@@ -366,6 +380,7 @@ const ensurePrompts = (stepIdx) => {
 }
 
 const addPrompt = (stepIdx) => {
+  if (recordReadonly.value) return
   ensurePrompts(stepIdx)
   config.value.config.steps[stepIdx].prompts.push({
     prompt_template_id: '',
@@ -375,6 +390,7 @@ const addPrompt = (stepIdx) => {
 }
 
 const removePrompt = (stepIdx, promptIdx) => {
+  if (recordReadonly.value) return
   if (!config.value?.config?.steps?.[stepIdx]?.prompts) return
   config.value.config.steps[stepIdx].prompts.splice(promptIdx, 1)
 }
@@ -392,6 +408,7 @@ const isStepApiToolCallEnabled = (stepIdx) => {
 }
 
 const setStepApiToolCallEnabled = (stepIdx, enabled) => {
+  if (recordReadonly.value) return
   ensureStep(stepIdx)
   const step = config.value?.config?.steps?.[stepIdx]
   if (!step) return
@@ -409,6 +426,7 @@ const setStepApiToolCallEnabled = (stepIdx, enabled) => {
 }
 
 const updateStepApiToolCall = (stepIdx, field, value) => {
+  if (recordReadonly.value) return
   ensureStep(stepIdx)
   const step = config.value?.config?.steps?.[stepIdx]
   if (!step) return
@@ -437,10 +455,12 @@ const getStepApiToolCallBody = (stepIdx) => {
 }
 
 const setStepApiToolCallBodyDraft = (stepIdx, val) => {
+  if (recordReadonly.value) return
   apiToolCallBodyDrafts.value[stepIdx] = val ?? ''
 }
 
 const commitStepApiToolCallBody = (stepIdx) => {
+  if (recordReadonly.value) return
   const val = apiToolCallBodyDrafts.value[stepIdx]
   delete apiToolCallBodyDrafts.value[stepIdx]
   ensureStep(stepIdx)
@@ -561,6 +581,7 @@ const isManuallyAddedParam = (param) => {
 }
 
 const addExpectedInputParam = () => {
+  if (recordReadonly.value) return
   const name = newParamName.value?.trim()
   if (!name) return
   if (!config.value) config.value = {}
@@ -581,6 +602,7 @@ const testInputsList = computed(() => {
 })
 
 const addTestInput = () => {
+  if (recordReadonly.value) return
   const name = newTestInputName.value?.trim()
   if (!name) return
   if (!config.value) config.value = {}
@@ -593,6 +615,7 @@ const addTestInput = () => {
 }
 
 const removeTestInput = (idx) => {
+  if (recordReadonly.value) return
   if (!config.value?.config?.test_inputs) return
   config.value.config.test_inputs.splice(idx, 1)
   if (config.value.config.test_inputs.length === 0) {
@@ -607,6 +630,7 @@ const getTestInputValue = (tiIdx, param) => {
 }
 
 const setTestInputValue = (tiIdx, param, val) => {
+  if (recordReadonly.value) return
   if (!config.value?.config?.test_inputs?.[tiIdx]) return
   const ti = config.value.config.test_inputs[tiIdx]
   if (!ti.values) ti.values = {}
@@ -618,6 +642,7 @@ const setTestInputValue = (tiIdx, param, val) => {
 }
 
 const removeExpectedInputParam = (param) => {
+  if (recordReadonly.value) return
   if (!config.value?.config) return
   const manual = config.value.config.expected_input
   if (Array.isArray(manual)) {
@@ -640,6 +665,7 @@ const removeExpectedInputParam = (param) => {
 }
 
 const addStep = () => {
+  if (recordReadonly.value) return
   if (!config.value) config.value = { config: {} }
   if (!config.value.config) config.value.config = {}
   if (!Array.isArray(config.value.config.steps)) config.value.config.steps = []
@@ -647,6 +673,7 @@ const addStep = () => {
 }
 
 const removeStep = (idx) => {
+  if (recordReadonly.value) return
   if (!config.value?.config?.steps) return
   config.value.config.steps.splice(idx, 1)
 }
@@ -670,6 +697,7 @@ const migrateLegacySteps = () => {
 }
 
 const save = async () => {
+  if (recordReadonly.value) return
   const cfg = config.value
   if (!cfg || !configId.value) return
 
@@ -768,5 +796,14 @@ watch(config, (val) => {
 
 .prompt-queue-details__param-label {
   min-inline-size: 100px;
+}
+
+.prompt-queue-details__readonly-zone {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+
+.prompt-queue-details__readonly-zone :where(input, textarea, select, button, [role='button']) {
+  cursor: not-allowed;
 }
 </style>

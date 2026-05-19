@@ -52,7 +52,7 @@
               <template #cell-actions="{ row }">
                 <div class="cluster" data-wrap="no" data-justify="end">
                   <km-btn icon="download" flat dense size="sm" icon-size="14px" interaction-tone="brand" :tooltip="m.common_download()" @click.stop="downloadFile(row)" />
-                  <km-btn icon="delete" flat dense size="sm" icon-size="14px" interaction-tone="danger" :tooltip="m.common_delete()" @click.stop="confirmDelete(row)" />
+                  <km-btn v-if="canWriteFiles" icon="delete" flat dense size="sm" icon-size="14px" interaction-tone="danger" :tooltip="m.common_delete()" @click.stop="confirmDelete(row)" />
                 </div>
               </template>
             </km-data-table>
@@ -78,7 +78,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { DateTime } from 'luxon'
-import { fetchData } from '@shared'
+import { fetchData, usePermissions } from '@shared'
 import { useDataTable } from '@/composables/useDataTable'
 import { textColumn, dateColumn } from '@/utils/columnHelpers'
 import { m } from '@/paraglide/messages'
@@ -88,10 +88,12 @@ import { useNotify } from '@/composables/useNotify'
 import type { StoredFile } from '@/types'
 
 const { notifySuccess, notifyError } = useNotify()
+const { can } = usePermissions()
 const appStore = useAppStore()
 const queries = useEntityQueries()
 const endpoint = computed(() => appStore.config?.api?.aiBridge?.urlAdmin)
 const credentials = computed(() => appStore.config?.auth?.enabled ? 'include' : null)
+const canWriteFiles = computed(() => can('write:files'))
 
 // Filters
 const filterEntityType = ref<string | null>(null)
@@ -198,6 +200,7 @@ async function downloadFile(row: StoredFile) {
 }
 
 function confirmDelete(row: StoredFile) {
+  if (!canWriteFiles.value) return
   fileToDelete.value = row
   showDeleteDialog.value = true
 }
@@ -205,6 +208,7 @@ function confirmDelete(row: StoredFile) {
 const removeMutation = queries.files.useRemove()
 
 async function deleteFile() {
+  if (!canWriteFiles.value) return
   if (!fileToDelete.value?.id) return
   removeMutation.mutate(fileToDelete.value.id, {
     onSuccess: () => {

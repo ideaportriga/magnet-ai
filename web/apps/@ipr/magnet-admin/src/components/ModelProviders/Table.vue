@@ -5,7 +5,7 @@
     </div>
     <div class="km-space" />
     <div class="flex-none center-flex-y">
-      <km-btn class="mr-md" data-test="new-btn" :label="m.common_new()" @click="showNewDialog = true" />
+      <km-btn v-if="canCreate" class="mr-md" data-test="new-btn" :label="m.common_new()" @click="showNewDialog = true" />
     </div>
   </div>
   <div class="flex-1" style="min-block-size: 0">
@@ -20,9 +20,11 @@ import { useDataTable } from '@/composables/useDataTable'
 import { textColumn, chipCopyColumn, dateColumn } from '@/utils/columnHelpers'
 import { formatProviderType } from '@/config/model_providers/providerTypes'
 import { m } from '@/paraglide/messages'
+import { useEntityAccess } from '@/composables/useEntityAccess'
 import type { Provider } from '@/types'
 
 const router = useRouter()
+const { canCreate } = useEntityAccess('model_providers')
 const showNewDialog = ref(false)
 
 const EXCLUDED_PROVIDER_TYPES = ['teams_note_taker']

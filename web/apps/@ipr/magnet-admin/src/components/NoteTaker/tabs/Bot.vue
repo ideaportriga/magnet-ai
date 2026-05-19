@@ -4,12 +4,12 @@
       <div class="text-secondary-text pb-xs km-title">Azure Bot Provider</div>
       <div class="cluster" data-gap="sm">
         <div class="flex-1">
-          <km-select v-model="providerSystemName" :options="noteTakerProviders" option-label="name" option-value="system_name" emit-value map-options has-dropdown-search height="30px" clearable :placeholder="m.noteTaker_selectTeamsProvider()" />
+          <km-select v-model="providerSystemName" :options="noteTakerProviders" option-label="name" option-value="system_name" emit-value map-options has-dropdown-search height="30px" clearable :disabled="noteTakerReadonly" :placeholder="m.noteTaker_selectTeamsProvider()" />
         </div>
         <div v-if="providerSystemName" class="flex-none">
           <km-btn icon="external-link" flat dense @click="navigateToProvider" />
         </div>
-        <div class="flex-none">
+        <div v-if="canManageProviders" class="flex-none">
           <km-btn icon="add" :label="m.common_newProvider()" flat dense @click="showCreateProvider = true" />
         </div>
       </div>
@@ -25,7 +25,7 @@
     <km-separator />
     <div class="km-field">
       <div class="text-secondary-text pb-xs km-title">Superuser (AAD Object ID)</div>
-      <km-input v-model="superuserId" class="full-width" :placeholder="m.placeholder_uuidFormat()" height="30px" clearable />
+      <km-input v-model="superuserId" class="full-width" :placeholder="m.placeholder_uuidFormat()" height="30px" clearable :disabled="noteTakerReadonly" />
       <div class="km-description text-secondary-text pt-2xs">When set, this user can access ALL transcriptions created by this note-taker bot, regardless of who initiated them.</div>
     </div>
   </div>
@@ -57,7 +57,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, reactive, computed, inject, watch } from 'vue'
+import { usePermissions } from '@shared'
 import { m } from '@/paraglide/messages'
 import { useAppStore } from '@/stores/appStore'
 import { useNoteTakerStore } from '@/stores/noteTakerStore'
@@ -72,6 +73,10 @@ const appStore = useAppStore()
 const router = useRouter()
 const route = useRoute()
 const queries = useEntityQueries()
+const { can } = usePermissions()
+const noteTakerReadonlyRef = inject('noteTakerReadonly', null)
+const noteTakerReadonly = computed(() => Boolean(noteTakerReadonlyRef?.value))
+const canManageProviders = computed(() => !noteTakerReadonly.value && can('write:providers'))
 
 const { data: providerListData } = queries.provider.useList()
 const createProviderMutation = useSafeMutation(queries.provider.useCreate(), {
@@ -102,6 +107,7 @@ const noteTakerProviders = computed(() =>
 const providerSystemName = computed({
   get: () => activeRecord.value?.provider_system_name || '',
   set: (value: string) => {
+    if (noteTakerReadonly.value) return
     ntStore.setRecordMeta({
       key: ntStore.activeSettingsKey,
       provider_system_name: value || null,
@@ -112,6 +118,7 @@ const providerSystemName = computed({
 const superuserId = computed({
   get: () => activeRecord.value?.superuser_id || '',
   set: (value: string) => {
+    if (noteTakerReadonly.value) return
     ntStore.setRecordMeta({
       key: ntStore.activeSettingsKey,
       superuser_id: value || null,
@@ -137,6 +144,7 @@ const navigateToProvider = () => {
 }
 
 const createProvider = async () => {
+  if (!canManageProviders.value) return
   if (!newProvider.name.trim()) return
   const systemName = toUpperCaseWithUnderscores(newProvider.name)
   const { success, data: created } = await createProviderMutation.run({

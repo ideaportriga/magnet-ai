@@ -5,9 +5,9 @@
         <km-input :placeholder="m.common_search()" icon-before="search" :model-value="globalFilter" clearable @input="globalFilter = $event" />
       </div>
       <div class="km-space" />
-      <km-btn v-if="selectedRows.length &gt; 0" class="mr-md" icon="delete" :label="m.common_delete()" interaction-tone="brand" label-class="km-title" flat icon-size="16px" @click="showDeleteDialog = true" />
-      <km-btn :label="m.collections_autoMap()" @click="autoMap" />
-      <km-btn :label="m.common_new()" @click="showNewDialog = true" />
+      <km-btn v-if="!collectionReadonly && selectedRows.length &gt; 0" class="mr-md" icon="delete" :label="m.common_delete()" interaction-tone="brand" label-class="km-title" flat icon-size="16px" @click="showDeleteDialog = true" />
+      <km-btn v-if="!collectionReadonly" :label="m.collections_autoMap()" @click="autoMap" />
+      <km-btn v-if="!collectionReadonly" :label="m.common_new()" @click="showNewDialog = true" />
     </div>
     <div class="cluster">
       <km-data-table :table="table" row-key="id" :active-row-id="activeMetadataConfig?.id" @row-click="selectRecord" />
@@ -21,7 +21,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, markRaw } from 'vue'
+import { ref, computed, inject, markRaw } from 'vue'
 import { m } from '@/paraglide/messages'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useCollectionMetadataStore } from '@/stores/entityDetailStores'
@@ -31,6 +31,8 @@ import Check from '@/config/collections/components/Check.vue'
 
 const { draft, updateField } = useEntityDetail('collections')
 const collectionMetadataStore = useCollectionMetadataStore()
+const collectionReadonlyRef = inject('collectionReadonly', null)
+const collectionReadonly = computed(() => Boolean(collectionReadonlyRef?.value))
 
 const showNewDialog = ref(false)
 const showDeleteDialog = ref(false)
@@ -68,6 +70,7 @@ const selectRecord = (row: any) => {
 }
 
 const deleteSelected = () => {
+  if (collectionReadonly.value) return
   const selectedIds = selectedRows.value.map((item: any) => item.id)
   metadataConfig.value = metadataConfig.value.filter((item: any) => !selectedIds.includes(item.id))
   clearSelection()
@@ -75,6 +78,7 @@ const deleteSelected = () => {
 }
 
 const autoMap = async () => {
+  if (collectionReadonly.value) return
   const autoMapMetadataConfig = await store.dispatch('autoMapMetadata', {
     collection_id: collectionId.value,
     exclude_fields: metadataConfig.value.map((item: any) => item.name),

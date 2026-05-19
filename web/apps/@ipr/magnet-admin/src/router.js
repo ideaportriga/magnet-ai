@@ -4,6 +4,7 @@ import { usePopupStore } from '@/stores/popupStore'
 import { useEditBufferStore } from '@/stores/editBufferStore'
 import { useKnowledgeGraphPageStore } from '@/stores/entityDetailStores'
 import { ROUTE_ENTITY_TO_BUFFER_TYPE } from '@/constants/entityMapping'
+import { permissionForRoute } from '@/config/routePermissions'
 import { useSharedAuthStore } from '@shared/stores/authStore'
 
 const routes = [
@@ -223,6 +224,7 @@ const routes = [
       pageLabel: () => m.entity_traces(),
       chroma: true,
       entity: 'observability_traces',
+      permission: 'read:observability',
     },
   },
   {
@@ -234,6 +236,7 @@ const routes = [
       chroma: true,
       detail: true,
       entity: 'observability_traces',
+      permission: 'read:observability',
       headerComponent: 'observability-traces-header',
     },
   },
@@ -317,6 +320,8 @@ const routes = [
     component: () => import('@/components/Dashboard/Page.vue'),
     meta: {
       pageLabel: () => m.entity_usage(),
+      entity: 'observability',
+      permission: 'read:observability',
     },
   },
   // Agents listing
@@ -375,6 +380,7 @@ const routes = [
       pageLabel: () => m.entity_jobs(),
       chroma: true,
       entity: 'jobs',
+      permission: 'read:jobs',
     },
   },
   {
@@ -383,6 +389,8 @@ const routes = [
     component: () => import('@/components/Files/Page.vue'),
     meta: {
       pageLabel: () => m.entity_fileStorage(),
+      entity: 'files',
+      permission: 'read:files',
     },
   },
   {
@@ -391,6 +399,8 @@ const routes = [
     component: () => import('@/components/Conversation/Page.vue'),
     meta: {
       pageLabel: () => m.entity_conversation(),
+      entity: 'conversation',
+      permission: 'read:observability',
       headerComponent: 'conversation-header',
     },
   },
@@ -559,6 +569,8 @@ const routes = [
     component: () => import('@/components/PromptQueue/Page.vue'),
     meta: {
       pageLabel: () => m.entity_promptQueue(),
+      entity: 'prompt_queue',
+      permission: 'read:prompt_queue',
     },
   },
   {
@@ -567,6 +579,8 @@ const routes = [
     component: () => import('@/components/PromptQueue/Details.vue'),
     meta: {
       pageLabel: () => m.entity_promptQueue(),
+      entity: 'prompt_queue',
+      permission: 'read:prompt_queue',
       headerComponent: 'prompt-queue-header',
     },
   },
@@ -670,13 +684,20 @@ const INTERNAL_NAV_GROUPS = {
 }
 
 router.beforeEach((to, from, next) => {
-  const requiredPermission = to.meta?.permission
+  const requiredPermission = permissionForRoute(to)
   if (requiredPermission) {
     const authStore = useSharedAuthStore()
+    if (!authStore.authEnabled) {
+      return next()
+    }
+    if (authStore.authEnabled && !authStore.userInfo) {
+      return next()
+    }
+
     const permissions = authStore.userInfo?.permissions ?? []
     const isSuperuser = Boolean(authStore.userInfo?.is_superuser)
     if (!isSuperuser && !permissions.includes(requiredPermission)) {
-      return next('/')
+      return next('/profile')
     }
   }
 

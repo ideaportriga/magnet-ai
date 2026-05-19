@@ -26,7 +26,7 @@
             </template>
           </layouts-details-header>
           <slot v-if="$slots.subheader || variants?.length &gt; 0" name="subheader">
-            <layouts-details-sub-header :variants="variants" :selected-variant="selectedVariant" :active-variant="activeVariant" @activate-variant="emit(&quot;activateVariant&quot;)" @add-variant="emit(&quot;addVariant&quot;)" @delete-variant="emit(&quot;deleteVariant&quot;)" @select-variant="emit(&quot;selectVariant&quot;, $event)" @update-variant-property="emit(&quot;updateVariantProperty&quot;, $event)" />
+            <layouts-details-sub-header :variants="variants" :selected-variant="selectedVariant" :active-variant="activeVariant" :readonly="readonly" @activate-variant="emit(&quot;activateVariant&quot;)" @add-variant="emit(&quot;addVariant&quot;)" @delete-variant="emit(&quot;deleteVariant&quot;)" @select-variant="emit(&quot;selectVariant&quot;, $event)" @update-variant-property="emit(&quot;updateVariantProperty&quot;, $event)" />
           </slot>
         </div>
         <div class="flex-1 overflow-hidden no-wrap stack km-flex-min-0" data-gap="0" :class="noContentWrapper ? '' : 'ba-border bg-white border-radius-8 p-lg'">

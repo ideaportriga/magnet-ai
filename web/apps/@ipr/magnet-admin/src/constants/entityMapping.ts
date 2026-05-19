@@ -21,7 +21,6 @@ export const ROUTE_ENTITY_TO_BUFFER_TYPE: Record<string, string> = {
   mcp_servers: 'mcp_servers',
   api_servers: 'api_servers',
 
-  observability_traces: 'observability_traces',
   rag_tools: 'rag_tools',
   retrieval: 'retrieval',
   promptTemplates: 'promptTemplates',
@@ -41,7 +40,6 @@ export const ROUTE_ENTITY_TO_QUERY_KEY: Record<string, keyof AllEntityQueries> =
   mcp_servers: 'mcp_servers',
   api_servers: 'api_servers',
 
-  observability_traces: 'observability_traces',
   rag_tools: 'rag_tools',
   retrieval: 'retrieval',
   promptTemplates: 'promptTemplates',

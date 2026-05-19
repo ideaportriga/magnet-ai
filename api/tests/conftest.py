@@ -344,12 +344,40 @@ async def test_app(engine):
 
 
 @pytest.fixture
-async def client(test_app) -> AsyncGenerator:
-    """Async HTTP test client."""
-    from litestar.testing import AsyncTestClient
+async def client(test_app, engine) -> AsyncGenerator:
+    """Async HTTP test client.
 
-    async with AsyncTestClient(app=test_app) as c:
-        yield c
+    E2E tests run with ``AUTH_ENABLED=false`` so the auth middleware — which
+    is what stamps the RLS contextvar in production — is never attached.
+    Without that contextvar, the ``before_flush`` listener in
+    ``core.db.rls_context`` can't auto-populate ``tenant_id`` on new rows,
+    and tenant-scoped writes (``prompts``, ``agents``, ``collections``, …)
+    fail their NOT NULL / RLS check.
+
+    Resolve the seeded default tenant and stamp it into the contextvar for
+    the lifetime of the test client so handlers see a consistent tenant.
+    Tests that need cross-tenant behaviour can override via
+    ``rls_context_scope`` inside the test body.
+    """
+    from litestar.testing import AsyncTestClient
+    from sqlalchemy import text
+    from core.db.rls_context import set_rls_context, reset_rls_context
+
+    async with engine.connect() as probe_conn:
+        result = await probe_conn.execute(
+            text("SELECT id FROM tenant WHERE slug = 'default'")
+        )
+        default_tenant_id = result.scalar_one_or_none()
+
+    tokens = set_rls_context(
+        tenant_id=str(default_tenant_id) if default_tenant_id else None,
+        user_id=None,
+    )
+    try:
+        async with AsyncTestClient(app=test_app) as c:
+            yield c
+    finally:
+        reset_rls_context(tokens)
 
 
 # ---------------------------------------------------------------------------

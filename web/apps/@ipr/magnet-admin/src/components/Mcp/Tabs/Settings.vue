@@ -17,16 +17,16 @@
     <km-separator class="mt-lg mb-lg" />
     <km-section :title="m.section_headers()" :sub-title="m.subtitle_useHeaders()">
       <km-notification-text :notification="m.hint_noSensitiveData()" />
-      <km-key-value-editor v-model="headersObject" :add-label="m.common_addHeaderRecord()" />
+      <km-key-value-editor v-model="headersObject" :add-label="m.common_addHeaderRecord()" :readonly="mcpReadonly" />
     </km-section>
     <km-separator class="mt-lg mb-lg" />
     <km-section :title="m.section_secrets()" :sub-title="m.subtitle_useSecretsMcp()">
-      <km-secrets v-model:secrets="secrets" :original-secrets="originalMcpSecrets" :remount-value="remountValue" />
+      <km-secrets v-model:secrets="secrets" :original-secrets="originalMcpSecrets" :remount-value="remountValue" :readonly="mcpReadonly" />
     </km-section>
   </div>
 </template>
 <script setup>
-import { computed } from 'vue'
+import { computed, inject } from 'vue'
 import { fetchData } from '@shared'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useAppStore } from '@/stores/appStore'
@@ -36,6 +36,8 @@ import { m } from '@/paraglide/messages'
 const { notifySuccess, notifyError } = useNotify()
 const { draft, data, updateField } = useEntityDetail('mcp_servers')
 const appStore = useAppStore()
+const mcpReadonlyRef = inject('mcpReadonly', null)
+const mcpReadonly = computed(() => Boolean(mcpReadonlyRef?.value))
 
 const server = computed(() => draft.value)
 
@@ -49,6 +51,7 @@ const headersObject = computed({
     return raw
   },
   set(value) {
+    if (mcpReadonly.value) return
     updateField('headers', new Map(Object.entries(value || {})))
   },
 })
@@ -64,6 +67,7 @@ const secrets = computed({
     return draft.value?.secrets_encrypted
   },
   set(value) {
+    if (mcpReadonly.value) return
     updateField('secrets_encrypted', value)
   },
 })

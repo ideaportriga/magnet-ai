@@ -6,8 +6,8 @@
       </div>
       <div class="km-space" />
       <div class="cluster flex-none" data-gap="md">
-        <km-btn flat :label="m.common_import()" icon="download" :loading="loadingAvailableModels" @click="openImportDialog" />
-        <km-btn :label="m.common_new()" @click="showNewDialog = true" />
+        <km-btn v-if="!modelProviderReadonly" flat :label="m.common_import()" icon="download" :loading="loadingAvailableModels" @click="openImportDialog" />
+        <km-btn v-if="!modelProviderReadonly" :label="m.common_new()" @click="showNewDialog = true" />
       </div>
     </div>
     <div class="cluster mt-md" data-justify="between">
@@ -16,7 +16,7 @@
       </div>
       <div class="km-space" />
       <div class="cluster flex-none" data-gap="md">
-        <km-btn v-if="selectedRows.length &gt; 0" icon="delete" :label="m.common_delete()" interaction-tone="brand" label-class="km-title" flat icon-size="16px" @click="showDeleteDialog = true" />
+        <km-btn v-if="!modelProviderReadonly && selectedRows.length &gt; 0" icon="delete" :label="m.common_delete()" interaction-tone="brand" label-class="km-title" flat icon-size="16px" @click="showDeleteDialog = true" />
       </div>
     </div>
     <div class="flex-1 mt-md km-flex-min-0">
@@ -59,9 +59,9 @@
             :key="model.id"
             class="km-import-list__item"
             :class="{ 'km-import-list__item--selected': isModelSelected(model), 'km-import-list__item--disabled': isModelAlreadyAdded(model) }"
-            @click="!isModelAlreadyAdded(model) &amp;&amp; toggleModelSelection(model)"
+            @click="!modelProviderReadonly && !isModelAlreadyAdded(model) &amp;&amp; toggleModelSelection(model)"
           >
-            <km-checkbox :model-value="isModelSelected(model)" :disable="isModelAlreadyAdded(model)" @click.stop @update:model-value="toggleModelSelection(model)" />
+            <km-checkbox :model-value="isModelSelected(model)" :disable="modelProviderReadonly || isModelAlreadyAdded(model)" @click.stop @update:model-value="toggleModelSelection(model)" />
             <div class="km-import-list__main">
               <div class="cluster" data-gap="sm">
                 <span class="km-import-list__title">{{ model.id }}</span>
@@ -97,13 +97,13 @@
     <template #footer>
       <span v-if="selectedModelsToImport.length &gt; 0" class="text-secondary-text mr-md">{{ selectedModelsToImport.length }} model(s) selected</span>
       <km-btn flat :label="m.common_cancel()" tone="brand" @click="showImportDialog = false" />
-      <km-btn :label="m.common_importSelected()" :disable="selectedModelsToImport.length === 0" :loading="importingModels" @click="importSelectedModels" />
+      <km-btn :label="m.common_importSelected()" :disable="modelProviderReadonly || selectedModelsToImport.length === 0" :loading="importingModels" @click="importSelectedModels" />
     </template>
   </km-dialog>
 </template>
 
 <script>
-import { ref, computed, markRaw } from 'vue'
+import { ref, computed, inject, markRaw } from 'vue'
 import { m } from '@/paraglide/messages'
 import { toUpperCaseWithUnderscores } from '@shared'
 import { useEntityQueries } from '@/queries/entities'
@@ -178,6 +178,8 @@ export default {
   setup() {
     const queries = useEntityQueries()
     const { draft: providerDraft } = useEntityDetail('provider')
+    const modelProviderReadonlyRef = inject('modelProviderReadonly', null)
+    const modelProviderReadonly = computed(() => Boolean(modelProviderReadonlyRef?.value))
     const { mutateAsync: deleteItem } = queries.model.useRemove()
     const { mutateAsync: createEntity } = queries.model.useCreate()
     const filterObject = ref({})
@@ -290,6 +292,7 @@ export default {
       globalFilter,
       selectedRows,
       clearSelection,
+      modelProviderReadonly,
       filterObject,
       filterConfig,
       deleteItem,
@@ -344,6 +347,7 @@ export default {
       this.$emit('select-model', row)
     },
     async deleteSelected() {
+      if (this.modelProviderReadonly) return
       try {
         for (const item of this.selectedRows) {
           await this.deleteItem(item.id)
@@ -356,6 +360,7 @@ export default {
       }
     },
     async openImportDialog() {
+      if (this.modelProviderReadonly) return
       this.loadingAvailableModels = true
       this.availableModels = []
       this.selectedModelsToImport = []
@@ -388,6 +393,7 @@ export default {
       return this.existingModelNames.includes(model.id.toLowerCase())
     },
     toggleModelSelection(model) {
+      if (this.modelProviderReadonly) return
       if (this.isModelAlreadyAdded(model)) return
 
       const index = this.selectedModelsToImport.findIndex(m => m.id === model.id)
@@ -413,6 +419,7 @@ export default {
       return num.toString()
     },
     async importSelectedModels() {
+      if (this.modelProviderReadonly) return
       if (this.selectedModelsToImport.length === 0) return
 
       this.importingModels = true

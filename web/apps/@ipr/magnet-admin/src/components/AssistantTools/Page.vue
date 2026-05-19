@@ -13,7 +13,7 @@
       </div>
       <div class="km-space" />
       <div class="flex-none center-flex-y">
-        <km-btn class="mr-md" :label="m.common_new()" @click="showNewDialog = true" />
+        <km-btn v-if="canCreate" class="mr-md" :label="m.common_new()" @click="showNewDialog = true" />
       </div>
     </template>
     <km-data-table :table="table" :loading="isLoading" :fetching="isFetching" fill-height row-key="id" @row-click="openDetails" />
@@ -30,9 +30,11 @@ import { useRouter } from 'vue-router'
 import { useDataTable } from '@/composables/useDataTable'
 import { nameDescriptionColumn, chipCopyColumn, dateColumn } from '@/utils/columnHelpers'
 import { m } from '@/paraglide/messages'
+import { useEntityAccess } from '@/composables/useEntityAccess'
 import type { AssistantTool } from '@/types'
 
 const router = useRouter()
+const { canCreate } = useEntityAccess('assistant_tools')
 const showNewDialog = ref(false)
 const tab = ref('api')
 const tabs = [
@@ -58,4 +60,3 @@ const openDetails = async (row: AssistantTool) => {
   await router.push(`/assistant-tools/${row.id}`)
 }
 </script>
-

@@ -6,18 +6,20 @@
         <km-dropdown-select :model-value="selectedVariant" :options="variants" @update:model-value="setSelectedVariant" />
       </div>
       <div class="prompt-variant-toolbar__description flex-1 mx-sm">
-        <km-input-flat class="km-description full-width" :placeholder="m.common_description()" :model-value="variant_description" @change="variant_description = $event" />
+        <km-input-flat class="km-description full-width" :placeholder="m.common_description()" :model-value="variant_description" :readonly="promptReadonly" @change="variant_description = $event" />
       </div>
-      <div class="prompt-variant-toolbar__status flex-none mr-sm">
-        <km-btn v-if="!isActive" :label="m.common_activate()" icon="check" interaction-tone="brand" label-class="km-title" flat icon-size="16px" @click="activateVariantAction" />
-        <km-chip v-else class="mr-sm" :label="m.common_active()" tone="brand" />
+      <div v-if="isActive" class="prompt-variant-toolbar__status flex-none mr-sm">
+        <km-chip class="mr-sm" :label="m.common_active()" tone="brand" />
       </div>
-      <km-separator vertical tone="inverse" />
-      <div class="flex-none text-white mx-md">
-        <km-btn :label="m.common_copyToNew()" icon="add" interaction-tone="brand" label-class="km-title" flat icon-size="16px" @click="addVariant" />
+      <div v-if="!promptReadonly && !isActive" class="prompt-variant-toolbar__status flex-none mr-sm">
+        <km-btn :label="m.common_activate()" icon="check" interaction-tone="brand" label-class="km-title" flat icon-size="16px" :disable="promptReadonly" @click="activateVariantAction" />
       </div>
-      <div class="flex-none text-white mr-md">
-        <km-btn class="mx-xs" flat :icon="&quot;delete&quot;" icon-size="16px" size="13px" :disable="variants?.length === 1" :tooltip="m.common_delete()" @click="deleteVariantAction" />
+      <km-separator v-if="!promptReadonly" vertical tone="inverse" />
+      <div v-if="!promptReadonly" class="flex-none text-white mx-md">
+        <km-btn :label="m.common_copyToNew()" icon="add" interaction-tone="brand" label-class="km-title" flat icon-size="16px" :disable="promptReadonly" @click="addVariant" />
+      </div>
+      <div v-if="!promptReadonly" class="flex-none text-white mr-md">
+        <km-btn class="mx-xs" flat :icon="&quot;delete&quot;" icon-size="16px" size="13px" :disable="promptReadonly || variants?.length === 1" :tooltip="m.common_delete()" @click="deleteVariantAction" />
       </div>
       <prompts-create-new v-if="showNewDialog" :show-new-dialog="showNewDialog" copy @cancel="showNewDialog = false" />
       <km-inner-loading :showing="loading" />
@@ -29,7 +31,7 @@
 import { useEntityQueries } from '@/queries/entities'
 import { m } from '@/paraglide/messages'
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
-import { ref, computed } from 'vue'
+import { ref, computed, inject } from 'vue'
 import { notify } from '@shared/utils/notify'
 import KmDropdownSelect from '@ds/components/domain/KmDropdownSelect.vue'
 
@@ -47,6 +49,8 @@ export default {
     const { mutateAsync: createEntity } = queries.promptTemplates.useCreate()
     const { mutateAsync: removeEntity } = queries.promptTemplates.useRemove()
     const items = computed(() => listData.value?.items ?? [])
+    const promptReadonlyRef = inject('promptReadonly', null)
+    const promptReadonly = computed(() => Boolean(promptReadonlyRef?.value))
 
     return {
       m,
@@ -68,6 +72,7 @@ export default {
       removeEntity,
       loading: ref(false),
       showNewDialog: ref(false),
+      promptReadonly,
     }
   },
   computed: {

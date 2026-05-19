@@ -16,6 +16,8 @@ export interface UseEntityDetailBaseOptions {
   readOnlyFields?: string[]
   /** Called when editBuffer is initialized from server data (e.g., to init variant selection) */
   onBufferInit?: (data: Record<string, unknown>) => void
+  /** Do not create editable draft/mutations for read-only detail views. */
+  readonly?: boolean
 }
 
 export interface UseEntityDetailBaseReturn<T extends BaseEntity> {
@@ -73,6 +75,7 @@ export function useEntityDetailBase<T extends BaseEntity>(
 
   const idParam = options?.idParam ?? 'id'
   const readOnlyFields = options?.readOnlyFields ?? ENTITY_READ_ONLY_FIELDS
+  const isReadonly = options?.readonly === true
 
   // Only read route ID when the current route's entity matches the requested entityKey.
   // Prevents fetching the wrong entity when a component using useEntityDetail('collections')
@@ -92,6 +95,8 @@ export function useEntityDetailBase<T extends BaseEntity>(
   })
   onActivated(() => {
     id.value = resolveId()
+
+    if (isReadonly) return
 
     // Re-initialize editBuffer if it was removed while the component was cached by keep-alive
     // (e.g., user closed a workspace tab then navigated back to the same entity).
@@ -116,6 +121,7 @@ export function useEntityDetailBase<T extends BaseEntity>(
   watch(
     data,
     (newData) => {
+      if (isReadonly) return
       if (!newData || !id.value) return
       const key = bufferKey.value
       const entity = newData as unknown as Record<string, unknown>
@@ -131,8 +137,8 @@ export function useEntityDetailBase<T extends BaseEntity>(
   )
 
   // 3. Reactive draft + dirty state
-  const draft = computed(() => editBuffer.getDraft(bufferKey.value) as T | undefined)
-  const isDirty = computed(() => editBuffer.isDirty(bufferKey.value))
+  const draft = computed(() => isReadonly ? data.value : editBuffer.getDraft(bufferKey.value) as T | undefined)
+  const isDirty = computed(() => !isReadonly && editBuffer.isDirty(bufferKey.value))
 
   // 4. Sync dirty flag to workspace tab
   watch(isDirty, (dirty) => {
@@ -144,14 +150,17 @@ export function useEntityDetailBase<T extends BaseEntity>(
 
   // 5. Helpers
   function updateField(path: string, value: unknown) {
+    if (isReadonly) return
     editBuffer.updateDraft(bufferKey.value, path, value)
   }
 
   function updateFields(partial: Record<string, unknown>) {
+    if (isReadonly) return
     editBuffer.updateDraftBatch(bufferKey.value, partial)
   }
 
   function revert() {
+    if (isReadonly) return
     editBuffer.revertBuffer(bufferKey.value)
   }
 
@@ -166,6 +175,7 @@ export function useEntityDetailBase<T extends BaseEntity>(
   }
 
   async function save(): Promise<{ success: boolean; data?: T; error?: unknown }> {
+    if (isReadonly) return { success: false, error: 'Entity detail is read-only' }
     const key = bufferKey.value
     const entityId = editBuffer.getBuffer(key)?.entityId
     const payload = buildPayload()
@@ -182,6 +192,7 @@ export function useEntityDetailBase<T extends BaseEntity>(
   }
 
   async function remove(): Promise<{ success: boolean; error?: unknown }> {
+    if (isReadonly) return { success: false, error: 'Entity detail is read-only' }
     const entityId = editBuffer.getBuffer(bufferKey.value)?.entityId
     if (!entityId) return { success: false }
 
@@ -196,6 +207,7 @@ export function useEntityDetailBase<T extends BaseEntity>(
   }
 
   onBeforeUnmount(() => {
+    if (isReadonly) return
     const tabExists = workspace.tabs.some(
       (t) => t.entityType === entityKey && t.entityId === id.value,
     )

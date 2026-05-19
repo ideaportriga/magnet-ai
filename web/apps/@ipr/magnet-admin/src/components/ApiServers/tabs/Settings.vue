@@ -7,7 +7,7 @@
       </div>
       <div class="km-field text-secondary-text pb-xs pl-sm pt-lg">{{ m.apiServers_verifySsl() }}</div>
       <div class="cluster" data-gap="lg" data-wrap="no">
-        <km-toggle v-model="verifySsl">
+        <km-toggle v-model="verifySsl" :disable="apiServerReadonly">
           <div class="text-secondary-text">{{ verifySsl ? 'Yes' : 'No' }}</div>
         </km-toggle>
       </div>
@@ -15,7 +15,7 @@
     <km-separator class="mt-lg mb-lg" />
     <km-section :title="m.section_customHeaders()" :sub-title="m.apiServers_customHeadersNotification()">
       <km-notification-text notification="Define custom headers that will be sent with each API request. Use placeholders in curly braces to reference secrets." />
-      <km-key-value-editor v-model="customHeadersObject" :key-label="m.common_headerName()" :value-label="m.common_headerValue()" :add-label="m.apiServers_addCustomHeader()" />
+      <km-key-value-editor v-model="customHeadersObject" :key-label="m.common_headerName()" :value-label="m.common_headerValue()" :add-label="m.apiServers_addCustomHeader()" :readonly="apiServerReadonly" />
     </km-section>
     <km-separator class="mt-lg mb-lg" />
     <km-section :title="m.section_securitySchema()" :sub-title="m.apiServers_securitySchemaSubtitle()">
@@ -27,28 +27,30 @@
       </km-notification-text>
       <div class="km-field text-secondary-text pb-xs pl-sm pt-lg">Security schema</div>
       <div class="cluster" data-gap="lg" data-wrap="no">
-        <km-input v-model="serverSecurityScheme" class="full-width" type="textarea" rows="4" />
+        <km-input v-model="serverSecurityScheme" class="full-width" type="textarea" rows="4" :readonly="apiServerReadonly" />
       </div>
       <div v-if="parsingError" class="km-small-chip p-xs pl-sm text-error-text">Invalid JSON format. Please check your input and ensure it follows valid JSON syntax.</div>
     </km-section>
     <km-separator class="mt-lg mb-lg" />
     <km-section :title="m.section_securityValues()" :sub-title="m.apiServers_securityValuesSubtitle()">
       <km-notification-text notification="Do not expose sensitive data in this section. Instead, use placeholders and provide actual values in the Secrets section. Use curly braces to insert placeholders." />
-      <km-key-value-editor v-model="securityValuesObject" :add-label="m.apiServers_addSecurityValue()" />
+      <km-key-value-editor v-model="securityValuesObject" :add-label="m.apiServers_addSecurityValue()" :readonly="apiServerReadonly" />
     </km-section>
     <km-separator class="mt-lg mb-lg" />
     <km-section :title="m.section_secrets()" :sub-title="m.apiServers_secretsSubtitle()">
-      <km-secrets v-model:secrets="secrets" :original-secrets="originalApiSecrets" :remount-value="remountValue" />
+      <km-secrets v-model:secrets="secrets" :original-secrets="originalApiSecrets" :remount-value="remountValue" :readonly="apiServerReadonly" />
     </km-section>
   </div>
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, inject, ref } from 'vue'
 import { m } from '@/paraglide/messages'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 
 const { draft, data, updateField } = useEntityDetail('api_servers')
+const apiServerReadonlyRef = inject('apiServerReadonly', null)
+const apiServerReadonly = computed(() => Boolean(apiServerReadonlyRef?.value))
 
 const server = computed(() => draft.value)
 const parsingError = ref(false)
@@ -61,6 +63,7 @@ const serverSecurityScheme = computed({
     return JSON.stringify(server.value?.security_scheme || {}, null, 2)
   },
   set(newValue) {
+    if (apiServerReadonly.value) return
     try {
       const parsedNewValue = JSON.parse(newValue)
       updateField('security_scheme', parsedNewValue)
@@ -75,6 +78,7 @@ const serverSecurityScheme = computed({
 const verifySsl = computed({
   get: () => server.value?.verify_ssl,
   set: (value) => {
+    if (apiServerReadonly.value) return
     updateField('verify_ssl', value)
   },
 })
@@ -101,6 +105,7 @@ const secrets = computed({
     return encryptedSecrets
   },
   set(value) {
+    if (apiServerReadonly.value) return
     updateField('secrets_encrypted', value)
   },
 })
@@ -117,6 +122,7 @@ const customHeadersObject = computed({
     return raw
   },
   set(value) {
+    if (apiServerReadonly.value) return
     updateField('custom_headers', new Map(Object.entries(value || {})))
   },
 })
@@ -129,6 +135,7 @@ const securityValuesObject = computed({
     return raw
   },
   set(value) {
+    if (apiServerReadonly.value) return
     updateField('security_values', value || {})
   },
 })

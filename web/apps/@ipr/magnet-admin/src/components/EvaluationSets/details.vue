@@ -37,7 +37,9 @@
       </div>
     </template>
     <template #drawer>
-      <evaluation-sets-drawer v-if="openDrawer" :open="openDrawer" />
+      <div :inert="recordReadonly" :class="recordReadonly ? 'evaluation-set-readonly-zone' : null" class="full-height">
+        <evaluation-sets-drawer v-if="openDrawer" :open="openDrawer" />
+      </div>
     </template>
   </layouts-details-layout>
   <evaluation-sets-create-new v-if="showNewDialog" :show-new-dialog="showNewDialog" copy @cancel="showNewDialog = false" />

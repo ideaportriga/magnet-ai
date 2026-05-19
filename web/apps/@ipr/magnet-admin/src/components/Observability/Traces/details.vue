@@ -103,7 +103,7 @@ import { formatDateTime } from '@shared/utils/dateTime'
 
 export default {
   setup() {
-    const { draft, isLoading: loading } = useEntityDetail('observability_traces')
+    const { draft, isLoading: loading } = useEntityDetail('observability_traces', { readonly: true })
 
     return {
       m,

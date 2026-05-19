@@ -83,7 +83,7 @@
         </div>
       </div>
     </div>
-    <div v-if="tabs.length &gt; 0" class="flex-none">
+    <div v-if="tabs.length &gt; 0" :inert="recordReadonly" :class="recordReadonly ? 'ai-app-readonly-zone' : null" class="flex-none">
       <ai-apps-drawer v-model:open="openTest" />
     </div>
   </div>

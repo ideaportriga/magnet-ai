@@ -13,7 +13,7 @@
       </div>
       <div class="km-space" />
       <div class="flex-none center-flex-y">
-        <km-btn class="mr-md" data-test="new-btn" :label="m.common_new()" @click="showNewDialog = true" />
+        <km-btn v-if="canCreate" class="mr-md" data-test="new-btn" :label="m.common_new()" @click="showNewDialog = true" />
       </div>
     </template>
     <km-data-table :table="table" :loading="isLoading" :fetching="isFetching" fill-height row-key="id" @row-click="openDetails" />
@@ -29,11 +29,13 @@ import { useRouter } from 'vue-router'
 import { useDataTable } from '@/composables/useDataTable'
 import { textColumn, componentColumn, dateColumn } from '@/utils/columnHelpers'
 import { m } from '@/paraglide/messages'
+import { useEntityAccess } from '@/composables/useEntityAccess'
 import type { Model } from '@/types'
 import Check from '@/config/model/component/Check.vue'
 import Features from '@/config/model/component/Features.vue'
 
 const router = useRouter()
+const { canCreate } = useEntityAccess('model')
 const showNewDialog = ref(false)
 const tab = ref('prompts')
 const tabs = [
@@ -77,4 +79,3 @@ const openDetails = async (row: Model) => {
   await router.push(`/model/${row.id}`)
 }
 </script>
-

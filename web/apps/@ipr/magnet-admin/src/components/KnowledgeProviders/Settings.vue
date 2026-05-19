@@ -11,7 +11,7 @@
           <div class="cluster relative-position" data-gap="sm" data-wrap="no">
             <km-input class="full-width" :model-value="endpointValue" :readonly="!isEditingEndpoint" :placeholder="m.placeholder_exampleApiEndpoint()" @update:model-value="tempEndpoint = $event" />
             <div class="controls full-height cluster">
-              <km-btn v-if="!isEditingEndpoint" icon="edit" flat icon-size="12px" size="xs" @click="startEditingEndpoint" />
+              <km-btn v-if="!knowledgeProviderReadonly && !isEditingEndpoint" icon="edit" flat icon-size="12px" size="xs" @click="startEditingEndpoint" />
               <km-btn v-if="isEditingEndpoint" icon="close" flat icon-size="12px" size="xs" @click="cancelEditingEndpoint" />
               <km-btn v-if="isEditingEndpoint" icon="check" flat icon-size="12px" size="xs" tone="brand" @click="saveEndpoint" />
             </div>
@@ -28,21 +28,23 @@
     </km-popup-confirm>
     <km-separator class="mt-lg mb-lg" />
     <km-section :title="m.section_connection()" :sub-title="m.subtitle_connectionParams()">
-      <km-key-value-editor :model-value="provider?.connection_config || {}" @update:model-value="updateField('connection_config', $event)" />
+      <km-key-value-editor :model-value="provider?.connection_config || {}" :readonly="knowledgeProviderReadonly" @update:model-value="updateConnectionConfig" />
     </km-section>
     <km-separator class="mt-lg mb-lg" />
     <km-section :title="m.section_secrets()" :sub-title="m.subtitle_useSecretsKsp()">
-      <km-secrets v-model:secrets="secrets" :original-secrets="originalProviderSecrets" :remount-value="remountValue" />
+      <km-secrets v-model:secrets="secrets" :original-secrets="originalProviderSecrets" :remount-value="remountValue" :readonly="knowledgeProviderReadonly" />
     </km-section>
   </div>
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, inject, ref } from 'vue'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import { m } from '@/paraglide/messages'
 
 const { draft, data, updateField, updateFields } = useEntityDetail('provider')
+const knowledgeProviderReadonlyRef = inject('knowledgeProviderReadonly', null)
+const knowledgeProviderReadonly = computed(() => Boolean(knowledgeProviderReadonlyRef?.value))
 
 const provider = computed(() => draft.value)
 
@@ -58,6 +60,7 @@ const endpointValue = computed(() => {
 })
 
 const startEditingEndpoint = () => {
+  if (knowledgeProviderReadonly.value) return
   tempEndpoint.value = provider.value?.endpoint || ''
   isEditingEndpoint.value = true
 }
@@ -68,6 +71,7 @@ const cancelEditingEndpoint = () => {
 }
 
 const saveEndpoint = () => {
+  if (knowledgeProviderReadonly.value) return
   if (tempEndpoint.value !== provider.value?.endpoint) {
     showEndpointWarning.value = true
   } else {
@@ -76,6 +80,7 @@ const saveEndpoint = () => {
 }
 
 const confirmEndpointChange = () => {
+  if (knowledgeProviderReadonly.value) return
   // Update endpoint and clear secrets in draft
   updateFields({
     endpoint: tempEndpoint.value,
@@ -107,9 +112,15 @@ const secrets = computed({
     return { ...encryptedSecrets }
   },
   set(value) {
+    if (knowledgeProviderReadonly.value) return
     updateField('secrets_encrypted', value)
   },
 })
+
+const updateConnectionConfig = (value) => {
+  if (knowledgeProviderReadonly.value) return
+  updateField('connection_config', value)
+}
 
 </script>
 

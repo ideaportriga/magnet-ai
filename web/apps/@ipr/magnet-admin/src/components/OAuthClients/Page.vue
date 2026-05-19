@@ -10,7 +10,7 @@
         @input="onSearchInput"
       />
       <div class="km-space" />
-      <km-btn data-test="new-btn" label="Register OAuth client" @click="showNewDialog = true" />
+      <km-btn v-if="canCreate" data-test="new-btn" label="Register OAuth client" @click="showNewDialog = true" />
     </template>
 
     <km-data-table
@@ -32,11 +32,13 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDataTable } from '@/composables/useDataTable'
+import { useEntityAccess } from '@/composables/useEntityAccess'
 import { textColumn, dateColumn } from '@/utils/columnHelpers'
 import type { OAuthClient } from '@/types'
 
 const router = useRouter()
 const showNewDialog = ref(false)
+const { canCreate } = useEntityAccess('oauth_clients')
 
 const columns = [
   textColumn<OAuthClient>('name', 'Name'),

@@ -1,6 +1,6 @@
 <template>
-  <km-secrets-item v-for="[key, value] in Object.entries(secrets || {})" :key="`${key}-${remountValue}`" :item-key="key" :value="value" :is-new="!originalSecrets.includes(key)" @update="updateSecret" @delete="deleteSecret" />
-  <div class="cluster pt-lg">
+  <km-secrets-item v-for="[key, value] in Object.entries(secrets || {})" :key="`${key}-${remountValue}`" :item-key="key" :value="value" :is-new="!originalSecrets.includes(key)" :readonly="readonly" @update="updateSecret" @delete="deleteSecret" />
+  <div v-if="!readonly" class="cluster pt-lg">
     <km-btn :label="m.common_addSecret()" size="sm" icon="add" flat @click="addSecret" />
   </div>
 </template>
@@ -21,6 +21,10 @@ const props = defineProps({
   remountValue: {
     default: 0,
   },
+  readonly: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 const emit = defineEmits(['update:secrets'])
@@ -33,11 +37,13 @@ const emit = defineEmits(['update:secrets'])
 const safeSecrets = () => props.secrets ?? {}
 
 const deleteSecret = (key) => {
+  if (props.readonly) return
   const next = { ...safeSecrets() }
   delete next[key]
   emit('update:secrets', next)
 }
 const updateSecret = (key, newKey, newValue) => {
+  if (props.readonly) return
   const entries = Object.entries(safeSecrets())
   const idx = entries.findIndex(([k]) => k === key)
 
@@ -51,6 +57,7 @@ const updateSecret = (key, newKey, newValue) => {
 }
 
 const addSecret = () => {
+  if (props.readonly) return
   emit('update:secrets', { ...safeSecrets(), '': '' })
 }
 </script>

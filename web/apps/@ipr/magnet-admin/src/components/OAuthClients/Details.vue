@@ -9,11 +9,12 @@
     :updated-by="updated_by"
     show-record-info
     :show-description="false"
+    :readonly="recordReadonly"
     @update:name="name = $event"
   >
     <template #header-actions>
       <km-btn
-        v-if="isDirty || newClientSecret"
+        v-if="(isDirty || newClientSecret) && !recordReadonly"
         data-test="revert-btn"
         label="Revert"
         icon="undo"
@@ -22,6 +23,7 @@
         @click="handleRevert"
       />
       <km-btn
+        v-if="!recordReadonly"
         data-test="save-btn"
         label="Save"
         flat
@@ -31,12 +33,13 @@
         :disable="saving || (!isDirty && !newClientSecret)"
         @click="handleSave"
       />
+      <km-glyph v-if="recordReadonly" name="lock" size="16px" tone="muted" title="Read-only" data-test="oauth-client-readonly-icon" />
       <ds-dropdown-menu-root>
         <ds-dropdown-menu-trigger as-child>
           <km-btn class="px-xs" data-test="show-more-btn" flat icon="more-vertical" size="13px" />
         </ds-dropdown-menu-trigger>
         <ds-dropdown-menu-content side="bottom" align="end" :side-offset="4">
-          <ds-dropdown-menu-item data-test="delete-btn" variant="destructive" @select="showDeleteDialog = true">Delete</ds-dropdown-menu-item>
+          <ds-dropdown-menu-item v-if="canDelete" data-test="delete-btn" variant="destructive" @select="showDeleteDialog = true">Delete</ds-dropdown-menu-item>
         </ds-dropdown-menu-content>
       </ds-dropdown-menu-root>
       <km-popup-confirm
@@ -53,7 +56,7 @@
     </template>
 
     <template #content>
-      <div class="stack overflow-auto" data-gap="16" style="min-block-size: 0; padding-block: 16px">
+      <div :inert="recordReadonly" :class="recordReadonly ? 'oauth-client-readonly-zone' : null" class="stack overflow-auto" data-gap="16" style="min-block-size: 0; padding-block: 16px">
         <div class="stack" data-gap="4">
           <div class="km-description text-secondary-text">Client ID</div>
           <km-chip-copy :label="draft?.client_id || '-'" />
@@ -93,10 +96,13 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { notify } from '@shared/utils/notify'
 import { useEntityDetail } from '@/composables/useEntityDetail'
+import { useEntityAccess } from '@/composables/useEntityAccess'
 
 const router = useRouter()
 
 const { draft, data: oauthClient, isDirty, isLoading, updateField, save, remove, revert } = useEntityDetail('oauth_clients')
+const { canDelete, recordReadonly, provideReadonly } = useEntityAccess('oauth_clients', draft)
+provideReadonly()
 
 const loading = computed(() => isLoading.value || !oauthClient.value)
 

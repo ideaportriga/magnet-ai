@@ -4,10 +4,10 @@
       <div class="km-field text-secondary-text pb-xs pl-sm">Azure Bot Provider</div>
       <div class="cluster" data-gap="sm">
         <div class="flex-1">
-          <km-select v-model="providerSystemName" :options="noteTakerProviders" option-label="name" option-value="system_name" emit-value map-options has-dropdown-search height="auto" min-height="36px" clearable :placeholder="m.noteTaker_selectTeamsProvider()" />
+          <km-select v-model="providerSystemName" :options="noteTakerProviders" option-label="name" option-value="system_name" emit-value map-options has-dropdown-search height="auto" min-height="36px" clearable :disabled="noteTakerReadonly" :placeholder="m.noteTaker_selectTeamsProvider()" />
         </div>
         <div v-if="providerSystemName" class="flex-none cluster" data-gap="xs" data-wrap="no">
-          <km-btn icon="edit" flat dense tooltip="Edit linked provider credentials" @click="openEditProvider" />
+          <km-btn v-if="canManageProviders" icon="edit" flat dense tooltip="Edit linked provider credentials" @click="openEditProvider" />
           <km-btn icon="external-link" flat dense tooltip="Open in providers page" @click="navigateToProvider" />
         </div>
       </div>
@@ -18,7 +18,7 @@
         <km-btn flat dense round size="xs" icon="copy" tooltip="Copy messaging endpoint" @click="copyEndpoint" />
       </div>
       <div class="cluster mt-md pl-sm" data-gap="md">
-        <km-btn icon="add" :label="m.noteTaker_newBotProvider()" flat dense no-caps @click="openCreateProvider" />
+        <km-btn v-if="canManageProviders" icon="add" :label="m.noteTaker_newBotProvider()" flat dense no-caps @click="openCreateProvider" />
         <km-btn icon="refresh" :label="m.common_checkStatus()" flat dense no-caps :loading="statusLoading" @click="checkRuntimeStatus" />
         <km-chip v-if="runtimeStatus" :tone="runtimeStatus.runtime_loaded ? &quot;success&quot; : &quot;neutral&quot;" dense>{{ runtimeStatus.runtime_loaded ? 'Online' : 'Offline' }}</km-chip>
       </div>
@@ -26,15 +26,15 @@
     <km-separator class="my-lg" />
     <km-section title="Super User" sub-title="When set, this user can access ALL transcriptions created by this note-taker bot, regardless of who initiated them.">
       <div class="km-field text-secondary-text pb-xs pl-sm">Super User AAD Object ID</div>
-      <km-input v-model="superuserId" class="full-width" :placeholder="m.placeholder_uuidFormat()" height="30px" clearable />
+      <km-input v-model="superuserId" class="full-width" :placeholder="m.placeholder_uuidFormat()" height="30px" clearable :disabled="noteTakerReadonly" />
     </km-section>
     <km-separator class="my-lg" />
     <km-section title="Accept commands from non-organizer" sub-title="Off by default. If switched on, Note Taker will accept commands from users other than meeting organizer">
-      <km-toggle v-model="acceptCommandsFromNonOrganizer" />
+      <km-toggle v-model="acceptCommandsFromNonOrganizer" :disable="noteTakerReadonly" />
     </km-section>
     <km-separator class="my-lg" />
     <km-section title="Set subscription for completed recordings" sub-title="Automatically create recordings-ready subscriptions for meetings">
-      <km-toggle v-model="subscriptionRecordingsReady" />
+      <km-toggle v-model="subscriptionRecordingsReady" :disable="noteTakerReadonly" />
     </km-section>
   </div>
   <km-popup-confirm :visible="showProviderDialog" :title="editingProvider ? 'Edit Teams Note Taker Provider' : 'New Teams Note Taker Provider'" :confirm-button-label="editingProvider ? m.common_save() : 'Create'" :cancel-button-label="m.common_cancel()" notification="Credentials are encrypted at rest." @confirm="saveProvider" @cancel="closeProviderDialog">
@@ -77,7 +77,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, inject } from 'vue'
+import { usePermissions } from '@shared'
 import { m } from '@/paraglide/messages'
 import { useAppStore } from '@/stores/appStore'
 import { useNoteTakerStore } from '@/stores/noteTakerStore'
@@ -94,6 +95,10 @@ const router = useRouter()
 const route = useRoute()
 const queries = useEntityQueries()
 const { notifyCopied } = useNotify()
+const { can } = usePermissions()
+const noteTakerReadonlyRef = inject('noteTakerReadonly', null)
+const noteTakerReadonly = computed(() => Boolean(noteTakerReadonlyRef?.value))
+const canManageProviders = computed(() => !noteTakerReadonly.value && can('write:providers'))
 
 const { data: providerListData } = queries.provider.useList()
 const createProviderMutation = useSafeMutation(queries.provider.useCreate(), {
@@ -130,6 +135,7 @@ const noteTakerProviders = computed(() =>
 const providerSystemName = computed({
   get: () => activeRecord.value?.provider_system_name || '',
   set: (value: string) => {
+    if (noteTakerReadonly.value) return
     ntStore.setRecordMeta({
       key: ntStore.activeSettingsKey,
       provider_system_name: value || null,
@@ -140,6 +146,7 @@ const providerSystemName = computed({
 const superuserId = computed({
   get: () => activeRecord.value?.superuser_id || '',
   set: (value: string) => {
+    if (noteTakerReadonly.value) return
     ntStore.setRecordMeta({
       key: ntStore.activeSettingsKey,
       superuser_id: value || null,
@@ -149,12 +156,18 @@ const superuserId = computed({
 
 const subscriptionRecordingsReady = computed({
   get: () => ntStore.settings?.subscription_recordings_ready ?? false,
-  set: (v: boolean) => ntStore.updateSetting( { path: 'subscription_recordings_ready', value: v }),
+  set: (v: boolean) => {
+    if (noteTakerReadonly.value) return
+    ntStore.updateSetting( { path: 'subscription_recordings_ready', value: v })
+  },
 })
 
 const acceptCommandsFromNonOrganizer = computed({
   get: () => ntStore.settings?.accept_commands_from_non_organizer ?? false,
-  set: (v: boolean) => ntStore.updateSetting( { path: 'accept_commands_from_non_organizer', value: v }),
+  set: (v: boolean) => {
+    if (noteTakerReadonly.value) return
+    ntStore.updateSetting( { path: 'accept_commands_from_non_organizer', value: v })
+  },
 })
 
 // Messaging endpoint for Azure Bot configuration.
@@ -213,12 +226,14 @@ const onProviderNameInput = (val: string) => {
 }
 
 const openCreateProvider = () => {
+  if (!canManageProviders.value) return
   editingProvider.value = null
   resetProviderForm()
   showProviderDialog.value = true
 }
 
 const openEditProvider = () => {
+  if (!canManageProviders.value) return
   const prov = allProviders.value.find((p: any) => p.system_name === providerSystemName.value)
   if (!prov) return
   editingProvider.value = prov
@@ -242,6 +257,7 @@ const closeProviderDialog = () => {
 }
 
 const saveProvider = async () => {
+  if (!canManageProviders.value) return
   if (!providerForm.name.trim() || !providerForm.system_name.trim()) return
 
   // Build secrets payload. On edit, an empty value means "leave as-is";

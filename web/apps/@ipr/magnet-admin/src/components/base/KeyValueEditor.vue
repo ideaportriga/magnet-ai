@@ -12,7 +12,7 @@
         <km-input
           :model-value="pair[0]"
           :placeholder="keyPlaceholder"
-          :readonly="keyReadonly"
+          :readonly="readonly || keyReadonly"
           @update:model-value="updateKey(index, $event)"
         />
       </div>
@@ -21,17 +21,17 @@
         <km-input
           :model-value="pair[1]"
           :placeholder="valuePlaceholder"
-          :readonly="valueReadonly"
+          :readonly="readonly || valueReadonly"
           @update:model-value="updateValue(index, $event)"
         />
       </div>
       <div class="flex-none">
         <div class="km-field text-secondary-text pb-xs pl-sm">&nbsp;</div>
-        <km-btn icon="delete" size="sm" flat tone="danger" @click="removeRow(index)" />
+        <km-btn v-if="!readonly" icon="delete" size="sm" flat tone="danger" @click="removeRow(index)" />
       </div>
     </div>
     <div class="cluster pt-lg" data-justify="between">
-      <km-btn :label="addLabel || m.common_addRecord()" size="sm" icon="add" flat @click="addRow" />
+      <km-btn v-if="!readonly" :label="addLabel || m.common_addRecord()" size="sm" icon="add" flat @click="addRow" />
       <slot name="actions" />
     </div>
   </div>
@@ -63,6 +63,7 @@ const props = defineProps({
   addLabel: { type: String, default: '' },
   keyReadonly: { type: Boolean, default: false },
   valueReadonly: { type: Boolean, default: false },
+  readonly: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['update:modelValue'])
@@ -77,16 +78,19 @@ function emitFromEntries(nextEntries) {
 }
 
 function addRow() {
+  if (props.readonly) return
   emitFromEntries([...entries.value, ['', '']])
 }
 
 function removeRow(index) {
+  if (props.readonly) return
   const next = entries.value.slice()
   next.splice(index, 1)
   emitFromEntries(next)
 }
 
 function updateKey(index, newKey) {
+  if (props.readonly) return
   const next = entries.value.slice()
   if (!next[index]) return
   next[index] = [newKey, next[index][1]]
@@ -94,6 +98,7 @@ function updateKey(index, newKey) {
 }
 
 function updateValue(index, newValue) {
+  if (props.readonly) return
   const next = entries.value.slice()
   if (!next[index]) return
   next[index] = [next[index][0], newValue]

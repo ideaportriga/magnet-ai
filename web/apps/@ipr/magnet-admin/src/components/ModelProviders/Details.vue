@@ -1,16 +1,17 @@
 <template>
   <km-inner-loading :showing="loading" />
-  <layouts-details-layout v-if="!loading" :name="name" :system-name="system_name" :created-at="provider?.created_at" :updated-at="provider?.updated_at" :created-by="provider?.created_by" :updated-by="provider?.updated_by" show-record-info :show-description="false" :content-container-style="{ maxWidth: &quot;1200px&quot;, margin: &quot;0 auto&quot; }" @update:name="name = $event" @update:system-name="system_name = $event">
+  <layouts-details-layout v-if="!loading" :name="name" :system-name="system_name" :created-at="provider?.created_at" :updated-at="provider?.updated_at" :created-by="provider?.created_by" :updated-by="provider?.updated_by" show-record-info :show-description="false" :readonly="recordReadonly" :content-container-style="{ maxWidth: &quot;1200px&quot;, margin: &quot;0 auto&quot; }" @update:name="name = $event" @update:system-name="system_name = $event">
     <template #header-actions>
-      <km-btn v-if="isDirty" data-test="revert-btn" :label="m.common_revert()" icon="undo" icon-size="16px" flat @click="revert()" />
-      <km-btn data-test="save-btn" :label="m.common_save()" flat icon="save" icon-size="16px" :loading="saving" :disable="saving || !isDirty" @click="handleSave" />
+      <km-btn v-if="isDirty && !recordReadonly" data-test="revert-btn" :label="m.common_revert()" icon="undo" icon-size="16px" flat @click="revert()" />
+      <km-btn v-if="!recordReadonly" data-test="save-btn" :label="m.common_save()" flat icon="save" icon-size="16px" :loading="saving" :disable="saving || !isDirty" @click="handleSave" />
+      <km-glyph v-if="recordReadonly" name="lock" size="16px" tone="muted" :title="m.access_readOnlyTooltip()" data-test="model-provider-readonly-icon" />
       <ds-dropdown-menu-root>
         <ds-dropdown-menu-trigger as-child>
           <km-btn class="px-xs" data-test="show-more-btn" flat icon="more-vertical" size="13px" />
         </ds-dropdown-menu-trigger>
         <ds-dropdown-menu-content side="bottom" align="end" :side-offset="4">
-          <ds-dropdown-menu-item data-test="clone-btn" @select="showNewDialog = true">{{ m.common_clone() }}</ds-dropdown-menu-item>
-          <ds-dropdown-menu-item data-test="delete-btn" variant="destructive" @select="showDeleteDialog = true">{{ m.common_delete() }}</ds-dropdown-menu-item>
+          <ds-dropdown-menu-item data-test="clone-btn" :disabled="!canCreate" @select="canCreate && (showNewDialog = true)">{{ m.common_clone() }}</ds-dropdown-menu-item>
+          <ds-dropdown-menu-item v-if="canDelete" data-test="delete-btn" variant="destructive" @select="showDeleteDialog = true">{{ m.common_delete() }}</ds-dropdown-menu-item>
         </ds-dropdown-menu-content>
       </ds-dropdown-menu-root>
       <km-popup-confirm :visible="showDeleteDialog" :confirm-button-label="m.dialog_deleteModelProvider()" :cancel-button-label="m.common_cancel()" notification-icon="warning" @confirm="confirmDelete" @cancel="showDeleteDialog = false">
@@ -22,20 +23,22 @@
       <div class="stack full-height km-flex-min-0" data-gap="0">
         <km-tabs v-model="tab" :items="tabs" class="bb-border full-width" narrow-indicator dense align="left" no-caps content-class="km-tabs" />
         <template v-if="tab == &quot;models&quot;">
-          <div class="flex-1 km-flex-min-0" style="padding-block: 16px">
+          <div :inert="recordReadonly" :class="recordReadonly ? 'model-provider-readonly-zone' : null" class="flex-1 km-flex-min-0" style="padding-block: 16px">
             <model-providers-models :selected-model="selectedModel" @select-model="onSelectModel" />
           </div>
         </template>
         <template v-if="tab == &quot;settings&quot;">
-          <div class="flex-1 km-flex-min-0 overflow-auto" style="padding-block: 16px">
+          <div :inert="recordReadonly" :class="recordReadonly ? 'model-provider-readonly-zone' : null" class="flex-1 km-flex-min-0 overflow-auto" style="padding-block: 16px">
             <model-providers-settings />
           </div>
         </template>
       </div>
     </template>
     <template #drawer>
-      <model-providers-model-drawer v-if="tab == &quot;models&quot; &amp;&amp; validSelectedModel" />
-      <model-providers-drawer v-else-if="tab == &quot;models&quot; &amp;&amp; availableModels.length &gt; 0 &amp;&amp; !validSelectedModel" />
+      <div :inert="recordReadonly" :class="recordReadonly ? 'model-provider-readonly-zone' : null" class="full-height">
+        <model-providers-model-drawer v-if="tab == &quot;models&quot; &amp;&amp; validSelectedModel" />
+        <model-providers-drawer v-else-if="tab == &quot;models&quot; &amp;&amp; availableModels.length &gt; 0 &amp;&amp; !validSelectedModel" />
+      </div>
     </template>
   </layouts-details-layout>
 </template>
@@ -45,6 +48,7 @@ import { ref, computed, provide, watch } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
 import { beforeRouteEnter } from '@/guards'
 import { useEntityDetail } from '@/composables/useEntityDetail'
+import { useEntityAccess } from '@/composables/useEntityAccess'
 import { m } from '@/paraglide/messages'
 import { notify } from '@shared/utils/notify'
 
@@ -53,6 +57,8 @@ export default {
   setup() {
     const queries = useEntityQueries()
     const { draft, isLoading, isDirty, updateField, revert, save, remove } = useEntityDetail('provider')
+    const { canCreate, canDelete, recordReadonly, provideReadonly } = useEntityAccess('model_providers', draft)
+    provideReadonly()
 
     // Local ref for the currently selected model (replaces useModelConfigDetailStore)
     const selectedModel = ref(null)
@@ -83,6 +89,9 @@ export default {
       removeEntity: remove,
       selectedModel,
       createEntity,
+      canCreate,
+      canDelete,
+      recordReadonly,
       saving: ref(false),
       showDeleteDialog: ref(false),
       showNewDialog: ref(false),

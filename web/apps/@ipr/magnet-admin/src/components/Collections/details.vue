@@ -40,9 +40,11 @@
       </div>
     </template>
     <template #drawer>
-      <collections-metadata-drawer v-if="tab == &quot;metadata&quot; &amp;&amp; activeMetadataConfig" />
-      <collection-items-drawer v-else-if="tab == &quot;chunks&quot; &amp;&amp; selectedChunk" :selected-row="selectedChunk" @close="selectedChunk = null" />
-      <collections-drawer v-else />
+      <div :inert="recordReadonly" :class="recordReadonly ? 'collection-readonly-zone' : null" class="full-height">
+        <collections-metadata-drawer v-if="tab == &quot;metadata&quot; &amp;&amp; activeMetadataConfig" />
+        <collection-items-drawer v-else-if="tab == &quot;chunks&quot; &amp;&amp; selectedChunk" :selected-row="selectedChunk" @close="selectedChunk = null" />
+        <collections-drawer v-else />
+      </div>
     </template>
   </layouts-details-layout>
   <collections-create-new v-if="showNewDialog" :show-new-dialog="showNewDialog" copy @cancel="showNewDialog = false" />

@@ -15,7 +15,7 @@
           <div class="cluster" data-gap="sm" data-wrap="no" style="position: relative">
             <km-input class="full-width" :model-value="endpointValue" :readonly="!isEditingEndpoint" :placeholder="m.placeholder_exampleApiEndpoint()" @update:model-value="tempEndpoint = $event" />
             <div class="controls full-height cluster">
-              <km-btn v-if="!isEditingEndpoint" icon="edit" flat icon-size="12px" size="xs" @click="startEditingEndpoint" />
+              <km-btn v-if="!modelProviderReadonly && !isEditingEndpoint" icon="edit" flat icon-size="12px" size="xs" @click="startEditingEndpoint" />
               <km-btn v-if="isEditingEndpoint" icon="close" flat icon-size="12px" size="xs" @click="cancelEditingEndpoint" />
               <km-btn v-if="isEditingEndpoint" icon="check" flat icon-size="12px" size="xs" tone="brand" @click="saveEndpoint" />
             </div>
@@ -32,7 +32,7 @@
     </km-popup-confirm>
     <km-separator class="mt-lg mb-lg" />
     <km-section title="Connection" sub-title="Connection parameters like endpoints and headers">
-      <km-key-value-editor :model-value="provider?.connection_config || {}" @update:model-value="updateField('connection_config', $event)">
+      <km-key-value-editor :model-value="provider?.connection_config || {}" :readonly="modelProviderReadonly" @update:model-value="updateConnectionConfig">
         <template #actions>
           <km-btn flat :label="testingConnection ? &quot;Testing...&quot; : &quot;Test Connection&quot;" :loading="testingConnection" icon="plug" tone="brand" size="sm" @click="testProviderConnection" />
         </template>
@@ -89,20 +89,20 @@
       <div v-if="recommendedSecretKeys.length" class="cluster mb-md" data-gap="sm" data-justify="between">
         <div class="km-description text-secondary-text">Recommended for {{ formatProviderType(provider.type) }}:</div>
         <div class="km-space" />
-        <km-btn flat :label="m.common_prePopulateKeys()" size="sm" icon="o_auto_fix_high" tone="brand" :disable="allRecommendedSecretsExist" @click="prefillRecommendedSecrets" />
+        <km-btn v-if="!modelProviderReadonly" flat :label="m.common_prePopulateKeys()" size="sm" icon="o_auto_fix_high" tone="brand" :disable="allRecommendedSecretsExist" @click="prefillRecommendedSecrets" />
       </div>
       <div v-if="recommendedSecretKeys.length" class="cluster mb-md" data-gap="xs">
         <km-chip v-for="rec in recommendedSecretKeys" :key="rec.key" tone="brand" size="sm" dense>
           <km-glyph class="mr-xs" :name="secretExists(rec.key) ? &quot;check&quot; : &quot;o_key&quot;" size="14px" :tone="secretExists(rec.key) ? &quot;success&quot; : &quot;brand&quot;" />{{ rec.label }}
         </km-chip>
       </div>
-      <km-secrets v-model:secrets="secrets" :original-secrets="originalProviderSecrets" :remount-value="remountValue" />
+      <km-secrets v-model:secrets="secrets" :original-secrets="originalProviderSecrets" :remount-value="remountValue" :readonly="modelProviderReadonly" />
     </km-section>
   </div>
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, inject, ref, watch } from 'vue'
 import { m } from '@/paraglide/messages'
 import { onBeforeRouteLeave } from 'vue-router'
 import { providerSecretKeys, providerConnectionConfigKeys, formatProviderType } from '../../config/model_providers/providerTypes'
@@ -114,6 +114,8 @@ const { draft, data, updateField, updateFields, save } = useEntityDetail('provid
 const { notifySuccess, notifyError, notifyWarning } = useNotify()
 const queries = useEntityQueries()
 const { mutateAsync: testProvider } = queries.provider.useTest()
+const modelProviderReadonlyRef = inject('modelProviderReadonly', null)
+const modelProviderReadonly = computed(() => Boolean(modelProviderReadonlyRef?.value))
 
 const provider = computed(() => draft.value)
 
@@ -150,6 +152,7 @@ const endpointValue = computed(() => {
 })
 
 const startEditingEndpoint = () => {
+  if (modelProviderReadonly.value) return
   tempEndpoint.value = provider.value?.endpoint || ''
   isEditingEndpoint.value = true
 }
@@ -160,6 +163,7 @@ const cancelEditingEndpoint = () => {
 }
 
 const saveEndpoint = () => {
+  if (modelProviderReadonly.value) return
   if (tempEndpoint.value !== provider.value?.endpoint) {
     showEndpointWarning.value = true
   } else {
@@ -168,6 +172,7 @@ const saveEndpoint = () => {
 }
 
 const confirmEndpointChange = async () => {
+  if (modelProviderReadonly.value) return
   // Update endpoint and clear secrets in draft
   updateFields({
     endpoint: tempEndpoint.value,
@@ -223,6 +228,7 @@ const allRecommendedSecretsExist = computed(() => {
 })
 
 const prefillRecommendedSecrets = () => {
+  if (modelProviderReadonly.value) return
   const current = { ...(provider.value?.secrets_encrypted || {}) }
   let changed = false
   for (const rec of recommendedSecretKeys.value) {
@@ -252,9 +258,15 @@ const secrets = computed({
     return encryptedSecrets
   },
   set(value) {
+    if (modelProviderReadonly.value) return
     updateField('secrets_encrypted', value)
   },
 })
+
+const updateConnectionConfig = (value) => {
+  if (modelProviderReadonly.value) return
+  updateField('connection_config', value)
+}
 
 // Test provider connection
 const testProviderConnection = async () => {

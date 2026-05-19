@@ -14,8 +14,22 @@ export function useEntityAccess<T extends BaseEntity>(
 
   const canRead = computed(() => can(config.readPermission))
   const canCreate = computed(() => can(config.writePermission))
-  const canEdit = computed(() => canOn(record?.value, 'edit', config.permissionResource))
-  const canDelete = computed(() => canOn(record?.value, 'delete', config.permissionResource))
+  const canEdit = computed(() => {
+    const current = record?.value
+    if (!current) return can(config.writePermission)
+    return canOn(current, 'edit', config.permissionResource)
+  })
+  const canDelete = computed(() => {
+    const current = record?.value
+    if (!current) return can(config.deletePermission)
+
+    const recordPerms = current._permissions
+    if (recordPerms && typeof recordPerms.delete === 'boolean') {
+      return recordPerms.delete === true
+    }
+
+    return can(config.deletePermission)
+  })
   const recordReadonly = computed(() => {
     if (!record?.value) return false
     return canEdit.value === false

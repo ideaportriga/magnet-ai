@@ -6,7 +6,7 @@
       </div>
       <div class="km-space" />
       <div class="flex-none center-flex-y">
-        <km-btn class="mr-md" data-test="new-btn" :label="m.common_new()" @click="showNewDialog = true" />
+        <km-btn v-if="canCreate" class="mr-md" data-test="new-btn" :label="m.common_new()" @click="showNewDialog = true" />
       </div>
     </template>
     <km-data-table :table="table" :loading="isLoading" :fetching="isFetching" fill-height row-key="id" @row-click="openDetails" />
@@ -27,9 +27,11 @@ import { useDataTable } from '@/composables/useDataTable'
 import { textColumn, dateColumn } from '@/utils/columnHelpers'
 import { useEntityQueries } from '@/queries/entities'
 import { m } from '@/paraglide/messages'
+import { useEntityAccess } from '@/composables/useEntityAccess'
 import type { ApiKey } from '@/types'
 
 const router = useRouter()
+const { canCreate } = useEntityAccess('api_keys')
 const showNewDialog = ref(false)
 const showConfirmDialog = ref(false)
 const selected = ref<ApiKey[]>([])

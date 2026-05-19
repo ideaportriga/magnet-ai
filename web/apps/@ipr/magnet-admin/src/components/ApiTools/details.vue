@@ -1,16 +1,17 @@
 <template>
   <km-inner-loading :showing="!apiTool" />
-  <layouts-details-layout v-if="apiTool" :name="name" :description="description" :system-name="system_name" :created-at="apiTool?.created_at" :updated-at="apiTool?.updated_at" :created-by="apiTool?.created_by" :updated-by="apiTool?.updated_by" show-record-info @update:name="name = $event" @update:description="description = $event" @update:system-name="system_name = $event">
+  <layouts-details-layout v-if="apiTool" :name="name" :description="description" :system-name="system_name" :created-at="apiTool?.created_at" :updated-at="apiTool?.updated_at" :created-by="apiTool?.created_by" :updated-by="apiTool?.updated_by" show-record-info :readonly="recordReadonly" @update:name="name = $event" @update:description="description = $event" @update:system-name="system_name = $event">
     <template #header-actions>
-      <km-btn v-if="isDirty" :label="m.common_revert()" icon="undo" icon-size="16px" flat @click="revert()" />
-      <km-btn :label="m.common_save()" flat icon="save" icon-size="16px" :loading="saving" :disable="saving || !isDirty" @click="save" />
+      <km-btn v-if="isDirty && !recordReadonly" :label="m.common_revert()" icon="undo" icon-size="16px" flat @click="revert()" />
+      <km-btn v-if="!recordReadonly" :label="m.common_save()" flat icon="save" icon-size="16px" :loading="saving" :disable="saving || !isDirty" @click="save" />
+      <km-glyph v-if="recordReadonly" name="lock" size="16px" tone="muted" :title="m.access_readOnlyTooltip()" data-test="api-tool-readonly-icon" />
       <ds-dropdown-menu-root>
         <ds-dropdown-menu-trigger as-child>
           <km-btn class="px-xs" flat icon="more-vertical" size="13px" />
         </ds-dropdown-menu-trigger>
         <ds-dropdown-menu-content side="bottom" align="end" :side-offset="4">
-          <ds-dropdown-menu-item @select="clone">{{ m.common_clone() }}</ds-dropdown-menu-item>
-          <ds-dropdown-menu-item variant="destructive" @select="showDeleteDialog = true">{{ m.common_delete() }}</ds-dropdown-menu-item>
+          <ds-dropdown-menu-item :disabled="recordReadonly" @select="!recordReadonly && clone()">{{ m.common_clone() }}</ds-dropdown-menu-item>
+          <ds-dropdown-menu-item v-if="!recordReadonly" variant="destructive" @select="showDeleteDialog = true">{{ m.common_delete() }}</ds-dropdown-menu-item>
         </ds-dropdown-menu-content>
       </ds-dropdown-menu-root>
       <km-popup-confirm :visible="showDeleteDialog" :confirm-button-label="m.dialog_deleteApiTool()" :cancel-button-label="m.common_cancel()" notification-icon="warning" @confirm="confirmDelete" @cancel="showDeleteDialog = false">
@@ -21,14 +22,16 @@
     <template #content>
       <div class="stack full-height" data-gap="0" style="min-block-size: 0">
         <km-tabs v-model="tab" :items="tabs" class="bb-border full-width" narrow-indicator dense align="left" no-caps content-class="km-tabs" />
-        <div class="flex-1" style="min-block-size: 0; padding-block: 16px">
+        <div :inert="recordReadonly" :class="recordReadonly ? 'api-tool-readonly-zone' : null" class="flex-1" style="min-block-size: 0; padding-block: 16px">
           <api-tools-tabs-information v-if="tab == &quot;information&quot;" :api-tool="apiTool" />
           <api-tools-tabs-parameters v-if="tab == &quot;parameters&quot;" :api-tool="apiTool" :selected-row="selectedRow" @select="selectedRow = $event" />
         </div>
       </div>
     </template>
     <template #drawer>
-      <api-tools-drawer ref="drawer" :open="openPropDetails" :selected-row="selectedRow" @update:open="openPropDetails = $event" />
+      <div :inert="recordReadonly" :class="recordReadonly ? 'api-tool-readonly-zone' : null" class="full-height">
+        <api-tools-drawer ref="drawer" :open="openPropDetails" :selected-row="selectedRow" @update:open="openPropDetails = $event" />
+      </div>
     </template>
   </layouts-details-layout>
   <api-tools-clone-dialog :show="showCloneDialog" :tool="clonedTool" @cancel="showCloneDialog = false" />
@@ -38,6 +41,7 @@
 import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useEntityDetail } from '@/composables/useEntityDetail'
+import { useEntityAccess } from '@/composables/useEntityAccess'
 import _ from 'lodash'
 import { m } from '@/paraglide/messages'
 import { notify } from '@shared/utils/notify'
@@ -45,6 +49,8 @@ export default {
   setup() {
     const route = useRoute()
     const { draft, isDirty, updateField, save: saveServer, revert } = useEntityDetail('api_servers')
+    const { recordReadonly, provideReadonly } = useEntityAccess('api_servers', draft)
+    provideReadonly()
 
     return {
       m,
@@ -64,6 +70,7 @@ export default {
       showDeleteDialog: ref(false),
       showCloneDialog: ref(false),
       clonedTool: ref(null),
+      recordReadonly,
     }
   },
   computed: {

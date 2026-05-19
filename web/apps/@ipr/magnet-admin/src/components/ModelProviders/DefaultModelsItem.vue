@@ -12,7 +12,7 @@
         </div>
       </div>
       <div class="flex-none">
-        <km-btn v-if="hover" icon="edit" flat icon-size="14px" @click="editMode = !editMode" />
+        <km-btn v-if="canWriteModels && hover" icon="edit" flat icon-size="14px" @click="editMode = !editMode" />
       </div>
     </div>
     <div v-if="editMode" class="cluster ba-primary border-radius-12 p-lg">
@@ -46,7 +46,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { m } from '@/paraglide/messages'
-import { fetchData } from '@shared'
+import { fetchData, usePermissions } from '@shared'
 import { useEntityQueries } from '@/queries/entities'
 import { useAppStore } from '@/stores/appStore'
 import { useQueryClient } from '@tanstack/vue-query'
@@ -65,7 +65,9 @@ const props = defineProps({
 const queries = useEntityQueries()
 const appStore = useAppStore()
 const queryClient = useQueryClient()
+const { can } = usePermissions()
 const { data: modelListData } = queries.model.useList()
+const canWriteModels = computed(() => can('write:ai_models'))
 const hover = ref(false)
 const editMode = ref(false)
 const showDialog = ref(false)
@@ -100,6 +102,7 @@ const cancelEdit = () => {
 }
 
 const saveDefault = () => {
+  if (!canWriteModels.value) return
   if (selectedModel.value === defaultModel.value?.system_name) {
     // No change, just close
     editMode.value = false
@@ -110,6 +113,7 @@ const saveDefault = () => {
 }
 
 const confirmChange = async () => {
+  if (!canWriteModels.value) return
   const modelToSet = modelOptions.value.find((m) => m.system_name === selectedModel.value)
 
   if (modelToSet) {

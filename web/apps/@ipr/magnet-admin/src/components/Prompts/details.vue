@@ -21,7 +21,7 @@
           <template #meta>
             <div class="cluster" data-gap="xs" data-wrap="no" data-align="center">
               <div class="km-input-label text-secondary-text">{{ m.common_category() }}</div>
-              <km-dropdown-select v-model="category" :placeholder="m.label_categories()" :options="categoryOptions" />
+              <km-dropdown-select v-model="category" :placeholder="m.label_categories()" :options="categoryOptions" :disabled="recordReadonly" />
             </div>
           </template>
           <template #variants>
@@ -61,7 +61,9 @@
         </km-tabs>
       </template>
       <template #drawer>
-        <prompts-drawer :open="openTest" @update:open="openTest = $event" />
+        <div :inert="recordReadonly" :class="recordReadonly ? 'prompt-readonly-zone' : null" class="full-height">
+          <prompts-drawer :open="openTest" @update:open="openTest = $event" />
+        </div>
       </template>
     </layouts-details-layout>
     <km-popup-confirm :visible="showDeleteDialog" :confirm-button-label="m.deleteConfirm_deleteEntity({ entity: m.entity_promptTemplate() })" :cancel-button-label="m.common_cancel()" notification-icon="warning" @confirm="confirmDelete" @cancel="showDeleteDialog = false">

@@ -4,17 +4,17 @@
     <div class="cluster">
       <km-dropdown-select :model-value="selectedVariantValue" :options="variantsOptions" @update:model-value="selectVariant" />
       <div class="flex-1 mx-sm">
-        <km-input-flat class="km-description full-width" :placeholder="m.common_description()" :model-value="variant_description" @change="updateVariantDescription" />
+        <km-input-flat class="km-description full-width" :placeholder="m.common_description()" :model-value="variant_description" :readonly="readonly" @change="updateVariantDescription" />
       </div>
       <div class="flex-none mr-sm">
-        <km-btn v-if="!isActive" class="width-100" :label="m.common_activate()" icon="check" interaction-tone="brand" label-class="km-title" flat icon-size="16px" @click="activateVariant" />
+        <km-btn v-if="!readonly && !isActive" class="width-100" :label="m.common_activate()" icon="check" interaction-tone="brand" label-class="km-title" flat icon-size="16px" @click="activateVariant" />
         <km-chip v-if="isActive" class="mr-sm" :label="m.common_active()" tone="brand" />
       </div>
-      <km-separator vertical tone="inverse" />
-      <div class="flex-none text-white mx-md">
+      <km-separator v-if="!readonly" vertical tone="inverse" />
+      <div v-if="!readonly" class="flex-none text-white mx-md">
         <km-btn :label="m.common_copyToNew()" icon="add" interaction-tone="brand" label-class="km-title" flat icon-size="16px" @click="addVariant" />
       </div>
-      <div class="flex-none text-white mr-md">
+      <div v-if="!readonly" class="flex-none text-white mr-md">
         <km-btn class="mx-xs" flat :icon="&quot;delete&quot;" icon-size="16px" size="13px" :disable="variants?.length === 1" @click="deleteVariant" />
       </div>
     </div>
@@ -42,6 +42,10 @@ const props = defineProps({
   activeVariant: {
     type: String,
     default: '',
+  },
+  readonly: {
+    type: Boolean,
+    default: false,
   },
 })
 const emit = defineEmits(['addVariant', 'deleteVariant', 'activateVariant', 'selectVariant', 'updateVariantProperty'])
@@ -72,14 +76,17 @@ const variantsOptions = computed(() => {
   }))
 })
 const activateVariant = () => {
+  if (props.readonly) return
   emit('activateVariant')
   notifySuccess('Variant has been activated.')
 }
 const addVariant = () => {
+  if (props.readonly) return
   emit('addVariant')
   notifySuccess('New variant has been added.')
 }
 const deleteVariant = () => {
+  if (props.readonly) return
   notifyConfirm({
     message: 'Are you sure you want to delete this variant?',
     confirmLabel: 'Delete',
@@ -95,6 +102,7 @@ const selectVariant = (value) => {
 }
 
 const updateVariantDescription = (value) => {
+  if (props.readonly) return
   emit('updateVariantProperty', { key: 'description', value })
 }
 </script>

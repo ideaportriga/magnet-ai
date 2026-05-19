@@ -50,6 +50,7 @@ import { queryClient } from '@/plugins/vueQuery'
 import { entityKeys } from '@/queries/queryKeys'
 import { getEntityApis, getApiClient } from '@/api/entityApis'
 import { initializePlugins } from '@/config/collections/collections'
+import { permissionForRoute } from '@/config/routePermissions'
 import AuthLoginPage from '@ui/components/auth/AuthLoginPage.vue'
 import AuthSignupPage from '@ui/components/auth/AuthSignupPage.vue'
 import AuthForgotPassword from '@ui/components/auth/AuthForgotPassword.vue'
@@ -165,6 +166,10 @@ export default {
 
     this.initialLoading = false
 
+    if (!this.authRequired && !this.ensureRouteAccess()) {
+      return
+    }
+
     if (!this.authRequired && this.hasAdminAccess) {
       await this.loadData()
     }
@@ -191,8 +196,23 @@ export default {
         staleTime: 5 * 60 * 1000,
       })
     },
+    ensureRouteAccess() {
+      if (!this.authEnabled) return true
+
+      const requiredPermission = permissionForRoute(this.$route)
+      if (!requiredPermission) return true
+
+      const userInfo = this.sharedAuth.userInfo
+      const isSuperuser = Boolean(userInfo?.is_superuser)
+      const permissions = userInfo?.permissions ?? []
+      if (isSuperuser || permissions.includes(requiredPermission)) return true
+
+      this.$router.replace('/profile')
+      return false
+    },
     async onAuthCompleted() {
       await this.getAuthData()
+      if (!this.ensureRouteAccess()) return
       if (this.hasAdminAccess) {
         await this.loadData()
       }

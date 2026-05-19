@@ -6,7 +6,7 @@
       </div>
       <div class="km-space" />
       <div class="flex-none center-flex-y">
-        <km-btn class="mr-md" :label="m.common_new()" @click="showNewDialog = true" />
+        <km-btn v-if="canCreate" class="mr-md" :label="m.common_new()" @click="showNewDialog = true" />
       </div>
     </template>
     <km-data-table fill-height :table="table" row-key="id" @row-click="openDetails" />
@@ -24,9 +24,12 @@ import { textColumn, chipCopyColumn, dateColumn } from '@/utils/columnHelpers'
 import { m } from '@/paraglide/messages'
 import PromptQueueCreateNew from './CreateNew.vue'
 import { usePromptQueueStore } from '@/stores/promptQueueStore'
+import { usePermissions } from '@shared'
 
 const pqStore = usePromptQueueStore()
 const router = useRouter()
+const { can } = usePermissions()
+const canCreate = computed(() => can('write:prompt_queue'))
 
 const showNewDialog = ref(false)
 

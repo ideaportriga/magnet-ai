@@ -11,7 +11,7 @@
       </div>
     </template>
     <div>
-      <div v-if="tab == &quot;parameters&quot;" class="stack gap-lg p-lg">
+      <div v-if="tab == &quot;parameters&quot;" :inert="modelReadonly" :class="modelReadonly ? 'model-drawer__readonly-zone' : null" class="stack gap-lg p-lg">
         <div class="km-title">General settings</div>
         <div>
           <div class="km-field text-secondary-text pb-xs pl-sm">Name</div>
@@ -69,7 +69,7 @@
           </div>
         </template>
       </div>
-      <div v-if="tab == &quot;pricing&quot;" class="stack p-lg" data-gap="lg">
+      <div v-if="tab == &quot;pricing&quot;" :inert="modelReadonly" :class="modelReadonly ? 'model-drawer__readonly-zone' : null" class="stack p-lg" data-gap="lg">
         <div class="km-title">Inputs</div>
         <div>
           <div class="km-field text-secondary-text pb-xs pl-sm">Input units</div>
@@ -122,7 +122,7 @@
           </div>
         </template>
       </div>
-      <div v-if="tab == &quot;routing&quot;" class="stack p-lg" data-gap="lg">
+      <div v-if="tab == &quot;routing&quot;" :inert="modelReadonly" :class="modelReadonly ? 'model-drawer__readonly-zone' : null" class="stack p-lg" data-gap="lg">
         <div class="km-title">Endpoint</div>
         <div>
           <div class="km-field text-secondary-text pb-xs pl-sm">API Path</div>
@@ -264,8 +264,8 @@
       <div class="cluster" data-gap="sm">
         <km-btn flat :label="testingModel ? &quot;Testing...&quot; : &quot;Test Model&quot;" :loading="testingModel" icon="flask" tone="brand" :disable="testingModel || isEntityChanged" data-test="TestModel" @click="testModel" />
         <div class="km-space" />
-        <km-btn v-if="isEntityChanged" flat :label="m.common_cancel()" tone="brand" data-test="Cancel" @click="cancelChanges" />
-        <km-btn v-if="isEntityChanged" :label="m.common_save()" data-test="Save" @click="save" />
+        <km-btn v-if="!modelReadonly && isEntityChanged" flat :label="m.common_cancel()" tone="brand" data-test="Cancel" @click="cancelChanges" />
+        <km-btn v-if="!modelReadonly && isEntityChanged" :label="m.common_save()" data-test="Save" @click="save" />
       </div>
     </template>
   </km-drawer-layout>
@@ -335,6 +335,8 @@ export default {
   setup() {
     const editBuffer = useEditBufferStore()
     const selectedModel = inject('selectedModel')
+    const modelProviderReadonlyRef = inject('modelProviderReadonly', null)
+    const modelReadonly = computed(() => Boolean(modelProviderReadonlyRef?.value))
     const queries = useEntityQueries()
     const { data: listData } = queries.model.useList({ pageSize: 500 })
     const { mutateAsync: updateEntity } = queries.model.useUpdate()
@@ -373,6 +375,7 @@ export default {
     })
 
     function updateField(key, value) {
+      if (modelReadonly.value) return
       if (!bufferKey.value) return
       editBuffer.updateDraft(bufferKey.value, key, value)
     }
@@ -394,6 +397,7 @@ export default {
       bufferKey,
       draft,
       isDirty,
+      modelReadonly,
       updateField,
       revertDraft,
       commitDraft,
@@ -786,6 +790,7 @@ export default {
       this.updateField('routing_config', finalConfig)
     },
     async save() {
+      if (this.modelReadonly) return
       this.loading = true
       try {
         const entity = this.draft
@@ -837,6 +842,7 @@ export default {
       }
     },
     cancelChanges() {
+      if (this.modelReadonly) return
       this.revertDraft()
     },
     goToDefaultModels() {
@@ -891,5 +897,14 @@ export default {
 
 .model-drawer__badge-xs {
   font-size: var(--ds-font-size-xs);
+}
+
+.model-drawer__readonly-zone {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+
+.model-drawer__readonly-zone :where(input, textarea, select, button, [role='button']) {
+  cursor: not-allowed;
 }
 </style>

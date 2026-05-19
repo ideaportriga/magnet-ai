@@ -4,7 +4,7 @@
       <div class="flex-1">
         <km-input v-model="searchString" :placeholder="m.common_search()" icon-before="search" clearable style="max-inline-size: 320px" />
       </div>
-      <div class="flex-none">
+      <div v-if="canManageProviders" class="flex-none">
         <km-btn :label="m.common_newProvider()" icon="add" @click="openCreate" />
       </div>
     </div>
@@ -24,8 +24,8 @@
       </template>
       <template #cell-actions="{ row }">
         <div class="cluster" data-wrap="no">
-          <km-btn flat dense icon="edit" size="sm" tooltip="Edit" @click.stop="openEdit(row)" />
-          <km-btn flat dense icon="delete" size="sm" tone="danger" tooltip="Delete" @click.stop="confirmDelete(row)" />
+          <km-btn v-if="canManageProviders" flat dense icon="edit" size="sm" tooltip="Edit" @click.stop="openEdit(row)" />
+          <km-btn v-if="canManageProviders" flat dense icon="delete" size="sm" tone="danger" tooltip="Delete" @click.stop="confirmDelete(row)" />
         </div>
       </template>
     </km-data-table>
@@ -68,6 +68,7 @@
 <script setup lang="ts">
 import { ref, computed, reactive, watch } from 'vue'
 import type { ColumnDef } from '@tanstack/vue-table'
+import { usePermissions } from '@shared'
 import { m } from '@/paraglide/messages'
 import { useAppStore } from '@/stores/appStore'
 import { toUpperCaseWithUnderscores } from '@shared'
@@ -79,6 +80,8 @@ import { useLocalDataTable } from '@/composables/useLocalDataTable'
 const appStore = useAppStore()
 const { notifySuccess, notifyError, notifyCopied } = useNotify()
 const queries = useEntityQueries()
+const { can } = usePermissions()
+const canManageProviders = computed(() => can('write:providers'))
 
 const { data: providerListData } = queries.provider.useList()
 const { mutateAsync: createProviderMutation } = queries.provider.useCreate()
@@ -159,12 +162,14 @@ const onNameInput = (val: string) => {
 
 // ── Create / Edit ─────────────────────────────────────────────────────
 const openCreate = () => {
+  if (!canManageProviders.value) return
   editingProvider.value = null
   Object.assign(form, { name: '', system_name: '', client_id: '', client_secret: '', tenant_id: '', auth_handler_id: '' })
   showDialog.value = true
 }
 
 const openEdit = (provider: any) => {
+  if (!canManageProviders.value) return
   editingProvider.value = provider
   const secrets = provider.secrets_encrypted || {}
   const conn = provider.connection_config || {}
@@ -185,6 +190,7 @@ const closeDialog = () => {
 }
 
 const saveProvider = async () => {
+  if (!canManageProviders.value) return
   if (!form.name.trim() || !form.system_name.trim()) return
   loading.value = true
   try {
@@ -224,11 +230,13 @@ const saveProvider = async () => {
 
 // ── Delete ────────────────────────────────────────────────────────────
 const confirmDelete = (provider: any) => {
+  if (!canManageProviders.value) return
   deletingProvider.value = provider
   showDeleteConfirm.value = true
 }
 
 const deleteProvider = async () => {
+  if (!canManageProviders.value) return
   if (!deletingProvider.value) return
   loading.value = true
   try {

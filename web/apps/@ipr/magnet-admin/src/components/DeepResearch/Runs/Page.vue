@@ -4,7 +4,7 @@
       <div class="km-space" />
       <div class="flex-none center-flex-y">
         <km-btn class="mr-md" icon="refresh" :label="m.common_refreshList()" interaction-tone="brand" label-class="km-title" flat icon-size="16px" @click="refreshTable" />
-        <km-btn :label="m.common_new()" @click="showNewDialog = true" />
+        <km-btn v-if="canCreate" :label="m.common_new()" @click="showNewDialog = true" />
       </div>
     </template>
     <div class="flex-1" style="min-block-size: 0">
@@ -56,10 +56,12 @@ import { useDeepResearchStore } from '@/stores/deepResearchStore'
 import { useLocalDataTable } from '@/composables/useLocalDataTable'
 import { textColumn, componentColumn } from '@/utils/columnHelpers'
 import { useNotify } from '@/composables/useNotify'
+import { useEntityAccess } from '@/composables/useEntityAccess'
 
 const drStore = useDeepResearchStore()
 const router = useRouter()
 const { notifySuccess, notifyError } = useNotify()
+const { canCreate } = useEntityAccess('deep_research')
 
 const loading = ref(false)
 const showNewDialog = ref(false)
@@ -272,4 +274,3 @@ const openDetails = (row: any) => {
   router.push(`/deep-research/runs/${row.id}`)
 }
 </script>
-

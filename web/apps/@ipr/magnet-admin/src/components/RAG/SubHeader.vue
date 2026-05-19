@@ -6,18 +6,20 @@
         <km-dropdown-select :model-value="selectedVariant" :options="variants" @update:model-value="setSelectedVariant" />
       </div>
       <div class="flex-1 mx-sm">
-        <km-input-flat class="km-description full-width" :placeholder="m.common_description()" :model-value="variant_description" @change="variant_description = $event" />
+        <km-input-flat class="km-description full-width" :placeholder="m.common_description()" :model-value="variant_description" :readonly="ragReadonly" @change="variant_description = $event" />
       </div>
-      <div class="flex-none mr-sm">
-        <km-btn v-if="!isActive" class="width-100" :label="m.common_activate()" icon="check" interaction-tone="brand" label-class="km-title" flat icon-size="16px" @click="activateVariant" />
-        <km-chip v-if="isActive" class="mr-sm" :label="m.common_active()" tone="brand" />
+      <div v-if="isActive" class="flex-none mr-sm">
+        <km-chip class="mr-sm" :label="m.common_active()" tone="brand" />
       </div>
-      <km-separator vertical tone="inverse" />
-      <div class="flex-none text-white mx-md">
-        <km-btn :label="m.common_copyToNew()" icon="add" interaction-tone="brand" label-class="km-title" flat icon-size="16px" @click="addVariant" />
+      <div v-if="!ragReadonly && !isActive" class="flex-none mr-sm">
+        <km-btn class="width-100" :label="m.common_activate()" icon="check" interaction-tone="brand" label-class="km-title" flat icon-size="16px" :disable="ragReadonly" @click="activateVariant" />
       </div>
-      <div class="flex-none text-white mr-md">
-        <km-btn class="mx-xs" flat :icon="&quot;delete&quot;" icon-size="16px" size="13px" :disable="variants?.length === 1" @click="deleteVariant" />
+      <km-separator v-if="!ragReadonly" vertical tone="inverse" />
+      <div v-if="!ragReadonly" class="flex-none text-white mx-md">
+        <km-btn :label="m.common_copyToNew()" icon="add" interaction-tone="brand" label-class="km-title" flat icon-size="16px" :disable="ragReadonly" @click="addVariant" />
+      </div>
+      <div v-if="!ragReadonly" class="flex-none text-white mr-md">
+        <km-btn class="mx-xs" flat :icon="&quot;delete&quot;" icon-size="16px" size="13px" :disable="ragReadonly || variants?.length === 1" @click="deleteVariant" />
       </div>
       <prompts-create-new v-if="showNewDialog" :show-new-dialog="showNewDialog" copy @cancel="showNewDialog = false" />
       <km-inner-loading :showing="loading" />
@@ -27,7 +29,7 @@
 
 <script>
 import { m } from '@/paraglide/messages'
-import { ref } from 'vue'
+import { computed, inject, ref } from 'vue'
 import { useCatalogOptions } from '@/queries/useCatalogOptions'
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 import { notify } from '@shared/utils/notify'
@@ -46,6 +48,8 @@ export default {
       save, revert,
     } = useVariantEntityDetail('rag_tools')
     const { options: items } = useCatalogOptions('rag_tools')
+    const ragReadonlyRef = inject('ragReadonly', null)
+    const ragReadonly = computed(() => Boolean(ragReadonlyRef?.value))
 
     return {
       m,
@@ -65,6 +69,7 @@ export default {
       items,
       loading: ref(false),
       showNewDialog: ref(false),
+      ragReadonly,
     }
   },
   computed: {

@@ -1,16 +1,17 @@
 <template>
   <km-inner-loading :showing="loading" />
-  <layouts-details-layout v-if="!loading" :name="name" :description="description" :system-name="system_name" :system-name-rules="[validSystemName()]" :created-at="activeRetrievalDB?.created_at" :updated-at="activeRetrievalDB?.updated_at" :created-by="activeRetrievalDB?.created_by" :updated-by="activeRetrievalDB?.updated_by" show-record-info @update:name="name = $event" @update:description="description = $event" @update:system-name="system_name = $event">
+  <layouts-details-layout v-if="!loading" :name="name" :description="description" :system-name="system_name" :system-name-rules="[validSystemName()]" :created-at="activeRetrievalDB?.created_at" :updated-at="activeRetrievalDB?.updated_at" :created-by="activeRetrievalDB?.created_by" :updated-by="activeRetrievalDB?.updated_by" show-record-info :readonly="recordReadonly" @update:name="name = $event" @update:description="description = $event" @update:system-name="system_name = $event">
     <template #header-actions>
-      <km-btn v-if="isDirty" data-test="revert-btn" :label="m.common_revert()" icon="undo" icon-size="16px" flat @click="revert()" />
-      <km-btn data-test="save-btn" :label="m.common_save()" flat icon="save" icon-size="16px" :loading="saving" :disable="saving || !isDirty" @click="saveEntity" />
+      <km-btn v-if="isDirty && !recordReadonly" data-test="revert-btn" :label="m.common_revert()" icon="undo" icon-size="16px" flat @click="revert()" />
+      <km-btn v-if="!recordReadonly" data-test="save-btn" :label="m.common_save()" flat icon="save" icon-size="16px" :loading="saving" :disable="saving || !isDirty" @click="saveEntity" />
+      <km-glyph v-if="recordReadonly" name="lock" size="16px" tone="muted" :title="m.access_readOnlyTooltip()" data-test="model-readonly-icon" />
       <ds-dropdown-menu-root>
         <ds-dropdown-menu-trigger as-child>
           <km-btn class="px-xs" data-test="show-more-btn" flat icon="more-vertical" size="13px" />
         </ds-dropdown-menu-trigger>
         <ds-dropdown-menu-content side="bottom" align="end" :side-offset="4">
-          <ds-dropdown-menu-item data-test="clone-btn" @select="showNewDialog = true">{{ m.common_clone() }}</ds-dropdown-menu-item>
-          <ds-dropdown-menu-item data-test="delete-btn" variant="destructive" @select="showDeleteDialog = true">{{ m.common_delete() }}</ds-dropdown-menu-item>
+          <ds-dropdown-menu-item data-test="clone-btn" :disabled="!canCreate" @select="canCreate && (showNewDialog = true)">{{ m.common_clone() }}</ds-dropdown-menu-item>
+          <ds-dropdown-menu-item v-if="canDelete" data-test="delete-btn" variant="destructive" @select="showDeleteDialog = true">{{ m.common_delete() }}</ds-dropdown-menu-item>
         </ds-dropdown-menu-content>
       </ds-dropdown-menu-root>
       <km-popup-confirm :visible="showDeleteDialog" :confirm-button-label="m.deleteConfirm_deleteEntity({ entity: m.entity_model() })" notification-icon="info" :cancel-button-label="m.common_cancel()" @cancel="showDeleteDialog = false" @confirm="deleteRecord">
@@ -21,7 +22,7 @@
     <template #content>
       <div class="stack full-height" data-gap="0" style="min-block-size: 0">
         <km-tabs v-model="tab" :items="tabs" />
-        <div class="flex-1 overflow-auto mt-lg pr-lg" style="min-block-size: 0">
+        <div :inert="recordReadonly" :class="recordReadonly ? 'model-readonly-zone' : null" class="flex-1 overflow-auto mt-lg pr-lg" style="min-block-size: 0">
           <template v-if="tab == &quot;model&quot;">
             <model-config-model />
           </template>
@@ -40,6 +41,7 @@ import { ref, computed } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
 import { validSystemName } from '@/utils/validationRules'
 import { useEntityDetail } from '@/composables/useEntityDetail'
+import { useEntityAccess } from '@/composables/useEntityAccess'
 import { m } from '@/paraglide/messages'
 import { notify } from '@shared/utils/notify'
 
@@ -48,6 +50,8 @@ export default {
   setup() {
     const queries = useEntityQueries()
     const { draft, isLoading, isDirty, updateField, updateFields, save, revert, refetch, remove, buildPayload } = useEntityDetail('model')
+    const { canCreate, canDelete, recordReadonly, provideReadonly } = useEntityAccess('model', draft)
+    provideReadonly()
     const { data: listData } = queries.model.useList()
     const { mutateAsync: removeEntity } = queries.model.useRemove()
     const items = computed(() => listData.value?.items ?? [])
@@ -76,6 +80,9 @@ export default {
       openTest: ref(true),
       items,
       removeEntity,
+      canCreate,
+      canDelete,
+      recordReadonly,
       validSystemName,
     }
   },
