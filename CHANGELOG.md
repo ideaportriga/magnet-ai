@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.28](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.27...v0.7.0-dev.28) (2026-05-19)
+
+### ✨ Features
+
+* **kg:** added option to select logging level for sync and extract ([fcde3ba](https://github.com/ideaportriga/magnet-ai/commit/fcde3ba28a20a703fb3b79f135dacdc548d3f52f))
+* **kg:** added options to run extractions for individual documents ([8f865ad](https://github.com/ideaportriga/magnet-ai/commit/8f865ad1288b767f54e37ac4d6ed1b5ffae8eda4))
+* **kg:** improved knowledge graph sync status tracking ([9936799](https://github.com/ideaportriga/magnet-ai/commit/993679934cab0a33b1da0b27aa2441fef94db740))
+
 ## [0.7.0-dev.27](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.26...v0.7.0-dev.27) (2026-05-17)
 
 ### ✨ Features
