@@ -47,6 +47,7 @@ from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphSourceCreateResponse,
     KnowledgeGraphSourceExternalSchema,
     KnowledgeGraphSourceScheduleSyncRequest,
+    KnowledgeGraphSourceSyncRequest,
     KnowledgeGraphSourceUpdateRequest,
     KnowledgeGraphUpdateRequest,
     KnowledgeGraphUpdateResponse,
@@ -431,13 +432,18 @@ class KnowledgeGraphController(Controller):
         db_session: AsyncSession,
         graph_id: UUID,
         source_id: UUID,
+        data: Annotated[KnowledgeGraphSourceSyncRequest | None, Body()] = None,
     ) -> dict[str, Any]:
+        from_scratch = bool(data.from_scratch) if data is not None else False
+
         # Update status to "syncing" synchronously before launching background task
         await source_service.set_source_status(db_session, source_id, "syncing")
         await db_session.commit()
 
         # Launch sync in background and return immediately to prevent stuck "syncing" status on page refresh
-        asyncio.create_task(sync_source_background(graph_id, source_id))
+        asyncio.create_task(
+            sync_source_background(graph_id, source_id, from_scratch=from_scratch)
+        )
         return {"status": "started", "message": "Sync started in background"}
 
     @observe(

@@ -44,7 +44,9 @@ async def _record_source_failure(source_id: UUID) -> None:
         logger.warning("Failed to record sync failure for source %s", str(source_id))
 
 
-async def sync_source_background(graph_id: UUID, source_id: UUID) -> None:
+async def sync_source_background(
+    graph_id: UUID, source_id: UUID, *, from_scratch: bool = False
+) -> None:
     """Run sync in background with its own database session.
 
     This method is called via asyncio.create_task() and should not raise exceptions
@@ -54,7 +56,9 @@ async def sync_source_background(graph_id: UUID, source_id: UUID) -> None:
 
     try:
         async with alchemy.get_session() as db_session:
-            await _sync_source_impl(db_session, graph_id, source_id)
+            await _sync_source_impl(
+                db_session, graph_id, source_id, from_scratch=from_scratch
+            )
     except Exception as e:  # noqa: BLE001
         logger.error(
             f"Background sync failed for graph {graph_id} source {source_id}: {e}",
@@ -64,15 +68,25 @@ async def sync_source_background(graph_id: UUID, source_id: UUID) -> None:
 
 
 async def sync_source(
-    db_session: AsyncSession, graph_id: UUID, source_id: UUID
+    db_session: AsyncSession,
+    graph_id: UUID,
+    source_id: UUID,
+    *,
+    from_scratch: bool = False,
 ) -> dict[str, Any]:
     """Synchronous sync method (used by scheduled jobs)."""
-    return await _sync_source_impl(db_session, graph_id, source_id)
+    return await _sync_source_impl(
+        db_session, graph_id, source_id, from_scratch=from_scratch
+    )
 
 
 @observe(name="Sync knowledge graph", channel="production", source="production")
 async def _sync_source_impl(
-    db_session: AsyncSession, graph_id: UUID, source_id: UUID
+    db_session: AsyncSession,
+    graph_id: UUID,
+    source_id: UUID,
+    *,
+    from_scratch: bool = False,
 ) -> dict[str, Any]:
     """Internal implementation of sync logic."""
     result = await db_session.execute(
@@ -114,23 +128,33 @@ async def _sync_source_impl(
         if source.type == "sharepoint":
             from services.knowledge_graph.sources import SharePointDataSource
 
-            summary = await SharePointDataSource(source).sync_source(db_session)
+            summary = await SharePointDataSource(source).sync_source(
+                db_session, from_scratch=from_scratch
+            )
         elif source.type == "fluid_topics":
             from services.knowledge_graph.sources import FluidTopicsSource
 
-            summary = await FluidTopicsSource(source).sync_source(db_session)
+            summary = await FluidTopicsSource(source).sync_source(
+                db_session, from_scratch=from_scratch
+            )
         elif source.type == "salesforce":
             from services.knowledge_graph.sources import SalesforceSource
 
-            summary = await SalesforceSource(source).sync_source(db_session)
+            summary = await SalesforceSource(source).sync_source(
+                db_session, from_scratch=from_scratch
+            )
         elif source.type == "confluence":
             from services.knowledge_graph.sources import ConfluenceSource
 
-            summary = await ConfluenceSource(source).sync_source(db_session)
+            summary = await ConfluenceSource(source).sync_source(
+                db_session, from_scratch=from_scratch
+            )
         elif source.type == "web":
             from services.knowledge_graph.sources.web import WebDataSource
 
-            summary = await WebDataSource(source).sync_source(db_session)
+            summary = await WebDataSource(source).sync_source(
+                db_session, from_scratch=from_scratch
+            )
         else:
             raise NotFoundException(
                 f"Sync for source type '{source.type}' is not implemented"

@@ -157,7 +157,8 @@ class KnowledgeGraphSourceService(
                         COUNT(*) AS documents_count,
                         COUNT(*) FILTER (WHERE status = 'completed') AS sync_completed,
                         COUNT(*) FILTER (WHERE status IN ('failed','error')) AS sync_failed,
-                        COUNT(*) FILTER (WHERE status IN ('pending','processing')) AS sync_running,
+                        COUNT(*) FILTER (WHERE status = 'processing') AS sync_running,
+                        COUNT(*) FILTER (WHERE status = 'pending') AS sync_pending,
                         COUNT(*) FILTER (
                             WHERE pipeline_state->'metadata_extraction'->>'status' = 'completed'
                         ) AS metadata_completed,
@@ -168,6 +169,9 @@ class KnowledgeGraphSourceService(
                             WHERE pipeline_state->'metadata_extraction'->>'status' = 'running'
                         ) AS metadata_running,
                         COUNT(*) FILTER (
+                            WHERE pipeline_state->'metadata_extraction'->>'status' = 'pending'
+                        ) AS metadata_pending,
+                        COUNT(*) FILTER (
                             WHERE pipeline_state->'entity_extraction'->>'status' = 'completed'
                         ) AS entity_completed,
                         COUNT(*) FILTER (
@@ -175,7 +179,10 @@ class KnowledgeGraphSourceService(
                         ) AS entity_failed,
                         COUNT(*) FILTER (
                             WHERE pipeline_state->'entity_extraction'->>'status' = 'running'
-                        ) AS entity_running
+                        ) AS entity_running,
+                        COUNT(*) FILTER (
+                            WHERE pipeline_state->'entity_extraction'->>'status' = 'pending'
+                        ) AS entity_pending
                     FROM {docs_table}
                     GROUP BY source_id
                     """
@@ -186,26 +193,52 @@ class KnowledgeGraphSourceService(
                 sid = str(row.get("source_id") or "")
                 if not sid:
                     continue
-                total = int(row.get("documents_count") or 0)
+                documents_count = int(row.get("documents_count") or 0)
+
+                sync_completed = int(row.get("sync_completed") or 0)
+                sync_failed = int(row.get("sync_failed") or 0)
+                sync_running = int(row.get("sync_running") or 0)
+                sync_pending = int(row.get("sync_pending") or 0)
+
+                meta_completed = int(row.get("metadata_completed") or 0)
+                meta_failed = int(row.get("metadata_failed") or 0)
+                meta_running = int(row.get("metadata_running") or 0)
+                meta_pending = int(row.get("metadata_pending") or 0)
+
+                ent_completed = int(row.get("entity_completed") or 0)
+                ent_failed = int(row.get("entity_failed") or 0)
+                ent_running = int(row.get("entity_running") or 0)
+                ent_pending = int(row.get("entity_pending") or 0)
+
+                # ``total`` for sync covers every document (sync is always
+                # attempted). For metadata/entities it only covers documents
+                # the phase has actually touched, so the UI can show "not run"
+                # for sources where extraction was never invoked.
                 stats[sid] = KnowledgeGraphSourceStatsSchema(
-                    documents_count=total,
+                    documents_count=documents_count,
                     sync=KnowledgeGraphPhaseStatsSchema(
-                        completed=int(row.get("sync_completed") or 0),
-                        failed=int(row.get("sync_failed") or 0),
-                        running=int(row.get("sync_running") or 0),
-                        total=total,
+                        completed=sync_completed,
+                        failed=sync_failed,
+                        running=sync_running,
+                        pending=sync_pending,
+                        total=documents_count,
                     ),
                     metadata=KnowledgeGraphPhaseStatsSchema(
-                        completed=int(row.get("metadata_completed") or 0),
-                        failed=int(row.get("metadata_failed") or 0),
-                        running=int(row.get("metadata_running") or 0),
-                        total=total,
+                        completed=meta_completed,
+                        failed=meta_failed,
+                        running=meta_running,
+                        pending=meta_pending,
+                        total=meta_completed
+                        + meta_failed
+                        + meta_running
+                        + meta_pending,
                     ),
                     entities=KnowledgeGraphPhaseStatsSchema(
-                        completed=int(row.get("entity_completed") or 0),
-                        failed=int(row.get("entity_failed") or 0),
-                        running=int(row.get("entity_running") or 0),
-                        total=total,
+                        completed=ent_completed,
+                        failed=ent_failed,
+                        running=ent_running,
+                        pending=ent_pending,
+                        total=ent_completed + ent_failed + ent_running + ent_pending,
                     ),
                 )
             return stats

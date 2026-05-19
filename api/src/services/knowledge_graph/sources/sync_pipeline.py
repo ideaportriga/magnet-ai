@@ -142,6 +142,9 @@ class SyncPipeline(Generic[ListTaskT, ContentTaskT, ProcessTaskT], ABC):
         # Throttle live progress writes — at most once per ~1s per source.
         self._last_progress_write_at: float = 0.0
         self._progress_lock = asyncio.Lock()
+        # When set, store_document bypasses the content-hash short-circuit and
+        # re-processes every document (used by "Resync from scratch").
+        self.from_scratch: bool = False
 
     def _progress_source_id(self) -> str | None:
         """Return the source id used for progress writes, if any.
@@ -449,7 +452,7 @@ class SyncPipeline(Generic[ListTaskT, ContentTaskT, ProcessTaskT], ABC):
         else:
             content_hash = hashlib.sha256(content).hexdigest()
 
-        if source_document_id and content_hash:
+        if source_document_id and content_hash and not self.from_scratch:
             rows = await self.document_service.query_documents(
                 session,
                 graph_id=graph_id,

@@ -34,7 +34,9 @@ class FileUploadDataSource(AbstractDataSource):
     DOCUMENT_PROCESSING_WORKERS = 1
 
     @override
-    async def sync_source(self, db_session: AsyncSession) -> dict[str, Any]:
+    async def sync_source(
+        self, db_session: AsyncSession, *, from_scratch: bool = False
+    ) -> dict[str, Any]:
         raise NotImplementedError("FileUploadDataSource does not support syncing.")
 
     async def upload_and_process_file(

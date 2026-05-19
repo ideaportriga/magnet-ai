@@ -23,6 +23,7 @@ export type SourcePhaseStats = {
   completed: number
   failed: number
   running: number
+  pending: number
   total: number
 }
 

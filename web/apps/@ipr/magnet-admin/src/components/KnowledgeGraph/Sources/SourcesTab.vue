@@ -81,7 +81,7 @@
                     <q-item-section thumbnail>
                       <q-icon name="sync" color="primary" size="20px" class="q-ml-sm" />
                     </q-item-section>
-                    <q-item-section>Sync</q-item-section>
+                    <q-item-section>Sync status</q-item-section>
                   </q-item>
 
                   <q-separator />
@@ -408,7 +408,11 @@ const handleSourceCancelled = () => {
   selectedRow.value = null
 }
 
-const syncSource = async (source: SourceRow, showNotification = true): Promise<boolean> => {
+const syncSource = async (
+  source: SourceRow,
+  showNotification = true,
+  fromScratch = false,
+): Promise<boolean> => {
   try {
     const endpoint = store.getters.config.api.aiBridge.urlAdmin
     const response = await fetchData({
@@ -416,12 +420,15 @@ const syncSource = async (source: SourceRow, showNotification = true): Promise<b
       service: `knowledge_graphs/${props.graphId}/sources/${source.id}/sync`,
       method: 'POST',
       credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from_scratch: fromScratch }),
     })
 
     if (response.ok) {
       if (showNotification) {
+        const verb = fromScratch ? 'Resync from scratch' : 'Sync'
         $q.notify({
-          message: `Sync started for ${source.name}. Click Refresh to see progress.`,
+          message: `${verb} started for ${source.name}. Click Refresh to see progress.`,
           position: 'top',
           color: 'info',
           textColor: 'white',
@@ -603,10 +610,10 @@ const openSyncStatus = (row: SourceRow) => {
   detailDrawerOpen.value = true
 }
 
-const handleDrawerSync = async () => {
+const handleDrawerSync = async (opts: { fromScratch: boolean }) => {
   if (!detailRow.value) return
   const row = detailRow.value
-  await syncSource(row)
+  await syncSource(row, true, opts.fromScratch)
   await fetchSources(true)
   detailRow.value = rows.value.find((r) => r.id === row.id) || null
 }

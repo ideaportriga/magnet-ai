@@ -204,11 +204,16 @@ class KnowledgeGraphPhaseStatsSchema(BaseModel):
 
     Used to render the per-source pipeline strip in the UI (Sync / Metadata /
     Entities) without having to fetch every document.
+
+    ``total`` reflects documents that have entered the phase (completed +
+    running + failed + pending). Documents that have never been touched by the
+    phase are excluded so the UI can distinguish "not run" from "pending".
     """
 
     completed: int = 0
     failed: int = 0
     running: int = 0
+    pending: int = 0
     total: int = 0
 
 
@@ -298,6 +303,19 @@ class KnowledgeGraphSourceUpdateRequest(BaseModel):
         None, description="Partial config to merge into existing config"
     )
     status: Optional[str] = Field(None, description="Optional status override")
+
+
+class KnowledgeGraphSourceSyncRequest(BaseModel):
+    """Optional body for the per-source sync endpoint."""
+
+    from_scratch: bool = Field(
+        default=False,
+        description=(
+            "If true, bypass change detection (content hash / source modified "
+            "timestamp) and re-process every document found in the source. "
+            "Existing document IDs are preserved."
+        ),
+    )
 
 
 class KnowledgeGraphSourceScheduleSyncRequest(BaseModel):

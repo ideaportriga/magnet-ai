@@ -20,8 +20,14 @@
 <script setup lang="ts">
 import { formatRelative } from '@shared/utils'
 import { computed } from 'vue'
-import { KgPipelineStrip, KgSyncProgressBar, type KgPhaseState, type KgPipelinePhase } from '../common'
-import type { SourcePhaseStats, SourceRow } from './models'
+import {
+  KgPipelineStrip,
+  KgSyncProgressBar,
+  phaseStateFor,
+  phaseTooltipLines,
+  type KgPipelinePhase,
+} from '../common'
+import type { SourceRow } from './models'
 
 const props = defineProps<{
   row: SourceRow
@@ -62,25 +68,6 @@ const fullLastSync = computed(() => {
   }
 })
 
-/** Map aggregate phase counts to a single visual state. */
-function phaseStateFor(stats: SourcePhaseStats | null | undefined): KgPhaseState {
-  if (!stats || stats.total === 0) return 'not_run'
-  if (stats.running > 0) return 'running'
-  if (stats.failed > 0 && stats.completed === 0) return 'failed'
-  if (stats.failed > 0) return 'failed'
-  if (stats.completed >= stats.total) return 'completed'
-  if (stats.completed > 0) return 'pending'
-  return 'pending'
-}
-
-function lineForPhase(stats: SourcePhaseStats | null | undefined): string[] {
-  if (!stats) return []
-  const lines: string[] = []
-  if (stats.failed > 0) lines.push(`${stats.failed} failed`)
-  if (stats.running > 0) lines.push(`${stats.running} running`)
-  return lines
-}
-
 const phases = computed<KgPipelinePhase[]>(() => {
   const stats = props.row.stats
   const sync = stats?.sync
@@ -91,19 +78,19 @@ const phases = computed<KgPipelinePhase[]>(() => {
       phase: 'sync',
       state: phaseStateFor(sync),
       count: sync && sync.total > 0 ? { done: sync.completed, total: sync.total } : null,
-      tooltipLines: lineForPhase(sync),
+      tooltipLines: phaseTooltipLines(sync),
     },
     {
       phase: 'metadata',
       state: phaseStateFor(meta),
       count: meta && meta.total > 0 ? { done: meta.completed, total: meta.total } : null,
-      tooltipLines: lineForPhase(meta),
+      tooltipLines: phaseTooltipLines(meta),
     },
     {
       phase: 'entities',
       state: phaseStateFor(ent),
       count: ent && ent.total > 0 ? { done: ent.completed, total: ent.total } : null,
-      tooltipLines: lineForPhase(ent),
+      tooltipLines: phaseTooltipLines(ent),
     },
   ]
 })

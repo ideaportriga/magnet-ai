@@ -2205,30 +2205,59 @@ async def run_graph_llm_entity_extraction(
     )
     relevance_filter_enabled = bool(relevance_filter_prompt_template_system_name)
 
+    async def _write_entity_extraction_state(
+        doc_id: str, state: dict[str, Any]
+    ) -> None:
+        """Merge an entity_extraction patch into a document's pipeline_state.
+
+        Mirrors ``_write_metadata_extraction_state`` so the per-document phase
+        status (running / completed / failed) is observable from the sources
+        and documents tabs while extraction is in flight.
+        """
+        try:
+            await db_session.execute(
+                text(
+                    f"""
+                    UPDATE {docs_table_name(graph_id)}
+                    SET pipeline_state = COALESCE(pipeline_state, '{{}}'::jsonb) || :patch,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id = CAST(:id AS uuid)
+                    """
+                ),
+                {
+                    "id": doc_id,
+                    "patch": json.dumps({"entity_extraction": state}),
+                },
+            )
+            await db_session.commit()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "Failed to write entity_extraction state for document %s: %s",
+                doc_id,
+                exc,
+            )
+
+    async def _mark_document_running(doc_id: str) -> None:
+        await _write_entity_extraction_state(
+            doc_id, {"status": "running", "started_at": utc_now_isoformat()}
+        )
+
     async def _mark_document_extracted(doc_id: str) -> None:
         """Mark a document's entity_extraction pipeline state as completed."""
-        await db_session.execute(
-            text(
-                f"""
-                UPDATE {docs_table_name(graph_id)}
-                SET pipeline_state = COALESCE(pipeline_state, '{{}}'::jsonb) || :patch,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE id = CAST(:id AS uuid)
-                """
-            ),
+        await _write_entity_extraction_state(
+            doc_id,
+            {"status": "completed", "completed_at": utc_now_isoformat()},
+        )
+
+    async def _mark_document_failed(doc_id: str, error_message: str) -> None:
+        await _write_entity_extraction_state(
+            doc_id,
             {
-                "id": doc_id,
-                "patch": json.dumps(
-                    {
-                        "entity_extraction": {
-                            "status": "completed",
-                            "completed_at": utc_now_isoformat(),
-                        }
-                    }
-                ),
+                "status": "failed",
+                "failed_at": utc_now_isoformat(),
+                "error_message": error_message,
             },
         )
-        await db_session.commit()
 
     if not entity_definitions:
         raise ValueError("entity_definitions is required and cannot be empty")
@@ -2373,6 +2402,7 @@ async def run_graph_llm_entity_extraction(
                     continue
 
                 processed_documents += 1
+                await _mark_document_running(doc_id)
                 doc_result = await _process_document_extraction(
                     db_session,
                     graph_id=graph_id,
@@ -2395,6 +2425,11 @@ async def run_graph_llm_entity_extraction(
 
                 if doc_result["errors"] == 0:
                     await _mark_document_extracted(doc_id)
+                else:
+                    await _mark_document_failed(
+                        doc_id,
+                        f"{doc_result['errors']} extraction error(s)",
+                    )
 
                 docs_seen += 1
                 logger.debug(
@@ -2500,6 +2535,7 @@ async def run_graph_llm_entity_extraction(
                 await progress_callback(docs_seen, total_docs)
             continue
 
+        await _mark_document_running(doc_id)
         chunks_result = await _process_document_chunks_extraction(
             db_session,
             graph_id=graph_id,
@@ -2531,6 +2567,11 @@ async def run_graph_llm_entity_extraction(
 
         if chunks_result["errors"] == 0:
             await _mark_document_extracted(doc_id)
+        else:
+            await _mark_document_failed(
+                doc_id,
+                f"{chunks_result['errors']} extraction error(s)",
+            )
 
         docs_seen += 1
         logger.debug(

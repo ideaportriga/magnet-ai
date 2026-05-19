@@ -150,23 +150,49 @@
       <template v-if="isSyncable">
         <q-separator />
         <div class="kg-sync-status__footer">
+          <km-btn v-close-popup flat label="Close" color="grey-7" size="sm" />
+          <q-space />
+          <km-btn
+            outline
+            icon="restart_alt"
+            label="Resync from scratch"
+            size="sm"
+            :disable="effectiveStatus === 'syncing'"
+            @click="showFromScratchConfirm = true"
+          />
           <km-btn
             unelevated
             icon="sync"
-            label="Sync now"
+            label="Delta sync"
             size="sm"
             :class="{ 'kg-sync-status__sync-spin': effectiveStatus === 'syncing' }"
-            @click="$emit('sync')"
+            @click="emitSync(false)"
           />
         </div>
       </template>
+
+      <kg-confirm-dialog
+        v-model="showFromScratchConfirm"
+        title="Resync from scratch"
+        icon="restart_alt"
+        icon-variant="warning"
+        :description="`Re-process every document in '${source?.name}' regardless of whether it changed?`"
+        confirm-label="Resync from scratch"
+        destructive
+        @confirm="confirmFromScratch"
+      >
+        <template #warning>
+          Change detection is bypassed, so every document is re-fetched and re-processed.
+          Existing document IDs are preserved, but the run may take significantly longer than a delta sync.
+        </template>
+      </kg-confirm-dialog>
     </q-card>
   </q-dialog>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { KgSyncProgressBar, type KgPhaseState } from '../common'
+import { computed, ref } from 'vue'
+import { KgConfirmDialog, KgSyncProgressBar, phaseStateFor, type KgPhaseState } from '../common'
 import { type SourcePhaseStats, type SourceRow } from './models'
 
 const props = defineProps<{
@@ -176,10 +202,21 @@ const props = defineProps<{
   isSyncable: boolean
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void
-  (e: 'sync'): void
+  (e: 'sync', opts: { fromScratch: boolean }): void
 }>()
+
+const showFromScratchConfirm = ref(false)
+
+function emitSync(fromScratch: boolean) {
+  emit('sync', { fromScratch })
+}
+
+function confirmFromScratch() {
+  showFromScratchConfirm.value = false
+  emitSync(true)
+}
 
 const dialogStyle = {
   width: '520px',
@@ -249,15 +286,6 @@ const statusSubtitle = computed(() => {
   return ''
 })
 
-function phaseStateFor(stats: SourcePhaseStats | null | undefined): KgPhaseState {
-  if (!stats || stats.total === 0) return 'not_run'
-  if (stats.running > 0) return 'running'
-  if (stats.failed > 0) return 'failed'
-  if (stats.completed >= stats.total) return 'completed'
-  if (stats.completed > 0) return 'pending'
-  return 'pending'
-}
-
 function phaseTone(state: KgPhaseState): string {
   switch (state) {
     case 'completed': return 'success'
@@ -285,6 +313,7 @@ type PhaseDescriptor = {
   completed: number
   failed: number
   running: number
+  pending: number
   total: number
 }
 
@@ -300,6 +329,7 @@ const phaseDescriptors = computed<PhaseDescriptor[]>(() => {
     completed: stats?.completed ?? 0,
     failed: stats?.failed ?? 0,
     running: stats?.running ?? 0,
+    pending: stats?.pending ?? 0,
     total: stats?.total ?? 0,
   })
   return [
@@ -312,13 +342,16 @@ const phaseDescriptors = computed<PhaseDescriptor[]>(() => {
 const syncPhase = computed(() => phaseDescriptors.value[0])
 const parallelPhases = computed(() => phaseDescriptors.value.slice(1))
 
-type PipelineExtra = { phase: string; tone: 'info' | 'error'; icon: string; label: string }
+type PipelineExtra = { phase: string; tone: 'info' | 'error' | 'warning'; icon: string; label: string }
 
 const pipelineExtras = computed<PipelineExtra[]>(() => {
   const out: PipelineExtra[] = []
   for (const p of phaseDescriptors.value) {
     if (p.running > 0) {
       out.push({ phase: p.phase, tone: 'info', icon: 'sync', label: `${p.running} ${p.title.toLowerCase()} running` })
+    }
+    if (p.pending > 0) {
+      out.push({ phase: p.phase, tone: 'warning', icon: 'schedule', label: `${p.pending} ${p.title.toLowerCase()} pending` })
     }
     if (p.failed > 0) {
       out.push({ phase: p.phase, tone: 'error', icon: 'priority_high', label: `${p.failed} ${p.title.toLowerCase()} failed` })
@@ -411,7 +444,8 @@ function relativeFromNow(value: string): string {
 .kg-sync-status__footer {
   padding: 10px 16px;
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
 }
 
 @keyframes kg-sync-spin {
@@ -611,6 +645,11 @@ function relativeFromNow(value: string): string {
 .kg-sync-status__extra--error {
   color: var(--q-error-text, #c43030);
   background: var(--q-error-bg, #fdecec);
+}
+
+.kg-sync-status__extra--warning {
+  color: var(--q-warning-text, #d97706);
+  background: var(--q-warning-bg, #fff4e0);
 }
 
 /* Facts list */

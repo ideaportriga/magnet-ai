@@ -19,6 +19,10 @@ export { default as KgTileSelect } from './KgTileSelect.vue'
 export { default as KgToggleField } from './KgToggleField.vue'
 export { default as KgWarningBanner } from './KgWarningBanner.vue'
 
+// Re-export helpers
+export { phaseStateFor, phaseTooltipLines } from './phaseState'
+export type { PhaseStatsLike } from './phaseState'
+
 // Re-export types
 export type { TileOption } from './KgTileSelect.vue'
 export type { DialogSize } from './KgDialogBase.vue'

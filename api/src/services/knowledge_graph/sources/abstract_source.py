@@ -46,7 +46,9 @@ class AbstractDataSource(ABC):
             self.type = SourceType(source.type)
 
     @abstractmethod
-    async def sync_source(self, db_session: AsyncSession) -> dict[str, Any]: ...
+    async def sync_source(
+        self, db_session: AsyncSession, *, from_scratch: bool = False
+    ) -> dict[str, Any]: ...
 
     async def get_or_create_source(
         self,

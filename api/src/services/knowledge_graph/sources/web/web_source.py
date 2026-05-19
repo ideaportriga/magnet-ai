@@ -42,7 +42,9 @@ class WebDataSource(AbstractDataSource):
 
     @override
     @observe(name="Sync Web source")
-    async def sync_source(self, db_session: AsyncSession) -> dict[str, Any]:
+    async def sync_source(
+        self, db_session: AsyncSession, *, from_scratch: bool = False
+    ) -> dict[str, Any]:
         """Scrape web pages and ingest them into the Knowledge Graph."""
 
         logger.info(
@@ -84,6 +86,7 @@ class WebDataSource(AbstractDataSource):
             web_config=cfg,
             embedding_model=embedding_model,
         )
+        pipeline.from_scratch = from_scratch
 
         try:
             counters = await pipeline.run()

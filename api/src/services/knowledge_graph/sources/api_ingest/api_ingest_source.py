@@ -49,7 +49,9 @@ class ApiIngestDataSource(AbstractDataSource):
             self.type = SourceType.API_INGEST
 
     @override
-    async def sync_source(self, db_session: AsyncSession) -> dict[str, Any]:
+    async def sync_source(
+        self, db_session: AsyncSession, *, from_scratch: bool = False
+    ) -> dict[str, Any]:
         raise NotImplementedError("ApiIngestDataSource does not support syncing.")
 
     async def _ensure_source(
