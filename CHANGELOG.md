@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-alpha.29](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.28...v0.7.0-alpha.29) (2026-05-19)
+
+### 🐛 Bug Fixes
+
+* rbac ui fixes ([736573b](https://github.com/ideaportriga/magnet-ai/commit/736573b43ad7f5e23e1798385e50cbf7276c7568))
+
 ## [0.7.0-alpha.28](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.27...v0.7.0-alpha.28) (2026-05-19)
 
 ### ✨ Features

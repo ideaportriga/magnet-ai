@@ -1,6 +1,6 @@
 [project]
 name = "magnet-ai-api"
-version = "0.7.0a28"
+version = "0.7.0a29"
 description = ""
 readme = "README.md"
 requires-python = ">=3.12,<4.0"
