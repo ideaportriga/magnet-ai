@@ -153,6 +153,16 @@ def parse_suggested_keyterms_from_output(text: str) -> list[str]:
     return []
 
 
+_SPEAKER_MAPPING_WRAPPER_KEYS = (
+    "speaker_mapping",
+    "speaker_map",
+    "speaker_names",
+    "speakers",
+    "mapping",
+    "suggested_keyterms",
+)
+
+
 def parse_speaker_mapping_output(text: str) -> dict[str, str]:
     """
     Parse a post-transcription template output that is expected to return ONLY a
@@ -166,13 +176,7 @@ def parse_speaker_mapping_output(text: str) -> dict[str, str]:
         return {}
 
     mapping_value = None
-    for key in (
-        "speaker_mapping",
-        "speaker_map",
-        "speaker_names",
-        "speakers",
-        "mapping",
-    ):
+    for key in _SPEAKER_MAPPING_WRAPPER_KEYS:
         if key in obj:
             mapping_value = obj.get(key)
             break
@@ -182,7 +186,19 @@ def parse_speaker_mapping_output(text: str) -> dict[str, str]:
         return mapping
 
     # Optional: accept a plain mapping object as the root.
-    root_mapping = _coerce_speaker_mapping(obj)
+    # Strip out the wrapper keys first — otherwise an LLM payload like
+    # ``{"speaker_mapping": {"speaker_0": null, "speaker_1": null}}``
+    # falls through to the root coerce, which then treats
+    # ``speaker_mapping`` itself as a speaker label with the entire dict
+    # repr as the "name". User then sees a phantom row labelled
+    # "speaker_mapping" in the editor / finalized cards. See cards UX
+    # roadmap Q5 follow-up.
+    root_obj = {
+        key: value
+        for key, value in obj.items()
+        if key not in _SPEAKER_MAPPING_WRAPPER_KEYS
+    }
+    root_mapping = _coerce_speaker_mapping(root_obj)
     if root_mapping:
         return root_mapping
 

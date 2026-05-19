@@ -38,7 +38,147 @@ from .transcript_postprocess import (
     parse_suggested_keyterms_from_output,
 )
 from .note_taker_pending_store import save_pending, load_and_delete_pending
-from .note_taker_cards import create_speaker_mapping_card
+from .note_taker_cards import (
+    create_pipeline_progress_card,
+    create_speaker_mapping_card,
+)
+
+
+class PipelineProgress:
+    """Single live Adaptive Card that the pipeline updates in place.
+
+    Replaces a scatter of `context.send_activity(...)` info messages
+    ("Streaming the recording...", "Embedded N items...") with one card
+    walked through ``update_activity``. Failures fall back to plain
+    text so the user never loses status visibility.
+
+    Lifecycle: ``await progress.start(context)`` sends the initial card
+    and captures its activity id; subsequent ``await progress.update(...)``
+    re-renders via ``update_activity``; ``await progress.finalize(...)``
+    sets ``final=True`` and optionally attaches result links.
+    """
+
+    def __init__(self, *, title: str = "📹 Recording transcription") -> None:
+        self._title = title
+        self._stages: dict[str, str] = {}
+        self._note: str | None = None
+        self._activity_id: str | None = None
+        self._context = None  # type: ignore[assignment]
+
+    @property
+    def activity_id(self) -> str | None:
+        return self._activity_id
+
+    @classmethod
+    def resume(
+        cls,
+        context: TurnContext,
+        *,
+        activity_id: str,
+        stages: dict[str, str] | None = None,
+        title: str = "📹 Recording transcription",
+    ) -> "PipelineProgress":
+        """Bind a new PipelineProgress to an already-sent card activity.
+
+        Used when the pipeline pauses for speaker confirmation in a
+        worker and resumes in the API process — the original send is
+        gone but the activity id was stashed on the pending row. The
+        resumed instance immediately starts updating in place via
+        ``update_activity``; no new card is emitted.
+        """
+        self = cls(title=title)
+        self._activity_id = activity_id
+        self._context = context
+        if stages:
+            self._stages.update(stages)
+        return self
+
+    async def start(self, context: TurnContext) -> None:
+        self._context = context
+        card = create_pipeline_progress_card(
+            title=self._title, stages=self._stages, note=self._note
+        )
+        try:
+            resource = await context.send_activity(
+                Activity(
+                    type="message",
+                    attachments=[
+                        Attachment(
+                            content_type="application/vnd.microsoft.card.adaptive",
+                            content=card,
+                        )
+                    ],
+                )
+            )
+            self._activity_id = getattr(resource, "id", None)
+        except Exception:
+            logger.debug(
+                "PipelineProgress: initial send_activity failed", exc_info=True
+            )
+
+    async def update(
+        self,
+        stage: str,
+        status: str,
+        *,
+        note: str | None = None,
+    ) -> None:
+        self._stages[stage] = status
+        if note is not None:
+            self._note = note
+        await self._render()
+
+    async def finalize(
+        self,
+        *,
+        note: str | None = None,
+        success_links: dict[str, str] | None = None,
+    ) -> None:
+        if note is not None:
+            self._note = note
+        await self._render(final=True, success_links=success_links or {})
+
+    async def _render(
+        self,
+        *,
+        final: bool = False,
+        success_links: dict[str, str] | None = None,
+    ) -> None:
+        ctx = self._context
+        if ctx is None or not self._activity_id:
+            return
+        card = create_pipeline_progress_card(
+            title=self._title,
+            stages=self._stages,
+            note=self._note,
+            success_links=success_links,
+            final=final,
+        )
+        outgoing = Activity(
+            type="message",
+            attachments=[
+                Attachment(
+                    content_type="application/vnd.microsoft.card.adaptive",
+                    content=card,
+                )
+            ],
+        )
+        outgoing.id = self._activity_id
+        try:
+            updater = getattr(ctx, "update_activity", None)
+            if callable(updater):
+                await updater(outgoing)
+        except Exception:
+            # Visible at warning level — without it, progress-card freezes
+            # like "stuck at ⏳ Generating summary" go unexplained because
+            # the failure mode was silent (Bot Framework rejects updates
+            # from a non-matching conversation reference, etc.).
+            logger.warning(
+                "PipelineProgress: update_activity %s failed",
+                self._activity_id,
+                exc_info=True,
+            )
+
 
 logger = getLogger(__name__)
 
@@ -392,6 +532,7 @@ async def _send_transcription_summary(
     load_settings_by_system_name: Callable[[str], Awaitable[dict[str, Any]]],
     load_settings_for_context: Callable[[TurnContext], Awaitable[dict[str, Any]]],
     resolve_meeting_details: Callable[[TurnContext], dict[str, Any]],
+    progress: "PipelineProgress | None" = None,
 ) -> None:
     duration = None
     participants = None
@@ -556,6 +697,38 @@ async def _send_transcription_summary(
             _recipient = getattr(_activity, "recipient", None)
             _bot_id = getattr(_recipient, "id", None)
             _settings_keyterms = str((settings or {}).get("keyterms") or "").strip()
+            # Capture conversation reference + card activity id so the
+            # cleanup cron can proactively expire stale cards. See Q8 of
+            # the cards UX roadmap.
+            _conv_ref_payload: dict[str, Any] | None = None
+            try:
+                from microsoft_agents.activity import ConversationReference
+
+                _conv_ref_obj = _activity.get_conversation_reference()
+                if _conv_ref_obj is not None:
+                    _conv_ref_payload = ConversationReference.model_validate(
+                        _conv_ref_obj
+                    ).model_dump()
+            except Exception:
+                _conv_ref_payload = None
+            # If the pipeline is running with a live progress card, stash
+            # its activity id so `_run_postprocessing_body` (which runs
+            # in a different process triggered by the Confirm card-action)
+            # can resume updates instead of leaving the card stuck at
+            # "Generating summary ⏳".
+            _progress_card_activity_id: str | None = None
+            try:
+                from contextvars import copy_context  # noqa: F401 — keep import small
+
+                # The progress object lives in this coroutine's locals
+                # only when stream-mode was entered with it. Look up via
+                # nonlocal name guard so the helper stays a no-op when
+                # called from job-mode (no progress card was sent).
+                _progress = locals().get("progress")
+                if _progress is not None:
+                    _progress_card_activity_id = getattr(_progress, "activity_id", None)
+            except Exception:
+                _progress_card_activity_id = None
             try:
                 pending_id = await save_pending(
                     job_id=job_id or "",
@@ -568,16 +741,18 @@ async def _send_transcription_summary(
                     settings_snapshot=settings,
                     meeting_context=_mc,
                     invited_people=invited_people,
-                    conversation_reference=None,
+                    conversation_reference=_conv_ref_payload,
                     pipeline_id=pipeline_id,
                     conversation_date=conversation_date,
                     conversation_time=conversation_time,
+                    progress_card_activity_id=_progress_card_activity_id,
                 )
                 card = create_speaker_mapping_card(
                     pending_id=pending_id,
                     speaker_mapping=speaker_mapping,
                     suggested_keyterms=suggested_keyterms,
                     settings_keyterms=_settings_keyterms or None,
+                    invited_people=invited_people,
                 )
                 attachment = Attachment(
                     content_type="application/vnd.microsoft.card.adaptive",
@@ -588,9 +763,18 @@ async def _send_transcription_summary(
                     pending_id,
                     len(speaker_mapping),
                 )
-                await context.send_activity(
+                _resource = await context.send_activity(
                     Activity(type="message", attachments=[attachment])
                 )
+                _card_activity_id = getattr(_resource, "id", None)
+                if _card_activity_id:
+                    # Best-effort — failure here only means the cleanup
+                    # cron can't proactively expire this card. The
+                    # second-click "expired" message still protects
+                    # against double-processing.
+                    from .note_taker_pending_store import set_card_activity_id
+
+                    await set_card_activity_id(pending_id, str(_card_activity_id))
                 logger.debug("Speaker mapping card sent successfully, pipeline paused.")
                 # Pipeline paused — return. Continuation happens in
                 # handle_confirm_speaker_mapping() after user submits the card.
@@ -647,7 +831,18 @@ async def _send_transcription_summary(
                 templates.append((template_name, title, key))
 
         if not templates:
+            # Nothing else to do; close the progress card so it doesn't
+            # stay on "Generating summary ⏳" forever.
+            if progress is not None:
+                await progress.update("post_process", "skipped")
+                await progress.update("confluence", "skipped")
+                await progress.update("salesforce", "skipped")
+                await progress.update("knowledge_graph", "skipped")
+                await progress.finalize(note="Nothing to post-process.")
             return
+
+        if progress is not None:
+            await progress.update("post_process", "in_progress")
 
         results = await _execute_transcription_prompt_templates(
             [system_name for system_name, _, _ in templates],
@@ -656,6 +851,9 @@ async def _send_transcription_summary(
             conversation_date=conversation_date,
             keyterms=keyterms,
         )
+
+        if progress is not None:
+            await progress.update("post_process", "done")
 
         knowledge_graph_sections: dict[str, str] = {}
         for (system_name, title, key), result in zip(templates, results):
@@ -685,6 +883,15 @@ async def _send_transcription_summary(
             for key in ("summary", "chapters")
             if key in knowledge_graph_sections
         }
+        if not confluence_sections:
+            # No integrations to walk through — close the progress card.
+            if progress is not None:
+                await progress.update("confluence", "skipped")
+                await progress.update("salesforce", "skipped")
+                await progress.update("knowledge_graph", "skipped")
+                await progress.finalize(note="Post-processing complete.")
+            return
+
         if confluence_sections:
             from .integration_journal import integration_attempt
             from .trace_context import get_trace_id
@@ -710,6 +917,9 @@ async def _send_transcription_summary(
                 if job_id
                 else None
             )
+            if progress is not None:
+                await progress.update("confluence", "in_progress")
+            _confluence_ok = True
             async with integration_attempt(
                 job_id=job_id or "",
                 integration_kind="confluence",
@@ -735,10 +945,22 @@ async def _send_transcription_summary(
                             send_expandable_section=send_expandable_section,
                         )
                     except Exception:
+                        _confluence_ok = False
                         logger.exception(
                             "Confluence publish failed for job %s — recorded in integration_attempt",
                             job_id,
                         )
+            if progress is not None:
+                await progress.update(
+                    "confluence", "done" if _confluence_ok else "failed"
+                )
+
+            # Salesforce fires via the on_submit callback at the start of
+            # stage 1 (right after submit, before STT polling). It's never
+            # part of this code path — mark skipped so the progress card
+            # doesn't sit on ⏳ for a stage that never updates here.
+            if progress is not None:
+                await progress.update("salesforce", "skipped")
 
             knowledge_graph_name = str(
                 settings.get("knowledge_graph_system_name") or ""
@@ -752,6 +974,9 @@ async def _send_transcription_summary(
             )
             if embedding_enabled and knowledge_graph_name and knowledge_graph_sections:
                 meeting_for_ingest = meeting_context or resolve_meeting_details(context)
+                if progress is not None:
+                    await progress.update("knowledge_graph", "in_progress")
+                _kg_ok = True
                 # `_ingest_knowledge_graph_sections` only kiq()s the taskiq
                 # task; the integration_attempt journal lives **inside**
                 # `note_taker_kg_ingest_bg_task` so it reflects the real
@@ -771,10 +996,20 @@ async def _send_transcription_summary(
                             f"Scheduled {enqueued} section(s) for embedding into knowledge graph {knowledge_graph_name}."
                         )
                 except Exception:
+                    _kg_ok = False
                     logger.exception(
                         "KG ingest enqueue failed for job %s",
                         job_id,
                     )
+                if progress is not None:
+                    await progress.update(
+                        "knowledge_graph", "done" if _kg_ok else "failed"
+                    )
+            elif progress is not None:
+                await progress.update("knowledge_graph", "skipped")
+
+            if progress is not None:
+                await progress.finalize(note="Post-processing complete.")
 
         return
 
@@ -894,6 +1129,32 @@ async def _run_postprocessing_body(
         await context.send_activity("No transcript text found for this confirmation.")
         return
 
+    # Resume the live pipeline progress card if the pre-pause stage saved
+    # its activity id. Restores the post-confirmation stages so the user
+    # sees "Generating summary ✓ → Publishing to Confluence ⏳ → ..." in
+    # place of a stuck ⏳ card. See Q4 follow-up.
+    progress: PipelineProgress | None = None
+    _progress_card_activity_id = state.get("progress_card_activity_id")
+    if _progress_card_activity_id:
+        try:
+            progress = PipelineProgress.resume(
+                context,
+                activity_id=str(_progress_card_activity_id),
+                stages={
+                    "download": "done",
+                    "transcribe": "done",
+                    "post_process": "in_progress",
+                },
+            )
+            await progress.update("post_process", "in_progress")
+        except Exception:
+            logger.debug(
+                "PipelineProgress.resume failed for pending=%s",
+                pending_id,
+                exc_info=True,
+            )
+            progress = None
+
     # Apply the confirmed speaker mapping
     if speaker_mapping:
         full_text = annotate_transcript_speakers(full_text, speaker_mapping)
@@ -988,12 +1249,23 @@ async def _run_postprocessing_body(
             context, title=f"Meeting {title.lower()}", content=str(content)
         )
 
+    # Post-processing templates have completed (the asyncio.gather above).
+    if progress is not None:
+        await progress.update("post_process", "done")
+
     confluence_sections = {
         key: knowledge_graph_sections[key]
         for key in ("summary", "chapters")
         if key in knowledge_graph_sections
     }
     if not confluence_sections:
+        if progress is not None:
+            # Nothing more to do; mark all integrations as skipped so the
+            # card stops showing ⏳ on stages that won't fire.
+            await progress.update("confluence", "skipped")
+            await progress.update("salesforce", "skipped")
+            await progress.update("knowledge_graph", "skipped")
+            await progress.finalize(note="Post-processing complete.")
         return
 
     _mc = meeting_context or resolve_meeting_details(context)
@@ -1024,6 +1296,9 @@ async def _run_postprocessing_body(
         else None
     )
 
+    if progress is not None:
+        await progress.update("confluence", "in_progress")
+    _confluence_ok = True
     async with integration_attempt(
         job_id=job_id or "",
         integration_kind="confluence",
@@ -1049,11 +1324,20 @@ async def _run_postprocessing_body(
                     send_expandable_section=send_expandable_section,
                 )
             except Exception:
+                _confluence_ok = False
                 logger.exception(
                     "Confluence publish failed for job %s — recorded in integration_attempt, "
                     "continuing with KG/SF",
                     job_id,
                 )
+    if progress is not None:
+        await progress.update("confluence", "done" if _confluence_ok else "failed")
+
+    # Salesforce isn't part of the postprocess body — it fires via the
+    # on_submit callback at the very start of stage 1. Mark it skipped
+    # here so the card doesn't sit on ⏳ for a stage that won't update.
+    if progress is not None:
+        await progress.update("salesforce", "skipped")
 
     knowledge_graph_name = str(
         settings.get("knowledge_graph_system_name") or ""
@@ -1062,6 +1346,9 @@ async def _run_postprocessing_body(
     if embedding_enabled and knowledge_graph_name and knowledge_graph_sections:
         # See note above (KG ingest at end of stage_2_internal): the
         # integration_attempt journal is owned by `note_taker_kg_ingest_bg_task`.
+        if progress is not None:
+            await progress.update("knowledge_graph", "in_progress")
+        _kg_ok = True
         try:
             enqueued = await _ingest_knowledge_graph_sections(
                 graph_system_name=knowledge_graph_name,
@@ -1076,10 +1363,25 @@ async def _run_postprocessing_body(
                     f"Scheduled {enqueued} section(s) for embedding into knowledge graph {knowledge_graph_name}."
                 )
         except Exception:
+            _kg_ok = False
             logger.exception(
                 "KG ingest enqueue failed for job %s",
                 job_id,
             )
+        if progress is not None:
+            # KG enqueue success only means the worker received the task;
+            # actual ingest happens in `note_taker_kg_ingest_bg_task` and
+            # the journal records the outcome. The progress card can't
+            # easily wait on a remote worker, so we treat enqueue success
+            # as a green check.
+            await progress.update("knowledge_graph", "done" if _kg_ok else "failed")
+    elif progress is not None:
+        await progress.update("knowledge_graph", "skipped")
+
+    # All stages reported. Final pass to flip the card title/subtle note;
+    # operators can still see prior stages via the FactSet rows.
+    if progress is not None:
+        await progress.finalize(note="Post-processing complete.")
 
 
 async def run_transcription_pipeline(
@@ -1117,6 +1419,14 @@ async def run_transcription_pipeline(
     if kind == "stream":
         assert download_url and headers is not None and name_resolver is not None
         await send_typing(context)
+        # Live progress card walks through download → transcribe → ...
+        # via update_activity instead of spamming the chat with separate
+        # info messages. Failure modes (raise_for_status, upload error)
+        # still send a plain text error so the user knows what went wrong
+        # — the progress card just stops updating in those cases.
+        progress = PipelineProgress()
+        await progress.start(context)
+        await progress.update("download", "in_progress")
         settings: dict[str, Any] | None = None
         invited_people: list[dict[str, str]] = []
         try:
@@ -1230,6 +1540,9 @@ async def run_transcription_pipeline(
         )
         _initiated_by: str | None = getattr(_from, "aad_object_id", None)
 
+        # Upload done — STT phase starts now.
+        await progress.update("download", "done")
+        await progress.update("transcribe", "in_progress")
         try:
             status, result = await _start_transcription_from_object_key(
                 name=name,
@@ -1247,10 +1560,24 @@ async def run_transcription_pipeline(
             )
         except Exception as err:
             logger.exception("Failed to start transcription for streamed file")
+            await progress.update("transcribe", "failed")
             await context.send_activity(
                 f"I couldn't start transcription: {getattr(err, 'message', str(err))}"
             )
             return
+
+        # STT finished (one of completed / transcribed / diarized / failed / timeout).
+        await progress.update(
+            "transcribe",
+            "done" if status in {"completed", "transcribed", "diarized"} else "failed",
+        )
+        # Post-processing happens inside _send_transcription_summary; it
+        # either runs the templates inline (no speaker mapping needed)
+        # or pauses for user confirmation. Either way the progress card
+        # transitions to "post_process: in_progress" so the user sees
+        # the pipeline isn't stuck after transcription.
+        if status in {"completed", "transcribed", "diarized"}:
+            await progress.update("post_process", "in_progress")
 
         job_id = (result or {}).get("id") if isinstance(result, dict) else None
         transcription = (
@@ -1274,6 +1601,7 @@ async def run_transcription_pipeline(
             load_settings_by_system_name=load_settings_by_system_name,
             load_settings_for_context=load_settings_for_context,
             resolve_meeting_details=resolve_meeting_details,
+            progress=progress,
         )
         return
 

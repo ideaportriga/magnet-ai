@@ -57,6 +57,21 @@ class NoteTakerPendingConfirmation(
     conversation_reference: Mapped[Optional[dict[str, Any]]] = mapped_column(
         JsonB, nullable=True
     )
+    # Activity id of the adaptive card we sent in the meeting chat. Used
+    # by `cleanup_note_taker_pending_cron` to proactively swap an expired
+    # card for a read-only "this confirmation expired" version through
+    # `adapter.update_activity`. See migration k5l6m7n8o9p0 + Q8 of the
+    # cards UX roadmap in NOTE_TAKER_ARCHITECTURE.md.
+    card_activity_id: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # Activity id of the pipeline progress card (the one with the
+    # download/transcribe/post_process… FactSet). The pipeline pauses for
+    # speaker confirmation in a worker; the confirm card-action runs in
+    # the API process. Without this id the API process can't resume
+    # updating the same card, so post-process / Confluence / KG /
+    # Salesforce stages would stay ⏳ forever. See Q4 follow-up.
+    progress_card_activity_id: Mapped[Optional[str]] = mapped_column(
+        Text, nullable=True
+    )
 
     pipeline_id: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     conversation_date: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

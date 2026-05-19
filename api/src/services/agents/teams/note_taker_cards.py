@@ -33,6 +33,61 @@ _PERSONAL_COMMANDS = [
 ]
 
 
+def _welcome_actions(is_personal: bool) -> list[dict[str, Any]]:
+    """Primary buttons on the welcome card.
+
+    Personal chat exposes auth + file processing + history; meeting chat
+    exposes config + recordings + meeting info. Buttons just dispatch to
+    the same command handlers via ``magnet_action`` so we keep the
+    command surface canonical. See `_handle_card_action` in state.py.
+    """
+    if is_personal:
+        return [
+            {
+                "type": "Action.Submit",
+                "title": "🔑 Sign in",
+                "data": {"magnet_action": "welcome_sign_in"},
+            },
+            {
+                "type": "Action.Submit",
+                "title": "⚙ Choose config",
+                "data": {"magnet_action": "welcome_config"},
+            },
+            {
+                "type": "Action.Submit",
+                "title": "📋 My meetings",
+                "data": {"magnet_action": "welcome_my_meetings"},
+            },
+            {
+                "type": "Action.Submit",
+                "title": "🎬 Recordings",
+                "data": {"magnet_action": "welcome_recordings_list"},
+            },
+            {
+                "type": "Action.Submit",
+                "title": "ℹ Who am I",
+                "data": {"magnet_action": "welcome_whoami"},
+            },
+        ]
+    return [
+        {
+            "type": "Action.Submit",
+            "title": "⚙ Choose config",
+            "data": {"magnet_action": "welcome_config"},
+        },
+        {
+            "type": "Action.Submit",
+            "title": "🎬 Recordings",
+            "data": {"magnet_action": "welcome_recordings_list"},
+        },
+        {
+            "type": "Action.Submit",
+            "title": "ℹ Meeting info",
+            "data": {"magnet_action": "welcome_meeting_info"},
+        },
+    ]
+
+
 def create_note_taker_welcome_card(
     bot_name: str | None, *, is_personal: bool = False
 ) -> dict[str, Any]:
@@ -55,38 +110,60 @@ def create_note_taker_welcome_card(
                 "spacing": "Small",
             }
         )
-    body.extend(
-        [
-            {
-                "type": "TextBlock",
-                "text": (
-                    "I capture meeting recordings and generate transcripts, summaries, chapters, and insights."
-                ),
-                "wrap": True,
-            },
+    body.append(
+        {
+            "type": "TextBlock",
+            "text": (
+                "I capture meeting recordings and generate transcripts, summaries, chapters, and insights."
+            ),
+            "wrap": True,
+        }
+    )
+    # Collapsible "All commands" reference under an Action.ToggleVisibility
+    # toggle — keeps the welcome card compact while still exposing every
+    # text command (some users prefer typing).
+    body.append(
+        {
+            "type": "ActionSet",
+            "actions": [
+                {
+                    "type": "Action.ToggleVisibility",
+                    "title": "Show all commands",
+                    "targetElements": ["welcome_commands"],
+                }
+            ],
+            "spacing": "Small",
+        }
+    )
+    commands_container = {
+        "type": "Container",
+        "id": "welcome_commands",
+        "isVisible": False,
+        "items": [
             {
                 "type": "TextBlock",
                 "text": "Commands",
                 "weight": "Bolder",
-                "spacing": "Medium",
             },
-        ]
-    )
-    for command in commands:
-        body.append(
-            {
-                "type": "TextBlock",
-                "text": f"- {command}",
-                "wrap": True,
-                "spacing": "Small",
-            }
-        )
+            *[
+                {
+                    "type": "TextBlock",
+                    "text": f"- {cmd}",
+                    "wrap": True,
+                    "spacing": "Small",
+                }
+                for cmd in commands
+            ],
+        ],
+    }
+    body.append(commands_container)
 
     return {
         "type": "AdaptiveCard",
         "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
         "version": "1.5",
         "body": body,
+        "actions": _welcome_actions(is_personal),
         "msteams": {"width": "Full"},
     }
 
@@ -97,8 +174,18 @@ def create_speaker_mapping_card(
     suggested_keyterms: list[str],
     *,
     settings_keyterms: str | None = None,
+    invited_people: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
-    """Adaptive Card shown after transcription to let the user confirm/edit speaker names."""
+    """Adaptive Card shown after transcription to let the user confirm/edit speaker names.
+
+    When ``invited_people`` is non-empty (typical for meeting recordings
+    where we resolved the Teams roster), each speaker gets a
+    ``Input.ChoiceSet`` pre-populated with invitee names plus the AI
+    suggestion. The user can still type a free name when picking
+    ``Other...`` — see the ``__custom__`` value handler in
+    `_handle_card_action`. For file uploads with no roster the card
+    falls back to plain text inputs.
+    """
 
     body: list[dict[str, Any]] = [
         {
@@ -118,7 +205,24 @@ def create_speaker_mapping_card(
         },
     ]
 
-    # One TextInput per speaker
+    # Build choice options from invited Teams roster — names sorted,
+    # deduplicated, no empty strings. Used for ChoiceSet below.
+    invitee_choices: list[dict[str, str]] = []
+    if invited_people:
+        seen: set[str] = set()
+        for person in invited_people:
+            name = (
+                (person.get("name") or "").strip() if isinstance(person, dict) else ""
+            )
+            if not name or name in seen:
+                continue
+            seen.add(name)
+            invitee_choices.append({"title": name, "value": name})
+        invitee_choices.sort(key=lambda c: c["title"].lower())
+
+    # One input per speaker. ChoiceSet when we have a roster, free text
+    # otherwise. The choice key uses the same ``speaker__{key}`` prefix
+    # so the submit handler doesn't need to know the input flavour.
     for speaker_key in sorted(speaker_mapping.keys()):
         suggested_name = speaker_mapping.get(speaker_key, "")
         body.append(
@@ -129,15 +233,41 @@ def create_speaker_mapping_card(
                 "spacing": "Medium",
             }
         )
-        body.append(
-            {
-                "type": "Input.Text",
-                "id": f"speaker__{speaker_key}",
-                "value": suggested_name,
-                "placeholder": "Full name",
-                "spacing": "Small",
-            }
-        )
+        if invitee_choices:
+            # Drop the AI suggestion into the choices list if it isn't
+            # already there so the default value resolves to a known
+            # option (otherwise Teams renders the ChoiceSet as empty).
+            choices = list(invitee_choices)
+            if suggested_name and suggested_name not in {c["value"] for c in choices}:
+                choices.insert(
+                    0,
+                    {
+                        "title": f"{suggested_name} (AI suggestion)",
+                        "value": suggested_name,
+                    },
+                )
+            body.append(
+                {
+                    "type": "Input.ChoiceSet",
+                    "id": f"speaker__{speaker_key}",
+                    "style": "compact",
+                    "value": suggested_name or "",
+                    "isRequired": False,
+                    "choices": choices,
+                    "placeholder": "Pick from meeting attendees",
+                    "spacing": "Small",
+                }
+            )
+        else:
+            body.append(
+                {
+                    "type": "Input.Text",
+                    "id": f"speaker__{speaker_key}",
+                    "value": suggested_name,
+                    "placeholder": "Full name",
+                    "spacing": "Small",
+                }
+            )
 
     # Keyterms section — pre-fill with AI suggestions merged with config keyterms
     all_keyterms: list[str] = list(suggested_keyterms)
@@ -351,11 +481,6 @@ def create_note_taker_config_picker_card(
                         "title": "Apply",
                         "data": {"magnet_action": "note_taker_config_set"},
                     },
-                    {
-                        "type": "Action.Submit",
-                        "title": "Save keyterms",
-                        "data": {"magnet_action": "note_taker_keyterms_set"},
-                    },
                 ],
             },
         ]
@@ -377,6 +502,189 @@ def create_note_taker_config_picker_card(
         "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
         "version": "1.5",
         "body": body,
+        "msteams": {"width": "Full"},
+    }
+
+
+def create_speaker_mapping_finalized_card(
+    *,
+    skipped: bool,
+    speaker_mapping: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """Read-only card replacing the live speaker-mapping editor.
+
+    Sent via ``update_activity`` from `_handle_card_action` immediately
+    after Confirm/Skip so the chat slot stops being clickable. A second
+    submit (e.g. double-tap, racing network) would hit a pending row
+    that's already been load_and_delete'd and produce a confusing
+    "expired" message — this card sidesteps that entirely.
+    """
+    header = (
+        "↩️ Speaker mapping skipped — processing summary..."
+        if skipped
+        else "✅ Speaker mapping confirmed — processing summary..."
+    )
+    body: list[dict[str, Any]] = [
+        {
+            "type": "TextBlock",
+            "text": header,
+            "weight": "Bolder",
+            "size": "Medium",
+            "color": "Good" if not skipped else "Default",
+            "wrap": True,
+        }
+    ]
+    if not skipped and speaker_mapping:
+        facts = [
+            {"title": key, "value": value or "(unchanged)"}
+            for key, value in sorted(speaker_mapping.items())
+        ]
+        if facts:
+            body.append({"type": "FactSet", "facts": facts, "spacing": "Small"})
+    return {
+        "type": "AdaptiveCard",
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "version": "1.5",
+        "body": body,
+        "msteams": {"width": "Full"},
+    }
+
+
+_PIPELINE_STAGE_ORDER = [
+    ("download", "Downloading recording"),
+    ("transcribe", "Transcribing"),
+    ("post_process", "Generating summary / chapters / insights"),
+    ("confluence", "Publishing to Confluence"),
+    ("salesforce", "Sending to Salesforce"),
+    ("knowledge_graph", "Indexing in Knowledge Graph"),
+]
+
+
+def create_pipeline_progress_card(
+    *,
+    title: str = "📹 Recording transcription",
+    stages: dict[str, str] | None = None,
+    note: str | None = None,
+    success_links: dict[str, str] | None = None,
+    final: bool = False,
+) -> dict[str, Any]:
+    """Single live card that the pipeline updates in place.
+
+    Replaces the previous spam of ~10 separate ``send_activity`` calls
+    ("Streaming the recording...", "Embedded N items...", etc.) with one
+    Adaptive Card that walks through the stages via ``update_activity``.
+
+    ``stages`` maps stage key → status icon string (e.g. "done", "in_progress",
+    "failed", "skipped"). Keys are matched against ``_PIPELINE_STAGE_ORDER``;
+    unknown keys are ignored. Missing keys render as "pending".
+
+    ``success_links`` (only used when ``final=True``) is a dict of label →
+    URL pairs rendered as clickable buttons on the final card.
+    """
+    statuses = stages or {}
+    body: list[dict[str, Any]] = [
+        {
+            "type": "TextBlock",
+            "text": title,
+            "weight": "Bolder",
+            "size": "Medium",
+        },
+    ]
+    facts: list[dict[str, Any]] = []
+    icon_for = {
+        "done": "✓",
+        "in_progress": "⏳",
+        "failed": "✗",
+        "skipped": "—",
+        "pending": "☐",
+    }
+    for key, label in _PIPELINE_STAGE_ORDER:
+        status = statuses.get(key, "pending")
+        icon = icon_for.get(status, "☐")
+        facts.append({"title": f"{icon}", "value": label})
+    body.append({"type": "FactSet", "facts": facts, "spacing": "Small"})
+
+    if note:
+        body.append(
+            {
+                "type": "TextBlock",
+                "text": note,
+                "wrap": True,
+                "spacing": "Small",
+                "isSubtle": True,
+            }
+        )
+
+    actions: list[dict[str, Any]] = []
+    if final and success_links:
+        for label, url in success_links.items():
+            if not url:
+                continue
+            actions.append(
+                {
+                    "type": "Action.OpenUrl",
+                    "title": label,
+                    "url": url,
+                }
+            )
+
+    card: dict[str, Any] = {
+        "type": "AdaptiveCard",
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "version": "1.5",
+        "body": body,
+        "msteams": {"width": "Full"},
+    }
+    if actions:
+        card["actions"] = actions
+    return card
+
+
+def create_note_taker_config_summary_card(
+    *,
+    system_name: str,
+    config_name: str | None = None,
+    keyterms: str | None = None,
+    salesforce_account_name: str | None = None,
+) -> dict[str, Any]:
+    """Read-only summary card shown after Apply on the picker.
+
+    Replaces the editable picker via ``context.update_activity`` so the
+    chat slot stops being a live form (which previously invited accidental
+    double-submits). The ``Change config`` action toggles back to the
+    full picker — see `magnet_action="show_config_picker"` in state.py.
+    """
+    facts: list[dict[str, Any]] = [
+        {"title": "Config", "value": config_name or system_name},
+    ]
+    if keyterms:
+        facts.append({"title": "Keyterms", "value": keyterms})
+    if salesforce_account_name:
+        facts.append({"title": "Salesforce account", "value": salesforce_account_name})
+
+    body: list[dict[str, Any]] = [
+        {
+            "type": "TextBlock",
+            "text": "✅ Note Taker config applied",
+            "weight": "Bolder",
+            "size": "Medium",
+            "color": "Good",
+        },
+        {"type": "FactSet", "facts": facts, "spacing": "Small"},
+    ]
+    actions: list[dict[str, Any]] = [
+        {
+            "type": "Action.Submit",
+            "title": "Change config",
+            "data": {"magnet_action": "show_config_picker"},
+        },
+    ]
+    return {
+        "type": "AdaptiveCard",
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "version": "1.5",
+        "body": body,
+        "actions": actions,
         "msteams": {"width": "Full"},
     }
 

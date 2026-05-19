@@ -240,6 +240,9 @@ class RecordingsMixin:
                 )
                 return
 
+            if await self._ensure_config_selected(context) is None:
+                return
+
             filename = _build_recording_filename(meeting, recordings[0], content_url)
             name = Path(filename).stem
             ext = Path(filename).suffix
@@ -278,6 +281,8 @@ class RecordingsMixin:
         turn_state: Optional[TurnState],
         recording_id: str,
     ) -> None:
+        if await self._ensure_config_selected(context) is None:
+            return
         meeting = self.deps.resolve_meeting_details(context)
         if not (meeting.get("id") or meeting.get("conversationId")):
             self._logger.warning("No meeting id found for process-recording command.")
@@ -379,6 +384,8 @@ class RecordingsMixin:
         Used from personal chat when the user picks a recording from the
         ``create_user_recordings_card`` adaptive card.
         """
+        if await self._ensure_config_selected(context) is None:
+            return
         delegated_token = await self._get_delegated_token(
             context,
             self.deps.auth_handler_id,

@@ -36,7 +36,10 @@ from services.integrations.salesforce.note_taker import (
 )
 
 from ... import note_taker_store
-from ...note_taker_cards import create_note_taker_config_picker_card
+from ...note_taker_cards import (
+    create_note_taker_config_picker_card,
+    create_note_taker_config_summary_card,
+)
 from ...note_taker_people import personal_config_store
 from ...teams_user_store import normalize_bot_id
 
@@ -194,6 +197,80 @@ class ConfigCardMixin:
             await context.send_activity(outgoing)
         except Exception as err:
             self._logger.debug("Failed to send refreshed config picker card: %s", err)
+
+    async def _replace_picker_with_summary(
+        self,
+        context: TurnContext,
+        *,
+        applied_system_name: str,
+    ) -> None:
+        """Replace the live picker card with a read-only summary.
+
+        Called after a successful ``Apply`` to stop the chat slot from
+        being an editable form (which used to invite accidental double-
+        submits). The summary card has a ``Change config`` action that
+        toggles the picker back; see ``magnet_action="show_config_picker"``.
+        """
+        meeting_context = self.deps.resolve_meeting_details(context)
+        meeting_id = meeting_context.get("id")
+        (
+            _account_id,
+            current_account_name,
+            _current_system_name,
+        ) = await note_taker_store.get_meeting_account_info(context, meeting_id)
+
+        salesforce_enabled, current_keyterms = await self._load_config_picker_metadata(
+            applied_system_name
+        )
+
+        # Pull the human-readable name; fall back to system_name if the
+        # record was deleted between Apply and this render.
+        config_name: str | None = None
+        try:
+            async with async_session_maker() as session:
+                stmt = select(NoteTakerSettingsModel.name).where(
+                    NoteTakerSettingsModel.system_name == applied_system_name
+                )
+                config_name = (await session.execute(stmt)).scalar_one_or_none()
+        except Exception:
+            config_name = None
+
+        card = create_note_taker_config_summary_card(
+            system_name=applied_system_name,
+            config_name=config_name,
+            keyterms=current_keyterms or None,
+            salesforce_account_name=current_account_name
+            if salesforce_enabled
+            else None,
+        )
+        attachment = Attachment(
+            content_type="application/vnd.microsoft.card.adaptive",
+            content=card,
+        )
+        outgoing = Activity(type="message", attachments=[attachment])
+
+        activity = getattr(context, "activity", None)
+        reply_to_id = getattr(activity, "reply_to_id", None)
+        if reply_to_id:
+            outgoing.id = reply_to_id
+            try:
+                updater = getattr(context, "update_activity", None)
+                if callable(updater):
+                    await updater(outgoing)
+                    return
+            except Exception as err:
+                self._logger.debug(
+                    "Failed to update config picker card to summary %s: %s",
+                    reply_to_id,
+                    err,
+                )
+
+        # Fallback: send a fresh message — the original picker stays
+        # editable in chat, but at least the user sees the confirmation.
+        try:
+            await context.send_activity(outgoing)
+        except Exception as err:
+            self._logger.debug("Failed to send config summary card: %s", err)
 
     async def _handle_note_taker_config_set(
         self, context: TurnContext, config_system_name: str, *, show_typing: bool = True

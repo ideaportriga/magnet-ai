@@ -17,6 +17,7 @@ from .. import note_taker_store
 from ..note_taker_cards import (
     create_my_meetings_card,
     create_note_taker_welcome_card,
+    create_speaker_mapping_finalized_card,
 )
 from ..note_taker_files import _download_file_from_link
 from ..note_taker_meeting import ensure_meeting_title
@@ -296,6 +297,8 @@ class NoteTakerHandlerState(
         job_id: str,
         conversation_date: str | None = None,
     ) -> None:
+        if await self._ensure_config_selected(context) is None:
+            return
         await run_transcription_pipeline(
             context,
             kind="job",
@@ -374,6 +377,8 @@ class NoteTakerHandlerState(
         turn_state: Optional[TurnState],
         link: str,
     ) -> None:
+        if await self._ensure_config_selected(context) is None:
+            return
         meeting = self.deps.resolve_meeting_details(context)
         token = None
         if self.deps.is_meeting_conversation(context):
@@ -411,6 +416,11 @@ class NoteTakerHandlerState(
                 meeting = dict(meeting or {})
                 meeting.setdefault("invited_people", manual_people)
 
+        # Show which config will drive the pipeline so the user has a
+        # chance to /config away if it's the wrong one. See Q7 of the
+        # cards UX roadmap in NOTE_TAKER_REVISION_PLAN.md.
+        await self._send_active_config_hint(context)
+
         await context.send_activity("Streaming the file for transcription...")
         await self.deps.transcribe_stream_and_notify(
             context,
@@ -425,6 +435,132 @@ class NoteTakerHandlerState(
                 conversation_date=None,
             ),
         )
+
+    async def _finalize_speaker_mapping_card(
+        self,
+        context: TurnContext,
+        *,
+        skipped: bool,
+        speaker_mapping: dict[str, str],
+    ) -> None:
+        """Replace the live speaker-mapping editor with a read-only card.
+
+        Best-effort: if the activity update fails (Teams cached the card
+        out, network blip), we just log and continue. The freeze is purely
+        defensive UX — pipeline correctness still rests on the
+        load_and_delete_pending atomic check inside run_postprocessing_pipeline.
+        """
+        activity = getattr(context, "activity", None)
+        reply_to_id = getattr(activity, "reply_to_id", None)
+        if not reply_to_id:
+            return
+        card = create_speaker_mapping_finalized_card(
+            skipped=skipped, speaker_mapping=speaker_mapping
+        )
+        attachment = Attachment(
+            content_type="application/vnd.microsoft.card.adaptive",
+            content=card,
+        )
+        outgoing = Activity(type="message", attachments=[attachment])
+        outgoing.id = reply_to_id
+        try:
+            updater = getattr(context, "update_activity", None)
+            if callable(updater):
+                await updater(outgoing)
+        except Exception as err:
+            self._logger.debug(
+                "Failed to freeze speaker mapping card %s: %s", reply_to_id, err
+            )
+
+    async def _ensure_config_selected(self, context: TurnContext) -> str | None:
+        """Block transcription pipelines that haven't been routed to a config.
+
+        Without an explicit ``note_taker_settings_system_name`` we'd fall
+        back to defaults (no integrations, generic prompts), which silently
+        gives the user a worse result than they're expecting. Instead we
+        require a config and surface the picker right where the gate fires,
+        so the next click starts the right pipeline.
+
+        Returns the resolved config ``system_name`` when present; ``None``
+        means "show stopped" and the caller must abort. The picker has
+        already been sent in the ``None`` path.
+        """
+        system_name: str | None = None
+        try:
+            if self.deps.is_meeting_conversation(context):
+                meeting = self.deps.resolve_meeting_details(context)
+                (
+                    _account_id,
+                    _account_name,
+                    system_name,
+                ) = await note_taker_store.get_meeting_account_info(
+                    context, meeting.get("id")
+                )
+            else:
+                from ..note_taker_people import personal_config_store
+
+                system_name = personal_config_store.get(context)
+        except Exception:
+            system_name = None
+
+        if system_name and system_name.strip():
+            return system_name.strip()
+
+        # No config yet — explain + show picker so the user can pick one
+        # and re-issue their command.
+        await context.send_activity(
+            "Please pick a Note Taker config first — different configs run different "
+            "STT models, prompts, and integrations. Once selected, repeat your command."
+        )
+        try:
+            await self._handle_note_taker_config_set_picker(context)
+        except Exception:
+            self._logger.debug("Failed to send config picker from gate", exc_info=True)
+        return None
+
+    async def _send_active_config_hint(self, context: TurnContext) -> None:
+        """Tell the user which note-taker config will process the next file.
+
+        The config silently determines STT model, prompts, integrations,
+        and keyterms — without this hint the user finds out only when the
+        summary comes back wrong. Sends a single text line, not a card,
+        so it doesn't crowd out the actual pipeline output.
+        """
+        # Resolve system_name: meeting chat → teams_meeting row; personal
+        # chat → in-process store of last /config selection.
+        config_label: str | None = None
+        try:
+            if self.deps.is_meeting_conversation(context):
+                meeting = self.deps.resolve_meeting_details(context)
+                (
+                    _account_id,
+                    _account_name,
+                    system_name,
+                ) = await note_taker_store.get_meeting_account_info(
+                    context, meeting.get("id")
+                )
+                config_label = system_name
+            else:
+                from ..note_taker_people import personal_config_store
+
+                config_label = personal_config_store.get(context)
+        except Exception:
+            config_label = None
+
+        # Pull merged settings for keyterms only — they're the most
+        # operationally visible bit; STT model / prompts are too low-level
+        # for the user to act on here.
+        keyterms_raw = ""
+        try:
+            settings = await self.deps.load_settings_for_context(context)
+            keyterms_raw = str(settings.get("keyterms") or "").strip()
+        except Exception:
+            pass
+
+        parts = [f"Processing with config **{config_label or '(default)'}**"]
+        if keyterms_raw:
+            parts.append(f"keyterms: {keyterms_raw}")
+        await context.send_activity(" — ".join(parts))
 
     async def _handle_card_action(
         self,
@@ -472,9 +608,14 @@ class NoteTakerHandlerState(
                 show_typing=False,
                 notify_user=False,
             )
-            await self._refresh_note_taker_config_picker_card(
-                context, selected_system_name=config_system_name
+            await self._replace_picker_with_summary(
+                context, applied_system_name=config_system_name
             )
+            return
+
+        if magnet_action == "show_config_picker":
+            # Toggle back from the read-only summary to the editable picker.
+            await self._handle_note_taker_config_set_picker(context)
             return
 
         if magnet_action == "confirm_speaker_mapping":
@@ -507,8 +648,11 @@ class NoteTakerHandlerState(
                 )
                 meeting_notes = str(submit_value.get("meeting_notes") or "").strip()
 
-            await context.send_activity(
-                "Speaker mapping confirmed. Processing summary and chapters..."
+            # Freeze the original card so a second click can't race the
+            # pipeline (pending row gets load_and_delete'd inside the
+            # postprocessing flow). See Q3 of the cards UX roadmap.
+            await self._finalize_speaker_mapping_card(
+                context, skipped=skip, speaker_mapping=confirmed_mapping
             )
             await run_postprocessing_pipeline(
                 context,
@@ -578,6 +722,75 @@ class NoteTakerHandlerState(
                 meeting_id=meeting_id,
                 recording_id=recording_id,
             )
+            return
+
+        # Welcome-card shortcut buttons. Each dispatches to the same
+        # handler the slash-command path uses, so we keep one source of
+        # truth for the user-facing behaviour. See `_welcome_actions`
+        # in note_taker_cards.py for the button definitions.
+        if magnet_action == "welcome_sign_in":
+            if self.deps.is_personal_conversation(context):
+                try:
+                    already = await self._has_existing_token(
+                        context, self.deps.auth_handler_id
+                    )
+                except Exception:
+                    already = False
+                if already:
+                    await context.send_activity(
+                        "You're signed in. Use **/sign-out** to sign out."
+                    )
+                else:
+                    try:
+                        await self.deps.app.auth._start_or_continue_sign_in(
+                            context, turn_state, self.deps.auth_handler_id
+                        )
+                    except Exception as err:
+                        await context.send_activity(
+                            f"Couldn't start sign-in: {getattr(err, 'message', str(err))}"
+                        )
+            else:
+                await context.send_activity(
+                    "Please use **/sign-in** in our 1:1 chat to authenticate."
+                )
+            return
+
+        if magnet_action == "welcome_config":
+            await self._handle_note_taker_config_set_picker(context)
+            return
+
+        if magnet_action == "welcome_my_meetings":
+            await self.deps.send_typing(context)
+            await self._handle_my_meetings(context)
+            return
+
+        if magnet_action == "welcome_recordings_list":
+            await self.deps.send_typing(context)
+            await self._handle_recordings_list(context, turn_state)
+            return
+
+        if magnet_action == "welcome_meeting_info":
+            await self.deps.send_typing(context)
+            await self._handle_meeting_info(context, turn_state)
+            return
+
+        if magnet_action == "welcome_whoami":
+            info = self.deps.resolve_user_info(context)
+            try:
+                has_existing_token = await self._has_existing_token(
+                    context, self.deps.auth_handler_id
+                )
+            except Exception:
+                has_existing_token = False
+            lines = [
+                "User info:",
+                f"- Name: {info.get('name') or 'Unknown'}",
+                f"- Id: {info.get('id') or 'n/a'}",
+                f"- AAD object id: {info.get('aad_object_id') or 'n/a'}",
+                f"- Conversation type: {info.get('conversation_type') or 'unknown'}",
+                f"- Signed in: {'yes' if has_existing_token else 'no'}",
+            ]
+            await context.send_activity("\n".join(lines))
             return
 
     async def _handle_message(
