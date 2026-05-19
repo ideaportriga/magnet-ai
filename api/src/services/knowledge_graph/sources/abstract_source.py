@@ -631,12 +631,56 @@ class AbstractDataSource(ABC):
         self.source.status = final_status
         self.source.last_sync_at = last_sync_at
 
+        # Build a snapshot of this run for the UI: counters + timings + top errors.
+        # `sync_progress.started_at` was written at sync entry; preserving it lets
+        # us compute a real duration even though `_finalize` runs in a fresh session.
+        started_at = None
+        progress = self.source.sync_progress or {}
+        if isinstance(progress, dict):
+            started_at = progress.get("started_at")
+        duration_seconds: float | None = None
+        if started_at:
+            try:
+                from datetime import datetime as _dt
+
+                started_dt = _dt.fromisoformat(str(started_at).replace("Z", "+00:00"))
+                completed_dt = _dt.fromisoformat(last_sync_at.replace("Z", "+00:00"))
+                duration_seconds = (completed_dt - started_dt).total_seconds()
+            except Exception:  # noqa: BLE001
+                duration_seconds = None
+
+        top_errors = await self._collect_top_failed_documents(limit=10)
+
+        last_sync_stats: dict[str, Any] = {
+            "started_at": started_at,
+            "completed_at": last_sync_at,
+            "duration_seconds": duration_seconds,
+            "outcome": final_status,
+            "total_found": counters.total_found,
+            "synced": counters.synced,
+            "failed": counters.failed,
+            "skipped": counters.skipped,
+            "unchanged_skipped": counters.unchanged_skipped,
+            "metadata_only_updated": counters.metadata_only_updated,
+            "content_changed": counters.content_changed,
+            "deleted": counters.deleted,
+            "errors": top_errors,
+        }
+
+        self.source.last_sync_stats = last_sync_stats
+        self.source.sync_progress = None
+
         try:
             async with alchemy.get_session() as fresh:
                 await fresh.execute(
                     update(KnowledgeGraphSource)
                     .where(KnowledgeGraphSource.id == self.source.id)
-                    .values(status=final_status, last_sync_at=last_sync_at)
+                    .values(
+                        status=final_status,
+                        last_sync_at=last_sync_at,
+                        last_sync_stats=last_sync_stats,
+                        sync_progress=None,
+                    )
                 )
                 await fresh.commit()
         except Exception:
@@ -644,3 +688,47 @@ class AbstractDataSource(ABC):
                 "Failed to persist final source status for %s",
                 str(self.source.id),
             )
+
+    async def _collect_top_failed_documents(
+        self, *, limit: int = 10
+    ) -> list[dict[str, Any]]:
+        """Fetch the most recently failed documents for this source for the UI.
+
+        Best-effort: pipeline finalization must not be blocked by a query
+        failure (e.g. graph without a docs table yet).
+        """
+        if not self.source:
+            return []
+        try:
+            docs_table = docs_table_name(self.source.graph_id)
+        except Exception:  # noqa: BLE001
+            return []
+
+        try:
+            async with alchemy.get_session() as fresh:
+                result = await fresh.execute(
+                    text(
+                        f"""
+                        SELECT
+                            COALESCE(title, name) AS name,
+                            status_message
+                        FROM {docs_table}
+                        WHERE source_id = :sid
+                          AND status IN ('failed', 'error')
+                        ORDER BY updated_at DESC NULLS LAST
+                        LIMIT :lim
+                        """
+                    ),
+                    {"sid": str(self.source.id), "lim": int(limit)},
+                )
+                rows = result.all()
+                errors: list[dict[str, Any]] = []
+                for name, message in rows:
+                    msg = str(message or "")
+                    # Keep the JSONB column small.
+                    if len(msg) > 500:
+                        msg = msg[:497] + "..."
+                    errors.append({"document": str(name or ""), "message": msg})
+                return errors
+        except Exception:  # noqa: BLE001
+            return []

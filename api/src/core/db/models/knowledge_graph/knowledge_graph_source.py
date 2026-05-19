@@ -74,6 +74,20 @@ class KnowledgeGraphSource(UUIDv7AuditBase):
         comment="Last sync timestamp",
     )
 
+    # Snapshot of the most recent completed sync (counters, timings, top errors)
+    last_sync_stats: Mapped[Optional[dict[str, Any]]] = mapped_column(
+        JsonB,
+        nullable=True,
+        comment="Snapshot of the most recent completed sync (counters, timings, errors)",
+    )
+
+    # Live progress for an in-flight sync; cleared on finalize
+    sync_progress: Mapped[Optional[dict[str, Any]]] = mapped_column(
+        JsonB,
+        nullable=True,
+        comment="Live progress for an in-flight sync (phase, processed/total)",
+    )
+
     # Discovered metadata fields observed for this source
     discovered_metadata_fields: Mapped[list["KnowledgeGraphMetadataDiscovery"]] = (
         relationship(

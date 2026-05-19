@@ -36,6 +36,7 @@ async def _record_source_failure(source_id: UUID) -> None:
                 .values(
                     status="failed",
                     last_sync_at=utc_now_isoformat(),
+                    sync_progress=None,
                 )
             )
             await recovery.commit()
@@ -98,6 +99,15 @@ async def _sync_source_impl(
     )
 
     source.status = "syncing"
+    sync_started_at = utc_now_isoformat()
+    source.sync_progress = {
+        "phase": "starting",
+        "processed": 0,
+        "total": 0,
+        "current_document": None,
+        "started_at": sync_started_at,
+        "updated_at": sync_started_at,
+    }
     await db_session.commit()
 
     try:

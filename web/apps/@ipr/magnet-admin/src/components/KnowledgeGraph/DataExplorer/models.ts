@@ -1,3 +1,18 @@
+export interface DocumentPipelinePhase {
+  status: string
+  started_at?: string | null
+  completed_at?: string | null
+  failed_at?: string | null
+  error_message?: string | null
+  fields_count?: number | null
+}
+
+export interface DocumentPipelineState {
+  sync: DocumentPipelinePhase
+  metadata_extraction: DocumentPipelinePhase
+  entity_extraction: DocumentPipelinePhase
+}
+
 export interface Document {
   id: string
   name: string
@@ -12,11 +27,13 @@ export interface Document {
   processing_time?: number
   created_at: string
   updated_at?: string
+  source_id?: string | null
   source_name?: string
   toc?: TocNode[]
   summary?: string
   total_pages?: number
   metadata?: DocumentMetadata | null
+  pipeline_state?: DocumentPipelineState | null
 }
 
 export type DocumentMetadataScalar = string | number | boolean

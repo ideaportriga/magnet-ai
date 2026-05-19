@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Any
 from uuid import UUID
 
 from advanced_alchemy.extensions.litestar import repository, service
@@ -21,12 +22,76 @@ from services.knowledge_graph.content_config_services import (
 )
 from services.knowledge_graph.models import SourceType
 from core.domain.knowledge_graph.schemas import (
+    KnowledgeGraphPhaseStatsSchema,
     KnowledgeGraphSourceCreateRequest,
     KnowledgeGraphSourceCreateResponse,
     KnowledgeGraphSourceExternalSchema,
+    KnowledgeGraphSourceLastSyncSchema,
     KnowledgeGraphSourceScheduleExternalSchema,
+    KnowledgeGraphSourceStatsSchema,
+    KnowledgeGraphSourceSyncProgressSchema,
     KnowledgeGraphSourceUpdateRequest,
 )
+
+
+def _build_source_schema(
+    *,
+    source: KnowledgeGraphSource,
+    schedule: KnowledgeGraphSourceScheduleExternalSchema | None,
+    stats: KnowledgeGraphSourceStatsSchema | None,
+) -> KnowledgeGraphSourceExternalSchema:
+    """Build the external source schema, projecting JSONB columns into typed shapes.
+
+    Centralizes the conversion so list + update endpoints stay in sync.
+    """
+
+    def _parse_jsonb_dict(value: Any) -> dict[str, Any] | None:
+        if isinstance(value, dict):
+            return value
+        if isinstance(value, str) and value:
+            try:
+                import json as _json
+
+                parsed = _json.loads(value)
+                return parsed if isinstance(parsed, dict) else None
+            except Exception:  # noqa: BLE001
+                return None
+        return None
+
+    last_sync_raw = _parse_jsonb_dict(source.last_sync_stats)
+    last_sync: KnowledgeGraphSourceLastSyncSchema | None = None
+    if last_sync_raw is not None:
+        try:
+            last_sync = KnowledgeGraphSourceLastSyncSchema.model_validate(last_sync_raw)
+        except Exception:  # noqa: BLE001
+            last_sync = None
+
+    sync_progress_raw = _parse_jsonb_dict(source.sync_progress)
+    sync_progress: KnowledgeGraphSourceSyncProgressSchema | None = None
+    if sync_progress_raw is not None:
+        try:
+            sync_progress = KnowledgeGraphSourceSyncProgressSchema.model_validate(
+                sync_progress_raw
+            )
+        except Exception:  # noqa: BLE001
+            sync_progress = None
+
+    documents_count = stats.documents_count if stats else 0
+
+    return KnowledgeGraphSourceExternalSchema(
+        id=str(source.id),
+        name=source.name,
+        type=source.type,
+        config=source.config,
+        status=source.status,
+        documents_count=documents_count,
+        last_sync_at=source.last_sync_at,
+        created_at=source.created_at.isoformat() if source.created_at else None,
+        schedule=schedule,
+        stats=stats,
+        last_sync=last_sync,
+        sync_progress=sync_progress,
+    )
 
 
 class KnowledgeGraphSourceService(
@@ -72,6 +137,85 @@ class KnowledgeGraphSourceService(
                 pass
             return {}
 
+    async def _stats_by_source(
+        self, db_session: AsyncSession, graph_id: UUID
+    ) -> dict[str, KnowledgeGraphSourceStatsSchema]:
+        """Aggregate per-phase document counts per source for a graph.
+
+        One scan over the per-graph docs table produces all the counts the
+        UI needs to render the pipeline strip on each source row. Same
+        defensive rollback as ``_counts_by_source`` for graphs with no
+        docs table yet.
+        """
+        try:
+            docs_table = docs_table_name(graph_id)
+            result = await db_session.execute(
+                text(
+                    f"""
+                    SELECT
+                        source_id::text AS source_id,
+                        COUNT(*) AS documents_count,
+                        COUNT(*) FILTER (WHERE status = 'completed') AS sync_completed,
+                        COUNT(*) FILTER (WHERE status IN ('failed','error')) AS sync_failed,
+                        COUNT(*) FILTER (WHERE status IN ('pending','processing')) AS sync_running,
+                        COUNT(*) FILTER (
+                            WHERE pipeline_state->'metadata_extraction'->>'status' = 'completed'
+                        ) AS metadata_completed,
+                        COUNT(*) FILTER (
+                            WHERE pipeline_state->'metadata_extraction'->>'status' = 'failed'
+                        ) AS metadata_failed,
+                        COUNT(*) FILTER (
+                            WHERE pipeline_state->'metadata_extraction'->>'status' = 'running'
+                        ) AS metadata_running,
+                        COUNT(*) FILTER (
+                            WHERE pipeline_state->'entity_extraction'->>'status' = 'completed'
+                        ) AS entity_completed,
+                        COUNT(*) FILTER (
+                            WHERE pipeline_state->'entity_extraction'->>'status' = 'failed'
+                        ) AS entity_failed,
+                        COUNT(*) FILTER (
+                            WHERE pipeline_state->'entity_extraction'->>'status' = 'running'
+                        ) AS entity_running
+                    FROM {docs_table}
+                    GROUP BY source_id
+                    """
+                )
+            )
+            stats: dict[str, KnowledgeGraphSourceStatsSchema] = {}
+            for row in result.mappings().all():
+                sid = str(row.get("source_id") or "")
+                if not sid:
+                    continue
+                total = int(row.get("documents_count") or 0)
+                stats[sid] = KnowledgeGraphSourceStatsSchema(
+                    documents_count=total,
+                    sync=KnowledgeGraphPhaseStatsSchema(
+                        completed=int(row.get("sync_completed") or 0),
+                        failed=int(row.get("sync_failed") or 0),
+                        running=int(row.get("sync_running") or 0),
+                        total=total,
+                    ),
+                    metadata=KnowledgeGraphPhaseStatsSchema(
+                        completed=int(row.get("metadata_completed") or 0),
+                        failed=int(row.get("metadata_failed") or 0),
+                        running=int(row.get("metadata_running") or 0),
+                        total=total,
+                    ),
+                    entities=KnowledgeGraphPhaseStatsSchema(
+                        completed=int(row.get("entity_completed") or 0),
+                        failed=int(row.get("entity_failed") or 0),
+                        running=int(row.get("entity_running") or 0),
+                        total=total,
+                    ),
+                )
+            return stats
+        except Exception:
+            try:
+                await db_session.rollback()
+            except Exception:  # noqa: BLE001
+                pass
+            return {}
+
     async def set_source_status(
         self, db_session: AsyncSession, source_id: UUID, status: str
     ) -> None:
@@ -92,7 +236,7 @@ class KnowledgeGraphSourceService(
             .order_by(KnowledgeGraphSource.created_at.desc())
         )
         rows = result.all()
-        counts = await self._counts_by_source(db_session, graph_id)
+        stats_by_source = await self._stats_by_source(db_session, graph_id)
 
         def build_schedule(
             job: JobModel | None,
@@ -108,16 +252,10 @@ class KnowledgeGraphSourceService(
             )
 
         return [
-            KnowledgeGraphSourceExternalSchema(
-                id=str(source.id),
-                name=source.name,
-                type=source.type,
-                config=source.config,
-                status=source.status,
-                documents_count=counts.get(str(source.id), 0),
-                last_sync_at=source.last_sync_at,
-                created_at=source.created_at.isoformat() if source.created_at else None,
+            _build_source_schema(
+                source=source,
                 schedule=build_schedule(job),
+                stats=stats_by_source.get(str(source.id)),
             )
             for (source, job) in rows
         ]
@@ -195,17 +333,12 @@ class KnowledgeGraphSourceService(
 
         await db_session.commit()
 
-        counts = await self._counts_by_source(db_session, graph_id)
+        stats_by_source = await self._stats_by_source(db_session, graph_id)
 
-        return KnowledgeGraphSourceExternalSchema(
-            id=str(source.id),
-            name=source.name,
-            type=source.type,
-            config=source.config,
-            status=source.status,
-            documents_count=counts.get(str(source.id), 0),
-            last_sync_at=source.last_sync_at,
-            created_at=source.created_at.isoformat() if source.created_at else None,
+        return _build_source_schema(
+            source=source,
+            schedule=None,
+            stats=stats_by_source.get(str(source.id)),
         )
 
     async def delete_source(

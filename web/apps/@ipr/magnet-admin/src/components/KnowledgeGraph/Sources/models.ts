@@ -19,6 +19,50 @@ export type SourceSchedule = {
   timezone?: string | null
 } | null
 
+export type SourcePhaseStats = {
+  completed: number
+  failed: number
+  running: number
+  total: number
+}
+
+export type SourceStats = {
+  documents_count: number
+  sync: SourcePhaseStats
+  metadata: SourcePhaseStats
+  entities: SourcePhaseStats
+}
+
+export type SourceLastSyncError = {
+  document: string
+  message?: string | null
+}
+
+export type SourceLastSync = {
+  started_at?: string | null
+  completed_at?: string | null
+  duration_seconds?: number | null
+  outcome?: string | null
+  total_found: number
+  synced: number
+  failed: number
+  skipped: number
+  unchanged_skipped: number
+  metadata_only_updated: number
+  content_changed: number
+  deleted: number
+  errors: SourceLastSyncError[]
+}
+
+export type SourceSyncProgress = {
+  phase?: string | null
+  processed: number
+  total: number
+  current_document?: string | null
+  started_at?: string | null
+  updated_at?: string | null
+}
+
 export interface SourceRow {
   id: string
   name: string
@@ -29,6 +73,9 @@ export interface SourceRow {
   last_sync_at?: string
   config?: Record<string, unknown>
   schedule?: SourceSchedule
+  stats?: SourceStats | null
+  last_sync?: SourceLastSync | null
+  sync_progress?: SourceSyncProgress | null
 }
 
 export function getSourceTypeName(type: string) {

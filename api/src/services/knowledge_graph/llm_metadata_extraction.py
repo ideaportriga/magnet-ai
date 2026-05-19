@@ -19,6 +19,7 @@ from services.knowledge_graph.readers import ChunkDocumentReader
 from services.knowledge_graph.utils import normalize_metadata_value
 from services.observability import observability_context, observe
 from services.prompt_templates import execute_prompt_template
+from utils.datetime_utils import utc_now_isoformat
 
 logger = logging.getLogger(__name__)
 
@@ -311,6 +312,45 @@ async def _extract_metadata_from_content(
     return _best_effort_json_object_from_text(result.content)
 
 
+async def _write_metadata_extraction_state(
+    db_session: AsyncSession,
+    *,
+    graph_id: UUID,
+    document_id: str,
+    state: dict[str, Any],
+) -> None:
+    """Merge a metadata_extraction patch into a document's pipeline_state JSONB.
+
+    Mirrors the entity-extraction pattern (`_mark_document_extracted`) so the
+    document table carries a uniform per-phase status that the frontend can
+    read.
+    """
+    docs_tbl = docs_table_name(graph_id)
+    try:
+        await db_session.execute(
+            text(
+                f"""
+                UPDATE {docs_tbl}
+                SET pipeline_state = COALESCE(pipeline_state, '{{}}'::jsonb) || :patch,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = CAST(:id AS uuid)
+                """
+            ),
+            {
+                "id": document_id,
+                "patch": json.dumps({"metadata_extraction": state}),
+            },
+        )
+        await db_session.commit()
+    except Exception as exc:  # noqa: BLE001
+        # Best-effort: never let pipeline state writes mask the real extraction.
+        logger.warning(
+            "Failed to write metadata_extraction state for document %s: %s",
+            document_id,
+            exc,
+        )
+
+
 async def _upsert_document_llm_metadata(
     db_session: AsyncSession,
     *,
@@ -468,8 +508,18 @@ async def run_graph_llm_metadata_extraction(
 
                 processed_documents += 1
 
+                doc_started_at = utc_now_isoformat()
+                await _write_metadata_extraction_state(
+                    db_session,
+                    graph_id=graph_id,
+                    document_id=doc_id,
+                    state={"status": "running", "started_at": doc_started_at},
+                )
+
                 storage: dict[str, Any] = {}
                 discovery_values: dict[str, list[Any]] = {}
+                segment_errors = 0
+                last_segment_error: str | None = None
 
                 for segment in segments:
                     try:
@@ -480,6 +530,8 @@ async def run_graph_llm_metadata_extraction(
                         )
                     except Exception as exc:  # noqa: BLE001
                         errors += 1
+                        segment_errors += 1
+                        last_segment_error = str(exc)
                         logger.warning(
                             "Metadata extraction failed for document %s: %s",
                             doc_id,
@@ -516,6 +568,32 @@ async def run_graph_llm_metadata_extraction(
                     )
 
                 await db_session.commit()
+
+                # Reflect the final per-document outcome on pipeline_state.
+                if segment_errors and not storage:
+                    await _write_metadata_extraction_state(
+                        db_session,
+                        graph_id=graph_id,
+                        document_id=doc_id,
+                        state={
+                            "status": "failed",
+                            "started_at": doc_started_at,
+                            "failed_at": utc_now_isoformat(),
+                            "error_message": last_segment_error,
+                        },
+                    )
+                else:
+                    await _write_metadata_extraction_state(
+                        db_session,
+                        graph_id=graph_id,
+                        document_id=doc_id,
+                        state={
+                            "status": "completed",
+                            "started_at": doc_started_at,
+                            "completed_at": utc_now_isoformat(),
+                            "fields_count": len(storage),
+                        },
+                    )
 
             offset += len(batch)
 
@@ -580,9 +658,19 @@ async def run_graph_llm_metadata_extraction(
             skipped_documents += 1
             continue
 
+        doc_started_at = utc_now_isoformat()
+        await _write_metadata_extraction_state(
+            db_session,
+            graph_id=graph_id,
+            document_id=doc_id,
+            state={"status": "running", "started_at": doc_started_at},
+        )
+
         storage: dict[str, Any] = {}
         discovery_values: dict[str, list[Any]] = {}
         had_any_chunk_content = False
+        chunk_errors = 0
+        last_chunk_error: str | None = None
 
         for cval in chunk_values:
             content_str = str(cval or "").strip()
@@ -601,6 +689,8 @@ async def run_graph_llm_metadata_extraction(
                 )
             except Exception as exc:  # noqa: BLE001
                 errors += 1
+                chunk_errors += 1
+                last_chunk_error = str(exc)
                 logger.warning(
                     "Metadata extraction failed for graph %s doc %s chunk: %s",
                     str(graph_id),
@@ -621,6 +711,17 @@ async def run_graph_llm_metadata_extraction(
 
         if not had_any_chunk_content:
             skipped_documents += 1
+            # Clear the "running" state we wrote above to avoid stale UI state.
+            await _write_metadata_extraction_state(
+                db_session,
+                graph_id=graph_id,
+                document_id=doc_id,
+                state={
+                    "status": "skipped",
+                    "started_at": doc_started_at,
+                    "completed_at": utc_now_isoformat(),
+                },
+            )
             continue
 
         processed_documents += 1
@@ -643,6 +744,31 @@ async def run_graph_llm_metadata_extraction(
             )
 
         await db_session.commit()
+
+        if chunk_errors and not storage:
+            await _write_metadata_extraction_state(
+                db_session,
+                graph_id=graph_id,
+                document_id=doc_id,
+                state={
+                    "status": "failed",
+                    "started_at": doc_started_at,
+                    "failed_at": utc_now_isoformat(),
+                    "error_message": last_chunk_error,
+                },
+            )
+        else:
+            await _write_metadata_extraction_state(
+                db_session,
+                graph_id=graph_id,
+                document_id=doc_id,
+                state={
+                    "status": "completed",
+                    "started_at": doc_started_at,
+                    "completed_at": utc_now_isoformat(),
+                    "fields_count": len(storage),
+                },
+            )
 
     return {
         "approach": approach,

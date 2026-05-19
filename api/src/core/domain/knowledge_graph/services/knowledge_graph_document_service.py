@@ -34,9 +34,85 @@ from core.db.models.knowledge_graph import (
 from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphDocumentDetailSchema,
     KnowledgeGraphDocumentExternalSchema,
+    KnowledgeGraphDocumentPipelinePhaseSchema,
+    KnowledgeGraphDocumentPipelineStateSchema,
     KnowledgeGraphEntityDocumentReferenceSchema,
 )
 from services.knowledge_graph.utils import normalize_metadata_value
+
+
+_SYNC_STATUS_MAP: dict[str, str] = {
+    "completed": "completed",
+    "pending": "pending",
+    "processing": "running",
+    "failed": "failed",
+    "error": "failed",
+}
+
+
+def _build_pipeline_state(
+    *,
+    sync_status: Any,
+    sync_status_message: Any,
+    sync_processing_time: Any,
+    sync_updated_at: Any,
+    pipeline_state_raw: Any,
+) -> KnowledgeGraphDocumentPipelineStateSchema:
+    """Project the raw doc fields into the unified per-document pipeline state.
+
+    The frontend renders all three phases with the same shape, so we normalize
+    the existing ``status`` column into a ``sync`` phase here, and decode the
+    JSONB ``pipeline_state`` column for the two extraction phases.
+    """
+    raw: dict[str, Any]
+    if isinstance(pipeline_state_raw, dict):
+        raw = pipeline_state_raw
+    elif isinstance(pipeline_state_raw, str) and pipeline_state_raw:
+        try:
+            parsed = json.loads(pipeline_state_raw)
+            raw = parsed if isinstance(parsed, dict) else {}
+        except Exception:  # noqa: BLE001
+            raw = {}
+    else:
+        raw = {}
+
+    sync_str = str(sync_status or "").lower()
+    sync_normalized = _SYNC_STATUS_MAP.get(sync_str, sync_str or "not_run")
+    completed_at = None
+    failed_at = None
+    if isinstance(sync_updated_at, datetime):
+        iso = sync_updated_at.isoformat()
+        if sync_normalized == "completed":
+            completed_at = iso
+        elif sync_normalized == "failed":
+            failed_at = iso
+
+    sync_phase = KnowledgeGraphDocumentPipelinePhaseSchema(
+        status=sync_normalized,
+        completed_at=completed_at,
+        failed_at=failed_at,
+        error_message=str(sync_status_message) if sync_status_message else None,
+    )
+
+    def _phase_from_raw(key: str) -> KnowledgeGraphDocumentPipelinePhaseSchema:
+        sub = raw.get(key)
+        if not isinstance(sub, dict):
+            return KnowledgeGraphDocumentPipelinePhaseSchema(status="not_run")
+        return KnowledgeGraphDocumentPipelinePhaseSchema(
+            status=str(sub.get("status") or "not_run"),
+            started_at=sub.get("started_at"),
+            completed_at=sub.get("completed_at"),
+            failed_at=sub.get("failed_at"),
+            error_message=sub.get("error_message"),
+            fields_count=sub.get("fields_count"),
+        )
+
+    return KnowledgeGraphDocumentPipelineStateSchema(
+        sync=sync_phase,
+        metadata_extraction=_phase_from_raw("metadata_extraction"),
+        entity_extraction=_phase_from_raw("entity_extraction"),
+    )
+
 
 logger = logging.getLogger(__name__)
 
@@ -129,6 +205,8 @@ class KnowledgeGraphDocumentService:
                 docs_tbl.c.created_at.label("created_at"),
                 docs_tbl.c.updated_at.label("updated_at"),
                 docs_tbl.c.external_link.label("external_link"),
+                docs_tbl.c.source_id.label("source_id"),
+                docs_tbl.c.pipeline_state.label("pipeline_state"),
                 sources_tbl.c.name.label("source_name"),
                 chunks_count_sq.label("chunks_count"),
             )
@@ -157,9 +235,19 @@ class KnowledgeGraphDocumentService:
                     processing_time=doc.processing_time,
                     external_link=doc.external_link,
                     chunks_count=int(row.get("chunks_count") or 0),
+                    source_id=str(row.get("source_id"))
+                    if row.get("source_id")
+                    else None,
                     source_name=(row.get("source_name") or None),
                     created_at=doc.created_at.isoformat() if doc.created_at else None,
                     updated_at=doc.updated_at.isoformat() if doc.updated_at else None,
+                    pipeline_state=_build_pipeline_state(
+                        sync_status=doc.status,
+                        sync_status_message=doc.status_message,
+                        sync_processing_time=doc.processing_time,
+                        sync_updated_at=doc.updated_at,
+                        pipeline_state_raw=row.get("pipeline_state"),
+                    ),
                 )
             )
 
@@ -202,6 +290,8 @@ class KnowledgeGraphDocumentService:
                 docs_tbl.c.total_pages.label("total_pages"),
                 docs_tbl.c.processing_time.label("processing_time"),
                 docs_tbl.c.external_link.label("external_link"),
+                docs_tbl.c.source_id.label("source_id"),
+                docs_tbl.c.pipeline_state.label("pipeline_state"),
                 docs_tbl.c.created_at.label("created_at"),
                 docs_tbl.c.updated_at.label("updated_at"),
                 chunks_count_sq.label("chunks_count"),
@@ -228,10 +318,17 @@ class KnowledgeGraphDocumentService:
             processing_time=doc.processing_time,
             external_link=doc.external_link,
             metadata=doc.metadata.to_dict() if doc.metadata else None,
-            source_id=None,
+            source_id=str(row.get("source_id")) if row.get("source_id") else None,
             chunks_count=int(row.get("chunks_count") or 0),
             created_at=doc.created_at.isoformat() if doc.created_at else None,
             updated_at=doc.updated_at.isoformat() if doc.updated_at else None,
+            pipeline_state=_build_pipeline_state(
+                sync_status=doc.status,
+                sync_status_message=doc.status_message,
+                sync_processing_time=doc.processing_time,
+                sync_updated_at=doc.updated_at,
+                pipeline_state_raw=row.get("pipeline_state"),
+            ),
         )
 
     async def get_document_references(
