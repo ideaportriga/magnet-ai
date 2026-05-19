@@ -6,7 +6,7 @@
     confirm-label="Delta Sync"
     cancel-label="Close"
     :show-confirm="isSyncable"
-    :disable-confirm="!isSyncable || effectiveStatus === 'syncing'"
+    :disable-confirm="!isSyncable"
     size="md"
     max-height="85vh"
     @update:model-value="$emit('update:modelValue', $event)"
@@ -128,14 +128,7 @@
     </div>
 
     <template v-if="isSyncable" #actions-before-confirm>
-      <km-btn
-        outline
-        label="Sync All"
-        size="sm"
-        class="kg-sync-status__resync-button"
-        :disable="effectiveStatus === 'syncing'"
-        @click="showFromScratchConfirm = true"
-      />
+      <km-btn outline label="Sync All" size="sm" class="kg-sync-status__resync-button" @click="showFromScratchConfirm = true" />
     </template>
 
     <kg-confirm-dialog

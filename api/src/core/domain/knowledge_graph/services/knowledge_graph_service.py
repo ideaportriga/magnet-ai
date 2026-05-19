@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from advanced_alchemy.extensions.litestar import repository, service
-from litestar.exceptions import NotFoundException
+from litestar.exceptions import ClientException, NotFoundException
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -309,6 +309,46 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
             validate_unique_content_profile_names(settings_to_apply)
             update_payload["settings"] = settings_to_apply
 
+        # Detect embedding-model change before persisting, so we can validate
+        # that the per-graph chunks table can be re-shaped to the new vector
+        # dimension. If chunks already exist we refuse the change.
+        new_indexing_pending = (
+            settings_to_apply.get("indexing")
+            if isinstance(settings_to_apply, dict)
+            else None
+        )
+        new_embedding_model = (
+            (new_indexing_pending or {}).get("embedding_model")
+            if isinstance(new_indexing_pending, dict)
+            else None
+        )
+        embedding_model_changed = (
+            isinstance(new_embedding_model, str)
+            and new_embedding_model.strip()
+            and new_embedding_model != prev_embedding_model
+        )
+
+        new_vector_size: int | None = None
+        prev_vector_size: int | None = None
+        if embedding_model_changed:
+            new_vector_size = await resolve_vector_size_for_embedding_model(
+                new_embedding_model
+            )
+            if isinstance(prev_embedding_model, str) and prev_embedding_model.strip():
+                prev_vector_size = await resolve_vector_size_for_embedding_model(
+                    prev_embedding_model
+                )
+
+            if prev_vector_size is not None and prev_vector_size != new_vector_size:
+                ch_svc = chunk_service or KnowledgeGraphChunkService()
+                chunk_count = await ch_svc.count_chunks(db_session, graph_id=graph_id)
+                if chunk_count > 0:
+                    raise ClientException(
+                        "Changing the embedding model is not supported while "
+                        "the knowledge graph already contains indexed chunks. "
+                        "Delete existing chunks/documents first."
+                    )
+
         updated = await self.update(
             update_payload,
             item_id=graph_id,
@@ -316,31 +356,21 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
             auto_refresh=True,
         )
 
-        # If embedding model is configured (and changed), ensure per-graph tables exist.
-        new_settings = getattr(updated, "settings", None) or {}
-        new_indexing = (
-            new_settings.get("indexing") if isinstance(new_settings, dict) else None
-        )
-        new_embedding_model = (
-            (new_indexing or {}).get("embedding_model")
-            if isinstance(new_indexing, dict)
-            else None
-        )
-        if (
-            isinstance(new_embedding_model, str)
-            and new_embedding_model.strip()
-            and new_embedding_model != prev_embedding_model
-        ):
-            vector_size = await resolve_vector_size_for_embedding_model(
-                new_embedding_model
-            )
+        if embedding_model_changed:
+            assert new_vector_size is not None
             doc_svc = document_service or KnowledgeGraphDocumentService()
             ch_svc = chunk_service or KnowledgeGraphChunkService()
+            if prev_vector_size is not None and prev_vector_size != new_vector_size:
+                # Chunks table is empty (validated above) — drop & recreate
+                # both per-graph tables so the vector column matches the new
+                # embedding dimension. Drop chunks first (FK -> docs).
+                await ch_svc.drop_table(db_session, graph_id=graph_id)
+                await doc_svc.drop_table(db_session, graph_id=graph_id)
             await doc_svc.create_table(
-                db_session, graph_id=graph_id, vector_size=vector_size
+                db_session, graph_id=graph_id, vector_size=new_vector_size
             )
             await ch_svc.create_table(
-                db_session, graph_id=graph_id, vector_size=vector_size
+                db_session, graph_id=graph_id, vector_size=new_vector_size
             )
 
         return KnowledgeGraphUpdateResponse(

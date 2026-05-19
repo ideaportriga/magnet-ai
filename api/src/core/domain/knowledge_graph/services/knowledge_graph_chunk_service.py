@@ -16,6 +16,7 @@ from sqlalchemy import (
     text,
     type_coerce,
 )
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db.models.knowledge_graph import (
@@ -81,6 +82,26 @@ class KnowledgeGraphChunkService:
             chunks_tbl.drop(sync_conn, checkfirst=True)
 
         await conn.run_sync(_drop)
+
+    async def count_chunks(self, db_session: AsyncSession, *, graph_id: UUID) -> int:
+        """Return number of chunks in the per-graph chunks table.
+
+        Returns 0 if the table does not exist yet.
+        """
+
+        chunks_name = chunks_table_name(graph_id)
+        docs_name = docs_table_name(graph_id)
+        md = MetaData()
+        chunks_tbl = knowledge_graph_chunk_table(
+            md, chunks_name, docs_table=docs_name, vector_size=None
+        )
+        stmt = select(func.count()).select_from(chunks_tbl)
+        try:
+            result = await db_session.execute(stmt)
+        except ProgrammingError:
+            await db_session.rollback()
+            return 0
+        return int(result.scalar() or 0)
 
     async def insert_chunks_bulk(
         self,
