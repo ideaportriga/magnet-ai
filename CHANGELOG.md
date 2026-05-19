@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-alpha.27](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.26...v0.7.0-alpha.27) (2026-05-19)
+
+### ✨ Features
+
+* add guards to other entities to ([6d04534](https://github.com/ideaportriga/magnet-ai/commit/6d04534f0860dec36ab7ab4f0b6c80c289e7e4f4))
+* rbac init ([3876391](https://github.com/ideaportriga/magnet-ai/commit/38763911cfbcf475c425977cff9151ea197c5d9c))
+* **rbac:** admin docs, entity-access composables, audit + cleanup ([6f407c8](https://github.com/ideaportriga/magnet-ai/commit/6f407c8d8b7d5eb3d12ffa82e55eb7807adcefc8))
+
+### 🐛 Bug Fixes
+
+* note taker errors ([41b886a](https://github.com/ideaportriga/magnet-ai/commit/41b886a38c11be62ba81b0a72fb150c09220277f))
+* note taker rbac ([5434c5f](https://github.com/ideaportriga/magnet-ai/commit/5434c5fa1853a5d7a2850dcdf6a11b2018385306))
+* note_taker refactoring ([e325443](https://github.com/ideaportriga/magnet-ai/commit/e325443033189201ef31e23a6b7a042205e736d8))
+* rbac polishing ([1d6119c](https://github.com/ideaportriga/magnet-ai/commit/1d6119c62f3c85694d6fb10ecb266d4f43ea9645))
+* refactoing note taker code ([c4f6aab](https://github.com/ideaportriga/magnet-ai/commit/c4f6aabe4137fb47be7f16c73a4a27ab4f6554e7))
+* small notetaker fix ([7d76601](https://github.com/ideaportriga/magnet-ai/commit/7d76601caaab2f9d4c74ecaa6532a6e8624699c7))
+* ui RBAC fixes ([cfa3599](https://github.com/ideaportriga/magnet-ai/commit/cfa3599eb4894888c8dd19a8cd29e558970520c8))
+
 ## [0.7.0-alpha.26](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.25...v0.7.0-alpha.26) (2026-05-15)
 
 ### ✨ Features
