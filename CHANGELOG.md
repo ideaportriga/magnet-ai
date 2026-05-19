@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-alpha.28](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.27...v0.7.0-alpha.28) (2026-05-19)
+
+### ✨ Features
+
+* **notetaker:** trascribe optimisation. ([e3d69eb](https://github.com/ideaportriga/magnet-ai/commit/e3d69eb8136c9d125453a27b628bbbdb4f92ff6f))
+
 ## [0.7.0-alpha.27](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.26...v0.7.0-alpha.27) (2026-05-19)
 
 ### ✨ Features
