@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.27](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.26...v0.7.0-dev.27) (2026-05-17)
+
+### ✨ Features
+
+* **kg:** implemented sources icons on the knowledge graph records ([90bc80c](https://github.com/ideaportriga/magnet-ai/commit/90bc80c3b4722ada92a11cbce2e0f5db6357f523))
+
+### 🐛 Bug Fixes
+
+* **kg:** fixed document count issue on long running syncs ([b3e850b](https://github.com/ideaportriga/magnet-ai/commit/b3e850ba223196889f0da3cc354feaf20cfc4a54))
+
 ## [0.7.0-dev.26](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.25...v0.7.0-dev.26) (2026-05-16)
 
 ### ✨ Features
