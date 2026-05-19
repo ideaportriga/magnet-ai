@@ -73,15 +73,11 @@
                     <q-item-section>Edit</q-item-section>
                   </q-item>
 
-                  <q-item
-                    v-ripple="false"
-                    clickable
-                    @click="openSyncStatus(slotScope.row)"
-                  >
+                  <q-item v-ripple="false" clickable @click="openSyncStatus(slotScope.row)">
                     <q-item-section thumbnail>
                       <q-icon name="sync" color="primary" size="20px" class="q-ml-sm" />
                     </q-item-section>
-                    <q-item-section>Sync status</q-item-section>
+                    <q-item-section>Sync center</q-item-section>
                   </q-item>
 
                   <q-separator />
@@ -408,11 +404,7 @@ const handleSourceCancelled = () => {
   selectedRow.value = null
 }
 
-const syncSource = async (
-  source: SourceRow,
-  showNotification = true,
-  fromScratch = false,
-): Promise<boolean> => {
+const syncSource = async (source: SourceRow, showNotification = true, fromScratch = false): Promise<boolean> => {
   try {
     const endpoint = store.getters.config.api.aiBridge.urlAdmin
     const response = await fetchData({

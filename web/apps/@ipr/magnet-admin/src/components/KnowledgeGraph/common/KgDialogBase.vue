@@ -35,6 +35,7 @@
       <q-card-actions class="kg-dialog__actions">
         <km-btn v-if="showConfirm" :label="cancelLabel" flat color="primary" @click="onCancel" />
         <q-space />
+        <slot name="actions-before-confirm" />
         <q-btn
           v-if="showConfirm"
           no-caps
@@ -46,15 +47,7 @@
           :loading="loading"
           @click="$emit('confirm')"
         />
-        <q-btn
-          v-if="!showConfirm"
-          no-caps
-          unelevated
-          color="primary"
-          class="kg-dialog__action__button"
-          :label="cancelLabel"
-          @click="onCancel"
-        />
+        <q-btn v-if="!showConfirm" no-caps unelevated color="primary" class="kg-dialog__action__button" :label="cancelLabel" @click="onCancel" />
       </q-card-actions>
 
       <q-inner-loading :showing="innerLoading" />
