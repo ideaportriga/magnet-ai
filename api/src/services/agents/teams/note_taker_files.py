@@ -4,12 +4,16 @@ This module contains HTTP download probing and multipart upload helpers to keep
 `note_taker.py` focused on bot logic.
 """
 
+import asyncio
 import base64
 import datetime as dt
 import hashlib
 import mimetypes
+import os
+import tempfile
 from logging import getLogger
 from pathlib import Path
+from subprocess import DEVNULL, PIPE
 from typing import Any, AsyncIterator, Callable, Dict
 from urllib.parse import parse_qs, urlparse
 
@@ -293,3 +297,143 @@ async def _do_upload_stream_to_object(
         response.raise_for_status()
 
     return object_key
+
+
+# Audio container we emit when transcoding video → audio-only. WebM/Opus
+# was chosen for two reasons: (a) tiny size at 24 kbps mono for speech
+# (≈10–20× smaller than typical meeting video), and (b) `.webm` is in
+# `transcribe/base.py:ALLOWED_EXT`, so the existing STT submit path
+# doesn't need any special handling.
+TRANSCODED_EXT = ".webm"
+TRANSCODED_CONTENT_TYPE = "audio/webm"
+
+
+async def _transcode_stream_to_opus_file(
+    *,
+    source: AsyncIterator[bytes],
+    out_path: str,
+    kbps: int = 24,
+    sample_rate: int = 16000,
+) -> int:
+    """Pipe an async byte stream through ffmpeg → mono Opus/WebM on disk.
+
+    Reads from ``source`` (typically an httpx response stream of an mp4/mkv
+    meeting recording) and writes a compressed audio-only WebM/Opus file
+    to ``out_path``. ffmpeg owns the only buffer the raw video bytes ever
+    sit in; Python heap stays at chunk-sized async I/O buffers plus
+    libopus's small encoder state.
+
+    The result is roughly 10–20× smaller than the source for typical
+    meeting video — what lets a 225-MB Teams recording fit comfortably
+    in a 1 GiB-memory container instead of OOM-killing it during the
+    downstream STT extraction (which used to load the whole 16-kHz WAV
+    into a single Python ``bytes`` object).
+
+    Returns the byte size of the resulting file. Raises ``FileNotFoundError``
+    if ``ffmpeg`` is missing on PATH (the Dockerfile must install it; see
+    Dockerfile:50). Raises ``RuntimeError`` if ffmpeg rejects the input
+    (bad codec / damaged container / etc.) — the caller should treat both
+    as fatal and surface a short error to the user.
+    """
+    proc = await asyncio.create_subprocess_exec(
+        "ffmpeg",
+        "-y",
+        "-hide_banner",
+        "-loglevel",
+        "warning",
+        "-i",
+        "pipe:0",
+        "-vn",
+        "-ac",
+        "1",
+        "-ar",
+        str(sample_rate),
+        "-c:a",
+        "libopus",
+        "-b:a",
+        f"{kbps}k",
+        "-f",
+        "webm",
+        out_path,
+        stdin=PIPE,
+        stdout=DEVNULL,
+        stderr=PIPE,
+    )
+
+    async def _feed_stdin() -> None:
+        try:
+            async for chunk in source:
+                if not chunk:
+                    continue
+                proc.stdin.write(chunk)
+                await proc.stdin.drain()
+        except (BrokenPipeError, ConnectionResetError):
+            # ffmpeg already exited (decode error). Drain `source`
+            # quietly so the caller's `async with client.stream(...)`
+            # exits cleanly — the real error gets surfaced via
+            # stderr/returncode after wait() below.
+            try:
+                async for _ in source:
+                    pass
+            except Exception:
+                pass
+        finally:
+            try:
+                if proc.stdin and not proc.stdin.is_closing():
+                    proc.stdin.close()
+            except Exception:
+                pass
+
+    feeder = asyncio.create_task(_feed_stdin())
+    stderr_data = await proc.stderr.read()
+    await feeder
+    await proc.wait()
+
+    if proc.returncode != 0:
+        err = stderr_data.decode("utf-8", errors="ignore").strip()
+        raise RuntimeError(
+            f"ffmpeg transcode failed (exit {proc.returncode}): "
+            f"{err[:500] or '<no stderr>'}"
+        )
+
+    return os.path.getsize(out_path)
+
+
+async def _file_chunks(path: str, *, chunk_size: int = 1 << 20) -> AsyncIterator[bytes]:
+    """Yield chunks of ``path`` without blocking the event loop.
+
+    Used to feed a tempfile (e.g. ffmpeg's transcoded output) into
+    ``_upload_stream_to_object``. ``chunk_size`` defaults to 1 MiB to
+    match the multipart-upload part size and to keep the Python heap
+    allocations small even when streaming large files.
+    """
+
+    def _open() -> Any:
+        return open(path, "rb")
+
+    f = await asyncio.to_thread(_open)
+    try:
+        while True:
+            chunk = await asyncio.to_thread(f.read, chunk_size)
+            if not chunk:
+                break
+            yield chunk
+    finally:
+        await asyncio.to_thread(f.close)
+
+
+def _make_transcode_tempfile(suffix: str = TRANSCODED_EXT) -> str:
+    """Allocate a fresh empty temp path (caller writes to it via ffmpeg).
+
+    We create with ``mkstemp`` to get a real, exclusive path, then
+    immediately close the fd and unlink so ffmpeg's ``-y`` doesn't
+    complain about overwriting and we don't leak an unused fd into
+    ffmpeg's process inheritance.
+    """
+    fd, path = tempfile.mkstemp(suffix=suffix, prefix="note-taker-")
+    os.close(fd)
+    try:
+        os.unlink(path)
+    except OSError:
+        pass
+    return path

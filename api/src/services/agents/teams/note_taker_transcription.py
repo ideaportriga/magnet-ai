@@ -13,7 +13,15 @@ from services.observability import observe
 from speech_to_text.transcription import service as transcription_service
 from services.prompt_templates import execute_prompt_template
 
-from .note_taker_files import _probe_remote_file_metadata, _upload_stream_to_object
+from .note_taker_files import (
+    _file_chunks,
+    _make_transcode_tempfile,
+    _probe_remote_file_metadata,
+    _transcode_stream_to_opus_file,
+    _upload_stream_to_object,
+    TRANSCODED_CONTENT_TYPE,
+    TRANSCODED_EXT,
+)
 from .note_taker_utils import (
     _build_note_taker_filename,
     _format_duration,
@@ -1416,6 +1424,102 @@ async def run_transcription_pipeline(
     settings_system_name: str | None = None,
     meeting_context: dict[str, Any] | None = None,
 ) -> None:
+    """Public entry: delegates to `_run_transcription_pipeline_impl`, but
+    catches any unhandled exception and surfaces it to the user in chat.
+
+    Without this wrapper, failures inside the pipeline (STT errors, blob
+    read errors, broken integrations, etc.) left the user staring at a
+    progress card stuck on ⏳ forever — no signal that anything went wrong.
+
+    Does NOT help when the host process is SIGKILLed (Azure CA OOM-kill
+    on large recordings, for example). For that, the recovery cron has
+    to pick up `Processing` jobs that didn't finish — out of scope here.
+    """
+    # Mutable handle that the impl populates so the outer except can
+    # finalize the progress card on error.
+    _shared: dict[str, Any] = {"progress": None}
+    try:
+        await _run_transcription_pipeline_impl(
+            context,
+            kind=kind,
+            send_typing=send_typing,
+            send_expandable_section=send_expandable_section,
+            load_settings_by_system_name=load_settings_by_system_name,
+            load_settings_for_context=load_settings_for_context,
+            resolve_meeting_details=resolve_meeting_details,
+            download_url=download_url,
+            headers=headers,
+            name_resolver=name_resolver,
+            known_size=known_size,
+            on_submit=on_submit,
+            on_submit_factory=on_submit_factory,
+            pipeline_id=pipeline_id,
+            job_id=job_id,
+            build_on_submit_callback=build_on_submit_callback,
+            conversation_date=conversation_date,
+            conversation_time=conversation_time,
+            settings_system_name=settings_system_name,
+            meeting_context=meeting_context,
+            _shared_state=_shared,
+        )
+    except Exception as err:
+        # Pull the most useful one-line description we can give the user.
+        # Bot Framework / msgraph errors carry `.message`; everything else
+        # falls back to str(err).
+        msg = (getattr(err, "message", None) or str(err) or type(err).__name__).strip()
+        logger.exception("Note Taker pipeline failed: %s", msg)
+
+        progress = _shared.get("progress")
+        if progress is not None:
+            try:
+                # Truncate the note — the card's FactSet still shows
+                # per-stage status, so the note is a one-liner summary.
+                await progress.finalize(note=f"⚠ Processing failed: {msg[:200]}")
+            except Exception:
+                logger.debug("Failed to finalize progress card on error", exc_info=True)
+        try:
+            await context.send_activity(
+                f"⚠ Note Taker processing failed: {msg[:500]}\n\n"
+                "Please try again. If this keeps happening, contact support "
+                "or share the file via /process-file."
+            )
+        except Exception:
+            logger.debug("Failed to send user-facing error message", exc_info=True)
+
+
+async def _run_transcription_pipeline_impl(
+    context: TurnContext,
+    *,
+    kind: str,
+    send_typing: Callable[[TurnContext], Awaitable[None]],
+    send_expandable_section: Callable[..., Awaitable[None]],
+    load_settings_by_system_name: Callable[[str], Awaitable[dict[str, Any]]],
+    load_settings_for_context: Callable[[TurnContext], Awaitable[dict[str, Any]]],
+    resolve_meeting_details: Callable[[TurnContext], dict[str, Any]],
+    # stream mode:
+    download_url: str | None = None,
+    headers: dict[str, str] | None = None,
+    name_resolver: Callable[[str, str | None, str], tuple[str, str]] | None = None,
+    known_size: int | None = None,
+    on_submit: Callable[[str], Awaitable[None]] | None = None,
+    on_submit_factory: Callable[
+        [str, str, str], Awaitable[Callable[[str], Awaitable[None]] | None]
+    ]
+    | None = None,
+    pipeline_id: str | None = None,
+    # job mode:
+    job_id: str | None = None,
+    build_on_submit_callback: Callable[
+        ..., Awaitable[Callable[[str], Awaitable[None]] | None]
+    ]
+    | None = None,
+    # shared:
+    conversation_date: str | None = None,
+    conversation_time: str | None = None,
+    settings_system_name: str | None = None,
+    meeting_context: dict[str, Any] | None = None,
+    _shared_state: dict[str, Any] | None = None,
+) -> None:
     if kind == "stream":
         assert download_url and headers is not None and name_resolver is not None
         await send_typing(context)
@@ -1426,6 +1530,11 @@ async def run_transcription_pipeline(
         # — the progress card just stops updating in those cases.
         progress = PipelineProgress()
         await progress.start(context)
+        # Stash for the outer wrapper so it can finalize the card on
+        # unhandled errors. Best-effort — None if the impl is called
+        # without the shared dict (legacy paths / unit tests).
+        if _shared_state is not None:
+            _shared_state["progress"] = progress
         await progress.update("download", "in_progress")
         settings: dict[str, Any] | None = None
         invited_people: list[dict[str, str]] = []
@@ -1519,19 +1628,105 @@ async def run_transcription_pipeline(
                 if submit_cb is None and on_submit_factory is not None:
                     submit_cb = await on_submit_factory(name, ext, content_type)
 
+                # Pipe-through ffmpeg transcode for video sources.
+                # Without this, a 1 GiB-memory container OOM-kills on
+                # the downstream `extract_audio_to_wav` step that loads
+                # the full WAV (~150 MB/hour) into Python heap as one
+                # `bytes` object. By landing a compressed audio-only
+                # WebM/Opus in blob storage instead of the raw video,
+                # peak memory drops by ~10×, blob egress drops with it,
+                # and ElevenLabs gets to skip its own decode step.
+                #
+                # Only transcodes video. Audio sources (mp3/m4a/wav)
+                # are uploaded as-is — they're already small and
+                # already in ElevenLabs-friendly formats.
+                _transcoded_path: str | None = None
+                _ffmpeg_missing = False
                 try:
-                    object_key = await _upload_stream_to_object(
-                        stream=response.aiter_bytes(),
-                        size=content_length,
-                        content_type=content_type,
-                        filename=f"{name}{ext}",
-                    )
+                    if content_type.startswith("video/"):
+                        try:
+                            await progress.update(
+                                "download",
+                                "in_progress",
+                                note=(
+                                    f"Compressing video to audio "
+                                    f"(source: {content_length // (1024 * 1024)} MB)…"
+                                ),
+                            )
+                        except Exception:
+                            pass
+
+                        _transcoded_path = _make_transcode_tempfile()
+                        try:
+                            transcoded_size = await _transcode_stream_to_opus_file(
+                                source=response.aiter_bytes(),
+                                out_path=_transcoded_path,
+                            )
+                        except FileNotFoundError:
+                            # ffmpeg binary missing from PATH. The
+                            # Dockerfile installs it (line 50), so this
+                            # only happens in odd environments. We can't
+                            # fall back to raw upload either — the source
+                            # stream has already been partially consumed
+                            # by ffmpeg's feeder, and large videos OOM
+                            # the downstream STT step anyway. Bail with
+                            # a clear actionable message.
+                            _ffmpeg_missing = True
+                            raise
+
+                        logger.info(
+                            "[teams note-taker] transcoded video %d MB → audio %d KB "
+                            "(%.1f× smaller)",
+                            content_length // (1024 * 1024),
+                            transcoded_size // 1024,
+                            content_length / max(transcoded_size, 1),
+                        )
+                        object_key = await _upload_stream_to_object(
+                            stream=_file_chunks(_transcoded_path),
+                            size=transcoded_size,
+                            content_type=TRANSCODED_CONTENT_TYPE,
+                            filename=f"{name}{TRANSCODED_EXT}",
+                        )
+                        # Downstream STT receives audio/webm now —
+                        # `transcribe/base.py:ALLOWED_EXT` accepts `.webm`,
+                        # and ElevenLabs' own ffmpeg call (in `_transcribe`)
+                        # decodes WebM/Opus exactly like any other input.
+                        ext = TRANSCODED_EXT
+                        content_type = TRANSCODED_CONTENT_TYPE
+                    else:
+                        object_key = await _upload_stream_to_object(
+                            stream=response.aiter_bytes(),
+                            size=content_length,
+                            content_type=content_type,
+                            filename=f"{name}{ext}",
+                        )
                 except Exception as err:
                     logger.exception("Failed to upload streamed file")
-                    await context.send_activity(
-                        f"I couldn't upload the file for transcription: {getattr(err, 'message', str(err))}"
-                    )
+                    # Tailor the user-facing copy: "ffmpeg missing" is
+                    # an ops issue, generic upload errors are usually
+                    # transient.
+                    if _ffmpeg_missing:
+                        await context.send_activity(
+                            "I couldn't process this video — the server's "
+                            "audio transcoder (ffmpeg) is unavailable. "
+                            "Please ask an admin to redeploy with ffmpeg "
+                            "installed, or share the file as audio (mp3 / m4a / wav)."
+                        )
+                    else:
+                        await context.send_activity(
+                            f"I couldn't upload the file for transcription: "
+                            f"{getattr(err, 'message', str(err))}"
+                        )
                     return
+                finally:
+                    # Always best-effort cleanup; transcode output is
+                    # already in blob storage by the time we finish the
+                    # try block, so the local copy is dead weight.
+                    if _transcoded_path:
+                        try:
+                            os.unlink(_transcoded_path)
+                        except OSError:
+                            pass
 
         _mc = meeting_context or resolve_meeting_details(context)
         _activity = getattr(context, "activity", None)
