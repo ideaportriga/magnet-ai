@@ -2,16 +2,16 @@
   <div class="stack full-height" data-gap="md">
     <div class="cluster" data-justify="between" data-align="center" data-wrap="no">
       <div class="km-description text-grey">
-        <span v-if="isLoading">Loading…</span>
+        <span v-if="isLoading">{{ m.common_loading() }}</span>
         <span v-else>
-          {{ entries.length }} entr{{ entries.length === 1 ? 'y' : 'ies' }}
+          {{ m.audit_entries({ count: entries.length }) }}
         </span>
       </div>
       <km-btn
         flat
         icon="refresh"
         icon-size="14px"
-        label="Refresh"
+        :label="m.common_refresh()"
         :loading="isFetching"
         @click="refetch"
       />
@@ -23,10 +23,10 @@
       :fetching="isFetching"
       fill-height
       row-key="id"
-      no-records-label="No changes have been recorded for this entity."
+      :no-records-label="m.audit_noRecords()"
       hide-pagination
       class="entity-audit__table"
-      style="min-block-size: 0; flex: 1"
+      :column-width-vars="tableColumnWidthVars"
       @row-click="(row) => openDetail((row as EntityAuditEntry).id)"
     />
 
@@ -44,25 +44,25 @@
         <km-inner-loading :showing="true" />
       </div>
 
-      <div v-else class="stack overflow-auto" data-gap="lg" style="min-block-size: 0; max-block-size: 70vh">
+      <div v-else class="entity-audit__detail stack overflow-auto" data-gap="lg">
         <section class="stack" data-gap="xs">
           <div class="cluster" data-justify="between" data-align="center" data-wrap="no">
             <div class="km-heading-7">
-              {{ diffEntries.length }} changed field{{ diffEntries.length === 1 ? '' : 's' }}
+              {{ m.audit_changedFields({ count: diffEntries.length }) }}
             </div>
             <km-input
               v-if="diffEntries.length > 4"
               v-model="diffFilter"
-              placeholder="Filter by path"
+              :placeholder="m.audit_filterByPath()"
               clearable
               dense
-              style="max-inline-size: 240px"
+              class="entity-audit__filter"
             />
           </div>
 
           <div v-if="filteredDiffEntries.length === 0" class="km-description text-grey p-md">
-            <span v-if="diffEntries.length === 0">No field-level changes were captured for this entry.</span>
-            <span v-else>No paths match the filter.</span>
+            <span v-if="diffEntries.length === 0">{{ m.audit_noFieldChanges() }}</span>
+            <span v-else>{{ m.audit_noPathMatches() }}</span>
           </div>
 
           <div v-else class="entity-audit__diff-table">
@@ -76,8 +76,8 @@
                 <km-chip
                   v-if="changeKind(change) !== 'change'"
                   size="sm"
-                  :tone="changeKind(change) === 'add' ? 'success' : 'destructive'"
-                  :label="changeKind(change) === 'add' ? 'added' : 'removed'"
+                  :tone="changeKind(change) === 'add' ? 'success' : 'danger'"
+                  :label="changeKind(change) === 'add' ? m.audit_added() : m.audit_removed()"
                 />
               </div>
 
@@ -129,18 +129,22 @@
         </section>
 
         <section v-if="hasFullSnapshots" class="stack" data-gap="xs">
-          <button type="button" class="entity-audit__toggle" @click="showFullSnapshots = !showFullSnapshots">
-            <km-glyph :name="showFullSnapshots ? 'chevron-down' : 'chevron-right'" size="12px" />
-            <span>{{ showFullSnapshots ? 'Hide' : 'Show' }} full state</span>
-          </button>
+          <km-btn
+            flat
+            :icon="showFullSnapshots ? 'chevron-down' : 'chevron-right'"
+            icon-size="12px"
+            :label="showFullSnapshots ? m.audit_hideFullState() : m.audit_showFullState()"
+            class="entity-audit__toggle"
+            @click="showFullSnapshots = !showFullSnapshots"
+          />
 
           <div v-if="showFullSnapshots" class="entity-audit__snapshots">
             <div v-if="detailDetail?.snapshot_before" class="stack" data-gap="2xs">
-              <div class="km-description text-grey">Snapshot before</div>
+              <div class="km-description text-grey">{{ m.audit_snapshotBefore() }}</div>
               <pre class="entity-audit__snapshot font-mono">{{ formatValue(detailDetail.snapshot_before) }}</pre>
             </div>
             <div v-if="detailDetail?.snapshot_after" class="stack" data-gap="2xs">
-              <div class="km-description text-grey">Snapshot after</div>
+              <div class="km-description text-grey">{{ m.audit_snapshotAfter() }}</div>
               <pre class="entity-audit__snapshot font-mono">{{ formatValue(detailDetail.snapshot_after) }}</pre>
             </div>
           </div>
@@ -148,7 +152,7 @@
       </div>
 
       <template #footer>
-        <km-btn flat label="Close" @click="detailOpen = false" />
+        <km-btn flat :label="m.common_close()" @click="detailOpen = false" />
         <km-btn
           v-if="canRestore"
           icon="undo"
@@ -162,18 +166,17 @@
 
     <km-popup-confirm
       :visible="confirmingRestore"
-      confirm-button-label="Restore"
-      cancel-button-label="Cancel"
+      :confirm-button-label="m.common_restore()"
+      :cancel-button-label="m.common_cancel()"
       notification-icon="warning"
       @confirm="doRestore"
       @cancel="confirmingRestore = false"
     >
       <div class="cluster km-heading-7" data-justify="center">
-        Restore this version?
+        {{ m.audit_restoreConfirmTitle() }}
       </div>
       <div class="cluster text-center" data-justify="center">
-        The entity's current state will be replaced with the snapshot from this audit entry.
-        A new audit row will record the restore.
+        {{ m.audit_restoreConfirmBody() }}
       </div>
     </km-popup-confirm>
   </div>
@@ -196,6 +199,9 @@ import {
 } from '@/api/entityAudit'
 import { DsDialog } from '@ds/primitives'
 import KmChip from '@ds/components/domain/KmChip.vue'
+import KmGlyph from '@ds/components/domain/KmGlyph.vue'
+import type { KmGlyphTone } from '@ds/components/domain/KmGlyph.vue'
+import { m } from '@/paraglide/messages'
 import {
   unifiedLineDiff,
   collapseContext,
@@ -227,6 +233,11 @@ const emit = defineEmits<{
 }>()
 
 const queryClient = useQueryClient()
+const tableColumnWidthVars = {
+  '--entity-audit-when-width': '11.25rem',
+  '--entity-audit-action-width': '6.875rem',
+  '--entity-audit-actions-width': '2.25rem',
+}
 
 const listQuery = useQuery({
   queryKey: computed(
@@ -377,13 +388,13 @@ const canRestore = computed(() => {
   if (!props.allowRestore) return false
   const action = detailEntry.value?.action
   // 'create' rows have no earlier state to restore to.
-  return action !== 'create'
+  return action !== 'create' && Boolean(detailEntry.value?.can_restore ?? detailDetail.value?.can_restore)
 })
 
 const restoreLabel = computed(() => {
   const action = detailEntry.value?.action
-  if (action === 'delete') return 'Restore deleted entity'
-  return 'Restore this version'
+  if (action === 'delete') return m.audit_restoreDeletedEntity()
+  return m.audit_restoreThisVersion()
 })
 
 const confirmingRestore = ref(false)
@@ -402,7 +413,7 @@ async function doRestore() {
   if (!id) return
   try {
     const result = await restoreMutation.mutateAsync(id)
-    notify.success('Entity restored from this version.')
+    notify.success(m.audit_restored())
     await queryClient.invalidateQueries({
       queryKey: ['entity-audit', 'list', { entity_type: props.entityType, entity_id: props.entityId }],
     })
@@ -413,24 +424,24 @@ async function doRestore() {
     detailOpen.value = false
   } catch (err: unknown) {
     notify.error(
-      err instanceof Error ? err.message : 'Could not restore from this version',
+      err instanceof Error ? err.message : m.audit_restoreFailed(),
     )
   }
 }
 
 // ── Table ────────────────────────────────────────────────────────────
-function actionTone(action: string) {
+function actionTone(action: string): 'success' | 'brand' | 'danger' | 'warning' | 'neutral' {
   switch (action) {
     case 'create':
       return 'success'
     case 'update':
       return 'brand'
     case 'delete':
-      return 'destructive'
+      return 'danger'
     case 'restore':
       return 'warning'
     default:
-      return 'muted'
+      return 'neutral'
   }
 }
 
@@ -451,34 +462,34 @@ const columns: ColumnDef<EntityAuditEntry, unknown>[] = [
   {
     id: 'created_at',
     accessorKey: 'created_at',
-    header: 'When',
+    header: m.audit_when(),
     cell: ({ row }) => formatDateTime(row.original.created_at),
     enableSorting: true,
-    meta: { width: '180px' },
+    meta: { width: 'var(--entity-audit-when-width)' },
   },
   {
     id: 'action',
     accessorKey: 'action',
-    header: 'Action',
+    header: m.audit_action(),
     cell: ({ row }) =>
       h(KmChip, {
         size: 'sm',
-        tone: actionTone(row.original.action) as never,
+        tone: actionTone(row.original.action),
         label: row.original.action,
       }),
     enableSorting: true,
-    meta: { width: '110px' },
+    meta: { width: 'var(--entity-audit-action-width)' },
   },
   {
     id: 'actor',
     accessorFn: (e) => e.actor_display || e.actor_type,
-    header: 'Actor',
+    header: m.audit_actor(),
     cell: ({ row }) => {
       const e = row.original
       return h('div', { class: 'stack', 'data-gap': '0' }, [
         h(
           'span',
-          { class: 'km-body-2', style: 'word-break: break-all' },
+          { class: 'entity-audit__break-all km-body-2' },
           e.actor_display || e.actor_type,
         ),
         h(
@@ -493,7 +504,7 @@ const columns: ColumnDef<EntityAuditEntry, unknown>[] = [
   {
     id: 'changes',
     accessorFn: diffCount,
-    header: 'Changes',
+    header: m.audit_changes(),
     cell: ({ row }) => {
       const count = diffCount(row.original)
       const paths = Object.keys(row.original.diff ?? {})
@@ -501,13 +512,12 @@ const columns: ColumnDef<EntityAuditEntry, unknown>[] = [
         .join(', ')
       if (count === 0) return h('span', { class: 'km-description text-grey' }, '—')
       return h('div', { class: 'stack', 'data-gap': '0' }, [
-        h('span', { class: 'km-body-2' }, `${count} field${count === 1 ? '' : 's'}`),
+        h('span', { class: 'km-body-2' }, m.audit_fieldCount({ count })),
         paths
           ? h(
               'span',
               {
-                class: 'km-description text-grey font-mono',
-                style: 'word-break: break-all',
+                class: 'entity-audit__break-all km-description text-grey font-mono',
               },
               count > 3 ? `${paths}, …` : paths,
             )
@@ -521,13 +531,13 @@ const columns: ColumnDef<EntityAuditEntry, unknown>[] = [
     id: 'actions',
     header: '',
     cell: () =>
-      h('km-glyph', {
+      h(KmGlyph, {
         name: 'chevron-right',
         size: '14px',
-        tone: 'muted',
+        tone: 'muted' as KmGlyphTone,
       }),
     enableSorting: false,
-    meta: { width: '36px' },
+    meta: { width: 'var(--entity-audit-actions-width)' },
   },
 ]
 
@@ -541,15 +551,26 @@ const { table } = useLocalDataTable<EntityAuditEntry>(entries, columns, {
 .entity-audit__diff-table {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--ds-space-sm);
+}
+.entity-audit__table {
+  min-block-size: 0;
+  flex: 1;
+}
+.entity-audit__detail {
+  min-block-size: 0;
+  max-block-size: 70vh;
+}
+.entity-audit__filter {
+  max-inline-size: 15rem;
 }
 .entity-audit__diff-row {
-  border: 1px solid var(--ds-color-border, #e0e0e0);
-  border-radius: 8px;
-  padding: 0.75rem;
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-lg);
+  padding: var(--ds-space-md);
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--ds-space-sm);
 }
 .entity-audit__diff-path {
   font-weight: 600;
@@ -557,29 +578,29 @@ const { table } = useLocalDataTable<EntityAuditEntry>(entries, columns, {
 }
 .entity-audit__snapshot {
   white-space: pre-wrap;
-  word-break: break-word;
+  overflow-wrap: anywhere;
   margin: 0;
-  font-size: 0.8125rem;
-  max-block-size: 240px;
+  font-size: var(--ds-font-size-md);
+  max-block-size: 15rem;
   overflow: auto;
 }
 
 .entity-audit__unified-diff {
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--ds-color-border, #e0e0e0);
-  border-radius: 6px;
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-md);
   overflow: hidden;
-  max-block-size: 480px;
+  max-block-size: 30rem;
   overflow-y: auto;
-  background: var(--ds-color-surface-subtle, #fafafa);
-  font-size: 0.8125rem;
+  background: var(--ds-color-surface-sunken);
+  font-size: var(--ds-font-size-md);
 }
 .entity-audit__diff-line {
   display: grid;
   grid-template-columns: 1.25rem 2.5rem 2.5rem 1fr;
   align-items: baseline;
-  padding-inline: 0.5rem;
+  padding-inline: var(--ds-space-sm);
   padding-block: 0.0625rem;
   white-space: pre;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -593,100 +614,89 @@ const { table } = useLocalDataTable<EntityAuditEntry>(entries, columns, {
   user-select: none;
 }
 .entity-audit__diff-lineno {
-  color: var(--ds-color-text-muted, rgba(0, 0, 0, 0.4));
+  color: var(--ds-color-fg-muted);
   text-align: end;
-  padding-inline-end: 0.5rem;
+  padding-inline-end: var(--ds-space-sm);
   user-select: none;
 }
 .entity-audit__diff-text {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  word-break: break-word;
 }
 .entity-audit__diff-text--meta {
-  color: var(--ds-color-text-muted, rgba(0, 0, 0, 0.55));
+  color: var(--ds-color-fg-muted);
   font-style: italic;
 }
 .entity-audit__diff-line--add {
-  background: rgba(76, 175, 80, 0.12);
-  color: rgba(27, 94, 32, 1);
+  background: var(--ds-color-success-soft);
+  color: var(--ds-color-success-on-soft);
 }
 .entity-audit__diff-line--del {
-  background: rgba(244, 67, 54, 0.1);
-  color: rgba(183, 28, 28, 1);
+  background: var(--ds-color-danger-soft);
+  color: var(--ds-color-danger-on-soft);
 }
 .entity-audit__diff-line--ctx {
-  color: var(--ds-color-text-secondary, rgba(0, 0, 0, 0.7));
+  color: var(--ds-color-fg-muted);
 }
 .entity-audit__diff-line--sep {
-  background: var(--ds-color-surface-muted, rgba(0, 0, 0, 0.04));
-  color: var(--ds-color-text-muted, rgba(0, 0, 0, 0.55));
+  background: var(--ds-color-surface);
+  color: var(--ds-color-fg-muted);
 }
 .entity-audit__snapshot {
-  background: var(--ds-color-surface-subtle, #f5f5f5);
-  border-radius: 6px;
-  padding: 0.5rem;
+  background: var(--ds-color-surface-sunken);
+  border-radius: var(--ds-radius-md);
+  padding: var(--ds-space-sm);
 }
 
 .entity-audit__diff-inline {
-  margin-block-start: 0.125rem;
+  margin-block-start: var(--ds-space-2xs);
 }
 .entity-audit__chip {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.125rem 0.5rem;
-  border-radius: 6px;
-  font-size: 0.8125rem;
+  gap: var(--ds-space-xs);
+  padding: var(--ds-space-2xs) var(--ds-space-sm);
+  border-radius: var(--ds-radius-md);
+  font-size: var(--ds-font-size-md);
   max-inline-size: 100%;
   overflow: hidden;
 }
 .entity-audit__chip-text {
   white-space: pre-wrap;
-  word-break: break-word;
   overflow-wrap: anywhere;
 }
 .entity-audit__chip--from {
-  background: rgba(244, 67, 54, 0.08);
-  color: rgba(183, 28, 28, 1);
-  border: 1px solid rgba(244, 67, 54, 0.25);
+  background: var(--ds-color-danger-soft);
+  color: var(--ds-color-danger-on-soft);
+  border: 1px solid var(--ds-color-danger-solid);
 }
 .entity-audit__chip--to {
-  background: rgba(76, 175, 80, 0.08);
-  color: rgba(27, 94, 32, 1);
-  border: 1px solid rgba(76, 175, 80, 0.25);
+  background: var(--ds-color-success-soft);
+  color: var(--ds-color-success-on-soft);
+  border: 1px solid var(--ds-color-success-solid);
 }
 .entity-audit__sign {
   font-weight: 700;
-  width: 0.75rem;
+  inline-size: var(--ds-space-md);
   text-align: center;
   flex: none;
 }
 
 .entity-audit__toggle {
-  appearance: none;
-  background: none;
-  border: none;
-  padding: 0.25rem 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  color: var(--ds-color-action-secondary, #2962ff);
-  cursor: pointer;
-  font-size: 0.875rem;
-}
-.entity-audit__toggle:hover {
-  text-decoration: underline;
+  align-self: flex-start;
 }
 .entity-audit__snapshots {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
+  gap: var(--ds-space-md);
 }
-@media (max-inline-size: 720px) {
+@media (width <= 45rem) {
   .entity-audit__snapshots {
     grid-template-columns: 1fr;
   }
+}
+.entity-audit__break-all {
+  word-break: break-all;
 }
 </style>
 
@@ -698,6 +708,6 @@ const { table } = useLocalDataTable<EntityAuditEntry>(entries, columns, {
   cursor: pointer;
 }
 .entity-audit__table tbody tr:hover {
-  background: var(--ds-color-surface-hover, rgba(0, 0, 0, 0.03));
+  background: var(--ds-color-table-hover);
 }
 </style>

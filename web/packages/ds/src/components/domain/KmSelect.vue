@@ -630,6 +630,32 @@ watch(open, (next) => {
   text-overflow: ellipsis;
 }
 
+/* Slot compatibility — many existing `#option` slot users copied a
+ * `<li class="km-item ba-border">` wrapper from legacy QSelect/QItem
+ * templates. Reka's `<ComboboxItem class="km-select__item">` IS the
+ * option shell, so an inner wrapper from the slot doesn't need its
+ * own border, padding, or bullet. Without this rule those legacy
+ * wrappers painted a stray 1px frame around the label only (because
+ * `.ba-border` is `border: 1px solid var(--ds-color-border)` from
+ * layout.css and the `<li>` shrink-wrapped to label width inside the
+ * flex item). Neutralise the decoration and make the wrapper take
+ * full inline size so any inner content lays out as if it were a
+ * plain `<div>`. New call sites should just emit plain markup. */
+/* Three separate selectors so each is 0,2,0+ specificity — enough to
+ * win over the bare `.ba-border` (0,1,0) utility from `layout.css`
+ * regardless of bundle order. */
+.km-select__item > .km-item,
+.km-select__item > .ba-border,
+.km-select__item > li {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  background: transparent;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
 .km-select__empty {
   padding: var(--ds-space-md);
   color: var(--ds-color-placeholder);

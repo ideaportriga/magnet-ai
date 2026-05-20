@@ -3,7 +3,7 @@
     <km-inner-loading :showing="loading" />
     <layouts-details-layout v-if="!loading">
       <template #header>
-        <layouts-details-header :name="name" :description="description" :system-name="system_name" :system-name-rules="[validSystemName()]" :created-at="entity?.created_at" :updated-at="entity?.updated_at" show-record-info :readonly="recordReadonly" @update:name="name = $event" @update:description="description = $event" @update:system-name="system_name = $event">
+        <layouts-details-header :name="name" :description="description" :system-name="system_name" :system-name-rules="[validSystemName()]" :created-at="entity?.created_at" :updated-at="entity?.updated_at" show-record-info :readonly="recordReadonly" :field-classes="headerFieldClasses" @update:name="name = $event" @update:description="description = $event" @update:system-name="system_name = $event">
           <template #actions>
             <km-btn v-if="isDirty && !recordReadonly" data-test="revert-btn" :label="m.common_revert()" icon="undo" icon-size="16px" flat @click="composableRevert()" />
             <km-btn v-if="!recordReadonly" data-test="save-btn" :label="m.common_save()" flat icon="save" icon-size="16px" :loading="saving" :disable="saving || !isDirty" @click="save" />
@@ -13,6 +13,7 @@
                 <km-btn class="px-xs" data-test="show-more-btn" flat icon="more-vertical" size="13px" />
               </ds-dropdown-menu-trigger>
               <ds-dropdown-menu-content side="bottom" align="end" :side-offset="4">
+                <ds-dropdown-menu-item v-if="!recordReadonly && entity?.id" data-test="ai-edit-btn" @select="showAiEdit = true">{{ m.aiEdit_action() }}</ds-dropdown-menu-item>
                 <ds-dropdown-menu-item data-test="clone-btn" :disabled="!canCreate" @select="canCreate && (showNewDialog = true)">{{ m.common_clone() }}</ds-dropdown-menu-item>
                 <ds-dropdown-menu-item v-if="canDelete" data-test="delete-btn" variant="destructive" @select="showDeleteDialog = true">{{ m.common_delete() }}</ds-dropdown-menu-item>
               </ds-dropdown-menu-content>
@@ -32,7 +33,7 @@
       <template #content>
         <!-- Tabs stay interactive so a read-only user can still switch tabs;
              individual tab panels carry the inert + readonly-zone wrap. -->
-        <km-tabs v-model="tab" class="prompt-details__tabs full-height" :items="tabs">
+        <km-tabs v-model="tab" class="prompt-details__tabs full-height" :items="tabsWithDirty">
           <template #panel-promptTemplate>
             <div :inert="recordReadonly" :class="recordReadonly ? 'prompt-readonly-zone' : null" class="prompt-details__tab-panel">
               <prompts-prompttemplate />
@@ -82,6 +83,13 @@
       <div class="cluster text-center" data-justify="center">{{ m.deleteConfirm_permanentDeleteDisable({ entity: m.entity_promptTemplate() }) }}</div>
     </km-popup-confirm>
     <prompts-create-new v-if="showNewDialog" :show-new-dialog="showNewDialog" copy @cancel="showNewDialog = false" />
+    <ai-edit-drawer
+      v-if="entity?.id"
+      v-model:open="showAiEdit"
+      entity-type="prompt_template"
+      :entity-id="entity.id"
+      @apply="onAiApply"
+    />
   </div>
 </template>
 
@@ -96,10 +104,13 @@ import { notify } from '@shared/utils/notify'
 import { usePermissions } from '@shared'
 import KmDropdownSelect from '@ds/components/domain/KmDropdownSelect.vue'
 import EntityAuditHistory from '@/components/shared/EntityAuditHistory.vue'
+import AiEditDrawer from '@/components/shared/AiEditDrawer.vue'
 import { entityKeys } from '@/queries/queryKeys'
+import { useEditBufferStore } from '@/stores/editBufferStore'
+import { applyAiVariantResult, setAiSaveContext } from '@/utils/aiEditMerge'
 
 export default {
-  components: { KmDropdownSelect, EntityAuditHistory },
+  components: { KmDropdownSelect, EntityAuditHistory, AiEditDrawer },
   emits: ['update:closeDrawer'],
   setup() {
     const queries = useEntityQueries()
@@ -142,12 +153,14 @@ export default {
         { value: 'responseFormat', label: m.common_responseFormat() },
         { value: 'samples', label: m.common_notes() },
         { value: 'testSets', label: m.common_testSets() },
-        { value: 'history', label: 'History' },
+        { value: 'history', label: m.common_history() },
       ]),
       showNewDialog: ref(false),
       showDeleteDialog: ref(false),
+      showAiEdit: ref(false),
       saving: ref(false),
       openTest: ref(true),
+      editBuffer: useEditBufferStore(),
       removeMutation,
       categoryOptions,
       validSystemName,
@@ -201,6 +214,62 @@ export default {
         ? [entityKeys.promptTemplates.detail(id), entityKeys.promptTemplates.lists()]
         : [entityKeys.promptTemplates.lists()]
     },
+    headerFieldClasses() {
+      if (!this.entity?.id) return {}
+      const key = `promptTemplates:${this.entity.id}`
+      const changed = this.editBuffer.getChangedPaths(key)
+      const aiSuggested = this.editBuffer.getAiSuggestedPaths(key)
+      const cls = (path) => ({
+        'field--ai-suggested': aiSuggested.has(path),
+        'field--unsaved': changed.has(path),
+      })
+      return {
+        name: cls('name'),
+        description: cls('description'),
+        systemName: cls('system_name'),
+      }
+    },
+    _activeVariantIndex() {
+      const variants = this.entity?.variants
+      const active = this.entity?.active_variant
+      if (!Array.isArray(variants)) return -1
+      return variants.findIndex((v) => v?.variant === active)
+    },
+    tabsWithDirty() {
+      if (!this.entity?.id) return this.tabs
+      const key = `promptTemplates:${this.entity.id}`
+      const changed = this.editBuffer.getChangedPaths(key)
+      if (changed.size === 0) return this.tabs
+
+      const idx = this._activeVariantIndex
+      const v = idx >= 0 ? `variants[${idx}].` : null
+      // Prompt template variants are "flat" — fields sit directly on
+      // each variant entry. Group paths by the tab that edits them.
+      const tabPathPrefixes = {
+        promptTemplate: v ? [`${v}text`] : [],
+        advancedSettings: v
+          ? [
+              `${v}system_name_for_model`,
+              `${v}model`,
+              `${v}temperature`,
+              `${v}topP`,
+              `${v}maxTokens`,
+              `${v}observability_level`,
+            ]
+          : [],
+        responseFormat: v ? [`${v}response_format`] : [],
+        samples: v ? [`${v}sample_text`, `${v}sample_test_set`] : [],
+      }
+      const arr = [...changed]
+      const isDirty = (prefixes) =>
+        prefixes.some((p) =>
+          arr.some((path) => path === p || path.startsWith(`${p}.`) || path.startsWith(`${p}[`)),
+        )
+      return this.tabs.map((t) => {
+        const prefixes = tabPathPrefixes[t.value]
+        return prefixes && prefixes.length ? { ...t, dirty: isDirty(prefixes) } : t
+      })
+    },
   },
 
   mounted() {
@@ -225,6 +294,9 @@ export default {
       }
       this.saving = true
       try {
+        if (this.entity?.id) {
+          setAiSaveContext(this.editBuffer, `promptTemplates:${this.entity.id}`, 'prompt_templates', this.entity.id)
+        }
         await this.composableSave()
         notify.success(m.notify_savedSuccessfully())
       } catch (error) {
@@ -243,6 +315,18 @@ export default {
       try {
         await this.refetch?.()
       } catch { /* refetch may be a no-op */ }
+    },
+    onAiApply(result) {
+      // PromptVariantSchema is a "flat" variant — the LLM returns the
+      // whole variant entry (with `variant` key as a field). We replace
+      // the whole entry while preserving the `variant` key.
+      if (!this.entity?.id) return
+      const key = `promptTemplates:${this.entity.id}`
+      if (!applyAiVariantResult(this.editBuffer, key, result, { shape: 'flat' })) {
+        notify.error(m.aiEdit_noActiveVariant())
+        return
+      }
+      this.showAiEdit = false
     },
   },
 }

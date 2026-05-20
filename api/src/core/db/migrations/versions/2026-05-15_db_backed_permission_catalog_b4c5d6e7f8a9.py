@@ -107,6 +107,8 @@ PERMISSIONS: list[tuple[str, str, str, str]] = [
     ("write:api_keys", "api_keys", "write", "Create or revoke API keys"),
     ("manage:resource_access", "resource_access", "manage", "Manage record-level ACLs"),
     ("read:audit", "audit", "read", "View access audit log"),
+    ("restore:audit", "audit", "restore", "Restore entities from audit history"),
+    ("execute:ai_edit", "ai_edit", "execute", "Generate AI-assisted entity edits"),
 ]
 
 

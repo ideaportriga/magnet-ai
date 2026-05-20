@@ -7,6 +7,7 @@ from .ai_model import AIModel
 from .api_key import APIKey
 from .access_grant import ResourceAccessGrant
 from .audit import AccessAuditLog
+from .ai_edit_request import AIEditRequest
 from .department import Department, UserDepartment
 from .entity_audit_log import EntityAuditLog
 
@@ -43,6 +44,7 @@ __all__ = [
     "AIModel",
     "APIKey",
     "AccessAuditLog",
+    "AIEditRequest",
     "EntityAuditLog",
     "Department",
     "ResourceAccessGrant",

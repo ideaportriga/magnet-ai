@@ -2,31 +2,37 @@
   <div>
     <km-section :title="m.section_llmModel()" :sub-title="m.subtitle_chooseModel()">
       <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.common_llmModel() }}</div>
-      <km-select v-model="model" height="auto" min-height="36px" :placeholder="m.common_llmModel()" :options="modelOptions" option-label="display_name" option-value="system_name" emit-value has-dropdown-search>
-        <template #option="{ itemProps, opt, toggleOption }">
-          <li class="km-item ba-border" v-bind="itemProps" dense @click="toggleOption(opt)">
-            <div class="km-item-section">
-              <span class="km-item-label km-label">{{ opt.display_name }}</span>
-              <div v-if="opt.provider_system_name" class="cluster mt-xs">
-                <km-chip tone="brand" size="sm" dense>{{ opt.provider_system_name }}</km-chip>
+      <div :class="fieldClass('system_name_for_model')">
+        <km-select v-model="model" height="auto" min-height="36px" :placeholder="m.common_llmModel()" :options="modelOptions" option-label="display_name" option-value="system_name" emit-value has-dropdown-search>
+          <template #option="{ itemProps, opt, toggleOption }">
+            <li class="km-item ba-border" v-bind="itemProps" dense @click="toggleOption(opt)">
+              <div class="km-item-section">
+                <span class="km-item-label km-label">{{ opt.display_name }}</span>
+                <div v-if="opt.provider_system_name" class="cluster mt-xs">
+                  <km-chip tone="brand" size="sm" dense>{{ opt.provider_system_name }}</km-chip>
+                </div>
               </div>
-            </div>
-          </li>
-        </template>
-      </km-select>
+            </li>
+          </template>
+        </km-select>
+      </div>
     </km-section>
     <km-separator class="my-lg" />
     <km-section :title="m.prompts_outputDiversity()" :sub-title="m.subtitle_temperature()">
-      <km-slider-card v-model="temperature" class="mb-lg" name="Temperature" :min="0" :max="2" :default-value="1" :min-label="m.prompts_lessRandom()" :max-label="m.prompts_moreRandom()" :description="m.prompts_recommendAltering()" :info-tooltip="m.prompts_temperatureTooltip()" />
+      <div :class="fieldClass('temperature')">
+        <km-slider-card v-model="temperature" class="mb-lg" name="Temperature" :min="0" :max="2" :default-value="1" :min-label="m.prompts_lessRandom()" :max-label="m.prompts_moreRandom()" :description="m.prompts_recommendAltering()" :info-tooltip="m.prompts_temperatureTooltip()" />
+      </div>
     </km-section>
     <km-section>
-      <km-slider-card v-model="topP" name="Top P" :min="0" :max="1" :default-value="1" :min-label="m.prompts_lessDiverse()" :max-label="m.prompts_moreDiverse()" :description="m.prompts_recommendAltering()" :info-tooltip="m.prompts_topPTooltip()" />
+      <div :class="fieldClass('topP')">
+        <km-slider-card v-model="topP" name="Top P" :min="0" :max="1" :default-value="1" :min-label="m.prompts_lessDiverse()" :max-label="m.prompts_moreDiverse()" :description="m.prompts_recommendAltering()" :info-tooltip="m.prompts_topPTooltip()" />
+      </div>
     </km-section>
     <km-separator class="my-lg" />
     <km-section :title="m.section_outputLimit()" :sub-title="m.subtitle_outputLimit()">
       <div class="km-field text-secondary-text pb-xs pl-sm">
         {{ m.prompts_maxTokens() }}
-        <div style="max-inline-size: 200px">
+        <div :class="fieldClass('maxTokens')" style="max-inline-size: 200px">
           <km-input v-model="maxTokens" type="number" height="30px" :placeholder="m.prompts_maxTokens()" />
         </div>
         <div class="km-description text-secondary-text pb-xs">{{ m.prompts_tokenApprox() }}</div>
@@ -35,7 +41,9 @@
     <km-separator class="my-lg" />
     <km-section :title="m.nav_observability()" :sub-title="m.prompts_controlLogging()">
       <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.prompts_loggingLevel() }}</div>
-      <km-select v-model="observabilityLevel" height="auto" min-height="36px" :placeholder="m.prompts_selectLoggingLevel()" :options="observabilityLevelOptions" option-label="label" option-value="value" emit-value map-options />
+      <div :class="fieldClass('observability_level')">
+        <km-select v-model="observabilityLevel" height="auto" min-height="36px" :placeholder="m.prompts_selectLoggingLevel()" :options="observabilityLevelOptions" option-label="label" option-value="value" emit-value map-options />
+      </div>
       <div class="km-description text-secondary-text pt-xs pl-sm">{{ observabilityLevelDescription }}</div>
     </km-section>
   </div>
@@ -47,6 +55,7 @@ import { m } from '@/paraglide/messages'
 import { ref, computed } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
+import { useEditBufferStore } from '@/stores/editBufferStore'
 
 export default {
   props: ['prompt', 'selectedRow'],
@@ -54,15 +63,17 @@ export default {
 
   setup() {
     const queries = useEntityQueries()
-    const { activeVariant, updateVariantField } = useVariantEntityDetail('promptTemplates')
+    const { draft, activeVariant, updateVariantField } = useVariantEntityDetail('promptTemplates')
     const { data: modelListData } = queries.model.useList()
     const modelItems = computed(() => modelListData.value?.items ?? [])
 
     return {
       m,
+      draft,
       activeVariant,
       updateVariantField,
       modelItems,
+      editBuffer: useEditBufferStore(),
       test: ref(true),
       iconPicker: ref(false),
       showError: ref(false),
@@ -172,6 +183,16 @@ export default {
     canSave() {
       return !!this.prompt.text && !!this.prompt.description && !!this.prompt.name
     },
+    /** Buffer key + active-variant index for the highlight helper. */
+    _bufferKey() {
+      return this.draft?.id ? `promptTemplates:${this.draft.id}` : null
+    },
+    _activeVariantIndex() {
+      const variants = this.draft?.variants
+      const active = this.draft?.active_variant
+      if (!Array.isArray(variants)) return -1
+      return variants.findIndex((v) => v?.variant === active)
+    },
   },
   created() {},
   methods: {
@@ -189,6 +210,21 @@ export default {
     navigate(path = '') {
       if (this.$route.path !== `/${path}`) {
         this.$router.push(`/${path}`)
+      }
+    },
+    /** Highlight helper — same convention as the prompt-template tab:
+     *  the path is relative to the active variant; we resolve to the
+     *  full ``variants[<idx>].<path>`` form the diff walker emits. */
+    fieldClass(relativePath) {
+      const key = this._bufferKey
+      const idx = this._activeVariantIndex
+      if (!key || idx < 0) return {}
+      const fullPath = `variants[${idx}].${relativePath}`
+      const changed = this.editBuffer.getChangedPaths(key)
+      const aiSuggested = this.editBuffer.getAiSuggestedPaths(key)
+      return {
+        'field--ai-suggested': aiSuggested.has(fullPath),
+        'field--unsaved': changed.has(fullPath),
       }
     },
   },

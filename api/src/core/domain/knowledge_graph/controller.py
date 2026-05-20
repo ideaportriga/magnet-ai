@@ -72,7 +72,17 @@ from services.knowledge_graph.retrievers.agent_retriever.agent import (
     continue_conversation,
     start_conversation,
 )
-from services.knowledge_graph.sources import FileUploadDataSource
+
+# NOTE: ``FileUploadDataSource`` is imported lazily inside the handler
+# methods that need it. Top-level import here triggered a circular cycle
+# at worker startup: a worker task pulling
+# ``services.knowledge_graph.sources.sync_recovery`` runs
+# ``services/knowledge_graph/sources/__init__.py`` → ``confluence_source``
+# → ``abstract_source`` → ``core.domain.knowledge_graph.services`` →
+# ``core/domain/knowledge_graph/__init__.py`` → this ``controller`` module
+# → ``from services.knowledge_graph.sources import FileUploadDataSource``,
+# which fails because that package is still initialising at this point.
+# Deferring the import to call time breaks the cycle.
 from services.observability import observability_overrides, observe
 
 from storage import FileLimits, StorageService
@@ -282,6 +292,8 @@ class KnowledgeGraphController(Controller):
                 )
                 stored_file_id = str(stored_file.id)
 
+            from services.knowledge_graph.sources import FileUploadDataSource
+
             await FileUploadDataSource().upload_and_process_file(
                 db_session,
                 graph_id,
@@ -419,6 +431,8 @@ class KnowledgeGraphController(Controller):
                 sub_path=f"kg/{graph_id}/uploads",
             )
             stored_file_id = str(stored_file.id)
+
+        from services.knowledge_graph.sources import FileUploadDataSource
 
         await FileUploadDataSource().upload_and_process_file(
             db_session,

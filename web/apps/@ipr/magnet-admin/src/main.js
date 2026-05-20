@@ -24,6 +24,7 @@ import 'animate.css/animate.min.css'
 import '@ds/styles'
 import '@ds/reset'
 import '@/assets/layout.css'
+import '@/assets/field-highlight.css'
 
 // Import i18n (Paraglide JS)
 import * as runtime from '@/paraglide/runtime'

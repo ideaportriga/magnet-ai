@@ -50,6 +50,7 @@ const props = withDefaults(
       | string[]
       | Record<string, boolean>
       | ((row: T) => string | string[] | Record<string, boolean>)
+    columnWidthVars?: Record<string, string>
   }>(),
   {
     loading: false,
@@ -120,7 +121,7 @@ const pageSizeOptionItems = computed(() =>
 </script>
 
 <template>
-  <div class="km-data-table" :class="{ 'km-data-table--fill-height': fillHeight }" data-test="km-data-table">
+  <div class="km-data-table" :class="{ 'km-data-table--fill-height': fillHeight }" :style="columnWidthVars" data-test="km-data-table">
     <div class="km-data-table__body">
       <table class="km-data-table__table">
         <thead class="km-data-table__header">

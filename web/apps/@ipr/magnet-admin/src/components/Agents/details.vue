@@ -15,7 +15,7 @@
       <km-btn class="mt-lg" outline tone="brand" :label="m.access_backToList()" no-caps @click="navigate('/agents')" />
     </div>
   </div>
-  <layouts-details-layout v-else-if="!loading" :name="name" :description="description" :system-name="system_name" :system-name-rules="[validSystemName()]" :created-at="entity?.created_at" :updated-at="entity?.updated_at" :created-by="entity?.created_by" :updated-by="entity?.updated_by" show-record-info :no-header="$route?.name !== &quot;AgentDetail&quot;" :no-content-wrapper="$route?.name !== &quot;AgentDetail&quot;" :readonly="recordReadonly" @update:name="name = $event" @update:description="description = $event" @update:system-name="system_name = $event">
+  <layouts-details-layout v-else-if="!loading" :name="name" :description="description" :system-name="system_name" :system-name-rules="[validSystemName()]" :created-at="entity?.created_at" :updated-at="entity?.updated_at" :created-by="entity?.created_by" :updated-by="entity?.updated_by" show-record-info :no-header="$route?.name !== &quot;AgentDetail&quot;" :no-content-wrapper="$route?.name !== &quot;AgentDetail&quot;" :readonly="recordReadonly" :field-classes="headerFieldClasses" @update:name="name = $event" @update:description="description = $event" @update:system-name="system_name = $event">
     <template #subheader>
       <!-- SubHeader is NOT wrapped in inert — switching variants is a
            read action (the user wants to see the different versions).
@@ -35,6 +35,15 @@
       <!-- Read-only indicator: a single lock glyph (with tooltip) instead
            of a full chip — keeps the toolbar visually light. -->
       <km-glyph v-if="recordReadonly" name="lock" size="16px" tone="muted" :title="m.access_readOnlyTooltip()" data-test="agent-readonly-icon" />
+      <km-chip
+        v-if="aiSuggestedCount > 0"
+        tone="info"
+        size="sm"
+        icon="magic"
+        icon-size="12px"
+        :label="`${aiSuggestedCount} AI suggested`"
+        data-test="ai-suggested-chip"
+      />
       <km-btn v-if="isDirty && canEdit" data-test="revert-btn" :label="m.common_revert()" icon="undo" icon-size="16px" flat @click="revert()" />
       <km-btn v-if="canEdit" data-test="save-btn" :label="m.common_save()" flat icon="save" icon-size="16px" :loading="saving" :disable="saving || !isDirty" @click="save" />
       <ds-dropdown-menu-root>
@@ -42,6 +51,7 @@
           <km-btn class="px-xs" data-test="show-more-btn" flat icon="more-vertical" size="13px" />
         </ds-dropdown-menu-trigger>
         <ds-dropdown-menu-content side="bottom" align="end" :side-offset="4">
+          <ds-dropdown-menu-item v-if="canEdit && entity?.id" data-test="ai-edit-btn" @select="showAiEdit = true">{{ m.aiEdit_action() }}</ds-dropdown-menu-item>
           <ds-dropdown-menu-item v-if="canCreate" data-test="clone-btn" @select="showNewDialog = true">{{ m.common_clone() }}</ds-dropdown-menu-item>
           <ds-dropdown-menu-item v-if="canDelete" data-test="delete-btn" variant="destructive" @select="showDeleteDialog = true">{{ m.common_delete() }}</ds-dropdown-menu-item>
         </ds-dropdown-menu-content>
@@ -62,11 +72,11 @@
              navigate between Topics / Settings / Channels / etc. The tab
              *content* is wrapped in an inert zone — buttons, inputs and
              dialogs inside it can't be activated. -->
-        <km-tabs v-model="tab" :items="tabs" />
+        <km-tabs v-model="tab" :items="tabsWithDirty" />
         <div
-          :inert="recordReadonly" :class="[
+          :inert="recordReadonly && tab !== 'history'" :class="[
             'stack full-height full-width overflow-auto mb-md mt-lg km-flex-min-0',
-            recordReadonly ? 'agent-readonly-zone' : null,
+            recordReadonly && tab !== 'history' ? 'agent-readonly-zone' : null,
           ]" data-gap="lg"
         >
           <agents-topics v-if="tab == &quot;topics&quot;" />
@@ -96,6 +106,13 @@
     </template>
   </layouts-details-layout>
   <agents-create-new v-if="showNewDialog" :show-new-dialog="showNewDialog" copy @cancel="showNewDialog = false" />
+  <ai-edit-drawer
+    v-if="entity?.id"
+    v-model:open="showAiEdit"
+    entity-type="agent"
+    :entity-id="entity.id"
+    @apply="onAiApply"
+  />
 </template>
 
 <script>
@@ -108,10 +125,13 @@ import { notify } from '@shared/utils/notify'
 import { usePermissions } from '@shared'
 import AgentsAccessInfo from './AccessInfo.vue'
 import EntityAuditHistory from '@/components/shared/EntityAuditHistory.vue'
+import AiEditDrawer from '@/components/shared/AiEditDrawer.vue'
 import { entityKeys } from '@/queries/queryKeys'
+import { useEditBufferStore } from '@/stores/editBufferStore'
+import { applyAiVariantResult, setAiSaveContext } from '@/utils/aiEditMerge'
 
 export default {
-  components: { AgentsAccessInfo, EntityAuditHistory },
+  components: { AgentsAccessInfo, EntityAuditHistory, AiEditDrawer },
   emits: ['update:closeDrawer'],
   setup() {
     const route = useRoute()
@@ -200,6 +220,8 @@ export default {
       showLeaveDialog,
       confirmLeave,
       cancelLeave,
+      editBuffer: useEditBufferStore(),
+      showAiEdit: ref(false),
       tab: ref('topics'),
       tabs: ref([
         { value: 'topics', label: m.common_topics() },
@@ -209,7 +231,7 @@ export default {
         { value: 'conversations', label: m.common_conversations() },
         { value: 'notes', label: m.common_notes() },
         { value: 'testSets', label: m.common_testSets() },
-        { value: 'history', label: 'History' },
+        { value: 'history', label: m.common_history() },
       ]),
       showNewDialog: ref(false),
       showDeleteDialog: ref(false),
@@ -260,6 +282,72 @@ export default {
         ? [entityKeys.agents.detail(id), entityKeys.agents.lists()]
         : [entityKeys.agents.lists()]
     },
+    aiSuggestedCount() {
+      // Number of dot-paths the AI most recently suggested and the user
+      // hasn't reverted yet. Drives the "N AI suggested" chip next to
+      // Save so the user sees there's pending AI work waiting to be
+      // committed (or thrown away with Revert).
+      if (!this.entity?.id) return 0
+      return this.editBuffer.getAiSuggestedPaths(`agents:${this.entity.id}`).size
+    },
+    headerFieldClasses() {
+      // Pass per-field highlight classes for the header inputs. We
+      // compute them eagerly (not via composable) so the same Options
+      // API call site works without a Composition setup migration.
+      if (!this.entity?.id) return {}
+      const key = `agents:${this.entity.id}`
+      const changed = this.editBuffer.getChangedPaths(key)
+      const aiSuggested = this.editBuffer.getAiSuggestedPaths(key)
+      const cls = (path) => ({
+        'field--ai-suggested': aiSuggested.has(path),
+        'field--unsaved': changed.has(path),
+      })
+      return {
+        name: cls('name'),
+        description: cls('description'),
+        systemName: cls('system_name'),
+      }
+    },
+    /** Tabs with a `dirty` flag derived from per-section path prefixes
+     *  in the edit buffer. Each prefix matches the variant-relative
+     *  paths the corresponding tab edits (e.g. the `settings` tab
+     *  touches paths under `variants[N].value.settings.*`). */
+    tabsWithDirty() {
+      if (!this.entity?.id) return this.tabs
+      const key = `agents:${this.entity.id}`
+      const changed = this.editBuffer.getChangedPaths(key)
+      if (changed.size === 0) return this.tabs
+
+      const idx = this._activeVariantIndex
+      const v = idx >= 0 ? `variants[${idx}].value.` : null
+      // Each tab's paths — matched as PREFIX on the changed-path set.
+      const tabPathPrefixes = {
+        topics: v
+          ? [`${v}topics`, `${v}prompt_templates`]
+          : [],
+        'post-processing': v ? [`${v}post_processing`] : [],
+        settings: v ? [`${v}settings`] : [],
+        channels: ['channels'],
+        // History / Conversations / Notes / TestSets aren't edit
+        // surfaces for the entity body — never dirty here.
+      }
+      const isDirty = (prefixes) =>
+        prefixes.some((p) =>
+          [...changed].some((path) => path === p || path.startsWith(`${p}.`) || path.startsWith(`${p}[`)),
+        )
+      return this.tabs.map((t) => {
+        const prefixes = tabPathPrefixes[t.value]
+        return prefixes && prefixes.length ? { ...t, dirty: isDirty(prefixes) } : t
+      })
+    },
+    /** Index of the active variant in `draft.variants` — used by
+     *  ``tabsWithDirty`` to build paths into the buffer. */
+    _activeVariantIndex() {
+      const variants = this.draft?.variants
+      const active = this.draft?.active_variant
+      if (!Array.isArray(variants)) return -1
+      return variants.findIndex((v) => v?.variant === active)
+    },
   },
 
   mounted() {
@@ -284,6 +372,11 @@ export default {
       }
       this.saving = true
       try {
+        // Forward the AI request id (if any) into the upcoming PATCH so
+        // the audit row records which AI suggestion produced this save.
+        if (this.entity?.id) {
+          setAiSaveContext(this.editBuffer, `agents:${this.entity.id}`, 'agents', this.entity.id)
+        }
         await this.saveEntity()
         notify.success(m.agents_savedSuccessfully())
       } catch (error) {
@@ -304,6 +397,20 @@ export default {
       try {
         await this.refetch?.()
       } catch { /* refetch may not be available on stub */ }
+    },
+    onAiApply(result) {
+      // The AI editor returns just the editable subset (an
+      // ``AgentVariantValue``). Patch it into the active variant of the
+      // current draft, then push the merged object back through
+      // editBuffer.applyAiPatch so the form picks up an "AI-suggested"
+      // highlight on every changed path.
+      if (!this.entity?.id) return
+      const key = `agents:${this.entity.id}`
+      if (!applyAiVariantResult(this.editBuffer, key, result, { shape: 'wrapped' })) {
+        notify.error(m.aiEdit_noActiveVariant())
+        return
+      }
+      this.showAiEdit = false
     },
   },
 }

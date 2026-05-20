@@ -27,7 +27,12 @@ from uuid import UUID
 from sqlalchemy import event, inspect
 from sqlalchemy.orm import Session
 
-from .context import AuditContext, current_audit_context, system_audit_context
+from .context import (
+    AuditContext,
+    AuditSource,
+    current_audit_context,
+    system_audit_context,
+)
 from .mixin import Auditable
 from .snapshot import (
     compute_diff,
@@ -140,11 +145,13 @@ def _build_audit_row(pending: _PendingAudit, ctx: AuditContext):
         )
         return None
 
+    action = "restore" if ctx.source == AuditSource.RESTORE else pending.action
+
     return EntityAuditLog(
         tenant_id=tenant_id,
         entity_type=pending.entity_type,
         entity_id=pk,
-        action=pending.action,
+        action=action,
         actor_id=ctx.actor_id,
         actor_type=ctx.actor_type.value,
         actor_display=ctx.actor_display or "",
@@ -153,6 +160,7 @@ def _build_audit_row(pending: _PendingAudit, ctx: AuditContext):
         snapshot_before=snapshot_before,
         snapshot_after=snapshot_after,
         diff=diff,
+        ai_request_id=ctx.ai_request_id,
     )
 
 

@@ -2,8 +2,12 @@
   <div class="details-header stack" data-gap="sm">
     <div class="details-header__top cluster" data-wrap="no" data-align="start" data-gap="md">
       <div class="details-header__identity stack flex-1 km-flex-min-w-0" data-gap="2xs">
-        <km-input-flat class="km-heading-4 full-width text-black" data-test="name-input" :placeholder="namePlaceholder || m.common_name()" :model-value="name" :readonly="readonly" @change="emit('update:name', $event)" />
-        <km-input-flat v-if="showDescription" class="km-description full-width text-black" data-test="description-input" :placeholder="descriptionPlaceholder || m.common_description()" :model-value="description" :readonly="readonly" @change="emit('update:description', $event)" />
+        <div :class="fieldClasses.name">
+          <km-input-flat class="km-heading-4 full-width text-black" data-test="name-input" :placeholder="namePlaceholder || m.common_name()" :model-value="name" :readonly="readonly" @change="emit('update:name', $event)" />
+        </div>
+        <div v-if="showDescription" :class="fieldClasses.description">
+          <km-input-flat class="km-description full-width text-black" data-test="description-input" :placeholder="descriptionPlaceholder || m.common_description()" :model-value="description" :readonly="readonly" @change="emit('update:description', $event)" />
+        </div>
       </div>
       <div v-if="hasToolbar" class="details-header__toolbar cluster flex-none" data-align="center" data-wrap="no" data-gap="xs">
         <slot name="actions" />
@@ -29,7 +33,7 @@
 
     <div class="details-header__meta stack" data-gap="xs">
       <div class="details-header__system-name cluster" data-gap="sm" data-wrap="no" data-align="center">
-        <div class="details-header__system-name-field">
+        <div class="details-header__system-name-field" :class="fieldClasses.systemName">
           <slot name="system-name" :value="systemName" :update="(value) =&gt; emit('update:systemName', value)">
             <km-input-flat class="details-header__system-name-input km-description text-black full-width font-mono" data-test="system-name-input" :placeholder="systemNamePlaceholder || m.placeholder_enterSystemNameReadable()" :model-value="systemName" :rules="systemNameRules" :readonly="readonly" @change="emit('update:systemName', $event)" @focus="showInfo = true" @blur="showInfo = false" />
           </slot>
@@ -119,6 +123,15 @@ const props = defineProps({
   readonly: {
     type: Boolean,
     default: false,
+  },
+  // Part B: per-field highlight classes (used by `useFieldHighlightClass`
+  // — see `assets/field-highlight.css`). Shape:
+  //   { name?: object, description?: object, systemName?: object }
+  // Empty by default — header rendering is unchanged when the host
+  // doesn't pass it.
+  fieldClasses: {
+    type: Object,
+    default: () => ({}),
   },
 })
 const showInfo = ref(false)

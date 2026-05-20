@@ -127,9 +127,11 @@ export interface EvaluationJob extends BaseEntity {
 
 export interface Model extends BaseEntity {
   is_default?: boolean
+  is_active?: boolean
   type?: string
   display_name?: string
   model?: string
+  provider_system_name?: string
 }
 
 export interface Provider extends BaseEntity {

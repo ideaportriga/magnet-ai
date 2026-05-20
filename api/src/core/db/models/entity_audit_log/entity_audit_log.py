@@ -123,6 +123,17 @@ class EntityAuditLog(UUIDv7AuditBase):
         comment="Per-path diff: {'path.to.field': {'from': ..., 'to': ...}}",
     )
 
+    ai_request_id: Mapped[Optional[UUID]] = mapped_column(
+        ForeignKey("ai_edit_request.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment=(
+            "Set when this audit row was produced by saving an AI-edit "
+            "suggestion; links back to the originating ai_edit_request row. "
+            "NULL for manual edits."
+        ),
+    )
+
     def __repr__(self) -> str:  # pragma: no cover
         return (
             f"<EntityAuditLog(action='{self.action}', "

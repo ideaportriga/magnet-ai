@@ -22,6 +22,8 @@ class EntityAuditLogEntry(BaseModel):
     actor_display: str = ""
     source: str
     request_id: Optional[str] = None
+    ai_request_id: Optional[UUID] = None
+    can_restore: bool = False
     diff: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime
 
@@ -41,3 +43,4 @@ class EntityAuditRestoreResponse(BaseModel):
     restored_from_audit_id: UUID
     restore_audit_id: Optional[UUID] = None
     snapshot_applied: dict[str, Any]
+    can_restore: bool = False

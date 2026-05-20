@@ -9,11 +9,13 @@
         </div>
       </div>
       <!-- Preview: render as markdown with {vars} as chips-->
-      <div v-if="viewMode === 'preview'" class="prompt-locked markdown-content">
+      <div v-if="viewMode === 'preview'" class="prompt-locked markdown-content" :class="fieldClass('text')">
         <div v-html="lockedRenderedHtml" />
       </div>
       <!-- Code: editable textarea-->
-      <km-input v-else ref="input" v-model="text" rows="20" :placeholder="m.prompts_typeYourText()" border-radius="8px" height="36px" type="textarea" />
+      <div v-else :class="fieldClass('text')">
+        <km-input ref="input" v-model="text" rows="20" :placeholder="m.prompts_typeYourText()" border-radius="8px" height="36px" type="textarea" />
+      </div>
     </div>
   </div>
 </template>
@@ -24,6 +26,7 @@ import { m } from '@/paraglide/messages'
 import { ref } from 'vue'
 import MarkdownIt from 'markdown-it'
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
+import { useEditBufferStore } from '@/stores/editBufferStore'
 import chromaConfig from '@/config/entityFieldConfig'
 
 export default {
@@ -32,11 +35,13 @@ export default {
 
   setup() {
     const md = new MarkdownIt({ html: false, breaks: true })
-    const { activeVariant, updateVariantField } = useVariantEntityDetail('promptTemplates')
+    const { draft, activeVariant, updateVariantField } = useVariantEntityDetail('promptTemplates')
     return {
       m,
+      draft,
       activeVariant,
       updateVariantField,
+      editBuffer: useEditBufferStore(),
       markdownRenderer: md,
       test: ref(true),
       iconPicker: ref(false),
@@ -151,6 +156,19 @@ export default {
     metadataFields() {
       return this.promptMetadata[this.selectedEntity]?.controls ?? {}
     },
+    /** Buffer key for the prompt template detail page. */
+    _bufferKey() {
+      return this.draft?.id ? `promptTemplates:${this.draft.id}` : null
+    },
+    /** Index of the active variant inside `draft.variants` — needed to
+     *  build the full editBuffer paths the diff walker produces
+     *  (e.g. `variants[2].text`). */
+    _activeVariantIndex() {
+      const variants = this.draft?.variants
+      const active = this.draft?.active_variant
+      if (!Array.isArray(variants)) return -1
+      return variants.findIndex((v) => v?.variant === active)
+    },
   },
   created() {},
   methods: {
@@ -168,6 +186,24 @@ export default {
     navigate(path = '') {
       if (this.$route.path !== `/${path}`) {
         this.$router.push(`/${path}`)
+      }
+    },
+    /** CSS-class helper for highlighting unsaved + AI-suggested fields.
+     *  Accepts a path RELATIVE to the active variant body
+     *  (e.g. ``'text'``, ``'temperature'``) and resolves it to the full
+     *  buffer path the diff walker emits. Prompt Template variants are
+     *  "flat" — no ``.value`` wrapper — so the full path is
+     *  ``variants[<idx>].<relativePath>``. */
+    fieldClass(relativePath) {
+      const key = this._bufferKey
+      const idx = this._activeVariantIndex
+      if (!key || idx < 0) return {}
+      const fullPath = `variants[${idx}].${relativePath}`
+      const changed = this.editBuffer.getChangedPaths(key)
+      const aiSuggested = this.editBuffer.getAiSuggestedPaths(key)
+      return {
+        'field--ai-suggested': aiSuggested.has(fullPath),
+        'field--unsaved': changed.has(fullPath),
       }
     },
   },

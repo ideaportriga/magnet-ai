@@ -17,7 +17,7 @@
               <slot name="header-actions" />
             </div>
           </div>
-          <layouts-details-header v-else :name="name" :description="description" :system-name="systemName" :system-name-rules="systemNameRules" :info-text="infoText" :show-description="showDescription" :show-record-info="showRecordInfo" :created-at="createdAt" :updated-at="updatedAt" :created-by="createdBy" :updated-by="updatedBy" :updated-label="updatedLabel" :readonly="readonly" @update:name="(value) =&gt; $emit(&quot;update:name&quot;, value)" @update:description="(value) =&gt; $emit(&quot;update:description&quot;, value)" @update:system-name="(value) =&gt; $emit(&quot;update:systemName&quot;, value)">
+          <layouts-details-header v-else :name="name" :description="description" :system-name="systemName" :system-name-rules="systemNameRules" :info-text="infoText" :show-description="showDescription" :show-record-info="showRecordInfo" :created-at="createdAt" :updated-at="updatedAt" :created-by="createdBy" :updated-by="updatedBy" :updated-label="updatedLabel" :readonly="readonly" :field-classes="fieldClasses" @update:name="(value) =&gt; $emit(&quot;update:name&quot;, value)" @update:description="(value) =&gt; $emit(&quot;update:description&quot;, value)" @update:system-name="(value) =&gt; $emit(&quot;update:systemName&quot;, value)">
             <template v-if="$slots[&quot;header-actions&quot;]" #actions>
               <slot name="header-actions" />
             </template>
@@ -119,6 +119,12 @@ const props = defineProps({
   readonly: {
     type: Boolean,
     default: false,
+  },
+  // Part B: per-field highlight classes forwarded to the header. Shape:
+  //   { name?: object, description?: object, systemName?: object }
+  fieldClasses: {
+    type: Object,
+    default: () => ({}),
   },
 })
 const emit = defineEmits([

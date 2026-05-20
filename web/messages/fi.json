@@ -2240,10 +2240,8 @@
   "entity_ragtools": "RAG-työkalut",
   "common_to": "–",
   "common_features": "Ominaisuudet",
-
   "assistantTools_maxChunkSize": "Lohkon enimmäiskoko",
   "assistantTools_toolNameForLlm": "Työkalun nimi LLM:lle",
-
   "promptQueue_myQueue": "Oma jono",
   "promptQueue_selectSavedTestInput": "Valitse tallennettu testisyöte",
   "promptQueue_enterValue": "Syötä arvo",
@@ -2257,7 +2255,6 @@
   "promptQueue_exampleKeyMapping": "{\"key\": \"input.task\"}",
   "promptQueue_exampleApiResult": "esim. api_result",
   "promptQueue_exampleTaskQuery": "esim. task, query",
-
   "placeholder_exampleModelId": "Esim. gpt-4o-mini",
   "placeholder_exampleModelSystemName": "Esim. GPT-4O-MINI",
   "placeholder_exampleModelName": "Esim. GPT 4o mini",
@@ -2265,12 +2262,10 @@
   "placeholder_exampleApiEndpoint": "https://api.example.com",
   "placeholder_exampleApiPath": "/v2",
   "placeholder_uuidFormat": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
-
   "modelProviders_selectSourceType": "Valitse lähteen tyyppi",
   "modelProviders_selectApiType": "Valitse API-tyyppi",
   "modelProviders_filterModels": "Suodata malleja...",
   "modelProviders_selectFallbackModels": "Valitse varamallit",
-
   "noteTaker_pasteRecordingUrl": "Liitä tallennuksen URL tai liitä tiedosto",
   "noteTaker_fullName": "Koko nimi",
   "noteTaker_productNamesAcronyms": "tuotenimet, lyhenteet jne.",
@@ -2287,7 +2282,6 @@
   "noteTaker_exampleLinearTeamId": "esim. 10387460",
   "noteTaker_exampleLinearProjectId": "esim. 123456",
   "noteTaker_nameForLabel": "Nimi kohteelle {label}",
-
   "agents_enterMsTeamsClientId": "Syötä MS Teams -asiakastunnus",
   "agents_enterMsTeamsTenantId": "Syötä MS Teams -vuokralaistunnus",
   "agents_enterMsTeamsSecretValue": "Syötä MS Teams -salainen arvo",
@@ -2303,22 +2297,52 @@
   "agents_sampleQuestion2Default": "Miten vaihdan salasanan mobiilisovelluksessa?",
   "agents_sampleQuestion3Default": "Mikä on suurin alennus, joka voidaan soveltaa muiden alennusten päälle?",
   "agents_standardQaPrompt": "Vakio Q&A-kehote",
-
   "profile_yourName": "Nimesi",
-
   "deepResearch_research": "Tutkimus",
   "deepResearch_selectConfig": "Valitse asetus",
   "deepResearch_optionalClientIdentifier": "Valinnainen asiakastunniste",
   "deepResearch_exampleQuery": "{\"query\": \"Research question here\"}",
   "deepResearch_exampleOutputMapping": "Valinnainen: {\"run_id\": \"run_id\", \"result\": \"result.summary\"}",
-
   "apiKeys_myTestApiKey": "Oma testi-API-avain",
-
   "common_selectAgents": "Valitse agentit",
   "common_enterNewValue": "Syötä uusi arvo",
   "common_searchIcons": "hae kuvakkeita",
   "common_cronExpression": "*/10 * * * *",
-
   "jobs_enterSystemName": "Syötä järjestelmänimi",
-  "jobs_selectAgents": "Valitse agentit"
+  "jobs_selectAgents": "Valitse agentit",
+  "common_history": "History",
+  "aiEdit_action": "AI edit",
+  "aiEdit_title": "AI edit",
+  "aiEdit_description": "Describe the change in plain English. The model returns a proposed new state. You can review the diff and save it like any manual edit.",
+  "aiEdit_defaultPlaceholder": "e.g. Add a topic called Refunds with one action that looks up an order by id.",
+  "aiEdit_noModels": "No prompts-type models configured. Add one in /admin/models.",
+  "aiEdit_modelLoadFailed": "Could not load models: {error}",
+  "aiEdit_generate": "Generate",
+  "aiEdit_proposedChange": "Proposed change",
+  "aiEdit_applied": "AI applied {count} change(s) to the draft.",
+  "aiEdit_failed": "Failed to generate an AI edit. Check the prompt and try again.",
+  "aiEdit_noActiveVariant": "No active variant. Cannot apply AI patch.",
+  "audit_entries": "{count} entries",
+  "audit_noRecords": "No changes have been recorded for this entity.",
+  "audit_changedFields": "{count} changed fields",
+  "audit_filterByPath": "Filter by path",
+  "audit_noFieldChanges": "No field-level changes were captured for this entry.",
+  "audit_noPathMatches": "No paths match the filter.",
+  "audit_added": "added",
+  "audit_removed": "removed",
+  "audit_showFullState": "Show full state",
+  "audit_hideFullState": "Hide full state",
+  "audit_snapshotBefore": "Snapshot before",
+  "audit_snapshotAfter": "Snapshot after",
+  "audit_restoreThisVersion": "Restore this version",
+  "audit_restoreDeletedEntity": "Restore deleted entity",
+  "audit_restoreConfirmTitle": "Restore this version?",
+  "audit_restoreConfirmBody": "The entity current state will be replaced with the snapshot from this audit entry. A new audit row will record the restore.",
+  "audit_restored": "Entity restored from this version.",
+  "audit_restoreFailed": "Could not restore from this version",
+  "audit_when": "When",
+  "audit_action": "Action",
+  "audit_actor": "Actor",
+  "audit_changes": "Changes",
+  "audit_fieldCount": "{count} fields"
 }

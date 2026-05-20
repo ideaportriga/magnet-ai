@@ -33,36 +33,43 @@ _SECRETS_FORBIDDEN: frozenset[str] = frozenset({"secrets_encrypted"})
 def register_default_auditable_entities() -> None:
     register_auditable(
         entity_type="agent",
+        resource_type="agents",
         model=Agent,
         write_permission=Permission.AGENTS_WRITE,
     )
     register_auditable(
         entity_type="prompt_template",
+        resource_type="prompts",
         model=Prompt,
         write_permission=Permission.PROMPTS_WRITE,
     )
     register_auditable(
         entity_type="rag_tool",
+        resource_type="rag_tools",
         model=RagTool,
         write_permission=Permission.RAG_TOOLS_WRITE,
     )
     register_auditable(
         entity_type="retrieval_tool",
+        resource_type="retrieval_tools",
         model=RetrievalTool,
         write_permission=Permission.RETRIEVAL_TOOLS_WRITE,
     )
     register_auditable(
         entity_type="ai_app",
+        resource_type="ai_apps",
         model=AIApp,
         write_permission=Permission.AI_APPS_WRITE,
     )
     register_auditable(
         entity_type="collection",
+        resource_type="collections",
         model=Collection,
         write_permission=Permission.COLLECTIONS_WRITE,
     )
     register_auditable(
         entity_type="mcp_server",
+        resource_type="mcp_servers",
         model=MCPServer,
         write_permission=Permission.MCP_SERVERS_WRITE,
         # Snapshots store masked secrets — never push them back as live
@@ -71,28 +78,33 @@ def register_default_auditable_entities() -> None:
     )
     register_auditable(
         entity_type="api_server",
+        resource_type="api_servers",
         model=APIServer,
         write_permission=Permission.API_SERVERS_WRITE,
         extra_forbidden=_SECRETS_FORBIDDEN,
     )
     register_auditable(
         entity_type="provider",
+        resource_type="providers",
         model=Provider,
         write_permission=Permission.PROVIDERS_WRITE,
         extra_forbidden=_SECRETS_FORBIDDEN,
     )
     register_auditable(
         entity_type="ai_model",
+        resource_type="ai_models",
         model=AIModel,
         write_permission=Permission.AI_MODELS_WRITE,
     )
     register_auditable(
         entity_type="knowledge_graph",
+        resource_type="knowledge_graph",
         model=KnowledgeGraph,
         write_permission=Permission.KNOWLEDGE_GRAPH_WRITE,
     )
     register_auditable(
         entity_type="evaluation_set",
+        resource_type="evaluations",
         model=EvaluationSet,
         write_permission=Permission.EVALUATIONS_WRITE,
     )

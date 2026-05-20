@@ -450,6 +450,32 @@ class _CustomUserAuthorization(_UserAuthorization):
 AUTHORIZATION_TYPE_MAP["userauthorization"] = _CustomUserAuthorization
 
 
+class _NormalizeMessageTextMiddleware:
+    """Coerce ``activity.text`` from ``None`` to ``""`` on message activities.
+
+    Why: ``AgentApplication._remove_mentions`` does
+    ``context.activity.text = context.remove_recipient_mention(activity)`` for
+    every message turn. For adaptive-card submits the incoming text is ``None``
+    and ``remove_recipient_mention`` returns it unchanged, but the assignment
+    marks ``text`` as explicitly set in pydantic. When the SDK later persists
+    that activity as ``_SignInState.continuation_activity`` via
+    ``model_dump(exclude_unset=True)``, the JSON ends up with ``"text": null``.
+    Loading it back fails validation because ``Activity.text`` is typed ``str``
+    (default ``None``) and refuses a ``None`` input. Pre-setting ``text=""``
+    here keeps the assignment a valid string and avoids the trap.
+    """
+
+    async def on_turn(self, context: TurnContext, call_next):
+        activity = getattr(context, "activity", None)
+        if (
+            activity is not None
+            and getattr(activity, "type", None) == "message"
+            and getattr(activity, "text", None) is None
+        ):
+            activity.text = ""
+        await call_next()
+
+
 class _SignInInvokeMiddleware:
     """Ensures Teams sign-in invocations return 200 to avoid UX errors. (fixes Delegated Auth issue)"""
 
@@ -660,6 +686,7 @@ def build_note_taker_runtime(settings: NoteTakerSettings) -> NoteTakerRuntime:
     adapter = CloudAdapter(
         channel_service_client_factory=RestChannelServiceClientFactory(connections)
     )
+    adapter.use(_NormalizeMessageTextMiddleware())
     adapter.use(_SignInInvokeMiddleware())
 
     async def _on_turn_error(context: TurnContext, error: Exception) -> None:

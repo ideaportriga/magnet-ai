@@ -12,16 +12,19 @@ from uuid import UUID
 
 from litestar import Controller, Request, get, post
 from litestar.exceptions import (
+    HTTPException,
     NotFoundException,
     PermissionDeniedException,
     ValidationException,
 )
+from litestar.status_codes import HTTP_403_FORBIDDEN
 from sqlalchemy import select
 
 from core.config.app import alchemy
 from core.db.models.entity_audit_log import EntityAuditLog
-from guards.permissions import Permission, require_permission
+from guards.permissions import Permission, get_effective_permissions, require_permission
 from middlewares.auth import Auth
+from services.access_control.permissions import PermissionService
 
 from .schemas import (
     EntityAuditLogDetail,
@@ -44,7 +47,7 @@ def _require_tenant_id(request: Request) -> UUID:
     return UUID(auth.tenant_id)
 
 
-def _to_entry(row: EntityAuditLog) -> EntityAuditLogEntry:
+def _to_entry(row: EntityAuditLog, *, can_restore: bool = False) -> EntityAuditLogEntry:
     return EntityAuditLogEntry(
         id=row.id,
         tenant_id=row.tenant_id,
@@ -56,12 +59,16 @@ def _to_entry(row: EntityAuditLog) -> EntityAuditLogEntry:
         actor_display=row.actor_display or "",
         source=row.source,
         request_id=row.request_id,
+        ai_request_id=row.ai_request_id,
+        can_restore=can_restore,
         diff=_normalize_jsonb(row.diff) or {},
         created_at=row.created_at,
     )
 
 
-def _to_detail(row: EntityAuditLog) -> EntityAuditLogDetail:
+def _to_detail(
+    row: EntityAuditLog, *, can_restore: bool = False
+) -> EntityAuditLogDetail:
     return EntityAuditLogDetail(
         id=row.id,
         tenant_id=row.tenant_id,
@@ -73,11 +80,60 @@ def _to_detail(row: EntityAuditLog) -> EntityAuditLogDetail:
         actor_display=row.actor_display or "",
         source=row.source,
         request_id=row.request_id,
+        ai_request_id=row.ai_request_id,
+        can_restore=can_restore,
         diff=_normalize_jsonb(row.diff) or {},
         snapshot_before=_normalize_jsonb(row.snapshot_before),
         snapshot_after=_normalize_jsonb(row.snapshot_after),
         created_at=row.created_at,
     )
+
+
+async def _can_access_audit_row(
+    session,
+    *,
+    request: Request,
+    row: EntityAuditLog,
+    action: str = "view",
+) -> bool:
+    auth: Auth | None = request.scope.get("auth")
+    if auth is None:
+        return True
+    from core.audit import get_descriptor
+
+    descriptor = get_descriptor(row.entity_type)
+    if descriptor is None:
+        return False
+    resource = await session.get(descriptor.model, row.entity_id)
+    if resource is None:
+        return action == "view" and row.action == "delete"
+    return await PermissionService.can(
+        session,
+        auth=auth,
+        action=action,
+        resource_type=descriptor.resource_type,
+        resource=resource,
+    )
+
+
+async def _can_restore_audit_row(
+    session,
+    *,
+    request: Request,
+    row: EntityAuditLog,
+) -> bool:
+    if row.action == "create":
+        return False
+    auth: Auth | None = request.scope.get("auth")
+    effective = get_effective_permissions(auth)
+    if Permission.AUDIT_RESTORE.value not in effective:
+        return False
+    from core.audit import get_descriptor
+
+    descriptor = get_descriptor(row.entity_type)
+    if descriptor is None or descriptor.write_permission.value not in effective:
+        return False
+    return await _can_access_audit_row(session, request=request, row=row, action="edit")
 
 
 class EntityAuditLogController(Controller):
@@ -116,7 +172,20 @@ class EntityAuditLogController(Controller):
                 limit=limit,
                 offset=offset,
             )
-        return [_to_entry(r) for r in rows]
+            allowed_rows = []
+            for row in rows:
+                if await _can_access_audit_row(session, request=request, row=row):
+                    allowed_rows.append(
+                        (
+                            row,
+                            await _can_restore_audit_row(
+                                session, request=request, row=row
+                            ),
+                        )
+                    )
+        return [
+            _to_entry(r, can_restore=can_restore) for r, can_restore in allowed_rows
+        ]
 
     @get(
         "/{audit_id:uuid}",
@@ -131,9 +200,18 @@ class EntityAuditLogController(Controller):
         tenant_id = _require_tenant_id(request)
         async with alchemy.get_session() as session:
             row = await get_detail(session, tenant_id=tenant_id, audit_id=audit_id)
+            if row is not None and not await _can_access_audit_row(
+                session, request=request, row=row
+            ):
+                row = None
+            can_restore = (
+                await _can_restore_audit_row(session, request=request, row=row)
+                if row is not None
+                else False
+            )
         if row is None:
             raise NotFoundException("Audit entry not found")
-        return _to_detail(row)
+        return _to_detail(row, can_restore=can_restore)
 
     @post(
         "/{audit_id:uuid}/restore",
@@ -150,18 +228,36 @@ class EntityAuditLogController(Controller):
             row = await get_detail(session, tenant_id=tenant_id, audit_id=audit_id)
             if row is None:
                 raise NotFoundException("Audit entry not found")
+            from core.audit import get_descriptor
+
+            descriptor = get_descriptor(row.entity_type)
+            if descriptor is None:
+                raise ValidationException(
+                    f"Entity type '{row.entity_type}' is not registered for restore"
+                )
+            if descriptor.write_permission.value not in get_effective_permissions(
+                request.scope.get("auth")
+            ):
+                raise HTTPException(
+                    status_code=HTTP_403_FORBIDDEN,
+                    detail=f"Missing {descriptor.write_permission.value} permission",
+                )
+            if not await _can_access_audit_row(
+                session, request=request, row=row, action="edit"
+            ):
+                raise HTTPException(
+                    status_code=HTTP_403_FORBIDDEN,
+                    detail="You don't have permission to restore this entity",
+                )
             try:
                 _, snapshot_applied = await restore_from_audit(
                     session, audit_row=row, tenant_id=tenant_id
                 )
             except RestoreError as e:
                 raise ValidationException(str(e)) from e
-            await session.commit()
+            await session.flush()
 
-            # Find the audit row produced by this restore so callers can
-            # link to it. The listener writes it in the same flush; query
-            # for the newest row for this entity (excluding the source we
-            # just read).
+            # Link to the audit row emitted by the restore flush.
             restore_row = (
                 (
                     await session.execute(
@@ -170,6 +266,7 @@ class EntityAuditLogController(Controller):
                         .where(EntityAuditLog.entity_type == row.entity_type)
                         .where(EntityAuditLog.entity_id == row.entity_id)
                         .where(EntityAuditLog.id != row.id)
+                        .where(EntityAuditLog.action == "restore")
                         .order_by(EntityAuditLog.created_at.desc())
                         .limit(1)
                     )
@@ -177,6 +274,7 @@ class EntityAuditLogController(Controller):
                 .scalars()
                 .first()
             )
+            await session.commit()
 
         return EntityAuditRestoreResponse(
             entity_type=row.entity_type,
@@ -184,4 +282,5 @@ class EntityAuditLogController(Controller):
             restored_from_audit_id=row.id,
             restore_audit_id=restore_row.id if restore_row is not None else None,
             snapshot_applied=snapshot_applied,
+            can_restore=False,
         )

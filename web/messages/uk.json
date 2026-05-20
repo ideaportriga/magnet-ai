@@ -2240,10 +2240,8 @@
   "entity_ragtools": "RAG інструменти",
   "common_to": "до",
   "common_features": "Можливості",
-
   "assistantTools_maxChunkSize": "Максимальний розмір чанка",
   "assistantTools_toolNameForLlm": "Назва інструменту для LLM",
-
   "promptQueue_myQueue": "Моя черга",
   "promptQueue_selectSavedTestInput": "Оберіть збережений тестовий ввід",
   "promptQueue_enterValue": "Введіть значення",
@@ -2257,7 +2255,6 @@
   "promptQueue_exampleKeyMapping": "{\"key\": \"input.task\"}",
   "promptQueue_exampleApiResult": "напр. api_result",
   "promptQueue_exampleTaskQuery": "напр. task, query",
-
   "placeholder_exampleModelId": "Напр. gpt-4o-mini",
   "placeholder_exampleModelSystemName": "Напр. GPT-4O-MINI",
   "placeholder_exampleModelName": "Напр. GPT 4o mini",
@@ -2265,12 +2262,10 @@
   "placeholder_exampleApiEndpoint": "https://api.example.com",
   "placeholder_exampleApiPath": "/v2",
   "placeholder_uuidFormat": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
-
   "modelProviders_selectSourceType": "Оберіть тип джерела",
   "modelProviders_selectApiType": "Оберіть тип API",
   "modelProviders_filterModels": "Фільтрувати моделі...",
   "modelProviders_selectFallbackModels": "Оберіть резервні моделі",
-
   "noteTaker_pasteRecordingUrl": "Вставте URL запису або прикріпіть файл",
   "noteTaker_fullName": "Повне ім'я",
   "noteTaker_productNamesAcronyms": "назви продуктів, абревіатури тощо.",
@@ -2287,7 +2282,6 @@
   "noteTaker_exampleLinearTeamId": "напр. 10387460",
   "noteTaker_exampleLinearProjectId": "напр. 123456",
   "noteTaker_nameForLabel": "Назва для {label}",
-
   "agents_enterMsTeamsClientId": "Введіть Client ID MS Teams",
   "agents_enterMsTeamsTenantId": "Введіть Tenant ID MS Teams",
   "agents_enterMsTeamsSecretValue": "Введіть секретне значення MS Teams",
@@ -2303,22 +2297,52 @@
   "agents_sampleQuestion2Default": "Як змінити пароль у мобільному додатку?",
   "agents_sampleQuestion3Default": "Яка максимальна знижка, що може бути застосована поверх інших знижок?",
   "agents_standardQaPrompt": "Стандартний промпт Q&A",
-
   "profile_yourName": "Ваше ім'я",
-
   "deepResearch_research": "Дослідження",
   "deepResearch_selectConfig": "Оберіть конфігурацію",
   "deepResearch_optionalClientIdentifier": "Необов'язковий ідентифікатор клієнта",
   "deepResearch_exampleQuery": "{\"query\": \"Research question here\"}",
   "deepResearch_exampleOutputMapping": "Необов'язково: {\"run_id\": \"run_id\", \"result\": \"result.summary\"}",
-
   "apiKeys_myTestApiKey": "Мій тестовий API ключ",
-
   "common_selectAgents": "Оберіть агентів",
   "common_enterNewValue": "Введіть нове значення",
   "common_searchIcons": "пошук іконок",
   "common_cronExpression": "*/10 * * * *",
-
   "jobs_enterSystemName": "Введіть системне ім'я",
-  "jobs_selectAgents": "Оберіть агентів"
+  "jobs_selectAgents": "Оберіть агентів",
+  "common_history": "History",
+  "aiEdit_action": "AI edit",
+  "aiEdit_title": "AI edit",
+  "aiEdit_description": "Describe the change in plain English. The model returns a proposed new state. You can review the diff and save it like any manual edit.",
+  "aiEdit_defaultPlaceholder": "e.g. Add a topic called Refunds with one action that looks up an order by id.",
+  "aiEdit_noModels": "No prompts-type models configured. Add one in /admin/models.",
+  "aiEdit_modelLoadFailed": "Could not load models: {error}",
+  "aiEdit_generate": "Generate",
+  "aiEdit_proposedChange": "Proposed change",
+  "aiEdit_applied": "AI applied {count} change(s) to the draft.",
+  "aiEdit_failed": "Failed to generate an AI edit. Check the prompt and try again.",
+  "aiEdit_noActiveVariant": "No active variant. Cannot apply AI patch.",
+  "audit_entries": "{count} entries",
+  "audit_noRecords": "No changes have been recorded for this entity.",
+  "audit_changedFields": "{count} changed fields",
+  "audit_filterByPath": "Filter by path",
+  "audit_noFieldChanges": "No field-level changes were captured for this entry.",
+  "audit_noPathMatches": "No paths match the filter.",
+  "audit_added": "added",
+  "audit_removed": "removed",
+  "audit_showFullState": "Show full state",
+  "audit_hideFullState": "Hide full state",
+  "audit_snapshotBefore": "Snapshot before",
+  "audit_snapshotAfter": "Snapshot after",
+  "audit_restoreThisVersion": "Restore this version",
+  "audit_restoreDeletedEntity": "Restore deleted entity",
+  "audit_restoreConfirmTitle": "Restore this version?",
+  "audit_restoreConfirmBody": "The entity current state will be replaced with the snapshot from this audit entry. A new audit row will record the restore.",
+  "audit_restored": "Entity restored from this version.",
+  "audit_restoreFailed": "Could not restore from this version",
+  "audit_when": "When",
+  "audit_action": "Action",
+  "audit_actor": "Actor",
+  "audit_changes": "Changes",
+  "audit_fieldCount": "{count} fields"
 }

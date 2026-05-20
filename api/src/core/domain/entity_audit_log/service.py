@@ -162,9 +162,6 @@ async def restore_from_audit(
     model = descriptor.model
     existing = await session.get(model, audit_row.entity_id)
 
-    # Mark the audit row this restore will produce with source=ai_assistant?
-    # No — restore is its own concept; we keep the actor's source as is and
-    # rely on the new row's ``action`` field carrying the "restore" verb.
     base_ctx = current_audit_context.get()
     restore_ctx = _restore_context(base_ctx, tenant_id)
     token = set_audit_context(restore_ctx)
@@ -197,22 +194,19 @@ def _restore_context(base: AuditContext | None, tenant_id: UUID) -> AuditContext
 
     Inherits actor identity from the caller's context (so the audit row
     correctly attributes the restore to the user that clicked the button)
-    but forces ``source`` to mark this row as a restore — the listener
-    writes ``action`` = ``"update"`` (or ``"create"`` for a re-insert),
-    so the ``source`` is the only marker that distinguishes a restore
-    from a plain edit.
+    but forces ``source`` to RESTORE so the listener emits action="restore".
     """
     if base is None:
         from core.audit.context import system_audit_context
 
         return system_audit_context(
-            source=AuditSource.WEB_UI, display="restore", tenant_id=tenant_id
+            source=AuditSource.RESTORE, display="restore", tenant_id=tenant_id
         )
     return AuditContext(
         actor_type=base.actor_type,
         actor_id=base.actor_id,
         actor_display=base.actor_display,
-        source=base.source,
+        source=AuditSource.RESTORE,
         request_id=base.request_id,
         tenant_id=tenant_id,
     )

@@ -28,6 +28,10 @@ export interface DsTabItem {
   value: string
   label: string
   disabled?: boolean
+  /** Render a small dirty-state dot to the right of the label —
+   *  used by entity detail pages to flag tabs that contain unsaved
+   *  changes (same visual idea as the workspace tab dirty indicator). */
+  dirty?: boolean
 }
 
 const props = withDefaults(
@@ -159,9 +163,16 @@ watch(
             :value="item.value"
             :disabled="item.disabled"
             class="ds-tabs__trigger"
+            :data-dirty="item.dirty ? 'true' : undefined"
             data-test="ds-tabs-trigger"
           >
             {{ item.label }}
+            <span
+              v-if="item.dirty"
+              class="ds-tabs__dirty-dot"
+              aria-label="Unsaved changes"
+              data-test="ds-tabs-dirty-dot"
+            />
           </TabsTrigger>
           <TabsIndicator v-if="variant === 'underline'" class="ds-tabs__indicator" />
         </TabsList>
@@ -261,11 +272,26 @@ watch(
   cursor: pointer;
   border-radius: var(--ds-radius-sm);
   transition: color var(--ds-duration-fast) var(--ds-ease-out);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-2xs);
 }
 .ds-tabs__trigger:hover { color: var(--ds-color-black); }
 .ds-tabs__trigger[data-state='active'] { color: var(--ds-color-primary); }
 .ds-tabs__trigger:focus-visible { outline: 2px solid var(--ds-color-primary); outline-offset: 2px; }
 .ds-tabs__trigger[data-disabled] { color: var(--ds-color-placeholder); cursor: not-allowed; }
+
+/* Dirty-state dot — matches the workspace-tab indicator visually
+ * (6px amber circle) so users get the same "unsaved" signal whether
+ * they look at the workspace bar or a per-entity tab strip. */
+.ds-tabs__dirty-dot {
+  display: inline-block;
+  inline-size: 6px;
+  block-size: 6px;
+  border-radius: 50%;
+  background: var(--ds-color-warning);
+  flex: none;
+}
 
 .ds-tabs[data-variant='pill'] .ds-tabs__trigger[data-state='active'] {
   background: var(--ds-color-primary-bg);

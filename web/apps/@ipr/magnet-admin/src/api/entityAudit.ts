@@ -30,6 +30,8 @@ export interface EntityAuditEntry {
   actor_display: string
   source: string
   request_id?: string | null
+  ai_request_id?: string | null
+  can_restore?: boolean
   diff: Record<string, EntityAuditDiffValue>
   created_at: string
 }

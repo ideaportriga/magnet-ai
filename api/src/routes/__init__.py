@@ -8,6 +8,7 @@ from litestar.status_codes import HTTP_503_SERVICE_UNAVAILABLE
 from litestar.types import ControllerRouterHandler
 
 from core.domain.ai_apps import AiAppsController
+from core.domain.ai_edit import AIEditController
 from core.domain.catalog import CatalogController
 from core.domain.ai_models.controller import AIModelsController
 from core.domain.api_servers import ApiServersController
@@ -182,6 +183,7 @@ def get_route_handlers(
         ApiKeysController,  # Admin / API Keys
         AccessLogController,  # Admin / Access Log
         EntityAuditLogController,  # Admin / Entity Audit Trail
+        AIEditController,  # Admin / AI Edit
         GroupsController,  # Admin / Groups
         PermissionsController,  # Admin / Permissions
         RolesController,  # Admin / Roles

@@ -43,6 +43,7 @@ _DEFAULT_FORBIDDEN: frozenset[str] = frozenset(
 @dataclass(frozen=True)
 class EntityAuditDescriptor:
     entity_type: str
+    resource_type: str
     model: Type["DeclarativeBase"]
     write_permission: "Permission"
     extra_forbidden: frozenset[str] = field(default_factory=frozenset)
@@ -72,12 +73,14 @@ def register_auditable(
     entity_type: str,
     model: Type["DeclarativeBase"],
     write_permission: "Permission",
+    resource_type: str | None = None,
     extra_forbidden: frozenset[str] = frozenset(),
 ) -> None:
     """Register an entity type for the audit endpoints."""
     _AuditRegistry.register(
         EntityAuditDescriptor(
             entity_type=entity_type,
+            resource_type=resource_type or f"{entity_type}s",
             model=model,
             write_permission=write_permission,
             extra_forbidden=extra_forbidden,

@@ -1,0 +1,67 @@
+/* Form-field highlight markers used by `useFieldHighlightClass` and the
+ * per-component `fieldClass()` helpers.
+ *
+ * Two visual states:
+ *
+ *   .field--unsaved        — soft amber accent: the user has made a
+ *                            change that hasn't been saved yet
+ *                            (whether by hand, AI, or restore).
+ *   .field--ai-suggested   — soft violet accent: the change came from
+ *                            an AI edit suggestion the user just
+ *                            applied (and hasn't saved yet).
+ *
+ * The class goes on a WRAPPER element around the input. The wrapper
+ * paints a tinted "tray" with a 3px accent bar on the left and an
+ * 8px inner pad so the bar isn't flush against the inner input.
+ *
+ *   - `border-inline-start` (not inset box-shadow) — the accent is
+ *     part of the box decoration so it can't be clipped by inputs
+ *     with their own `overflow: hidden`.
+ *   - `padding-inline-start: 8px` — exposes a visible tinted strip
+ *     between the bar and the inner widget, even when the widget
+ *     (km-input, km-select, …) fully fills the box and would
+ *     otherwise mask the bg.
+ *   - `box-sizing: border-box` — the wrapper still claims the
+ *     parent's available width; the inner input renders ~11px
+ *     narrower when highlighted (barely noticeable).
+ *   - `transition` on bg + border-color — the highlight fades
+ *     smoothly in/out when a field becomes dirty / is reverted /
+ *     is saved.
+ */
+
+.field--unsaved {
+  --field-highlight-accent: var(--ds-color-warning-solid);
+  --field-highlight-bg: var(--ds-color-warning-soft);
+}
+.field--ai-suggested {
+  --field-highlight-accent: var(--ds-color-info-solid);
+  --field-highlight-bg: var(--ds-color-info-soft);
+}
+
+.field--unsaved,
+.field--ai-suggested {
+  position: relative;
+  box-sizing: border-box;
+  border-radius: var(--ds-radius-sm);
+  border-inline-start: 3px solid var(--field-highlight-accent);
+  background-color: var(--field-highlight-bg);
+
+  /* Inner padding gives the accent bar breathing room and exposes a
+   * visible tinted strip even when the inner widget (km-input,
+   * km-select, …) fully fills the box. The wrapper claims the
+   * parent's available width and the inner input simply renders ~11px
+   * narrower when highlighted — barely noticeable. */
+  padding-block: 4px;
+  padding-inline: 8px 4px;
+
+  transition:
+    background-color var(--ds-duration-fast) var(--ds-ease-out),
+    border-color var(--ds-duration-fast) var(--ds-ease-out);
+}
+
+/* When both classes are present (AI suggestion still uncommitted), the
+ * AI tone wins — its variables override `.field--unsaved`'s. */
+.field--unsaved.field--ai-suggested {
+  --field-highlight-accent: var(--ds-color-info-solid);
+  --field-highlight-bg: var(--ds-color-info-soft);
+}

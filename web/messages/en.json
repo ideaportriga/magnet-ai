@@ -2272,10 +2272,8 @@
   "entity_ragtools": "RAG Tools",
   "common_to": "to",
   "common_features": "Features",
-
   "assistantTools_maxChunkSize": "Max chunk size",
   "assistantTools_toolNameForLlm": "Tool name for the LLM",
-
   "promptQueue_myQueue": "My Queue",
   "promptQueue_selectSavedTestInput": "Select saved test input",
   "promptQueue_enterValue": "Enter value",
@@ -2289,7 +2287,6 @@
   "promptQueue_exampleKeyMapping": "{\"key\": \"input.task\"}",
   "promptQueue_exampleApiResult": "e.g. api_result",
   "promptQueue_exampleTaskQuery": "e.g. task, query",
-
   "placeholder_exampleModelId": "E.g. gpt-4o-mini",
   "placeholder_exampleModelSystemName": "E.g. GPT-4O-MINI",
   "placeholder_exampleModelName": "E.g. GPT 4o mini",
@@ -2297,12 +2294,10 @@
   "placeholder_exampleApiEndpoint": "https://api.example.com",
   "placeholder_exampleApiPath": "/v2",
   "placeholder_uuidFormat": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
-
   "modelProviders_selectSourceType": "Select Source Type",
   "modelProviders_selectApiType": "Select API Type",
   "modelProviders_filterModels": "Filter models...",
   "modelProviders_selectFallbackModels": "Select fallback models",
-
   "noteTaker_pasteRecordingUrl": "Paste recording URL or attach a file",
   "noteTaker_fullName": "Full name",
   "noteTaker_productNamesAcronyms": "product names, acronyms, etc.",
@@ -2319,7 +2314,6 @@
   "noteTaker_exampleLinearTeamId": "e.g. 10387460",
   "noteTaker_exampleLinearProjectId": "e.g. 123456",
   "noteTaker_nameForLabel": "Name for {label}",
-
   "agents_enterMsTeamsClientId": "Enter MS Teams Client ID",
   "agents_enterMsTeamsTenantId": "Enter MS Teams Tenant ID",
   "agents_enterMsTeamsSecretValue": "Enter MS Teams Secret Value",
@@ -2335,22 +2329,52 @@
   "agents_sampleQuestion2Default": "How to change password in mobile application?",
   "agents_sampleQuestion3Default": "What is the maximum discount that can be applied on top of other discounts?",
   "agents_standardQaPrompt": "Standard Q&A Prompt",
-
   "profile_yourName": "Your name",
-
   "deepResearch_research": "Research",
   "deepResearch_selectConfig": "Select a config",
   "deepResearch_optionalClientIdentifier": "Optional client identifier",
   "deepResearch_exampleQuery": "{\"query\": \"Research question here\"}",
   "deepResearch_exampleOutputMapping": "Optional: {\"run_id\": \"run_id\", \"result\": \"result.summary\"}",
-
   "apiKeys_myTestApiKey": "My Test API Key",
-
   "common_selectAgents": "Select agents",
   "common_enterNewValue": "Enter new value",
   "common_searchIcons": "search icons",
   "common_cronExpression": "*/10 * * * *",
-
   "jobs_enterSystemName": "Enter system name",
-  "jobs_selectAgents": "Select agents"
+  "jobs_selectAgents": "Select agents",
+  "common_history": "History",
+  "aiEdit_action": "AI edit",
+  "aiEdit_title": "AI edit",
+  "aiEdit_description": "Describe the change in plain English. The model returns a proposed new state. You can review the diff and save it like any manual edit.",
+  "aiEdit_defaultPlaceholder": "e.g. Add a topic called Refunds with one action that looks up an order by id.",
+  "aiEdit_noModels": "No prompts-type models configured. Add one in /admin/models.",
+  "aiEdit_modelLoadFailed": "Could not load models: {error}",
+  "aiEdit_generate": "Generate",
+  "aiEdit_proposedChange": "Proposed change",
+  "aiEdit_applied": "AI applied {count} change(s) to the draft.",
+  "aiEdit_failed": "Failed to generate an AI edit. Check the prompt and try again.",
+  "aiEdit_noActiveVariant": "No active variant. Cannot apply AI patch.",
+  "audit_entries": "{count} entries",
+  "audit_noRecords": "No changes have been recorded for this entity.",
+  "audit_changedFields": "{count} changed fields",
+  "audit_filterByPath": "Filter by path",
+  "audit_noFieldChanges": "No field-level changes were captured for this entry.",
+  "audit_noPathMatches": "No paths match the filter.",
+  "audit_added": "added",
+  "audit_removed": "removed",
+  "audit_showFullState": "Show full state",
+  "audit_hideFullState": "Hide full state",
+  "audit_snapshotBefore": "Snapshot before",
+  "audit_snapshotAfter": "Snapshot after",
+  "audit_restoreThisVersion": "Restore this version",
+  "audit_restoreDeletedEntity": "Restore deleted entity",
+  "audit_restoreConfirmTitle": "Restore this version?",
+  "audit_restoreConfirmBody": "The entity current state will be replaced with the snapshot from this audit entry. A new audit row will record the restore.",
+  "audit_restored": "Entity restored from this version.",
+  "audit_restoreFailed": "Could not restore from this version",
+  "audit_when": "When",
+  "audit_action": "Action",
+  "audit_actor": "Actor",
+  "audit_changes": "Changes",
+  "audit_fieldCount": "{count} fields"
 }

@@ -35,6 +35,7 @@ class AuditSource(StrEnum):
     SYSTEM = "system"
     MIGRATION = "migration"
     AI_ASSISTANT = "ai_assistant"
+    RESTORE = "restore"
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,6 +46,12 @@ class AuditContext:
     source: AuditSource = AuditSource.SYSTEM
     request_id: Optional[str] = None
     tenant_id: Optional[UUID] = None
+    # When set, the audit listener will write this id into the
+    # `ai_request_id` column of every row it produces this flush. The UI
+    # sets it via the `X-AI-Request-Id` request header after applying an
+    # AI suggestion, so the audit row that records the saved change
+    # links back to the originating ai_edit_request row.
+    ai_request_id: Optional[UUID] = None
 
 
 current_audit_context: ContextVar[Optional[AuditContext]] = ContextVar(
