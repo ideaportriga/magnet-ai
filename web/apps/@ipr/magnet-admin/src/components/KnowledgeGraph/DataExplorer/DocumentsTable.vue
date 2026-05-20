@@ -62,8 +62,8 @@
           <div class="row items-center no-wrap q-gutter-x-sm">
             <kg-file-type-badge :type="slotScope.row.type" />
             <div class="text-body2 text-weight-medium ellipsis" style="max-width: 300px">
-              {{ slotScope.row.title }}
-              <q-tooltip>{{ slotScope.row.title }}</q-tooltip>
+              {{ slotScope.row.title || slotScope.row.name }}
+              <q-tooltip>{{ slotScope.row.title || slotScope.row.name }}</q-tooltip>
             </div>
           </div>
         </q-td>

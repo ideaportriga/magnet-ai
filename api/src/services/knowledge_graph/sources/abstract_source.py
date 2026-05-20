@@ -442,24 +442,35 @@ class AbstractDataSource(ABC):
                 chunks_to_insert = result.chunks
 
                 if len(chunks_to_insert) == 0:
-                    status_msg = (
-                        "No chunks were generated for this document during processing."
-                    )
-                    await self._update_document_status(
-                        db_session,
-                        docs_table=docs_table,
-                        doc_id=doc_id,
-                        status="failed",
-                        status_message=status_msg,
-                        processing_time=float(time.perf_counter() - start_time),
-                    )
-                    await db_session.commit()
-                    logger.warning(
-                        "No chunks generated for document '%s' (id=%s), strategy=%s",
+                    logger.info(
+                        "No chunks generated for document '%s' (id=%s), strategy=%s — marking completed",
                         document.get("name"),
                         doc_id,
                         chunker_strategy,
                     )
+                    # Still persist document-level metadata (title, link, etc.)
+                    # so the document is not left without a title.
+                    try:
+                        await self.document_service.update_document(
+                            db_session,
+                            graph_id=document["graph_id"],
+                            document_id=doc_id,
+                            fields={
+                                "title": document_title,
+                                "external_link": external_link,
+                            },
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        logger.warning("Failed to persist document metadata: %s", exc)
+                    await self._update_document_status(
+                        db_session,
+                        docs_table=docs_table,
+                        doc_id=doc_id,
+                        status="completed",
+                        status_message=None,
+                        processing_time=float(time.perf_counter() - start_time),
+                    )
+                    await db_session.commit()
                     return {"chunks_count": 0}
 
                 # Prefer explicit metadata provided by the caller. Otherwise take the

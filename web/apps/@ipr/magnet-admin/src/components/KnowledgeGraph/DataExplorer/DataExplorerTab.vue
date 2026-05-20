@@ -195,7 +195,10 @@ const filteredDocuments = computed(() => {
   const search = searchQuery.value.toLowerCase()
   return documents.value.filter(
     (doc) =>
-      doc.name?.toLowerCase().includes(search) || doc.description?.toLowerCase().includes(search) || doc.source_name?.toLowerCase().includes(search)
+      doc.title?.toLowerCase().includes(search) ||
+      doc.name?.toLowerCase().includes(search) ||
+      doc.description?.toLowerCase().includes(search) ||
+      doc.source_name?.toLowerCase().includes(search)
   )
 })
 

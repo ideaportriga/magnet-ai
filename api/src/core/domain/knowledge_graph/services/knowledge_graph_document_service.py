@@ -533,6 +533,12 @@ class KnowledgeGraphDocumentService:
         base_name = PurePath(filename).name
         file_ext = base_name.rsplit(".", 1)[-1].lower() if "." in base_name else ""
 
+        # For newly inserted documents, default the title to the filename stem so
+        # the document is never left titleless on the UI. For existing rows the
+        # UPDATE branch uses COALESCE(:title, title) and must keep receiving the
+        # raw caller-provided title to preserve any previously persisted value.
+        effective_title_for_insert = title or PurePath(base_name).stem or base_name
+
         doc_metadata_json: str | None = None
         doc_metadata_payload: dict[str, Any] = {}
         if isinstance(file_metadata, dict) and file_metadata:
@@ -673,7 +679,7 @@ class KnowledgeGraphDocumentService:
                     "source_document_id": source_document_id,
                     "source_modified_at": source_modified_at,
                     "content_hash": content_hash,
-                    "title": title,
+                    "title": effective_title_for_insert,
                     "external_link": external_link,
                     "toc_json": toc_json,
                 },
