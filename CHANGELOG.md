@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.29](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.28...v0.7.0-dev.29) (2026-05-20)
+
+### ✨ Features
+
+* **kg:** improved sync status handling for knowledge graph sources ([0cacf09](https://github.com/ideaportriga/magnet-ai/commit/0cacf094ca4fc6bcdeb15723cb2fd100e93eba85))
+* **kg:** improved UX for sync dialog in knowledge graphs ([4132f05](https://github.com/ideaportriga/magnet-ai/commit/4132f0575b92c1a50824534016d562dd2a46c84f))
+
+### 🐛 Bug Fixes
+
+* **kg:** fixed import button on empty entity extraction tab ([edba3ad](https://github.com/ideaportriga/magnet-ai/commit/edba3add240ec0724128df2f2b3a7aac4533c3ff))
+* **kg:** fixed issue when embedding model is changed from one dimension ([327a196](https://github.com/ideaportriga/magnet-ai/commit/327a196f531d043bee067777e243c5f24ea0cca7))
+* **kg:** fixing unexpected stops of sync and extraction processes ([a32064b](https://github.com/ideaportriga/magnet-ai/commit/a32064bcb98b7a3682e107ac9a9bcd8372f89474))
+* **panel:** fixing markdown content code style ([6854f7c](https://github.com/ideaportriga/magnet-ai/commit/6854f7c6f7ae60880644a03b205614c8b7d9a489))
+
 ## [0.7.0-dev.28](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.27...v0.7.0-dev.28) (2026-05-19)
 
 ### ✨ Features
