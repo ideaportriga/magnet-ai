@@ -11,6 +11,8 @@
 
     <q-separator class="q-my-md" />
 
+    <input ref="fileInputRef" type="file" accept="application/json,.json" class="hidden-file-input" @change="onImportFileChange">
+
     <div v-if="entities.length === 0" class="q-mt-md">
       <div class="text-center q-pa-lg">
         <q-icon name="o_category" size="64px" color="grey-5" />
@@ -79,8 +81,6 @@
           <km-btn flat icon="refresh" label="Refresh" size="sm" :disable="saving" @click="emit('refresh')" />
         </template>
       </kg-table-toolbar>
-
-      <input ref="fileInputRef" type="file" accept="application/json,.json" class="hidden-file-input" @change="onImportFileChange">
 
       <q-table
         v-model:pagination="pagination"
