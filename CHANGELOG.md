@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-alpha.30](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.29...v0.7.0-alpha.30) (2026-05-20)
+
+### ✨ Features
+
+* add ai edit and highlight changed field in details ([af57d78](https://github.com/ideaportriga/magnet-ai/commit/af57d789f4a7d87ce63fc5b47dea9e49481a0799))
+* add audit trail ([a991c1a](https://github.com/ideaportriga/magnet-ai/commit/a991c1a115e6c5aec2e13a9dff517b47acab1f97))
+
+### 🐛 Bug Fixes
+
+* small ui fixes ([c0fcc72](https://github.com/ideaportriga/magnet-ai/commit/c0fcc72f6d87ad9b78b148f8bbbd2d1cdf696dae))
+* ui fixes ([2a8d2a2](https://github.com/ideaportriga/magnet-ai/commit/2a8d2a2e22d9e9a4ccc92310fa67ff0b9efaf73d))
+
 ## [0.7.0-alpha.29](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.28...v0.7.0-alpha.29) (2026-05-19)
 
 ### 🐛 Bug Fixes
