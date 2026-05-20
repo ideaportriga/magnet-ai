@@ -1,15 +1,20 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 from uuid import UUID
 
 from litestar.exceptions import ClientException, NotFoundException
-from sqlalchemy import select, update
+from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config.app import alchemy
-from core.db.models.knowledge_graph import KnowledgeGraph, KnowledgeGraphSource
+from core.db.models.knowledge_graph import (
+    KnowledgeGraph,
+    KnowledgeGraphSource,
+    docs_table_name,
+)
 from services.knowledge_graph.logging_settings import (
     resolve_tracing_level,
     tracing_level_to_export_method,
@@ -19,6 +24,160 @@ from services.observability.models import FeatureType
 from utils.datetime_utils import utc_now_isoformat
 
 logger = logging.getLogger(__name__)
+
+# Registry of actively running source-sync tasks keyed by source_id.
+# Holds the Task object itself (not a bool) so the event loop keeps a strong
+# reference and cannot garbage-collect / silently cancel the task mid-run.
+_active_sync_tasks: dict[UUID, asyncio.Task[Any]] = {}
+
+
+def is_sync_task_active(source_id: UUID) -> bool:
+    """Return True if a background sync task is currently running for this source."""
+    task = _active_sync_tasks.get(source_id)
+    return task is not None and not task.done()
+
+
+async def _record_source_interrupted(source_id: UUID) -> None:
+    """Persist an 'interrupted' status on the source using a fresh session.
+
+    Used when the sync task was cancelled (shutdown drain, GC, restart) and the
+    primary session is likely invalidated. Best-effort: failures are logged
+    but not raised.
+    """
+    try:
+        async with alchemy.get_session() as recovery:
+            await recovery.execute(
+                update(KnowledgeGraphSource)
+                .where(KnowledgeGraphSource.id == source_id)
+                .values(
+                    status="interrupted",
+                    last_sync_at=utc_now_isoformat(),
+                    sync_progress=None,
+                )
+            )
+            await recovery.commit()
+    except Exception:  # noqa: BLE001
+        logger.warning(
+            "Failed to record interrupted status for source %s", str(source_id)
+        )
+
+
+def log_sync_outcome(source_id: UUID):
+    """Return a Task done-callback that logs the final outcome.
+
+    Catches the case where the task is cancelled by the GC or otherwise dies
+    without going through the wrapper's except blocks — guarantees at least one
+    log line so a "silent death" is never silent.
+    """
+
+    def _cb(task: asyncio.Task[Any]) -> None:
+        _active_sync_tasks.pop(source_id, None)
+        try:
+            if task.cancelled():
+                logger.error(
+                    "Source sync task CANCELLED for source %s (likely GC, "
+                    "shutdown, or external cancel)",
+                    source_id,
+                )
+                return
+            exc = task.exception()
+            if exc is not None:
+                logger.error(
+                    "Source sync task FAILED for source %s",
+                    source_id,
+                    exc_info=exc,
+                )
+            else:
+                logger.info(
+                    "Source sync task finished cleanly for source %s",
+                    source_id,
+                )
+        except asyncio.CancelledError:
+            logger.error(
+                "Source sync task CANCELLED for source %s (during outcome check)",
+                source_id,
+            )
+        except Exception:
+            logger.error(
+                "Error inspecting source sync task outcome for source %s",
+                source_id,
+                exc_info=True,
+            )
+
+    return _cb
+
+
+async def reconcile_stale_source_syncs() -> int:
+    """Mark orphan 'syncing' sources as 'interrupted' on process startup.
+
+    Called once at startup. Any source whose status is still 'syncing' must be
+    stale — no in-process task can possibly own it because the process just
+    started. Also marks any 'processing' documents belonging to those sources
+    as 'failed' so per-source pipeline-strip stats no longer show stale running
+    counts. Returns the number of source rows updated.
+    """
+    stale_sources: list[tuple[Any, Any]] = []
+    updated = 0
+    try:
+        async with alchemy.get_session() as db_session:
+            fetch_res = await db_session.execute(
+                select(KnowledgeGraphSource.id, KnowledgeGraphSource.graph_id).where(
+                    KnowledgeGraphSource.status == "syncing"
+                )
+            )
+            stale_sources = [(row[0], row[1]) for row in fetch_res.all()]
+
+            if not stale_sources:
+                return 0
+
+            all_source_ids = [row[0] for row in stale_sources]
+            upd_res = await db_session.execute(
+                update(KnowledgeGraphSource)
+                .where(KnowledgeGraphSource.id.in_(all_source_ids))
+                .values(
+                    status="interrupted",
+                    last_sync_at=utc_now_isoformat(),
+                    sync_progress=None,
+                )
+            )
+            await db_session.commit()
+            updated = int(upd_res.rowcount or 0)
+            if updated:
+                logger.warning(
+                    "Reconciled %d stale source sync row(s) to 'interrupted'",
+                    updated,
+                )
+    except Exception:
+        logger.error("Failed to reconcile stale source syncs on startup", exc_info=True)
+        return 0
+
+    # Best-effort: mark in-flight documents as 'failed' so pipeline-strip stats
+    # no longer show stale sync_running counts after reconciliation.
+    by_graph: dict[Any, list[Any]] = {}
+    for source_id, graph_id in stale_sources:
+        by_graph.setdefault(graph_id, []).append(source_id)
+
+    for graph_id, source_ids in by_graph.items():
+        try:
+            async with alchemy.get_session() as doc_session:
+                await doc_session.execute(
+                    text(
+                        f"UPDATE {docs_table_name(graph_id)} "  # noqa: S608
+                        f"SET status = 'failed', updated_at = CURRENT_TIMESTAMP "
+                        f"WHERE source_id = ANY(CAST(:source_ids AS uuid[])) "
+                        f"AND status = 'processing'"
+                    ),
+                    {"source_ids": [str(sid) for sid in source_ids]},
+                )
+                await doc_session.commit()
+        except Exception:
+            logger.warning(
+                "Failed to reconcile processing documents for graph %s on startup",
+                graph_id,
+                exc_info=True,
+            )
+
+    return updated
 
 
 async def _record_source_failure(source_id: UUID) -> None:
@@ -59,6 +218,14 @@ async def sync_source_background(
             await _sync_source_impl(
                 db_session, graph_id, source_id, from_scratch=from_scratch
             )
+    except asyncio.CancelledError:
+        logger.warning(
+            "Background sync cancelled for graph %s source %s — marking as interrupted",
+            graph_id,
+            source_id,
+        )
+        await _record_source_interrupted(source_id)
+        raise
     except Exception as e:  # noqa: BLE001
         logger.error(
             f"Background sync failed for graph {graph_id} source {source_id}: {e}",

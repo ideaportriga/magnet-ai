@@ -116,15 +116,6 @@
           <span>No sync has been run for this source yet.</span>
         </div>
       </kg-dialog-section>
-
-      <kg-dialog-section v-if="errors.length > 0" :title="`Errors (${errors.length})`" icon="error_outline" icon-color="negative">
-        <div class="kg-sync-status__errors-list">
-          <div v-for="(err, idx) in errors" :key="idx" class="kg-sync-status__error">
-            <div class="kg-sync-status__error-name ellipsis" :title="err.document">{{ err.document }}</div>
-            <div v-if="err.message" class="kg-sync-status__error-msg ellipsis" :title="err.message">{{ err.message }}</div>
-          </div>
-        </div>
-      </kg-dialog-section>
     </div>
 
     <template v-if="isSyncable" #actions-before-confirm>
@@ -347,8 +338,6 @@ const lastSyncBreakdown = computed<BreakdownPart[]>(() => {
   ]
   return parts.filter((p) => p.value > 0)
 })
-
-const errors = computed(() => props.source?.last_sync?.errors ?? [])
 
 function formatTimestamp(value?: string | null): string {
   if (!value) return '-'
@@ -690,36 +679,6 @@ function relativeFromNow(value: string): string {
   padding: 2px 0;
   font-size: 12px;
   color: var(--q-secondary-text, rgba(0, 0, 0, 0.55));
-}
-
-.kg-sync-status__errors-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-height: 160px;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-
-.kg-sync-status__error {
-  padding: 8px 10px;
-  background: var(--q-error-bg, #fdecec);
-  border-left: 2px solid var(--q-error-text, #c43030);
-  border-radius: 4px;
-  min-width: 0;
-}
-
-.kg-sync-status__error-name {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--q-primary-text, #171717);
-}
-
-.kg-sync-status__error-msg {
-  margin-top: 2px;
-  font-size: 11px;
-  color: var(--q-secondary-text, rgba(0, 0, 0, 0.65));
-  font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
 }
 
 .kg-sync-status__resync-button {

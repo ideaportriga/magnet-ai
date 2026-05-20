@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import re
+import time
 from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any, Literal
@@ -38,10 +39,17 @@ from utils.datetime_utils import utc_now_isoformat
 
 logger = logging.getLogger(__name__)
 
+# Emit an INFO-level heartbeat log every N documents during extraction loops.
+# Heartbeats convert a "silent death" into a visible "last heartbeat at chunk X"
+# in the logs — the operator can see exactly where the job stalled.
+_EXTRACTION_HEARTBEAT_INTERVAL = 10
+
 # Registry of actively running extraction tasks keyed by graph_id.
+# Holds the Task object itself (not a bool) so the event loop keeps a strong
+# reference and cannot garbage-collect / silently cancel the task mid-run.
 # Used to distinguish a live running process from a stale "running" DB status
 # (e.g. after a backend restart).
-_active_extraction_tasks: dict[UUID, bool] = {}
+_active_extraction_tasks: dict[UUID, asyncio.Task[Any]] = {}
 
 EntityExtractionApproach = Literal["document", "chunks"]
 EntityExtractionMode = Literal["basic", "reflective", "self-tuning"]
@@ -2328,6 +2336,7 @@ async def run_graph_llm_entity_extraction(
             graph_id,
         )
         docs_seen = 0
+        loop_start = time.monotonic()
 
         if progress_callback:
             await progress_callback(0, total_docs)
@@ -2440,6 +2449,17 @@ async def run_graph_llm_entity_extraction(
                     upserted_records,
                     errors,
                 )
+                if docs_seen % _EXTRACTION_HEARTBEAT_INTERVAL == 0:
+                    logger.info(
+                        "Entity extraction heartbeat graph=%s approach=document "
+                        "progress=%d/%d upserted=%d errors=%d elapsed=%.0fs",
+                        graph_id,
+                        docs_seen,
+                        total_docs,
+                        upserted_records,
+                        errors,
+                        time.monotonic() - loop_start,
+                    )
                 if progress_callback:
                     await progress_callback(docs_seen, total_docs)
 
@@ -2496,6 +2516,7 @@ async def run_graph_llm_entity_extraction(
         graph_id,
     )
     docs_seen = 0
+    loop_start = time.monotonic()
 
     if progress_callback:
         await progress_callback(0, total_docs)
@@ -2582,6 +2603,17 @@ async def run_graph_llm_entity_extraction(
             upserted_records,
             errors,
         )
+        if docs_seen % _EXTRACTION_HEARTBEAT_INTERVAL == 0:
+            logger.info(
+                "Entity extraction heartbeat graph=%s approach=chunks "
+                "progress=%d/%d upserted=%d errors=%d elapsed=%.0fs",
+                graph_id,
+                docs_seen,
+                total_docs,
+                upserted_records,
+                errors,
+                time.monotonic() - loop_start,
+            )
         if progress_callback:
             await progress_callback(docs_seen, total_docs)
 
@@ -2990,7 +3022,163 @@ async def run_entity_extraction(
 
 def is_extraction_task_active(graph_id: UUID) -> bool:
     """Return True if a background extraction task is currently running for this graph."""
-    return _active_extraction_tasks.get(graph_id, False)
+    task = _active_extraction_tasks.get(graph_id)
+    return task is not None and not task.done()
+
+
+async def reconcile_stale_entity_extractions() -> int:
+    """Mark orphan 'running'/'cancelling' entity extractions as 'interrupted'.
+
+    Called once at process startup. Any graph whose state.entity_extraction.status
+    is 'running' or 'cancelling' must be stale — no in-process task can possibly
+    own it because the process just started. Also updates per-document
+    pipeline_state.entity_extraction.status so pipeline-strip stats reflect the
+    interrupted state. Returns the number of graph rows updated.
+    """
+    updated = 0
+    affected_graph_ids: list[UUID] = []
+    try:
+        async with alchemy.get_session() as db_session:
+            res = await db_session.execute(select(KnowledgeGraph))
+            graphs = res.scalars().all()
+            for graph in graphs:
+                state = getattr(graph, "state", None)
+                if not isinstance(state, dict):
+                    continue
+                extraction = state.get("entity_extraction")
+                if not isinstance(extraction, dict):
+                    continue
+                status = extraction.get("status")
+                if status not in ("running", "cancelling"):
+                    continue
+                new_state = dict(state)
+                new_extraction = dict(extraction)
+                new_extraction["status"] = "interrupted"
+                new_extraction["completed_at"] = utc_now_isoformat()
+                new_extraction["error_message"] = (
+                    "Process restarted while extraction was running"
+                )
+                new_extraction.pop("progress", None)
+                new_state["entity_extraction"] = new_extraction
+                graph.state = new_state
+                affected_graph_ids.append(graph.id)
+                updated += 1
+            if updated:
+                await db_session.commit()
+                logger.warning(
+                    "Reconciled %d stale entity_extraction row(s) to 'interrupted'",
+                    updated,
+                )
+    except Exception:
+        logger.error(
+            "Failed to reconcile stale entity extractions on startup",
+            exc_info=True,
+        )
+        return updated
+
+    # Best-effort: mark per-document entity_extraction states as 'interrupted'
+    # so pipeline-strip stats no longer show stale entity_running counts.
+    _reconcile_error_msg = "Process restarted while extraction was running"
+    _now = utc_now_isoformat()
+    for graph_id in affected_graph_ids:
+        try:
+            async with alchemy.get_session() as doc_session:
+                await doc_session.execute(
+                    text(
+                        f"""
+                        UPDATE {docs_table_name(graph_id)}
+                        SET pipeline_state = COALESCE(pipeline_state, '{{}}'::jsonb) ||
+                            jsonb_build_object('entity_extraction',
+                                COALESCE(pipeline_state->'entity_extraction', '{{}}'::jsonb) ||
+                                jsonb_build_object(
+                                    'status', 'interrupted',
+                                    'completed_at', CAST(:completed_at AS text),
+                                    'error_message', CAST(:error_message AS text)
+                                )
+                            ),
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE pipeline_state->'entity_extraction'->>'status' = 'running'
+                        """  # noqa: S608
+                    ),
+                    {"completed_at": _now, "error_message": _reconcile_error_msg},
+                )
+                await doc_session.commit()
+        except Exception:
+            logger.warning(
+                "Failed to reconcile document entity_extraction states for graph %s on startup",
+                graph_id,
+                exc_info=True,
+            )
+
+    return updated
+
+
+async def _mark_extraction_interrupted(graph_id: UUID, reason: str) -> None:
+    """Write 'interrupted' status to DB using a fresh session.
+
+    Used when the task was cancelled (GC, shutdown, SIGTERM) and the original
+    session may be unusable. Best-effort: failures are logged but not raised.
+    """
+    try:
+        async with alchemy.get_session() as cleanup_session:
+            await _update_extraction_status(
+                cleanup_session,
+                graph_id,
+                status="interrupted",
+                completed_at=utc_now_isoformat(),
+                error_message=reason,
+            )
+    except Exception:
+        logger.error(
+            "Failed to mark interrupted entity extraction for graph %s",
+            graph_id,
+            exc_info=True,
+        )
+
+
+def log_entity_extraction_outcome(graph_id: UUID):
+    """Return a Task done-callback that logs the final outcome.
+
+    Catches the case where the task is cancelled by the GC or otherwise dies
+    without going through the wrapper's except blocks — guarantees at least one
+    log line so a "silent death" is never silent.
+    """
+
+    def _cb(task: asyncio.Task[Any]) -> None:
+        _active_extraction_tasks.pop(graph_id, None)
+        try:
+            if task.cancelled():
+                logger.error(
+                    "Entity extraction task CANCELLED for graph %s (likely GC, "
+                    "shutdown, or external cancel)",
+                    graph_id,
+                )
+                return
+            exc = task.exception()
+            if exc is not None:
+                logger.error(
+                    "Entity extraction task FAILED for graph %s",
+                    graph_id,
+                    exc_info=exc,
+                )
+            else:
+                logger.info(
+                    "Entity extraction task finished cleanly for graph %s",
+                    graph_id,
+                )
+        except asyncio.CancelledError:
+            logger.error(
+                "Entity extraction task CANCELLED for graph %s (during outcome check)",
+                graph_id,
+            )
+        except Exception:
+            logger.error(
+                "Error inspecting entity extraction task outcome for graph %s",
+                graph_id,
+                exc_info=True,
+            )
+
+    return _cb
 
 
 async def run_entity_extraction_background(
@@ -3000,16 +3188,23 @@ async def run_entity_extraction_background(
 
     Called via asyncio.create_task(). Should not raise exceptions to the caller.
     """
-    _active_extraction_tasks[graph_id] = True
     try:
         async with alchemy.get_session() as db_session:
             data = KnowledgeGraphEntityExtractionRunRequest(**data_dict)
             await run_entity_extraction(db_session, graph_id, data)
+    except asyncio.CancelledError:
+        logger.warning(
+            "Background entity extraction cancelled for graph %s — "
+            "marking as interrupted",
+            graph_id,
+        )
+        await _mark_extraction_interrupted(
+            graph_id, reason="Task was cancelled (shutdown, GC, or restart)"
+        )
+        raise
     except Exception:
         logger.error(
             "Background entity extraction failed for graph %s",
             graph_id,
             exc_info=True,
         )
-    finally:
-        _active_extraction_tasks.pop(graph_id, None)

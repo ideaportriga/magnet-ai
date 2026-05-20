@@ -232,13 +232,6 @@ class KnowledgeGraphSourceStatsSchema(BaseModel):
     )
 
 
-class KnowledgeGraphSourceLastSyncErrorSchema(BaseModel):
-    """A single failing document captured in the last-sync snapshot."""
-
-    document: str
-    message: Optional[str] = None
-
-
 class KnowledgeGraphSourceLastSyncSchema(BaseModel):
     """Snapshot of the most recent completed sync run (persisted on the source)."""
 
@@ -254,7 +247,6 @@ class KnowledgeGraphSourceLastSyncSchema(BaseModel):
     metadata_only_updated: int = 0
     content_changed: int = 0
     deleted: int = 0
-    errors: list[KnowledgeGraphSourceLastSyncErrorSchema] = Field(default_factory=list)
 
 
 class KnowledgeGraphSourceSyncProgressSchema(BaseModel):

@@ -20,13 +20,7 @@
 <script setup lang="ts">
 import { formatRelative } from '@shared/utils'
 import { computed } from 'vue'
-import {
-  KgPipelineStrip,
-  KgSyncProgressBar,
-  phaseStateFor,
-  phaseTooltipLines,
-  type KgPipelinePhase,
-} from '../common'
+import { KgPipelineStrip, KgSyncProgressBar, phaseStateFor, phaseTooltipLines, type KgPipelinePhase } from '../common'
 import type { SourceRow } from './models'
 
 const props = defineProps<{
@@ -49,6 +43,8 @@ const statusSummary = computed(() => {
       return { label: 'Needs attention', icon: 'error' }
     case 'pending':
       return { label: 'Pending', icon: 'schedule' }
+    case 'interrupted':
+      return { label: 'Interrupted', icon: 'cancel' }
     default:
       return { label: props.effectiveStatus || 'Not started', icon: 'radio_button_unchecked' }
   }

@@ -34,11 +34,6 @@ export type SourceStats = {
   entities: SourcePhaseStats
 }
 
-export type SourceLastSyncError = {
-  document: string
-  message?: string | null
-}
-
 export type SourceLastSync = {
   started_at?: string | null
   completed_at?: string | null
@@ -52,7 +47,6 @@ export type SourceLastSync = {
   metadata_only_updated: number
   content_changed: number
   deleted: number
-  errors: SourceLastSyncError[]
 }
 
 export type SourceSyncProgress = {

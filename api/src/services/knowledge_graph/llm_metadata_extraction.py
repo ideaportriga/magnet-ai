@@ -1,16 +1,23 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
+import time
 from typing import Any, Literal
 from uuid import UUID
 
 import yaml
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.db.models.knowledge_graph import chunks_table_name, docs_table_name
+from core.config.app import alchemy
+from core.db.models.knowledge_graph import (
+    KnowledgeGraph,
+    chunks_table_name,
+    docs_table_name,
+)
 from services.knowledge_graph.metadata_services import (
     accumulate_extracted_metadata_fields,
 )
@@ -21,9 +28,276 @@ from services.observability import observability_context, observe
 from services.prompt_templates import execute_prompt_template
 from utils.datetime_utils import utc_now_isoformat
 
+# Emit an INFO-level heartbeat log every N documents during extraction loops.
+_METADATA_HEARTBEAT_INTERVAL = 10
+
 logger = logging.getLogger(__name__)
 
+# Registry of actively running metadata extraction tasks keyed by graph_id.
+# Holds the Task object itself (not a bool) so the event loop keeps a strong
+# reference and cannot garbage-collect / silently cancel the task mid-run.
+_active_metadata_tasks: dict[UUID, asyncio.Task[Any]] = {}
+
 MetadataExtractionApproach = Literal["document", "chunks"]
+
+
+def is_metadata_extraction_task_active(graph_id: UUID) -> bool:
+    """Return True if a background metadata extraction task is running for this graph."""
+    task = _active_metadata_tasks.get(graph_id)
+    return task is not None and not task.done()
+
+
+async def reconcile_stale_metadata_extractions() -> int:
+    """Mark orphan 'running'/'cancelling' metadata extractions as 'interrupted'.
+
+    Called once at process startup. Any graph whose state.metadata_extraction.status
+    is 'running' or 'cancelling' must be stale — no in-process task can possibly
+    own it because the process just started. Also updates per-document
+    pipeline_state.metadata_extraction.status so pipeline-strip stats reflect the
+    interrupted state. Returns the number of graph rows updated.
+    """
+    updated = 0
+    affected_graph_ids: list[UUID] = []
+    try:
+        async with alchemy.get_session() as db_session:
+            res = await db_session.execute(select(KnowledgeGraph))
+            graphs = res.scalars().all()
+            for graph in graphs:
+                state = getattr(graph, "state", None)
+                if not isinstance(state, dict):
+                    continue
+                extraction = state.get("metadata_extraction")
+                if not isinstance(extraction, dict):
+                    continue
+                status = extraction.get("status")
+                if status not in ("running", "cancelling"):
+                    continue
+                new_state = dict(state)
+                new_extraction = dict(extraction)
+                new_extraction["status"] = "interrupted"
+                new_extraction["completed_at"] = utc_now_isoformat()
+                new_extraction["error_message"] = (
+                    "Process restarted while extraction was running"
+                )
+                new_state["metadata_extraction"] = new_extraction
+                graph.state = new_state
+                affected_graph_ids.append(graph.id)
+                updated += 1
+            if updated:
+                await db_session.commit()
+                logger.warning(
+                    "Reconciled %d stale metadata_extraction row(s) to 'interrupted'",
+                    updated,
+                )
+    except Exception:
+        logger.error(
+            "Failed to reconcile stale metadata extractions on startup",
+            exc_info=True,
+        )
+        return updated
+
+    # Best-effort: mark per-document metadata_extraction states as 'interrupted'
+    # so pipeline-strip stats no longer show stale metadata_running counts.
+    _reconcile_error_msg = "Process restarted while extraction was running"
+    _now = utc_now_isoformat()
+    for graph_id in affected_graph_ids:
+        try:
+            async with alchemy.get_session() as doc_session:
+                await doc_session.execute(
+                    text(
+                        f"""
+                        UPDATE {docs_table_name(graph_id)}
+                        SET pipeline_state = COALESCE(pipeline_state, '{{}}'::jsonb) ||
+                            jsonb_build_object('metadata_extraction',
+                                COALESCE(pipeline_state->'metadata_extraction', '{{}}'::jsonb) ||
+                                jsonb_build_object(
+                                    'status', 'interrupted',
+                                    'completed_at', CAST(:completed_at AS text),
+                                    'error_message', CAST(:error_message AS text)
+                                )
+                            ),
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE pipeline_state->'metadata_extraction'->>'status' = 'running'
+                        """  # noqa: S608
+                    ),
+                    {"completed_at": _now, "error_message": _reconcile_error_msg},
+                )
+                await doc_session.commit()
+        except Exception:
+            logger.warning(
+                "Failed to reconcile document metadata_extraction states for graph %s on startup",
+                graph_id,
+                exc_info=True,
+            )
+
+    return updated
+
+
+async def update_graph_metadata_extraction_status(
+    db_session: AsyncSession,
+    graph_id: UUID,
+    *,
+    status: str,
+    started_at: str | None = None,
+    completed_at: str | None = None,
+    result: dict[str, Any] | None = None,
+    error_message: str | None = None,
+) -> None:
+    """Persist metadata extraction status into the KG state JSONB column."""
+    try:
+        graph_res = await db_session.execute(
+            select(KnowledgeGraph).where(KnowledgeGraph.id == graph_id)
+        )
+        graph = graph_res.scalar_one_or_none()
+        if not graph:
+            return
+
+        current_state = dict(getattr(graph, "state", None) or {})
+        prev = current_state.get("metadata_extraction")
+        extraction_status: dict[str, Any] = dict(prev) if isinstance(prev, dict) else {}
+        extraction_status["status"] = status
+
+        if started_at is not None:
+            extraction_status["started_at"] = started_at
+        if completed_at is not None:
+            extraction_status["completed_at"] = completed_at
+        if result is not None:
+            extraction_status["result"] = result
+        if error_message is not None:
+            extraction_status["error_message"] = error_message
+
+        current_state["metadata_extraction"] = extraction_status
+        graph.state = current_state
+        await db_session.commit()
+    except Exception:
+        logger.warning(
+            "Failed to update metadata extraction status for graph %s",
+            graph_id,
+            exc_info=True,
+        )
+
+
+async def mark_metadata_extraction_interrupted(graph_id: UUID, reason: str) -> None:
+    """Write 'interrupted' status to DB using a fresh session.
+
+    Used when the task was cancelled (GC, shutdown, SIGTERM) and the original
+    session may be unusable. Best-effort: failures are logged but not raised.
+    """
+    try:
+        async with alchemy.get_session() as cleanup_session:
+            await update_graph_metadata_extraction_status(
+                cleanup_session,
+                graph_id,
+                status="interrupted",
+                completed_at=utc_now_isoformat(),
+                error_message=reason,
+            )
+    except Exception:
+        logger.error(
+            "Failed to mark interrupted metadata extraction for graph %s",
+            graph_id,
+            exc_info=True,
+        )
+
+
+def log_metadata_extraction_outcome(graph_id: UUID):
+    """Return a Task done-callback that logs the final outcome."""
+
+    def _cb(task: asyncio.Task[Any]) -> None:
+        _active_metadata_tasks.pop(graph_id, None)
+        try:
+            if task.cancelled():
+                logger.error(
+                    "Metadata extraction task CANCELLED for graph %s (likely GC, "
+                    "shutdown, or external cancel)",
+                    graph_id,
+                )
+                return
+            exc = task.exception()
+            if exc is not None:
+                logger.error(
+                    "Metadata extraction task FAILED for graph %s",
+                    graph_id,
+                    exc_info=exc,
+                )
+            else:
+                logger.info(
+                    "Metadata extraction task finished cleanly for graph %s",
+                    graph_id,
+                )
+        except asyncio.CancelledError:
+            logger.error(
+                "Metadata extraction task CANCELLED for graph %s (during outcome check)",
+                graph_id,
+            )
+        except Exception:
+            logger.error(
+                "Error inspecting metadata extraction task outcome for graph %s",
+                graph_id,
+                exc_info=True,
+            )
+
+    return _cb
+
+
+async def run_metadata_extraction_background(
+    graph_id: UUID, data_dict: dict[str, Any]
+) -> None:
+    """Run metadata extraction in background with its own database session.
+
+    Called via asyncio.create_task(). Should not raise exceptions to the caller.
+    """
+    # Local imports to avoid circular dependencies at module load time.
+    from core.domain.knowledge_graph.schemas import (
+        KnowledgeGraphMetadataExtractionRunRequest,
+    )
+    from core.domain.knowledge_graph.services.knowledge_graph_metadata_service import (
+        KnowledgeGraphMetadataService,
+    )
+
+    try:
+        async with alchemy.get_session() as db_session:
+            data = KnowledgeGraphMetadataExtractionRunRequest(**data_dict)
+            service = KnowledgeGraphMetadataService()
+            result = await service.run_metadata_extraction(db_session, graph_id, data)
+            await update_graph_metadata_extraction_status(
+                db_session,
+                graph_id,
+                status="completed",
+                completed_at=utc_now_isoformat(),
+                result=result.model_dump() if hasattr(result, "model_dump") else None,
+            )
+    except asyncio.CancelledError:
+        logger.warning(
+            "Background metadata extraction cancelled for graph %s — "
+            "marking as interrupted",
+            graph_id,
+        )
+        await mark_metadata_extraction_interrupted(
+            graph_id, reason="Task was cancelled (shutdown, GC, or restart)"
+        )
+        raise
+    except Exception as exc:
+        logger.error(
+            "Background metadata extraction failed for graph %s",
+            graph_id,
+            exc_info=True,
+        )
+        try:
+            async with alchemy.get_session() as cleanup_session:
+                await update_graph_metadata_extraction_status(
+                    cleanup_session,
+                    graph_id,
+                    status="error",
+                    completed_at=utc_now_isoformat(),
+                    error_message=str(exc),
+                )
+        except Exception:
+            logger.error(
+                "Failed to record error status for metadata extraction graph %s",
+                graph_id,
+                exc_info=True,
+            )
 
 
 def build_typescript_schema_from_field_definitions(field_definitions: Any) -> str:
@@ -447,6 +721,8 @@ async def run_graph_llm_metadata_extraction(
         # open while calling the LLM (which can take a long time).
         batch_size = 50
         offset = 0
+        loop_start = time.monotonic()
+        docs_seen = 0
 
         while True:
             doc_id_filter = (
@@ -595,6 +871,19 @@ async def run_graph_llm_metadata_extraction(
                         },
                     )
 
+                docs_seen += 1
+                if docs_seen % _METADATA_HEARTBEAT_INTERVAL == 0:
+                    logger.info(
+                        "Metadata extraction heartbeat graph=%s approach=document "
+                        "docs_seen=%d processed=%d skipped=%d errors=%d elapsed=%.0fs",
+                        graph_id,
+                        docs_seen,
+                        processed_documents,
+                        skipped_documents,
+                        errors,
+                        time.monotonic() - loop_start,
+                    )
+
             offset += len(batch)
 
         return {
@@ -632,6 +921,10 @@ async def run_graph_llm_metadata_extraction(
     )
     docs_rows = docs_res.mappings().all()
     await db_session.commit()  # close read transaction before LLM work
+
+    total_docs = len(docs_rows)
+    docs_seen = 0
+    loop_start = time.monotonic()
 
     for drow in docs_rows:
         doc_id = str(drow.get("id") or "").strip()
@@ -768,6 +1061,19 @@ async def run_graph_llm_metadata_extraction(
                     "completed_at": utc_now_isoformat(),
                     "fields_count": len(storage),
                 },
+            )
+
+        docs_seen += 1
+        if docs_seen % _METADATA_HEARTBEAT_INTERVAL == 0:
+            logger.info(
+                "Metadata extraction heartbeat graph=%s approach=chunks "
+                "progress=%d/%d processed_chunks=%d errors=%d elapsed=%.0fs",
+                graph_id,
+                docs_seen,
+                total_docs,
+                processed_chunks,
+                errors,
+                time.monotonic() - loop_start,
             )
 
     return {

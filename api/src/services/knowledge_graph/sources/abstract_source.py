@@ -651,8 +651,6 @@ class AbstractDataSource(ABC):
             except Exception:  # noqa: BLE001
                 duration_seconds = None
 
-        top_errors = await self._collect_top_failed_documents(limit=10)
-
         last_sync_stats: dict[str, Any] = {
             "started_at": started_at,
             "completed_at": last_sync_at,
@@ -666,7 +664,6 @@ class AbstractDataSource(ABC):
             "metadata_only_updated": counters.metadata_only_updated,
             "content_changed": counters.content_changed,
             "deleted": counters.deleted,
-            "errors": top_errors,
         }
 
         self.source.last_sync_stats = last_sync_stats

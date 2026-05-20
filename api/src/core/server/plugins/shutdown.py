@@ -36,11 +36,80 @@ class ShutdownPlugin(InitPluginProtocol):
         # Shutdown scheduler
         await self._shutdown_scheduler(app)
 
-        # Give a brief moment for any ongoing operations to complete
-        await asyncio.sleep(0.5)
+        # Drain in-flight knowledge-graph extraction tasks so they get a chance
+        # to write a final "interrupted" status to the DB. Without this drain,
+        # the previous 0.5s sleep killed running extractions with no log and
+        # left their state stuck on "running" forever.
+        await self._drain_extraction_tasks()
 
         # Close database connection pools
         await self._close_database_connections()
+
+    @staticmethod
+    async def _drain_extraction_tasks() -> None:
+        """Wait up to DRAIN_TIMEOUT for active extraction tasks to finish."""
+        DRAIN_TIMEOUT = 30.0
+
+        try:
+            from services.knowledge_graph.llm_entity_extraction import (
+                _active_extraction_tasks,
+            )
+        except Exception:
+            _active_extraction_tasks = {}
+        try:
+            from services.knowledge_graph.llm_metadata_extraction import (
+                _active_metadata_tasks,
+            )
+        except Exception:
+            _active_metadata_tasks = {}
+        try:
+            from services.knowledge_graph.sources.sync_services import (
+                _active_sync_tasks,
+            )
+        except Exception:
+            _active_sync_tasks = {}
+
+        tasks = [
+            *list(_active_extraction_tasks.values()),
+            *list(_active_metadata_tasks.values()),
+            *list(_active_sync_tasks.values()),
+        ]
+        # Filter out anything already done.
+        tasks = [t for t in tasks if t is not None and not t.done()]
+
+        if not tasks:
+            logger.info("Shutdown: no in-flight extraction tasks to drain")
+            return
+
+        logger.info(
+            "Shutdown: draining %d in-flight extraction task(s), up to %.0fs",
+            len(tasks),
+            DRAIN_TIMEOUT,
+        )
+
+        try:
+            done, pending = await asyncio.wait(tasks, timeout=DRAIN_TIMEOUT)
+        except Exception:
+            logger.exception("Shutdown: error while awaiting extraction tasks")
+            return
+
+        logger.info(
+            "Shutdown: %d extraction task(s) completed during drain, %d still pending",
+            len(done),
+            len(pending),
+        )
+
+        # Cancel anything still pending so the loop can shut down cleanly.
+        # The wrappers handle CancelledError and write 'interrupted' status.
+        for t in pending:
+            t.cancel()
+        if pending:
+            try:
+                await asyncio.wait(pending, timeout=5.0)
+            except Exception:
+                logger.exception(
+                    "Shutdown: error while awaiting cancelled extraction tasks"
+                )
 
     async def _shutdown_scheduler(self, app: Litestar) -> None:
         """Shutdown the scheduler."""

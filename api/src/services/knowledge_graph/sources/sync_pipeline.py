@@ -35,6 +35,11 @@ from ..models import (
 
 logger = logging.getLogger(__name__)
 
+# Emit an INFO-level heartbeat log every N seconds during the long-running
+# processing stage. Converts a "silent death" into a visible "last heartbeat
+# at time T" in the logs — the operator can see exactly where the sync stalled.
+_SYNC_HEARTBEAT_INTERVAL_SEC = 30.0
+
 ListTaskT = TypeVar("ListTaskT")
 ContentTaskT = TypeVar("ContentTaskT")
 ProcessTaskT = TypeVar("ProcessTaskT")
@@ -257,6 +262,9 @@ class SyncPipeline(Generic[ListTaskT, ContentTaskT, ProcessTaskT], ABC):
             self.config.semaphores,
         )
 
+        loop_start = time.monotonic()
+        last_heartbeat_at = loop_start
+
         observability_context.update_current_config(
             span_export_method=SpanExportMethod.IGNORE_BUT_USE_FOR_TOTALS
         )
@@ -348,6 +356,22 @@ class SyncPipeline(Generic[ListTaskT, ContentTaskT, ProcessTaskT], ABC):
                         )
                     except asyncio.TimeoutError:
                         await self.publish_progress(phase="processing")
+                        now = time.monotonic()
+                        if (now - last_heartbeat_at) >= _SYNC_HEARTBEAT_INTERVAL_SEC:
+                            last_heartbeat_at = now
+                            logger.info(
+                                "Sync heartbeat name=%s source=%s phase=processing "
+                                "processed=%d total=%d synced=%d failed=%d skipped=%d "
+                                "elapsed=%.0fs",
+                                self.config.name,
+                                self._progress_source_id(),
+                                int(self.counters.synced) + int(self.counters.failed),
+                                int(self.counters.total_found),
+                                int(self.counters.synced),
+                                int(self.counters.failed),
+                                int(self.counters.skipped),
+                                now - loop_start,
+                            )
             finally:
                 if not processing_done.done():
                     processing_done.cancel()
