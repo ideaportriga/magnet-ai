@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-alpha.33](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.32...v0.7.0-alpha.33) (2026-05-22)
+
+### 🐛 Bug Fixes
+
+* tenant migrations — default-tenant fallback for orphans ([bb552af](https://github.com/ideaportriga/magnet-ai/commit/bb552afe492a850db45366b5cddb5efb807f8177))
+
 ## [0.7.0-alpha.32](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.31...v0.7.0-alpha.32) (2026-05-22)
 
 ### 🐛 Bug Fixes
