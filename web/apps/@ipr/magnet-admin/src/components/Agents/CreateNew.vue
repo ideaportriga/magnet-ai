@@ -13,6 +13,7 @@
       </div>
       <div class="km-description text-secondary-text pb-xs">{{ m.hint_systemNameUniqueId() }}</div>
     </div>
+    <access-control v-model:visibility="newRow.visibility" v-model:department-id="newRow.department_id" />
   </km-popup-confirm>
 </template>
 
@@ -58,6 +59,8 @@ export default {
         name: '',
         description: '',
         system_name: '',
+        visibility: 'tenant',
+        department_id: null,
         active_variant: 'variant_1',
         variants: [
           {
@@ -147,6 +150,7 @@ export default {
       if (!success || !data?.id) return
 
       this.$router.push(`/agents/${data.id}`)
+      this.$emit('cancel')
     },
 
     async openDetails(row) {

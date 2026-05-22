@@ -7,11 +7,15 @@ from uuid import UUID
 
 import httpx
 from advanced_alchemy.extensions.litestar import providers
-from litestar import Controller, delete, get, patch, post
+from litestar import Controller, Request, delete, get, patch, post
 from litestar.datastructures import UploadFile
 from litestar.di import Provide
 from litestar.enums import RequestEncodingType
-from litestar.exceptions import ClientException
+from litestar.exceptions import (
+    ClientException,
+    NotFoundException,
+    PermissionDeniedException,
+)
 from litestar.params import Body, Parameter
 from litestar.status_codes import (
     HTTP_200_OK,
@@ -24,6 +28,11 @@ from sqlalchemy.orm.attributes import flag_modified
 from core.db.models.knowledge_graph import KnowledgeGraph
 from core.domain.agent_conversation.service import AgentConversationService
 from guards.permissions import Permission, require_permission
+from services.access_control import (
+    PermissionService,
+    force_create_fields,
+    record_visibility_filter,
+)
 from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphChunkExternalSchema,
     KnowledgeGraphCreateRequest,
@@ -89,6 +98,98 @@ from storage import FileLimits, StorageService
 
 logger = logging.getLogger(__name__)
 
+_RESOURCE = "knowledge_graph"
+
+
+async def _visibility_filter(db_session: AsyncSession, request: Request) -> Any | None:
+    """Build a SQLAlchemy WHERE clause for the caller's record visibility."""
+    auth = request.scope.get("auth")
+    if auth is None:
+        return None
+    try:
+        async with db_session.begin_nested():
+            return await record_visibility_filter(
+                db_session,
+                auth=auth,
+                model=KnowledgeGraph,
+                resource_type=_RESOURCE,
+            )
+    except Exception:
+        logger.exception("record_visibility_filter failed; falling back to RLS only")
+        return None
+
+
+async def _enforce_graph_view(
+    db_session: AsyncSession, request: Request, graph: KnowledgeGraph
+) -> None:
+    """Raise 404 if the caller cannot view this graph."""
+    auth = request.scope.get("auth")
+    if auth is None:
+        return
+    if not await PermissionService.can(
+        db_session,
+        auth=auth,
+        action="view",
+        resource_type=_RESOURCE,
+        resource=graph,
+    ):
+        raise NotFoundException("Knowledge Graph not found")
+
+
+async def _enforce_graph_action(
+    db_session: AsyncSession,
+    request: Request,
+    graph: KnowledgeGraph,
+    action: str,
+) -> None:
+    """Raise 404 if not viewable, 403 if the specific action is denied."""
+    auth = request.scope.get("auth")
+    if auth is None:
+        return
+    if not await PermissionService.can(
+        db_session,
+        auth=auth,
+        action="view",
+        resource_type=_RESOURCE,
+        resource=graph,
+    ):
+        raise NotFoundException("Knowledge Graph not found")
+    if not await PermissionService.can(
+        db_session,
+        auth=auth,
+        action=action,
+        resource_type=_RESOURCE,
+        resource=graph,
+    ):
+        raise PermissionDeniedException(
+            f"You don't have permission to {action} this knowledge graph"
+        )
+
+
+async def _attach_graph_permissions(
+    db_session: AsyncSession,
+    request: Request,
+    schema: Any,
+    graph: KnowledgeGraph,
+) -> Any:
+    auth = request.scope.get("auth")
+    if auth is None:
+        return schema
+    try:
+        async with db_session.begin_nested():
+            schema.permissions = await PermissionService.compute_record_permissions(
+                db_session,
+                auth=auth,
+                resource_type=_RESOURCE,
+                resource=graph,
+            )
+    except Exception:
+        logger.exception(
+            "compute_record_permissions failed; omitting _permissions block",
+            extra={"resource_type": _RESOURCE},
+        )
+    return schema
+
 
 class KnowledgeGraphController(Controller):
     path = "/knowledge_graphs"
@@ -131,9 +232,18 @@ class KnowledgeGraphController(Controller):
         guards=[require_permission(Permission.KNOWLEDGE_GRAPH_READ)],
     )
     async def list_graphs(
-        self, graph_service: KnowledgeGraphService, db_session: AsyncSession
+        self,
+        graph_service: KnowledgeGraphService,
+        db_session: AsyncSession,
+        request: Request,
     ) -> list[KnowledgeGraphExternalSchema]:
-        return await graph_service.list_graphs(db_session)
+        extra_where = await _visibility_filter(db_session, request)
+        rows = await graph_service.list_graphs(db_session, extra_where=extra_where)
+        items: list[KnowledgeGraphExternalSchema] = []
+        for schema, graph in rows:
+            await _attach_graph_permissions(db_session, request, schema, graph)
+            items.append(schema)
+        return items
 
     @get(
         "/agent_tools",
@@ -141,7 +251,10 @@ class KnowledgeGraphController(Controller):
         guards=[require_permission(Permission.KNOWLEDGE_GRAPH_READ)],
     )
     async def list_graphs_as_agent_tools(
-        self, graph_service: KnowledgeGraphService, db_session: AsyncSession
+        self,
+        graph_service: KnowledgeGraphService,
+        db_session: AsyncSession,
+        request: Request,
     ) -> list[dict]:
         """Return knowledge graphs with their individual retriever tools.
 
@@ -155,17 +268,18 @@ class KnowledgeGraphController(Controller):
             get_agent_tool_specs,
         )
 
-        graphs = await graph_service.list_graphs(db_session)
+        extra_where = await _visibility_filter(db_session, request)
+        rows = await graph_service.list_graphs(db_session, extra_where=extra_where)
         tool_specs = get_agent_tool_specs()
 
         result = []
-        for graph in graphs:
+        for schema, _graph in rows:
             result.append(
                 {
-                    "id": graph.id,
-                    "name": graph.name,
-                    "system_name": graph.system_name,
-                    "description": graph.description,
+                    "id": schema.id,
+                    "name": schema.name,
+                    "system_name": schema.system_name,
+                    "description": schema.description,
                     "url": None,
                     "tools": tool_specs,
                 }
@@ -181,9 +295,13 @@ class KnowledgeGraphController(Controller):
         self,
         graph_service: KnowledgeGraphService,
         db_session: AsyncSession,
+        request: Request,
         graph_id: UUID,
     ) -> KnowledgeGraphExternalSchema:
-        return await graph_service.get_graph(db_session, graph_id)
+        schema, graph = await graph_service.get_graph(db_session, graph_id)
+        await _enforce_graph_view(db_session, request, graph)
+        await _attach_graph_permissions(db_session, request, schema, graph)
+        return schema
 
     @post(
         "/",
@@ -197,11 +315,16 @@ class KnowledgeGraphController(Controller):
         chunk_service: KnowledgeGraphChunkService,
         edge_service: KnowledgeGraphEdgeService,
         db_session: AsyncSession,
+        request: Request,
         data: KnowledgeGraphCreateRequest,
     ) -> KnowledgeGraphCreateResponse:
+        # Stamp tenant_id + owner_id from auth so the caller can't spoof them.
+        identity = force_create_fields({}, request=request)
         return await graph_service.create_graph(
             db_session,
             data,
+            tenant_id=identity.get("tenant_id"),
+            owner_id=identity.get("owner_id"),
             document_service=document_service,
             chunk_service=chunk_service,
             edge_service=edge_service,
@@ -218,9 +341,12 @@ class KnowledgeGraphController(Controller):
         document_service: KnowledgeGraphDocumentService,
         chunk_service: KnowledgeGraphChunkService,
         db_session: AsyncSession,
+        request: Request,
         graph_id: UUID,
         data: KnowledgeGraphUpdateRequest,
     ) -> KnowledgeGraphUpdateResponse:
+        existing = await graph_service.repository.get(graph_id)
+        await _enforce_graph_action(db_session, request, existing, "edit")
         return await graph_service.update_graph(
             db_session,
             graph_id,
@@ -241,8 +367,11 @@ class KnowledgeGraphController(Controller):
         chunk_service: KnowledgeGraphChunkService,
         edge_service: KnowledgeGraphEdgeService,
         db_session: AsyncSession,
+        request: Request,
         graph_id: UUID,
     ) -> None:
+        existing = await graph_service.repository.get(graph_id)
+        await _enforce_graph_action(db_session, request, existing, "delete")
         await graph_service.delete_graph(
             db_session,
             graph_id,

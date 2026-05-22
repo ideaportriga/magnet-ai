@@ -53,6 +53,11 @@
         <ds-dropdown-menu-content side="bottom" align="end" :side-offset="4">
           <ds-dropdown-menu-item v-if="canEdit && entity?.id" data-test="ai-edit-btn" @select="showAiEdit = true">{{ m.aiEdit_action() }}</ds-dropdown-menu-item>
           <ds-dropdown-menu-item v-if="canCreate" data-test="clone-btn" @select="showNewDialog = true">{{ m.common_clone() }}</ds-dropdown-menu-item>
+          <template v-if="canEdit">
+            <ds-dropdown-menu-separator />
+            <access-control-menu :visibility="entity?.visibility" :department-id="entity?.department_id" @update:visibility="updateField('visibility', $event)" @update:department-id="updateField('department_id', $event)" />
+          </template>
+          <ds-dropdown-menu-separator v-if="canDelete" />
           <ds-dropdown-menu-item v-if="canDelete" data-test="delete-btn" variant="destructive" @select="showDeleteDialog = true">{{ m.common_delete() }}</ds-dropdown-menu-item>
         </ds-dropdown-menu-content>
       </ds-dropdown-menu-root>

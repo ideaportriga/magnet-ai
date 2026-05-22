@@ -21,6 +21,8 @@
       <div class="km-description text-secondary-text py-sm">{{ m.knowledgeGraph_graphDescHint() }}</div>
     </div>
 
+    <access-control v-model:visibility="visibility" v-model:department-id="departmentId" />
+
     <div v-if="error" class="mt-md text-negative">{{ error }}</div>
   </km-popup-confirm>
 </template>
@@ -43,6 +45,8 @@ const emit = defineEmits<{
 const appStore = useAppStore()
 const graphName = ref('')
 const description = ref('')
+const visibility = ref<string>('tenant')
+const departmentId = ref<string | null>(null)
 const loading = ref(false)
 const error = ref('')
 
@@ -71,6 +75,8 @@ const createGraph = async () => {
       body: JSON.stringify({
         name: graphName.value.trim(),
         description: description.value.trim(),
+        visibility: visibility.value,
+        department_id: departmentId.value,
       }),
     })
 

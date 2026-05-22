@@ -68,6 +68,14 @@
                   <span class="btn-label">{{ m.knowledgeGraph_testRetrieval() }}</span>
                   <km-glyph name="arrow_forward" size="16px" class="btn-arrow" />
                 </button>
+                <ds-dropdown-menu-root v-if="!recordReadonly">
+                  <ds-dropdown-menu-trigger as-child>
+                    <km-btn class="px-xs" data-test="show-more-btn" flat icon="more-vertical" size="13px" />
+                  </ds-dropdown-menu-trigger>
+                  <ds-dropdown-menu-content side="bottom" align="end" :side-offset="4">
+                    <access-control-menu :visibility="graphDetails?.visibility" :department-id="graphDetails?.department_id" @update:visibility="onAccessChange('visibility', $event)" @update:department-id="onAccessChange('department_id', $event)" />
+                  </ds-dropdown-menu-content>
+                </ds-dropdown-menu-root>
               </div>
             </div>
           </div>
@@ -228,6 +236,7 @@ import { m } from '@/paraglide/messages'
 import { computed, onActivated, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAppStore } from '@/stores/appStore'
+import { useWorkspaceStore } from '@/stores/workspaceStore'
 import { useEntityQueries } from '@/queries/entities'
 import { useNotify } from '@/composables/useNotify'
 import ContentProfilesTab from './ContentProfiles/ContentProfilesTab.vue'
@@ -242,6 +251,7 @@ import type { KnowledgeGraphDetails } from './types'
 
 const route = useRoute()
 const appStore = useAppStore()
+const workspace = useWorkspaceStore()
 const queries = useEntityQueries()
 const { notifySuccess, notifyError, notifyWarning } = useNotify()
 
@@ -264,6 +274,16 @@ watch(
       name.value = newData.name || ''
       systemName.value = newData.system_name || ''
       description.value = newData.description || ''
+
+      const tab = workspace.tabs.find(
+        (t) => t.entityType === 'knowledge_graph' && t.entityId === graphId.value,
+      )
+      if (tab) {
+        const label = newData.name || newData.system_name || ''
+        if (label && tab.label !== label) {
+          workspace.updateTabLabel(tab.id, label)
+        }
+      }
     }
   },
   { immediate: true }
@@ -457,6 +477,10 @@ const onNameChange = async (val: string) => {
 const onDescriptionChange = async (val: string) => {
   description.value = typeof val === 'string' ? val.trim() : val
   await updateGraph({ description: description.value })
+}
+
+const onAccessChange = async (field: 'visibility' | 'department_id', val: string | null) => {
+  await updateGraph({ [field]: val })
 }
 
 const onSystemNameChange = async (val: string) => {

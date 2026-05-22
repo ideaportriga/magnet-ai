@@ -19,6 +19,7 @@
         <km-input ref="urlRef" v-model="newRow.url" data-test="url-input" height="30px" :rules="[required()]" />
       </div>
     </div>
+    <access-control v-model:visibility="newRow.visibility" v-model:department-id="newRow.department_id" />
   </km-popup-confirm>
 </template>
 <script>
@@ -57,6 +58,8 @@ export default {
         name: '',
         system_name: '',
         url: '',
+        visibility: 'tenant',
+        department_id: null,
       }),
       required,
       requiredFields: ['name', 'system_name', 'url'],

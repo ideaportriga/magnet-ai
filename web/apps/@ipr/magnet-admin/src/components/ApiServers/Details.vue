@@ -11,6 +11,11 @@
         </ds-dropdown-menu-trigger>
         <ds-dropdown-menu-content side="bottom" align="end" :side-offset="4">
           <ds-dropdown-menu-item data-test="clone-btn" :disabled="!canCreate" @select="canCreate && (showNewDialog = true)">{{ m.common_clone() }}</ds-dropdown-menu-item>
+          <template v-if="!recordReadonly">
+            <ds-dropdown-menu-separator />
+            <access-control-menu :visibility="draft?.visibility" :department-id="draft?.department_id" @update:visibility="updateField('visibility', $event)" @update:department-id="updateField('department_id', $event)" />
+          </template>
+          <ds-dropdown-menu-separator v-if="canDelete" />
           <ds-dropdown-menu-item v-if="canDelete" data-test="delete-btn" variant="destructive" @select="showDeleteDialog = true">{{ m.common_delete() }}</ds-dropdown-menu-item>
         </ds-dropdown-menu-content>
       </ds-dropdown-menu-root>

@@ -16,6 +16,7 @@ from core.domain.base.schemas import (
     BaseEntitySchema,
     BaseEntityUpdateSchema,
 )
+from core.domain.base.record_level_mixin import RecordLevelFieldsMixin
 
 from core.domain.agents_channels.schemas import AgentChannels, AgentChannelsUpdate
 
@@ -75,7 +76,7 @@ class Agent(BaseEntitySchema):
         return result
 
 
-class AgentCreate(BaseEntityCreateSchema):
+class AgentCreate(BaseEntityCreateSchema, RecordLevelFieldsMixin):
     """Schema for creating a new agent."""
 
     # chanels are not included in create schema to avoid copying chanels
@@ -85,7 +86,7 @@ class AgentCreate(BaseEntityCreateSchema):
     )
 
 
-class AgentUpdate(BaseEntityUpdateSchema):
+class AgentUpdate(BaseEntityUpdateSchema, RecordLevelFieldsMixin):
     """Schema for updating an existing agent."""
 
     channels: Optional[AgentChannelsUpdate] = Field(

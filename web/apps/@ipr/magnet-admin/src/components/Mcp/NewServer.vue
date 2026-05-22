@@ -27,6 +27,7 @@
           <km-radio v-model="transport" class="my-sm" name="transport" dense label="sse" val="sse" size="xs" />
         </div>
       </div>
+      <access-control v-model:visibility="visibility" v-model:department-id="department_id" />
     </div>
   </km-popup-confirm>
 </template>
@@ -55,6 +56,8 @@ const name = ref('')
 const system_name = ref('')
 const url = ref('')
 const transport = ref('streamable-http')
+const visibility = ref('tenant')
+const department_id = ref(null)
 
 const emit = defineEmits(['cancel'])
 
@@ -69,6 +72,8 @@ const createMCPServer = async () => {
     system_name: system_name.value,
     url: url.value,
     transport: transport.value,
+    visibility: visibility.value,
+    department_id: department_id.value,
   })
   if (!success) return
   if (res) {

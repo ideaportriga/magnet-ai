@@ -117,14 +117,32 @@ export function useEntityDetailBase<T extends BaseEntity>(
   const { mutateAsync: updateEntity } = entityQueries.useUpdate()
   const { mutateAsync: removeEntity } = entityQueries.useRemove()
 
-  // 2. Init editBuffer when server data arrives
+  // 2. Init editBuffer when server data arrives.
+  //    Also refresh the workspace tab label — when the user deep-links
+  //    into a detail page the catalog cache may still be empty, so
+  //    `router.afterEach` falls back to a truncated id (e.g. "f8a1b2c3…").
+  //    Once the real entity arrives we replace it with the actual name.
   watch(
     data,
     (newData) => {
-      if (isReadonly) return
       if (!newData || !id.value) return
-      const key = bufferKey.value
       const entity = newData as unknown as Record<string, unknown>
+
+      const tab = workspace.tabs.find(
+        (t) => t.entityType === entityKey && t.entityId === id.value,
+      )
+      if (tab) {
+        const label =
+          (entity.name as string | undefined) ||
+          (entity.system_name as string | undefined) ||
+          ''
+        if (label && tab.label !== label) {
+          workspace.updateTabLabel(tab.id, label)
+        }
+      }
+
+      if (isReadonly) return
+      const key = bufferKey.value
 
       if (!editBuffer.hasBuffer(key)) {
         editBuffer.initBuffer(key, entityKey as string, id.value, entity)

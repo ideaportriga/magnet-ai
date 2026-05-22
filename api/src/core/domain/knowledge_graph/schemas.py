@@ -5,8 +5,9 @@ Pydantic schemas for Knowledge Graph domain.
 from __future__ import annotations
 
 from typing import Any, Optional
+from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_serializer
 
 from core.db.models.knowledge_graph import KnowledgeGraphChunk
 from tasks.types import CronConfig
@@ -28,6 +29,8 @@ class KnowledgeGraphSourceScheduleExternalSchema(BaseModel):
 class KnowledgeGraphExternalSchema(BaseModel):
     """Item model for knowledge graph list endpoint."""
 
+    model_config = ConfigDict(populate_by_name=True)
+
     id: str
     name: str
     system_name: Optional[str]
@@ -37,6 +40,36 @@ class KnowledgeGraphExternalSchema(BaseModel):
     updated_at: Optional[str]
     settings: Optional[dict[str, Any]] = None
     state: Optional[dict[str, Any]] = None
+
+    tenant_id: Optional[str] = Field(default=None, description="Owning tenant id")
+    owner_id: Optional[str] = Field(default=None, description="Owner user id")
+    department_id: Optional[str] = Field(
+        default=None, description="Owning department id"
+    )
+    visibility: Optional[str] = Field(
+        default="tenant",
+        description="'private' | 'department' | 'tenant'",
+    )
+    permissions: Optional[dict[str, bool]] = Field(
+        default=None,
+        alias="_permissions",
+        serialization_alias="_permissions",
+        description="Per-record action flags (view/edit/delete/share)",
+    )
+
+    @field_validator("id", "tenant_id", "owner_id", "department_id", mode="before")
+    @classmethod
+    def _stringify_uuid(cls, value):
+        if isinstance(value, UUID):
+            return str(value)
+        return value
+
+    @model_serializer(mode="wrap")
+    def _rename_permissions(self, handler):
+        result = handler(self)
+        if isinstance(result, dict) and "permissions" in result:
+            result["_permissions"] = result.pop("permissions")
+        return result
 
 
 class KnowledgeGraphSourceLinkExternalSchema(BaseModel):
@@ -155,6 +188,14 @@ class KnowledgeGraphCreateRequest(BaseModel):
         None, description="Optional system name; derived from name if omitted"
     )
     description: Optional[str] = Field(None, description="Optional description")
+    visibility: Optional[str] = Field(
+        default=None,
+        description="'private' | 'department' | 'tenant' (defaults to 'tenant')",
+    )
+    department_id: Optional[str] = Field(
+        default=None,
+        description="Owning department id (required when visibility='department')",
+    )
 
 
 class KnowledgeGraphCreateResponse(BaseModel):
@@ -173,6 +214,14 @@ class KnowledgeGraphUpdateRequest(BaseModel):
     )
     content_configs: Optional[list[dict[str, Any]]] = Field(
         None, description="Override for chunking.content_settings in settings"
+    )
+    visibility: Optional[str] = Field(
+        default=None,
+        description="'private' | 'department' | 'tenant'",
+    )
+    department_id: Optional[str] = Field(
+        default=None,
+        description="Owning department id",
     )
 
 

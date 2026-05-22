@@ -28,6 +28,7 @@
               </div>
             </div>
           </template>
+          <access-control v-model:visibility="visibility" v-model:department-id="department_id" />
         </div>
         <div v-if="stepper === 1" class="stack full-width">
           <div class="flex-1 pt-sm mt-sm">
@@ -238,6 +239,8 @@ export default defineComponent({
       description: ref(''),
       source: ref({}),
       provider_system_name: ref(''),
+      visibility: ref('tenant'),
+      department_id: ref(null),
 
       // Chunking settings
       chunkingStrategy: ref('recursive_character_text_splitting'),
@@ -555,6 +558,8 @@ export default defineComponent({
         description,
         ai_model,
         provider_system_name: provider_system_name || undefined, // Link to provider by system_name
+        visibility: this.visibility,
+        department_id: this.department_id,
         chunking: {
           strategy: chunkingStrategy,
           chunk_size: parseInt(chunkSize),

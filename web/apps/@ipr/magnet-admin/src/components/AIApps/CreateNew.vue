@@ -13,6 +13,7 @@
       </div>
       <div class="km-description text-secondary-text pb-xs">{{ m.hint_systemNameUniqueId() }}</div>
     </div>
+    <access-control v-model:visibility="newRow.visibility" v-model:department-id="newRow.department_id" />
   </km-popup-confirm>
 </template>
 <script>
@@ -54,6 +55,8 @@ export default {
         name: '',
         description: '',
         system_name: '',
+        visibility: 'tenant',
+        department_id: null,
       }),
       autoChangeSystemName: ref(true),
     }
@@ -108,6 +111,7 @@ export default {
       this.createNew = false
       const { id } = await this.createAiApp(this.newRow)
       this.$router.push(`/ai-apps/${id}`)
+      this.$emit('cancel')
     },
   },
 }

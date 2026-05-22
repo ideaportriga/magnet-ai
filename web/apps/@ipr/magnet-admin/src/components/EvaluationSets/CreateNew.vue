@@ -26,6 +26,7 @@
       </km-file-picker>
       <div class="km-description text-secondary-text py-xs">{{ m.hint_evaluationSetImportFormat() }}</div>
     </div>
+    <access-control v-model:visibility="newRow.visibility" v-model:department-id="newRow.department_id" />
   </km-popup-confirm>
 </template>
 <script>
@@ -72,6 +73,8 @@ export default {
       name: '',
       description: '',
       system_name: '',
+      visibility: 'tenant',
+      department_id: null,
     })
     const autoChangeCode = ref(true)
     let isMounted = false
@@ -126,6 +129,7 @@ export default {
       loading.value = false
       if (!success || !data) return
       router.push(`/evaluation-sets/${data.id}`)
+      emit('cancel')
     }
 
     return {

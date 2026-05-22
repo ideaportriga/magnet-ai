@@ -17,6 +17,7 @@
       {{ m.label_categories() }}
       <km-dropdown-select ref="categoryRef" v-model="newRow.category" class="full-width" data-test="select-category" :placeholder="m.label_categories()" :options="categoryOptions" :rules="config.category.rules" />
     </div>
+    <access-control v-model:visibility="newRow.visibility" v-model:department-id="newRow.department_id" />
   </km-popup-confirm>
 </template>
 
@@ -66,6 +67,8 @@ export default {
         description: '',
         system_name: '',
         category: 'generic',
+        visibility: 'tenant',
+        department_id: null,
         active_variant: 'variant_1',
         variants: [
           {
@@ -158,6 +161,7 @@ export default {
       }
 
       this.$router.push(`/prompt-templates/${result.id}`)
+      this.$emit('cancel')
     },
     validation(row, showNotify = true) {
       const { name, description, system_name, category } = row

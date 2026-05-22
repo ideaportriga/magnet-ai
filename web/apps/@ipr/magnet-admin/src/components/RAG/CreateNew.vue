@@ -17,6 +17,7 @@
       {{ m.label_knowledgeSources() }}
       <km-select ref="sourecesRef" v-model="collectionSystemNames" data-test="knowledge-sources" height="auto" min-height="36px" :placeholder="m.common_selectKnowledgeSources()" multiple :options="collections" option-label="name" option-value="system_name" use-chips has-dropdown-search :rules="config.soureces.rules" />
     </div>
+    <access-control v-model:visibility="newRow.visibility" v-model:department-id="newRow.department_id" />
   </km-popup-confirm>
 </template>
 <script>
@@ -62,6 +63,8 @@ export default {
         name: '',
         description: '',
         system_name: '',
+        visibility: 'tenant',
+        department_id: null,
         active_variant: 'variant_1',
         variants: [
           {
@@ -170,6 +173,7 @@ export default {
       if (!success || !data?.id) return
 
       this.$router.push(`/rag-tools/${data.id}`)
+      this.$emit('cancel')
     },
   },
 }

@@ -15,6 +15,7 @@
     </div>
     <div class="km-field text-secondary-text pb-xs pl-sm">{{ m.label_knowledgeSources() }}</div>
     <km-select ref="sourecesRef" v-model="collectionSystemNames" height="auto" min-height="36px" :placeholder="m.common_selectKnowledgeSources()" multiple :options="collections" option-label="name" option-value="system_name" use-chips has-dropdown-search :rules="config.soureces.rules" />
+    <access-control v-model:visibility="newRow.visibility" v-model:department-id="newRow.department_id" />
   </km-popup-confirm>
 </template>
 <script>
@@ -60,6 +61,8 @@ export default {
         name: '',
         description: '',
         system_name: '',
+        visibility: 'tenant',
+        department_id: null,
         active_variant: 'variant_1',
         variants: [
           {
@@ -166,6 +169,7 @@ export default {
       this.createNew = false
       const { id } = await this.createRetrievalMutation(this.newRow)
       this.$router.push(`/retrieval/${id}`)
+      this.$emit('cancel')
     },
     validation(retrieval, showNotify = true) {
       const { name, description, system_name, retrieve } = retrieval

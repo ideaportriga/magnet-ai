@@ -72,11 +72,14 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
         return result.scalar_one_or_none() is not None
 
     async def list_graphs(
-        self, db_session: AsyncSession
-    ) -> list[KnowledgeGraphExternalSchema]:
+        self,
+        db_session: AsyncSession,
+        *,
+        extra_where: Any | None = None,
+    ) -> list[tuple[KnowledgeGraphExternalSchema, KnowledgeGraph]]:
         documents_count_sq = self._documents_count_subquery()
 
-        result = await db_session.execute(
+        stmt = (
             select(
                 KnowledgeGraph,
                 func.coalesce(documents_count_sq.c.documents_count, 0).label(
@@ -88,24 +91,40 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
             )
             .order_by(KnowledgeGraph.created_at.desc())
         )
+        if extra_where is not None:
+            stmt = stmt.where(extra_where)
+        result = await db_session.execute(stmt)
         rows = result.all()
 
         return [
-            KnowledgeGraphExternalSchema(
-                id=str(graph.id),
-                name=graph.name,
-                system_name=getattr(graph, "system_name", None),
-                description=getattr(graph, "description", None),
-                documents_count=int(documents_count or 0),
-                created_at=graph.created_at.isoformat() if graph.created_at else None,
-                updated_at=graph.updated_at.isoformat() if graph.updated_at else None,
+            (
+                KnowledgeGraphExternalSchema(
+                    id=str(graph.id),
+                    name=graph.name,
+                    system_name=getattr(graph, "system_name", None),
+                    description=getattr(graph, "description", None),
+                    documents_count=int(documents_count or 0),
+                    created_at=graph.created_at.isoformat()
+                    if graph.created_at
+                    else None,
+                    updated_at=graph.updated_at.isoformat()
+                    if graph.updated_at
+                    else None,
+                    tenant_id=str(graph.tenant_id) if graph.tenant_id else None,
+                    owner_id=str(graph.owner_id) if graph.owner_id else None,
+                    department_id=str(graph.department_id)
+                    if graph.department_id
+                    else None,
+                    visibility=getattr(graph, "visibility", None) or "tenant",
+                ),
+                graph,
             )
             for graph, documents_count in rows
         ]
 
     async def get_graph(
         self, db_session: AsyncSession, graph_id: UUID
-    ) -> KnowledgeGraphExternalSchema:
+    ) -> tuple[KnowledgeGraphExternalSchema, KnowledgeGraph]:
         documents_count_sq = self._documents_count_subquery()
         graph_res = await db_session.execute(
             select(
@@ -130,7 +149,7 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
             if hasattr(graph, "settings")
             else None
         )
-        return KnowledgeGraphExternalSchema(
+        schema = KnowledgeGraphExternalSchema(
             id=str(graph.id),
             name=graph.name,
             system_name=getattr(graph, "system_name", None),
@@ -140,13 +159,20 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
             state=getattr(graph, "state", None),
             created_at=graph.created_at.isoformat() if graph.created_at else None,
             updated_at=graph.updated_at.isoformat() if graph.updated_at else None,
+            tenant_id=str(graph.tenant_id) if graph.tenant_id else None,
+            owner_id=str(graph.owner_id) if graph.owner_id else None,
+            department_id=str(graph.department_id) if graph.department_id else None,
+            visibility=getattr(graph, "visibility", None) or "tenant",
         )
+        return schema, graph
 
     async def create_graph(
         self,
         db_session: AsyncSession,
         data: KnowledgeGraphCreateRequest,
         *,
+        tenant_id: UUID | str | None = None,
+        owner_id: UUID | str | None = None,
         document_service: KnowledgeGraphDocumentService | None = None,
         chunk_service: KnowledgeGraphChunkService | None = None,
         entity_service: KnowledgeGraphEntityService | None = None,
@@ -187,14 +213,24 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
             # Non-fatal: proceed without default embedding if lookup fails
             pass
 
-        created = await self.create(
-            {
-                "name": data.name,
-                "system_name": system_name,
-                "description": data.description,
-                "settings": settings,
-            }
-        )
+        create_payload: dict[str, Any] = {
+            "name": data.name,
+            "system_name": system_name,
+            "description": data.description,
+            "settings": settings,
+        }
+        if tenant_id is not None:
+            create_payload["tenant_id"] = tenant_id
+        if owner_id is not None:
+            create_payload["owner_id"] = owner_id
+        visibility = getattr(data, "visibility", None)
+        if visibility:
+            create_payload["visibility"] = visibility
+        department_id = getattr(data, "department_id", None)
+        if department_id:
+            create_payload["department_id"] = department_id
+
+        created = await self.create(create_payload)
 
         from .knowledge_graph_chunk_service import KnowledgeGraphChunkService
         from .knowledge_graph_document_service import KnowledgeGraphDocumentService
@@ -255,6 +291,10 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
             update_payload["name"] = data.name
         if data.description is not None:
             update_payload["description"] = data.description
+        if getattr(data, "visibility", None) is not None:
+            update_payload["visibility"] = data.visibility
+        if getattr(data, "department_id", None) is not None:
+            update_payload["department_id"] = data.department_id
 
         # Base settings start from explicit payload if provided, otherwise existing
         settings_to_apply: dict[str, Any] | None = None
