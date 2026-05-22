@@ -142,6 +142,10 @@ def _upgrade_providers_and_ai_models() -> None:
         """
     )
     op.execute("ALTER TABLE providers ALTER COLUMN tenant_id SET NOT NULL")
+    # Idempotent: drop the FK if a previous (partial) run created it.
+    # autocommit_block commits each statement, so a crash mid-migration
+    # leaves the constraint behind while alembic_version is unchanged.
+    op.execute("ALTER TABLE providers DROP CONSTRAINT IF EXISTS fk_providers_tenant_id")
     op.execute(
         """
         ALTER TABLE providers
@@ -154,6 +158,10 @@ def _upgrade_providers_and_ai_models() -> None:
     )
 
     # 4. Composite uniqueness on (tenant_id, system_name).
+    op.execute(
+        "ALTER TABLE providers "
+        "DROP CONSTRAINT IF EXISTS uq_providers_tenant_system_name"
+    )
     op.execute(
         "ALTER TABLE providers ADD CONSTRAINT uq_providers_tenant_system_name "
         "UNIQUE (tenant_id, system_name)"
@@ -173,6 +181,7 @@ def _upgrade_providers_and_ai_models() -> None:
     # Models without a resolvable provider row are dead data — drop.
     op.execute("DELETE FROM ai_models WHERE tenant_id IS NULL")
     op.execute("ALTER TABLE ai_models ALTER COLUMN tenant_id SET NOT NULL")
+    op.execute("ALTER TABLE ai_models DROP CONSTRAINT IF EXISTS fk_ai_models_tenant_id")
     op.execute(
         """
         ALTER TABLE ai_models
@@ -187,6 +196,10 @@ def _upgrade_providers_and_ai_models() -> None:
     # 6. Re-create composite FKs on the children (collections / note_taker_settings
     #    already have tenant_id; ai_models was given one above).
     op.execute(
+        "ALTER TABLE ai_models "
+        "DROP CONSTRAINT IF EXISTS fk_ai_models_provider_tenant_system_name"
+    )
+    op.execute(
         """
         ALTER TABLE ai_models
             ADD CONSTRAINT fk_ai_models_provider_tenant_system_name
@@ -194,6 +207,10 @@ def _upgrade_providers_and_ai_models() -> None:
             REFERENCES providers (tenant_id, system_name)
             ON DELETE CASCADE
         """
+    )
+    op.execute(
+        "ALTER TABLE collections "
+        "DROP CONSTRAINT IF EXISTS fk_collections_provider_tenant_system_name"
     )
     op.execute(
         """
@@ -208,6 +225,10 @@ def _upgrade_providers_and_ai_models() -> None:
     # away" semantics. Column-specific SET NULL (PG 15+) nulls only
     # provider_system_name — note_taker_settings.tenant_id is NOT NULL and
     # must not be touched.
+    op.execute(
+        "ALTER TABLE note_taker_settings "
+        "DROP CONSTRAINT IF EXISTS fk_note_taker_settings_provider_tenant_system_name"
+    )
     op.execute(
         """
         ALTER TABLE note_taker_settings
@@ -259,7 +280,14 @@ def _downgrade_providers_and_ai_models() -> None:
     op.execute("ALTER TABLE providers DROP COLUMN IF EXISTS tenant_id")
 
     op.execute(
+        "ALTER TABLE providers DROP CONSTRAINT IF EXISTS uq_providers_system_name"
+    )
+    op.execute(
         "ALTER TABLE providers ADD CONSTRAINT uq_providers_system_name UNIQUE (system_name)"
+    )
+    op.execute(
+        "ALTER TABLE ai_models "
+        "DROP CONSTRAINT IF EXISTS fk_ai_models_provider_system_name_providers"
     )
     op.execute(
         """
@@ -270,12 +298,20 @@ def _downgrade_providers_and_ai_models() -> None:
         """
     )
     op.execute(
+        "ALTER TABLE collections "
+        "DROP CONSTRAINT IF EXISTS fk_collections_provider_system_name_providers"
+    )
+    op.execute(
         """
         ALTER TABLE collections
             ADD CONSTRAINT fk_collections_provider_system_name_providers
             FOREIGN KEY (provider_system_name) REFERENCES providers (system_name)
             ON DELETE CASCADE
         """
+    )
+    op.execute(
+        "ALTER TABLE note_taker_settings "
+        "DROP CONSTRAINT IF EXISTS fk_note_taker_settings_provider_system_name_providers"
     )
     op.execute(
         """
@@ -310,6 +346,7 @@ def _upgrade_simple_per_tenant(table: str) -> None:
         """
     )
     op.execute(f"ALTER TABLE {table} ALTER COLUMN tenant_id SET NOT NULL")
+    op.execute(f"ALTER TABLE {table} DROP CONSTRAINT IF EXISTS fk_{table}_tenant_id")
     op.execute(
         f"""
         ALTER TABLE {table}
@@ -338,6 +375,7 @@ def _downgrade_simple_per_tenant(table: str) -> None:
 def _upgrade_jobs() -> None:
     op.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS tenant_id UUID")
     # No backfill — existing rows are presumed to be system jobs (NULL is OK).
+    op.execute("ALTER TABLE jobs DROP CONSTRAINT IF EXISTS fk_jobs_tenant_id")
     op.execute(
         """
         ALTER TABLE jobs

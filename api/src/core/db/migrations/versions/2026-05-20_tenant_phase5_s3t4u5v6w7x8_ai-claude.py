@@ -79,6 +79,10 @@ def _denormalize(
         # Drop rows we couldn't attribute (orphan FK).
         op.execute(f"DELETE FROM {table} WHERE tenant_id IS NULL")
         op.execute(f"ALTER TABLE {table} ALTER COLUMN tenant_id SET NOT NULL")
+    # Idempotent: drop the FK if a previous (partial) run created it.
+    # autocommit_block commits each statement, so a crash mid-migration
+    # leaves the constraint behind while alembic_version is unchanged.
+    op.execute(f"ALTER TABLE {table} DROP CONSTRAINT IF EXISTS fk_{table}_tenant_id")
     op.execute(
         f"""
         ALTER TABLE {table}

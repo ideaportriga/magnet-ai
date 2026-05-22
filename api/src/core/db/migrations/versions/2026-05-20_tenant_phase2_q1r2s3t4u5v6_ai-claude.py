@@ -106,6 +106,10 @@ def schema_upgrades() -> None:
           AND u.id::text = t.user_id
         """
     )
+    # Idempotent: drop the FK if a previous (partial) run created it.
+    # autocommit_block commits each statement, so a crash mid-migration
+    # leaves the constraint behind while alembic_version is unchanged.
+    op.execute("ALTER TABLE traces DROP CONSTRAINT IF EXISTS fk_traces_tenant_id")
     op.execute(
         """
         ALTER TABLE traces
@@ -130,6 +134,7 @@ def schema_upgrades() -> None:
           AND t.id = m.trace_id
         """
     )
+    op.execute("ALTER TABLE metrics DROP CONSTRAINT IF EXISTS fk_metrics_tenant_id")
     op.execute(
         """
         ALTER TABLE metrics
@@ -163,6 +168,10 @@ def schema_upgrades() -> None:
     # block the NOT NULL constraint below.
     op.execute("DELETE FROM agent_conversations WHERE tenant_id IS NULL")
     op.execute("ALTER TABLE agent_conversations ALTER COLUMN tenant_id SET NOT NULL")
+    op.execute(
+        "ALTER TABLE agent_conversations "
+        "DROP CONSTRAINT IF EXISTS fk_agent_conversations_tenant_id"
+    )
     op.execute(
         """
         ALTER TABLE agent_conversations

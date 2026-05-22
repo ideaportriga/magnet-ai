@@ -106,6 +106,13 @@ def schema_upgrades() -> None:
     )
     op.execute("DELETE FROM slack_installations WHERE tenant_id IS NULL")
     op.execute("ALTER TABLE slack_installations ALTER COLUMN tenant_id SET NOT NULL")
+    # Idempotent: drop the FK if a previous (partial) run created it.
+    # autocommit_block commits each statement, so a crash mid-migration
+    # leaves the constraint behind while alembic_version is unchanged.
+    op.execute(
+        "ALTER TABLE slack_installations "
+        "DROP CONSTRAINT IF EXISTS fk_slack_installations_tenant_id"
+    )
     op.execute(
         """
         ALTER TABLE slack_installations
@@ -135,6 +142,10 @@ def schema_upgrades() -> None:
     op.execute("DELETE FROM slack_oauth_states WHERE tenant_id IS NULL")
     op.execute("ALTER TABLE slack_oauth_states ALTER COLUMN tenant_id SET NOT NULL")
     op.execute(
+        "ALTER TABLE slack_oauth_states "
+        "DROP CONSTRAINT IF EXISTS fk_slack_oauth_states_tenant_id"
+    )
+    op.execute(
         """
         ALTER TABLE slack_oauth_states
             ADD CONSTRAINT fk_slack_oauth_states_tenant_id
@@ -159,6 +170,9 @@ def schema_upgrades() -> None:
           AND t.note_taker_settings_system_name IS NOT NULL
           AND s.system_name = t.note_taker_settings_system_name
         """
+    )
+    op.execute(
+        "ALTER TABLE teams_meeting DROP CONSTRAINT IF EXISTS fk_teams_meeting_tenant_id"
     )
     op.execute(
         """
@@ -188,6 +202,9 @@ def schema_upgrades() -> None:
         """
     )
     op.execute(
+        "ALTER TABLE teams_user DROP CONSTRAINT IF EXISTS fk_teams_user_tenant_id"
+    )
+    op.execute(
         """
         ALTER TABLE teams_user
             ADD CONSTRAINT fk_teams_user_tenant_id
@@ -213,6 +230,10 @@ def schema_upgrades() -> None:
           AND m.meeting_id IS NOT NULL
           AND m.meeting_id = w.resource_id
         """
+    )
+    op.execute(
+        "ALTER TABLE teams_webhook_event "
+        "DROP CONSTRAINT IF EXISTS fk_teams_webhook_event_tenant_id"
     )
     op.execute(
         """
