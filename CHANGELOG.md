@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.30](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.29...v0.7.0-dev.30) (2026-05-22)
+
+### 🐛 Bug Fixes
+
+* **kg:** fixed document title search ([3f76181](https://github.com/ideaportriga/magnet-ai/commit/3f761819915a5b572493da5aa702c568c5e40737))
+
 ## [0.7.0-dev.29](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.28...v0.7.0-dev.29) (2026-05-20)
 
 ### ✨ Features
