@@ -3,7 +3,7 @@ from uuid import uuid4
 
 # Matches <img> tags with base64 data URIs in the src attribute
 _BASE64_IMG_RE = re.compile(
-    r"<img\s[^>]*?src\s*=\s*\"data:image/[^\"]*;base64,[^\"]*\"[^>]*/?>",
+    r"<img\s[^>]*?src\s*=\s*[\"']data:image/[^\"']*;base64,[^\"']*[\"'][^>]*/?>",
     re.IGNORECASE | re.DOTALL,
 )
 

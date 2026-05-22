@@ -225,6 +225,12 @@ class AbstractDataSource(ABC):
         if chunk_max_size < 0:
             chunk_max_size = 0
 
+        skip_truncation = False
+        if config and config.chunker:
+            strategy = config.chunker.get("strategy")
+            if strategy == ChunkerStrategy.NONE or strategy == "none":
+                skip_truncation = True
+
         source_name = self.source.name if self.source else ""
         source_date = (
             source_modified_at.date().isoformat()
@@ -255,8 +261,12 @@ class AbstractDataSource(ABC):
         for index, chunk in enumerate(chunks, start=1):
             content = chunk.content or chunk.embedded_content or ""
             embedded_content = chunk.embedded_content or content
-            chunk.content = content[:chunk_max_size]
-            chunk.embedded_content = embedded_content[:chunk_max_size]
+            if skip_truncation:
+                chunk.content = content
+                chunk.embedded_content = embedded_content
+            else:
+                chunk.content = content[:chunk_max_size]
+                chunk.embedded_content = embedded_content[:chunk_max_size]
 
             if (
                 not isinstance(chunk.embedded_content, str)

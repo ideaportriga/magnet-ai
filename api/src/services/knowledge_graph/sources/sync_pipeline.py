@@ -160,6 +160,20 @@ class SyncPipeline(Generic[ListTaskT, ContentTaskT, ProcessTaskT], ABC):
         sid = getattr(self, "_source_id", None)
         return str(sid) if sid else None
 
+    def _progress_processed_count(self) -> int:
+        """Return the number of source items that reached a terminal sync decision."""
+
+        processed = (
+            int(self.counters.synced)
+            + int(self.counters.failed)
+            + int(self.counters.skipped)
+            + int(self.counters.metadata_only_updated)
+        )
+        total = int(self.counters.total_found)
+        if total > 0:
+            return max(0, min(processed, total))
+        return max(0, processed)
+
     async def publish_progress(
         self,
         *,
@@ -183,7 +197,7 @@ class SyncPipeline(Generic[ListTaskT, ContentTaskT, ProcessTaskT], ABC):
                 return
             self._last_progress_write_at = now
 
-        processed = int(self.counters.synced) + int(self.counters.failed)
+        processed = self._progress_processed_count()
         total = int(self.counters.total_found)
         patch = {
             "phase": phase,
