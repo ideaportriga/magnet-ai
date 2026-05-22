@@ -178,8 +178,15 @@ def _upgrade_providers_and_ai_models() -> None:
           AND p.system_name = m.provider_system_name
         """
     )
-    # Models without a resolvable provider row are dead data — drop.
-    op.execute("DELETE FROM ai_models WHERE tenant_id IS NULL")
+    # Models without a resolvable provider row fall back to the default
+    # tenant — preserves legacy data and survives the autocommit-gap race.
+    op.execute(
+        f"""
+        UPDATE ai_models
+        SET tenant_id = (SELECT id FROM tenant WHERE slug = '{DEFAULT_TENANT_SLUG}')
+        WHERE tenant_id IS NULL
+        """
+    )
     op.execute("ALTER TABLE ai_models ALTER COLUMN tenant_id SET NOT NULL")
     op.execute("ALTER TABLE ai_models DROP CONSTRAINT IF EXISTS fk_ai_models_tenant_id")
     op.execute(

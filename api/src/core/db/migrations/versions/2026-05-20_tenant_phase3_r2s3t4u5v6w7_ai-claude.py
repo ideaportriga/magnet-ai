@@ -58,11 +58,19 @@ def _add_tenant_id(
     *,
     on_delete: str = "CASCADE",
 ) -> None:
-    """Standard "add nullable, backfill, drop orphans, NOT NULL + FK + RLS" routine."""
+    """Standard "add nullable, backfill, fall back to default tenant, NOT NULL + FK + RLS" routine."""
     op.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS tenant_id UUID")
     op.execute(backfill_sql)
-    # Drop any rows we couldn't attribute.
-    op.execute(f"DELETE FROM {table} WHERE tenant_id IS NULL")
+    # Anything still NULL after parent-FK backfill — orphan FK or a row
+    # inserted by an old replica between autocommit steps — falls back to
+    # the default tenant. Preserves legacy data and survives the gap.
+    op.execute(
+        f"""
+        UPDATE {table}
+        SET tenant_id = (SELECT id FROM tenant WHERE slug = 'default')
+        WHERE tenant_id IS NULL
+        """
+    )
     op.execute(f"ALTER TABLE {table} ALTER COLUMN tenant_id SET NOT NULL")
     # Idempotent: drop the FK if a previous (partial) run created it.
     # autocommit_block commits each statement, so a crash mid-migration

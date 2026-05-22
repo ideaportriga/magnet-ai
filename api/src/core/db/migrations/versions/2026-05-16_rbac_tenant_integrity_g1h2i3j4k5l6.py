@@ -225,6 +225,16 @@ def _add_user_group_member_tenant_id() -> None:
         WHERE ug.id = ugm.group_id AND ugm.tenant_id IS NULL
         """
     )
+    # Any row left NULL — orphan group_id or a row inserted by an old
+    # replica — falls back to the default tenant so SET NOT NULL never
+    # fails on legacy data.
+    op.execute(
+        """
+        UPDATE user_group_member
+        SET tenant_id = (SELECT id FROM tenant WHERE slug = 'default')
+        WHERE tenant_id IS NULL
+        """
+    )
     op.execute("ALTER TABLE user_group_member ALTER COLUMN tenant_id SET NOT NULL")
     op.execute(
         """

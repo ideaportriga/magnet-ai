@@ -104,7 +104,16 @@ def schema_upgrades() -> None:
           AND a.system_name = s.agent_system_name
         """
     )
-    op.execute("DELETE FROM slack_installations WHERE tenant_id IS NULL")
+    # Unmappable rows (agent renamed/deleted, or inserted by an old replica
+    # between autocommit steps) fall back to the default tenant. Preserves
+    # legacy data and survives the autocommit-gap race.
+    op.execute(
+        """
+        UPDATE slack_installations
+        SET tenant_id = (SELECT id FROM tenant WHERE slug = 'default')
+        WHERE tenant_id IS NULL
+        """
+    )
     op.execute("ALTER TABLE slack_installations ALTER COLUMN tenant_id SET NOT NULL")
     # Idempotent: drop the FK if a previous (partial) run created it.
     # autocommit_block commits each statement, so a crash mid-migration
@@ -138,8 +147,16 @@ def schema_upgrades() -> None:
           AND a.system_name = s.agent_system_name
         """
     )
-    # OAuth states are short-lived (TTL). Drop any unmappable rows.
-    op.execute("DELETE FROM slack_oauth_states WHERE tenant_id IS NULL")
+    # OAuth states are short-lived (TTL). Any unmappable rows fall back to
+    # the default tenant to keep the migration upgrade-safe; they'll expire
+    # naturally regardless of attribution.
+    op.execute(
+        """
+        UPDATE slack_oauth_states
+        SET tenant_id = (SELECT id FROM tenant WHERE slug = 'default')
+        WHERE tenant_id IS NULL
+        """
+    )
     op.execute("ALTER TABLE slack_oauth_states ALTER COLUMN tenant_id SET NOT NULL")
     op.execute(
         "ALTER TABLE slack_oauth_states "

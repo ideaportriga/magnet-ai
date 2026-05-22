@@ -164,9 +164,15 @@ def schema_upgrades() -> None:
         """
     )
     # Conversations whose agent cannot be resolved (orphan / typo agent
-    # name) have no tenant attribution — drop them. They would otherwise
-    # block the NOT NULL constraint below.
-    op.execute("DELETE FROM agent_conversations WHERE tenant_id IS NULL")
+    # name) fall back to the default tenant — preserves legacy data and
+    # closes the autocommit-gap race with old replicas still inserting.
+    op.execute(
+        """
+        UPDATE agent_conversations
+        SET tenant_id = (SELECT id FROM tenant WHERE slug = 'default')
+        WHERE tenant_id IS NULL
+        """
+    )
     op.execute("ALTER TABLE agent_conversations ALTER COLUMN tenant_id SET NOT NULL")
     op.execute(
         "ALTER TABLE agent_conversations "
