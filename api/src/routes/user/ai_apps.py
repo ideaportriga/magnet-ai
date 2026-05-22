@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.tags import TagNames
 from core.domain.ai_apps.service import AiAppsService
+from guards.permissions import Permission, require_permission
 from core.domain.ai_apps.schemas import AiApp
 from core.domain.rag_tools.service import RagToolsService
 from core.domain.rag_tools.schemas import RagTool
@@ -78,6 +79,7 @@ def transform_agent(config: dict[str, Any]) -> dict[str, Any]:
 class UserAiAppsController(Controller):
     tags = [TagNames.UserAiApps]
     path = "/ai_apps"
+    guards = [require_permission(Permission.AI_APPS_READ)]
 
     @get(
         "/{system_name:str}",

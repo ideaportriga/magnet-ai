@@ -55,6 +55,12 @@ keys cannot exceed their declared scope, even if the owning user
 later gains broader rights. This is enforced in
 `get_effective_permissions()`.
 
+`scopes=null` (no scopes column persisted on the key — i.e. a
+legacy key from before the scopes migration) is treated as full
+access for backward compatibility. Re-issue legacy keys with
+explicit scopes when convenient. `scopes=[]` is **not** the same:
+an explicit empty list is a real ceiling that grants nothing.
+
 ## Adding a new resource type
 
 To register a brand-new resource (say `widgets`) in the access
@@ -76,7 +82,10 @@ control system:
 2. **Seed system roles** in the migration that ships the new
    table. The pattern is to insert a `role_permission` row for the
    `admin` role for every code, and read-only ones for `viewer`.
-   See migration `c5d6e7f8a9b0` for the template.
+   See migration `c2d3e4f5a6b7`
+   (`2026-05-22_add_missing_rbac_permissions_*`) for the most
+   recent template — bulk insert + per-role grants in one
+   autocommit block.
 
 3. **Decide the record-level shape**. If you want per-record
    sharing, add three columns:

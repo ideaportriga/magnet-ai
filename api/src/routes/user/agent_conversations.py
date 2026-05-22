@@ -7,6 +7,7 @@ from litestar.params import Parameter
 from litestar.status_codes import HTTP_200_OK
 from sqlalchemy.ext.asyncio import AsyncSession
 from api.tags import TagNames
+from guards.permissions import Permission, require_permission
 from services.agents.conversations import (
     add_user_message,
     copy_message,
@@ -43,6 +44,7 @@ logger = getLogger(__name__)
 class AgentConversationsController(Controller):
     path = "/agent_conversations"
     tags = [TagNames.UserAgentConversations]
+    guards = [require_permission(Permission.AGENTS_EXECUTE)]
 
     @observe(
         name="New conversation started by user",

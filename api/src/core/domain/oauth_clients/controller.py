@@ -23,6 +23,7 @@ from litestar.params import Dependency, Parameter
 from core.config.constants import DEFAULT_PAGINATION_SIZE
 from core.db.models.oauth.oauth_client import OAuthClient as OAuthClientModel
 from core.domain.oauth_clients.service import OAuthClientsService
+from guards.permissions import Permission, require_permission
 from utils.secrets import encrypt_string
 
 from .schemas import OAuthClientCreate, OAuthClientResponse, OAuthClientUpdate
@@ -61,7 +62,7 @@ class OAuthClientsController(Controller):
         },
     )
 
-    @get()
+    @get(guards=[require_permission(Permission.OAUTH_CLIENTS_READ)])
     async def list_oauth_clients(
         self,
         oauth_clients_service: OAuthClientsService,
@@ -77,7 +78,10 @@ class OAuthClientsController(Controller):
             offset=0,
         )
 
-    @get("/{oauth_client_id:uuid}")
+    @get(
+        "/{oauth_client_id:uuid}",
+        guards=[require_permission(Permission.OAUTH_CLIENTS_READ)],
+    )
     async def get_oauth_client(
         self,
         oauth_clients_service: OAuthClientsService,
@@ -90,7 +94,7 @@ class OAuthClientsController(Controller):
         obj = await oauth_clients_service.get(oauth_client_id)
         return OAuthClientResponse.from_model(obj)
 
-    @post()
+    @post(guards=[require_permission(Permission.OAUTH_CLIENTS_WRITE)])
     async def create_oauth_client(
         self,
         oauth_clients_service: OAuthClientsService,
@@ -132,7 +136,10 @@ class OAuthClientsController(Controller):
         created = await oauth_clients_service.create(obj)
         return OAuthClientResponse.from_model(created)
 
-    @patch("/{oauth_client_id:uuid}")
+    @patch(
+        "/{oauth_client_id:uuid}",
+        guards=[require_permission(Permission.OAUTH_CLIENTS_WRITE)],
+    )
     async def update_oauth_client(
         self,
         oauth_clients_service: OAuthClientsService,
@@ -176,7 +183,10 @@ class OAuthClientsController(Controller):
         )
         return OAuthClientResponse.from_model(obj)
 
-    @delete("/{oauth_client_id:uuid}")
+    @delete(
+        "/{oauth_client_id:uuid}",
+        guards=[require_permission(Permission.OAUTH_CLIENTS_DELETE)],
+    )
     async def delete_oauth_client(
         self,
         oauth_clients_service: OAuthClientsService,

@@ -9,6 +9,7 @@ from litestar import Controller, get, post, Request
 from litestar.datastructures import UploadFile
 from litestar.exceptions import HTTPException
 
+from guards.permissions import Permission, require_permission
 from speech_to_text.transcription import service
 
 MAX_UPLOAD_BYTES = 1000 * 1024 * 1024  # 1GB
@@ -17,6 +18,7 @@ MAX_UPLOAD_BYTES = 1000 * 1024 * 1024  # 1GB
 class RecordingsController(Controller):
     path = "/recordings"
     tags = ["Admin / Recordings"]
+    guards = [require_permission(Permission.NOTE_TAKER_WRITE)]
 
     @post("/")
     async def create_recording(self, request: Request) -> dict[str, Any]:

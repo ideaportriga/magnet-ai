@@ -298,12 +298,10 @@ export default {
         permission: 'read:prompt_queue',
       },
       {
-        // OAuth Clients (MCP) — platform-admin level; gated behind
-        // write:roles which only admins typically have.
         label: 'OAuth Clients (MCP)',
         icon: 'fas fa-key',
         path: 'oauth-clients',
-        permission: 'write:roles',
+        permission: 'read:oauth_clients',
       }
     ]
 

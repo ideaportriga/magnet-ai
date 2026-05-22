@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from typing import Dict, Any
 from litestar import Controller, post
+
+from guards.permissions import Permission, require_permission
 from utils.upload_handler import make_multipart_session_via_storage
 
 
 class UploadSessionsController(Controller):
     path = "/upload-sessions"
     tags = ["Admin / Recordings"]
+    guards = [require_permission(Permission.NOTE_TAKER_WRITE)]
 
     @post("/", status_code=200)
     async def create_session(self, data: dict) -> Dict[str, Any]:

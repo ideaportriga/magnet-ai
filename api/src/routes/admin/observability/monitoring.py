@@ -15,6 +15,7 @@ from litestar.status_codes import HTTP_200_OK
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from guards.permissions import Permission, require_permission
 from services.agents.conversations.services import set_message_custom_feedback
 from services.common.models import ConversationMessageFeedback, EmptyDictionary
 from services.observability.models import (
@@ -108,6 +109,7 @@ def _raise_internal(handler: str, exc: Exception) -> None:
 class MetricsController(Controller):
     path = "/monitoring"
     tags = ["Admin / Observability"]
+    guards = [require_permission(Permission.OBSERVABILITY_READ)]
 
     # RAG Dashboard
     @post(
@@ -315,7 +317,11 @@ class MetricsController(Controller):
         except Exception as e:
             _raise_internal("agent_options", e)
 
-    @put("/analytics/{analytics_id:str}", status_code=HTTP_200_OK)
+    @put(
+        "/analytics/{analytics_id:str}",
+        status_code=HTTP_200_OK,
+        guards=[require_permission(Permission.OBSERVABILITY_WRITE)],
+    )
     async def update_metric(
         self, db_session: AsyncSession, analytics_id: str, data: UpdateMetricRequest
     ) -> dict:
@@ -346,6 +352,7 @@ class MetricsController(Controller):
         status_code=HTTP_200_OK,
         summary="Provide custom feedback for a message",
         description="Allows the user to provide custom feedback for a specific message in a conversation.",
+        guards=[require_permission(Permission.OBSERVABILITY_WRITE)],
     )
     async def message_feedback_custom(
         self,

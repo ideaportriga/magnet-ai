@@ -10,6 +10,7 @@ from litestar import Controller, delete, get, patch, post
 from litestar.params import Dependency, Parameter
 
 from core.domain.traces.service import TracesService
+from guards.permissions import Permission, require_permission
 
 from .schemas import Trace, TraceCreate, TraceListItem, TraceUpdate
 
@@ -52,7 +53,7 @@ class TracesController(Controller):
         },
     )
 
-    @get()
+    @get(guards=[require_permission(Permission.TRACES_READ)])
     async def list_traces(
         self,
         traces_service: TracesService,
@@ -144,7 +145,7 @@ class TracesController(Controller):
             results, total, filters=all_filters, schema_type=TraceListItem
         )
 
-    @post()
+    @post(guards=[require_permission(Permission.TRACES_WRITE)])
     async def create_trace(
         self, traces_service: TracesService, data: TraceCreate
     ) -> Trace:
@@ -152,7 +153,7 @@ class TracesController(Controller):
         obj = await traces_service.create(data)
         return traces_service.to_schema(obj, schema_type=Trace)
 
-    @get("/name/{name:str}")
+    @get("/name/{name:str}", guards=[require_permission(Permission.TRACES_READ)])
     async def get_trace_by_name(
         self, traces_service: TracesService, name: str
     ) -> Trace:
@@ -160,7 +161,7 @@ class TracesController(Controller):
         obj = await traces_service.get_one(name=name)
         return traces_service.to_schema(obj, schema_type=Trace)
 
-    @get("/{trace_id:str}")
+    @get("/{trace_id:str}", guards=[require_permission(Permission.TRACES_READ)])
     async def get_trace(
         self,
         traces_service: TracesService,
@@ -173,7 +174,7 @@ class TracesController(Controller):
         obj = await traces_service.get(trace_id)
         return traces_service.to_schema(obj, schema_type=Trace)
 
-    @patch("/{trace_id:str}")
+    @patch("/{trace_id:str}", guards=[require_permission(Permission.TRACES_WRITE)])
     async def update_trace(
         self,
         traces_service: TracesService,
@@ -187,7 +188,7 @@ class TracesController(Controller):
         obj = await traces_service.update(data, item_id=trace_id, auto_commit=True)
         return traces_service.to_schema(obj, schema_type=Trace)
 
-    @delete("/{trace_id:str}")
+    @delete("/{trace_id:str}", guards=[require_permission(Permission.TRACES_DELETE)])
     async def delete_trace(
         self,
         traces_service: TracesService,

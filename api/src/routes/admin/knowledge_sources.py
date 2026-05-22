@@ -18,6 +18,7 @@ from core.plugins.interfaces import KnowledgeSourcePlugin
 from core.plugins.plugin_types import PluginType
 from core.plugins.registry import PluginRegistry
 from data_sync.synchronizer import Synchronizer
+from guards.permissions import Permission, require_permission
 from models import DocumentData
 from services.knowledge_sources.factory import get_provider_config
 from services.knowledge_sources.models import (
@@ -397,6 +398,8 @@ async def sync_collection_standalone(collection_id: str, **kwargs) -> None:
 
 # TODO - complete naming change (Collection -> Knowledge Source, Document - Chunk(?))
 class KnowledgeSourcesController(Controller):
+    guards = [require_permission(Permission.COLLECTIONS_READ)]
+
     @get()
     async def list_collections(self) -> list[dict[str, Any]]:
         """List all collections"""
@@ -563,7 +566,7 @@ class KnowledgeSourcesController(Controller):
 
         return result
 
-    @post()
+    @post(guards=[require_permission(Permission.COLLECTIONS_WRITE)])
     async def create_collection(
         self,
         data: dict[str, Any],
@@ -588,7 +591,11 @@ class KnowledgeSourcesController(Controller):
         except LookupError:
             raise NotFoundException("Collection doesn't exist")
 
-    @patch("/{collection_id:str}", status_code=HTTP_204_NO_CONTENT)
+    @patch(
+        "/{collection_id:str}",
+        status_code=HTTP_204_NO_CONTENT,
+        guards=[require_permission(Permission.COLLECTIONS_WRITE)],
+    )
     async def update_collection(self, collection_id: str, data: dict[str, Any]) -> None:
         """Update collection metadata"""
         data = await _preserve_file_ids(collection_id, data)
@@ -596,7 +603,11 @@ class KnowledgeSourcesController(Controller):
             collection_id=collection_id, metadata=data
         )
 
-    @put("/{collection_id:str}", status_code=HTTP_204_NO_CONTENT)
+    @put(
+        "/{collection_id:str}",
+        status_code=HTTP_204_NO_CONTENT,
+        guards=[require_permission(Permission.COLLECTIONS_WRITE)],
+    )
     async def replace_collection(
         self, collection_id: str, data: dict[str, Any]
     ) -> None:
@@ -606,12 +617,20 @@ class KnowledgeSourcesController(Controller):
             collection_id=collection_id, metadata=data
         )
 
-    @delete("/{collection_id:str}", status_code=HTTP_204_NO_CONTENT)
+    @delete(
+        "/{collection_id:str}",
+        status_code=HTTP_204_NO_CONTENT,
+        guards=[require_permission(Permission.COLLECTIONS_DELETE)],
+    )
     async def delete_collection(self, collection_id: str) -> None:
         """Delete a collection"""
         await store.delete_collection(collection_id)
 
-    @post("/{collection_id:str}/sync", status_code=HTTP_204_NO_CONTENT)
+    @post(
+        "/{collection_id:str}/sync",
+        status_code=HTTP_204_NO_CONTENT,
+        guards=[require_permission(Permission.COLLECTIONS_WRITE)],
+    )
     @observe(name="Syncing knowledge source", channel="production")
     async def sync_collection(self, collection_id: str) -> None:
         """Sync collection from source"""
@@ -620,6 +639,7 @@ class KnowledgeSourcesController(Controller):
 
 class KnowledgeSourceMetadataController(Controller):
     path = "/{collection_id:str}/metadata"
+    guards = [require_permission(Permission.COLLECTIONS_WRITE)]
 
     @post("/automap")
     async def automap(
@@ -632,6 +652,7 @@ class KnowledgeSourceMetadataController(Controller):
 
 class KnowledgeSourceChunksController(Controller):
     path = "/{collection_id:str}/documents"
+    guards = [require_permission(Permission.COLLECTIONS_READ)]
 
     @get()
     async def list_documents(self, collection_id: str) -> list[dict[str, Any]]:
@@ -643,6 +664,7 @@ class KnowledgeSourceChunksController(Controller):
     @post(
         "/paginate/offset",
         status_code=HTTP_200_OK,
+        guards=[require_permission(Permission.COLLECTIONS_READ)],
     )
     async def offset_pagination(
         self,
@@ -653,7 +675,7 @@ class KnowledgeSourceChunksController(Controller):
             collection_id=collection_id, data=data
         )
 
-    @post()
+    @post(guards=[require_permission(Permission.COLLECTIONS_WRITE)])
     async def create_document(
         self, collection_id: str, data: DocumentData
     ) -> dict[str, str]:
@@ -663,7 +685,7 @@ class KnowledgeSourceChunksController(Controller):
 
         return {"created_id": created_id}
 
-    @post("/bulk")
+    @post("/bulk", guards=[require_permission(Permission.COLLECTIONS_WRITE)])
     async def create_documents_bulk(
         self,
         collection_id: str,
@@ -689,7 +711,9 @@ class KnowledgeSourceChunksController(Controller):
         except LookupError:
             raise NotFoundException("Document doesn't exist")
 
-    @patch("/{document_id:str}")
+    @patch(
+        "/{document_id:str}", guards=[require_permission(Permission.COLLECTIONS_WRITE)]
+    )
     async def update_document(
         self,
         collection_id: str,
@@ -704,7 +728,9 @@ class KnowledgeSourceChunksController(Controller):
             collection_id=collection_id,
         )
 
-    @put("/{document_id:str}")
+    @put(
+        "/{document_id:str}", guards=[require_permission(Permission.COLLECTIONS_WRITE)]
+    )
     async def replace_document(
         self,
         collection_id: str,
@@ -720,7 +746,9 @@ class KnowledgeSourceChunksController(Controller):
             collection_id=collection_id,
         )
 
-    @delete("/{document_id:str}")
+    @delete(
+        "/{document_id:str}", guards=[require_permission(Permission.COLLECTIONS_DELETE)]
+    )
     async def delete_document(self, collection_id: str, document_id: str) -> None:
         """Delete a document from collection"""
         collection_id = await self._validate_collection_id(collection_id)
@@ -728,7 +756,7 @@ class KnowledgeSourceChunksController(Controller):
             document_id=document_id, collection_id=collection_id
         )
 
-    @delete("/all")
+    @delete("/all", guards=[require_permission(Permission.COLLECTIONS_DELETE)])
     async def delete_all_documents(self, collection_id: str) -> None:
         """Delete all documents from collection"""
         collection_id = await self._validate_collection_id(collection_id)
@@ -756,6 +784,7 @@ class KnowledgeSourceFileUploadController(Controller):
     """Handles file upload/delete for File-type knowledge sources."""
 
     path = "/{collection_id:str}/files"
+    guards = [require_permission(Permission.COLLECTIONS_READ)]
 
     MAX_UPLOAD_SIZE_MB = int(os.environ.get("MAX_UPLOAD_FILE_SIZE_MB", "50"))
 
@@ -808,7 +837,10 @@ class KnowledgeSourceFileUploadController(Controller):
             raise ClientException("Collection doesn't exist")
         return collection_id
 
-    @post(status_code=HTTP_200_OK)
+    @post(
+        status_code=HTTP_200_OK,
+        guards=[require_permission(Permission.COLLECTIONS_WRITE)],
+    )
     async def upload_file(
         self,
         collection_id: str,
@@ -965,7 +997,11 @@ class KnowledgeSourceFileUploadController(Controller):
             return []
         return source.get("uploaded_files", [])
 
-    @delete("/{filename:str}", status_code=HTTP_204_NO_CONTENT)
+    @delete(
+        "/{filename:str}",
+        status_code=HTTP_204_NO_CONTENT,
+        guards=[require_permission(Permission.COLLECTIONS_WRITE)],
+    )
     async def delete_uploaded_file(
         self,
         collection_id: str,

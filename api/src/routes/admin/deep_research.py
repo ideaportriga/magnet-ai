@@ -25,6 +25,7 @@ from core.domain.deep_research.service import (
     DeepResearchConfigService,
     DeepResearchRunService,
 )
+from guards.permissions import Permission, require_permission
 from services.deep_research.models import DeepResearchConfig
 
 if TYPE_CHECKING:
@@ -36,6 +37,7 @@ class DeepResearchConfigController(Controller):
 
     path = "/deep-research/configs"
     tags = ["Admin / Deep Research"]
+    guards = [require_permission(Permission.DEEP_RESEARCH_READ)]
 
     dependencies = providers.create_service_dependencies(
         DeepResearchConfigService,
@@ -49,7 +51,10 @@ class DeepResearchConfigController(Controller):
         },
     )
 
-    @post(status_code=HTTP_201_CREATED)
+    @post(
+        status_code=HTTP_201_CREATED,
+        guards=[require_permission(Permission.DEEP_RESEARCH_WRITE)],
+    )
     async def create_config(
         self,
         config_service: DeepResearchConfigService,
@@ -87,7 +92,9 @@ class DeepResearchConfigController(Controller):
         obj = await config_service.get(config_id)
         return config_service.to_schema(obj, schema_type=DeepResearchConfigSchema)
 
-    @patch("/{config_id:uuid}")
+    @patch(
+        "/{config_id:uuid}", guards=[require_permission(Permission.DEEP_RESEARCH_WRITE)]
+    )
     async def update_config(
         self,
         config_service: DeepResearchConfigService,
@@ -106,7 +113,11 @@ class DeepResearchConfigController(Controller):
         )
         return config_service.to_schema(obj, schema_type=DeepResearchConfigSchema)
 
-    @delete("/{config_id:uuid}", status_code=HTTP_204_NO_CONTENT)
+    @delete(
+        "/{config_id:uuid}",
+        status_code=HTTP_204_NO_CONTENT,
+        guards=[require_permission(Permission.DEEP_RESEARCH_DELETE)],
+    )
     async def delete_config(
         self,
         config_service: DeepResearchConfigService,
@@ -124,6 +135,7 @@ class DeepResearchRunController(Controller):
 
     path = "/deep-research/runs"
     tags = ["Admin / Deep Research"]
+    guards = [require_permission(Permission.DEEP_RESEARCH_READ)]
 
     dependencies = {
         **providers.create_service_dependencies(
@@ -143,7 +155,10 @@ class DeepResearchRunController(Controller):
         ),
     }
 
-    @post(status_code=HTTP_201_CREATED)
+    @post(
+        status_code=HTTP_201_CREATED,
+        guards=[require_permission(Permission.DEEP_RESEARCH_WRITE)],
+    )
     async def create_run(
         self,
         run_service: DeepResearchRunService,
@@ -231,7 +246,11 @@ class DeepResearchRunController(Controller):
         obj = results[0]
         return run_service.to_schema(obj, schema_type=DeepResearchRunSchema)
 
-    @delete("/{run_id:uuid}", status_code=HTTP_204_NO_CONTENT)
+    @delete(
+        "/{run_id:uuid}",
+        status_code=HTTP_204_NO_CONTENT,
+        guards=[require_permission(Permission.DEEP_RESEARCH_DELETE)],
+    )
     async def delete_run(
         self,
         run_service: DeepResearchRunService,
@@ -243,7 +262,11 @@ class DeepResearchRunController(Controller):
         """Delete a deep research run."""
         _ = await run_service.delete(run_id)
 
-    @delete("/client-id/{client_id:str}", status_code=HTTP_204_NO_CONTENT)
+    @delete(
+        "/client-id/{client_id:str}",
+        status_code=HTTP_204_NO_CONTENT,
+        guards=[require_permission(Permission.DEEP_RESEARCH_DELETE)],
+    )
     async def delete_run_by_client_id(
         self,
         run_service: DeepResearchRunService,

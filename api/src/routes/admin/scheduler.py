@@ -13,6 +13,7 @@ import logging
 from litestar import Controller, post
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from guards.permissions import Permission, require_permission
 from tasks.admin_ops import cancel_job, create_or_update_job
 from tasks.types import JobDefinition, JobIdInput
 
@@ -22,6 +23,7 @@ logger = logging.getLogger(__name__)
 class SchedulerController(Controller):
     path = "/scheduler"
     tags = ["Admin / Scheduler"]
+    guards = [require_permission(Permission.SCHEDULER_MANAGE)]
 
     @post("/create-job")
     async def create_job(self, data: JobDefinition, db_session: AsyncSession) -> dict:

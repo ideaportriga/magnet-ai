@@ -16,40 +16,34 @@ interface EntityAccessOptions {
 const entityAccess = {
   ai_apps: access('ai_apps', 'ai_apps', 'aiAppReadonly'),
   agents: access('agents', 'agents', 'agentReadonly'),
-  api_keys: access('api_keys', 'api_keys', 'apiKeyReadonly', {
-    deletePermission: 'write:api_keys',
-  }),
+  api_keys: access('api_keys', 'api_keys', 'apiKeyReadonly'),
   api_servers: access('api_servers', 'api_servers', 'apiServerReadonly'),
-  assistant_tools: access('assistant_tools', 'api_servers', 'assistantToolReadonly', {
-    deletePermission: 'write:api_servers',
-  }),
+  assistant_tools: access('assistant_tools', 'api_servers', 'assistantToolReadonly'),
   collections: access('collections', 'collections', 'collectionReadonly'),
-  deep_research: access('deep_research', 'deep_research', 'deepResearchReadonly', {
-    deletePermission: 'write:deep_research',
-  }),
-  evaluation_sets: access('evaluation_sets', 'evaluations', 'evaluationSetReadonly', {
-    deletePermission: 'write:evaluations',
+  deep_research: access('deep_research', 'deep_research', 'deepResearchReadonly'),
+  evaluations: access('evaluations', 'evaluations', 'evaluationReadonly'),
+  evaluation_sets: access('evaluation_sets', 'evaluations', 'evaluationSetReadonly'),
+  files: access('files', 'files', 'fileReadonly'),
+  jobs: access('jobs', 'jobs', 'jobReadonly', {
+    // Jobs catalog has no delete:* code today — keep delete behind write.
+    deletePermission: 'write:jobs',
   }),
   knowledge_graph: access('knowledge_graph', 'knowledge_graph', 'knowledgeGraphReadonly'),
   knowledge_providers: access('provider', 'knowledge_graph', 'knowledgeProviderReadonly'),
   mcp_servers: access('mcp_servers', 'mcp_servers', 'mcpReadonly'),
-  model: access('model', 'ai_models', 'modelReadonly', {
-    deletePermission: 'write:ai_models',
-  }),
-  model_providers: access('provider', 'ai_models', 'modelProviderReadonly', {
-    deletePermission: 'write:ai_models',
-  }),
-  note_taker: access('note_taker', 'note_taker', 'noteTakerReadonly', {
-    deletePermission: 'write:note_taker',
-  }),
-  oauth_clients: access('oauth_clients', 'roles', 'oauthClientReadonly', {
-    readPermission: 'write:roles',
-    writePermission: 'write:roles',
-    deletePermission: 'write:roles',
-  }),
+  metrics: access('metrics', 'metrics', 'metricReadonly'),
+  model: access('model', 'ai_models', 'modelReadonly'),
+  model_providers: access('provider', 'providers', 'modelProviderReadonly'),
+  note_taker: access('note_taker', 'note_taker', 'noteTakerReadonly'),
+  oauth_clients: access('oauth_clients', 'oauth_clients', 'oauthClientReadonly'),
   promptTemplates: access('promptTemplates', 'prompts', 'promptReadonly'),
   rag_tools: access('rag_tools', 'rag_tools', 'ragReadonly'),
   retrieval: access('retrieval', 'retrieval_tools', 'retrievalReadonly'),
+  settings: access('settings', 'settings', 'settingsReadonly', {
+    // Settings has no delete:* — admin gates write/seed via write:settings.
+    deletePermission: 'write:settings',
+  }),
+  traces: access('traces', 'traces', 'traceReadonly'),
 } as const
 
 function access(

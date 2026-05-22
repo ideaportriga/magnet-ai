@@ -15,6 +15,7 @@ from core.domain.providers.service import (
     ProvidersService,
 )
 from core.domain.ai_models.service import AIModelsService
+from guards.permissions import Permission, require_permission
 
 from .schemas import ProviderCreate, ProviderResponse, ProviderUpdate
 
@@ -108,7 +109,7 @@ class ProvidersController(Controller):
         ),
     }
 
-    @get()
+    @get(guards=[require_permission(Permission.PROVIDERS_READ)])
     async def list_providers(
         self,
         providers_service: ProvidersService,
@@ -143,7 +144,7 @@ class ProvidersController(Controller):
             results, total, filters=active_filters, schema_type=ProviderResponse
         )
 
-    @post()
+    @post(guards=[require_permission(Permission.PROVIDERS_WRITE)])
     async def create_provider(
         self,
         providers_service: ProvidersService,
@@ -159,7 +160,7 @@ class ProvidersController(Controller):
         await refresh_router()  # Refresh LiteLLM router with new provider
         return providers_service.to_schema(obj, schema_type=ProviderResponse)
 
-    @get("/code/{code:str}")
+    @get("/code/{code:str}", guards=[require_permission(Permission.PROVIDERS_READ)])
     async def get_provider_by_code(
         self, providers_service: ProvidersService, code: str
     ) -> ProviderResponse:
@@ -167,7 +168,7 @@ class ProvidersController(Controller):
         obj = await providers_service.get_one(system_name=code)
         return providers_service.to_schema(obj, schema_type=ProviderResponse)
 
-    @get("/{provider_id:uuid}")
+    @get("/{provider_id:uuid}", guards=[require_permission(Permission.PROVIDERS_READ)])
     async def get_provider(
         self,
         providers_service: ProvidersService,
@@ -180,7 +181,9 @@ class ProvidersController(Controller):
         obj = await providers_service.get(provider_id)
         return providers_service.to_schema(obj, schema_type=ProviderResponse)
 
-    @patch("/{provider_id:uuid}")
+    @patch(
+        "/{provider_id:uuid}", guards=[require_permission(Permission.PROVIDERS_WRITE)]
+    )
     async def update_provider(
         self,
         providers_service: ProvidersService,
@@ -202,7 +205,9 @@ class ProvidersController(Controller):
         await refresh_router()  # Refresh LiteLLM router with updated provider
         return providers_service.to_schema(obj, schema_type=ProviderResponse)
 
-    @delete("/{provider_id:uuid}")
+    @delete(
+        "/{provider_id:uuid}", guards=[require_permission(Permission.PROVIDERS_DELETE)]
+    )
     async def delete_provider(
         self,
         providers_service: ProvidersService,
@@ -221,6 +226,7 @@ class ProvidersController(Controller):
         "/{provider_id:uuid}/test",
         summary="Test provider connection",
         status_code=HTTP_200_OK,
+        guards=[require_permission(Permission.PROVIDERS_WRITE)],
     )
     async def test_provider_connection(
         self,
@@ -386,6 +392,7 @@ class ProvidersController(Controller):
         "/{provider_id:uuid}/test-storage",
         summary="Test storage provider connection",
         status_code=HTTP_200_OK,
+        guards=[require_permission(Permission.PROVIDERS_WRITE)],
     )
     async def test_storage_connection(
         self,
@@ -456,6 +463,7 @@ class ProvidersController(Controller):
         "/{provider_id:uuid}/available-models",
         summary="Get available models from provider",
         status_code=HTTP_200_OK,
+        guards=[require_permission(Permission.PROVIDERS_READ)],
     )
     async def get_available_models(
         self,

@@ -14,6 +14,7 @@ from core.config.constants import DEFAULT_PAGINATION_SIZE
 from core.domain.jobs.service import (
     JobsService,
 )
+from guards.permissions import Permission, require_permission
 
 from .schemas import Job, JobCreate, JobUpdate
 
@@ -47,7 +48,7 @@ class JobsController(Controller):
         },
     )
 
-    @get()
+    @get(guards=[require_permission(Permission.JOBS_READ)])
     async def list_jobs(
         self,
         jobs_service: JobsService,
@@ -113,19 +114,19 @@ class JobsController(Controller):
             results, total, filters=all_filters, schema_type=Job
         )
 
-    @post()
+    @post(guards=[require_permission(Permission.JOBS_WRITE)])
     async def create_job(self, jobs_service: JobsService, data: JobCreate) -> Job:
         """Create a new job."""
         obj = await jobs_service.create(data)
         return jobs_service.to_schema(obj, schema_type=Job)
 
-    @get("/code/{code:str}")
+    @get("/code/{code:str}", guards=[require_permission(Permission.JOBS_READ)])
     async def get_job_by_code(self, jobs_service: JobsService, code: str) -> Job:
         """Get a job by its system_name."""
         obj = await jobs_service.get_one(system_name=code)
         return jobs_service.to_schema(obj, schema_type=Job)
 
-    @get("/{job_id:uuid}")
+    @get("/{job_id:uuid}", guards=[require_permission(Permission.JOBS_READ)])
     async def get_job(
         self,
         jobs_service: JobsService,
@@ -138,7 +139,7 @@ class JobsController(Controller):
         obj = await jobs_service.get(job_id)
         return jobs_service.to_schema(obj, schema_type=Job)
 
-    @patch("/{job_id:uuid}")
+    @patch("/{job_id:uuid}", guards=[require_permission(Permission.JOBS_WRITE)])
     async def update_job(
         self,
         jobs_service: JobsService,
@@ -152,7 +153,7 @@ class JobsController(Controller):
         obj = await jobs_service.update(data, item_id=job_id, auto_commit=True)
         return jobs_service.to_schema(obj, schema_type=Job)
 
-    @delete("/{job_id:uuid}")
+    @delete("/{job_id:uuid}", guards=[require_permission(Permission.JOBS_DELETE)])
     async def delete_job(
         self,
         jobs_service: JobsService,

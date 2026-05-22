@@ -9,6 +9,7 @@ from litestar.params import Dependency, Parameter
 
 from core.config.constants import DEFAULT_PAGINATION_SIZE
 from core.domain.metrics.service import MetricsService
+from guards.permissions import Permission, require_permission
 
 from .schemas import Metric, MetricCreate, MetricUpdate
 
@@ -36,7 +37,7 @@ class MetricsController(Controller):
         },
     )
 
-    @get()
+    @get(guards=[require_permission(Permission.METRICS_READ)])
     async def list_metrics(
         self,
         metrics_service: MetricsService,
@@ -48,7 +49,7 @@ class MetricsController(Controller):
             results, total, filters=filters, schema_type=Metric
         )
 
-    @post()
+    @post(guards=[require_permission(Permission.METRICS_WRITE)])
     async def create_metric(
         self, metrics_service: MetricsService, data: MetricCreate
     ) -> Metric:
@@ -56,7 +57,10 @@ class MetricsController(Controller):
         obj = await metrics_service.create(data)
         return metrics_service.to_schema(obj, schema_type=Metric)
 
-    @get("/feature/{feature_system_name:str}")
+    @get(
+        "/feature/{feature_system_name:str}",
+        guards=[require_permission(Permission.METRICS_READ)],
+    )
     async def get_metric_by_feature(
         self, metrics_service: MetricsService, feature_system_name: str
     ) -> Metric:
@@ -64,7 +68,7 @@ class MetricsController(Controller):
         obj = await metrics_service.get_one(feature_system_name=feature_system_name)
         return metrics_service.to_schema(obj, schema_type=Metric)
 
-    @get("/trace/{trace_id:str}")
+    @get("/trace/{trace_id:str}", guards=[require_permission(Permission.METRICS_READ)])
     async def get_metrics_by_trace(
         self,
         metrics_service: MetricsService,
@@ -79,7 +83,7 @@ class MetricsController(Controller):
             results, total, filters=filters, schema_type=Metric
         )
 
-    @get("/{metric_id:uuid}")
+    @get("/{metric_id:uuid}", guards=[require_permission(Permission.METRICS_READ)])
     async def get_metric(
         self,
         metrics_service: MetricsService,
@@ -92,7 +96,7 @@ class MetricsController(Controller):
         obj = await metrics_service.get(metric_id)
         return metrics_service.to_schema(obj, schema_type=Metric)
 
-    @patch("/{metric_id:uuid}")
+    @patch("/{metric_id:uuid}", guards=[require_permission(Permission.METRICS_WRITE)])
     async def update_metric(
         self,
         metrics_service: MetricsService,
@@ -106,7 +110,7 @@ class MetricsController(Controller):
         obj = await metrics_service.update(data, item_id=metric_id, auto_commit=True)
         return metrics_service.to_schema(obj, schema_type=Metric)
 
-    @delete("/{metric_id:uuid}")
+    @delete("/{metric_id:uuid}", guards=[require_permission(Permission.METRICS_DELETE)])
     async def delete_metric(
         self,
         metrics_service: MetricsService,

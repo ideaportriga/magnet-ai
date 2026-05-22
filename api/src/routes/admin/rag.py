@@ -1,6 +1,7 @@
 from litestar import Controller, post
 from pydantic import BaseModel, Field
 
+from guards.permissions import Permission, require_permission
 from services.observability import observability_context, observe
 from services.observability.models import FeatureType
 from services.retrieve import retrieve
@@ -20,6 +21,7 @@ class RagRetrieve(BaseModel):
 class RagController(Controller):
     path = "/rag"
     tags = ["[Deprecated] RAG"]
+    guards = [require_permission(Permission.RAG_TOOLS_READ)]
 
     @observe(name="Previewing knowledge source", channel="preview", source="preview")
     @post("/retrieve")

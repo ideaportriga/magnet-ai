@@ -88,12 +88,15 @@ class Permission(StrEnum):
     # Evaluations / deep research / prompt queue
     EVALUATIONS_READ = "read:evaluations"
     EVALUATIONS_WRITE = "write:evaluations"
+    EVALUATIONS_DELETE = "delete:evaluations"
 
     DEEP_RESEARCH_READ = "read:deep_research"
     DEEP_RESEARCH_WRITE = "write:deep_research"
+    DEEP_RESEARCH_DELETE = "delete:deep_research"
 
     PROMPT_QUEUE_READ = "read:prompt_queue"
     PROMPT_QUEUE_WRITE = "write:prompt_queue"
+    PROMPT_QUEUE_DELETE = "delete:prompt_queue"
 
     # Files / jobs / traces / observability
     FILES_READ = "read:files"
@@ -102,22 +105,45 @@ class Permission(StrEnum):
 
     JOBS_READ = "read:jobs"
     JOBS_WRITE = "write:jobs"
+    JOBS_DELETE = "delete:jobs"
 
     OBSERVABILITY_READ = "read:observability"
+    OBSERVABILITY_WRITE = "write:observability"
+
+    METRICS_READ = "read:metrics"
+    METRICS_WRITE = "write:metrics"
+    METRICS_DELETE = "delete:metrics"
+
+    TRACES_READ = "read:traces"
+    TRACES_WRITE = "write:traces"
+    TRACES_DELETE = "delete:traces"
 
     # Note taker (transcripts, recordings)
     NOTE_TAKER_READ = "read:note_taker"
     NOTE_TAKER_WRITE = "write:note_taker"
+    NOTE_TAKER_DELETE = "delete:note_taker"
 
     # AI models / providers / settings / catalog
     AI_MODELS_READ = "read:ai_models"
     AI_MODELS_WRITE = "write:ai_models"
+    AI_MODELS_DELETE = "delete:ai_models"
 
     PROVIDERS_READ = "read:providers"
     PROVIDERS_WRITE = "write:providers"
+    PROVIDERS_DELETE = "delete:providers"
 
     SETTINGS_READ = "read:settings"
     SETTINGS_WRITE = "write:settings"
+
+    CATALOG_READ = "read:catalog"
+
+    # OAuth clients (MCP) — separate from role management
+    OAUTH_CLIENTS_READ = "read:oauth_clients"
+    OAUTH_CLIENTS_WRITE = "write:oauth_clients"
+    OAUTH_CLIENTS_DELETE = "delete:oauth_clients"
+
+    # Scheduler (admin-only background job control)
+    SCHEDULER_MANAGE = "manage:scheduler"
 
     # Governance / admin
     ROLES_READ = "read:roles"
@@ -131,6 +157,7 @@ class Permission(StrEnum):
 
     API_KEYS_READ = "read:api_keys"
     API_KEYS_WRITE = "write:api_keys"
+    API_KEYS_DELETE = "delete:api_keys"
 
     RESOURCE_ACCESS_MANAGE = "manage:resource_access"
     AUDIT_READ = "read:audit"
@@ -154,6 +181,7 @@ SYSTEM_ROLE_DEFAULTS: dict[str, frozenset[str]] = {
             Permission.AGENTS_READ.value,
             Permission.AGENTS_EXECUTE.value,
             Permission.AI_APPS_READ.value,
+            Permission.CATALOG_READ.value,
             Permission.COLLECTIONS_READ.value,
             Permission.PROMPTS_READ.value,
             Permission.KNOWLEDGE_GRAPH_READ.value,
@@ -165,6 +193,7 @@ SYSTEM_ROLE_DEFAULTS: dict[str, frozenset[str]] = {
             Permission.FILES_WRITE.value,
             Permission.JOBS_READ.value,
             Permission.AI_MODELS_READ.value,
+            Permission.PROVIDERS_READ.value,
             Permission.NOTE_TAKER_READ.value,
             Permission.NOTE_TAKER_WRITE.value,
         }
@@ -272,8 +301,12 @@ def get_effective_permissions(auth: "Auth | None") -> set[str]:
 
     if auth.type == "api_key":
         scopes = auth.data.get("scopes")
+        # Legacy / deprecated keys (no DB record, or pre-scopes-migration cache
+        # entries) come through with `scopes is None` — treat them as full
+        # access for backward compatibility. Once a key has any explicit scope
+        # set (even an empty list), it acts as a capability ceiling.
         if scopes is None:
-            return set()
+            return set(_ALL_PERMISSIONS)
         if isinstance(scopes, str):
             scopes = [scopes]
         return {str(s) for s in scopes}

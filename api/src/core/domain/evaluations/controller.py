@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config.constants import DEFAULT_PAGINATION_SIZE
 from core.domain.evaluations.service import EvaluationsService
+from guards.permissions import Permission, require_permission
 from services.evaluation.services import (
     list_evaluations_with_aggregations,
 )
@@ -32,6 +33,7 @@ class EvaluationsController(Controller):
 
     path = "/evaluations"
     tags = ["Admin / Evaluations"]
+    guards = [require_permission(Permission.EVALUATIONS_READ)]
 
     dependencies = providers.create_service_dependencies(
         EvaluationsService,
@@ -52,7 +54,10 @@ class EvaluationsController(Controller):
         """List evaluations with aggregated metrics using SQLAlchemy."""
         return await list_evaluations_with_aggregations(db_session)
 
-    @patch("/{evaluation_id:uuid}/result/{result_id:str}/score")
+    @patch(
+        "/{evaluation_id:uuid}/result/{result_id:str}/score",
+        guards=[require_permission(Permission.EVALUATIONS_WRITE)],
+    )
     async def update_result_score(
         self,
         evaluations_service: EvaluationsService,
@@ -82,7 +87,7 @@ class EvaluationsController(Controller):
             results, total, filters=filters, schema_type=Evaluation
         )
 
-    @post()
+    @post(guards=[require_permission(Permission.EVALUATIONS_WRITE)])
     async def create_evaluation(
         self, evaluations_service: EvaluationsService, data: EvaluationCreate
     ) -> Evaluation:
@@ -133,7 +138,10 @@ class EvaluationsController(Controller):
         obj = await evaluations_service.get(evaluation_id)
         return evaluations_service.to_schema(obj, schema_type=Evaluation)
 
-    @patch("/{evaluation_id:uuid}")
+    @patch(
+        "/{evaluation_id:uuid}",
+        guards=[require_permission(Permission.EVALUATIONS_WRITE)],
+    )
     async def update_evaluation(
         self,
         evaluations_service: EvaluationsService,
@@ -149,7 +157,10 @@ class EvaluationsController(Controller):
         )
         return evaluations_service.to_schema(obj, schema_type=Evaluation)
 
-    @delete("/{evaluation_id:uuid}")
+    @delete(
+        "/{evaluation_id:uuid}",
+        guards=[require_permission(Permission.EVALUATIONS_DELETE)],
+    )
     async def delete_evaluation(
         self,
         evaluations_service: EvaluationsService,

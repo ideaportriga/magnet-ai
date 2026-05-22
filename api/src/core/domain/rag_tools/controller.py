@@ -186,7 +186,11 @@ class RagToolsController(Controller):
         )
 
     @observe(name="Previewing RAG Tool", channel="preview")
-    @post("/test", status_code=HTTP_200_OK)
+    @post(
+        "/test",
+        status_code=HTTP_200_OK,
+        guards=[require_permission(Permission.RAG_TOOLS_READ)],
+    )
     async def test(self, data: RagToolTest, user_id: str | None) -> RagToolTestResult:
         """Test a RAG tool with preview channel."""
         rag_tool_config = await get_rag_by_system_name_flat(data.system_name)
@@ -211,7 +215,11 @@ class RagToolsController(Controller):
         )
 
     @observe(name="Executing RAG Tool", channel="production")
-    @post("/execute", status_code=HTTP_200_OK)
+    @post(
+        "/execute",
+        status_code=HTTP_200_OK,
+        guards=[require_permission(Permission.RAG_TOOLS_READ)],
+    )
     async def execute(
         self,
         data: RagToolExecute,

@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.tags import TagNames
 from core.db.models.knowledge_graph import KnowledgeGraph
+from guards.permissions import Permission, require_permission
 from core.domain.agent_conversation.service import AgentConversationService
 from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphAgentResponse,
@@ -282,6 +283,7 @@ class UserKnowledgeGraphController(Controller):
 
     path = "/knowledge_graph"
     tags = [TagNames.UserKnowledgeGraph]
+    guards = [require_permission(Permission.KNOWLEDGE_GRAPH_READ)]
 
     @post(
         "/{graph_id_or_name:str}/agent/ask",

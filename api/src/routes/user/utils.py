@@ -10,6 +10,7 @@ from litestar.status_codes import HTTP_200_OK
 from pydantic import BaseModel
 
 from api.tags import TagNames
+from guards.permissions import Permission, require_permission
 from services.knowledge_graph.readers.kreuzberg_reader import mime_type_from_filename
 
 
@@ -25,6 +26,7 @@ class ParseDocumentResponse(BaseModel):
 class UserUtilsController(Controller):
     path = "/utils"
     tags = [TagNames.UserUtils]
+    guards = [require_permission(Permission.FILES_READ)]
 
     @post("/parse-pdf", status_code=HTTP_200_OK)
     async def parse_pdf(

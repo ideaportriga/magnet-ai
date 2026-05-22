@@ -200,7 +200,11 @@ class RetrievalToolsController(Controller):
         )
 
     @observe(name="Previewing Retrieval Tool", channel="preview")
-    @post("/test", status_code=HTTP_200_OK)
+    @post(
+        "/test",
+        status_code=HTTP_200_OK,
+        guards=[require_permission(Permission.RETRIEVAL_TOOLS_READ)],
+    )
     async def retrieval_tool_test(
         self, data: RetrievalToolTest
     ) -> RetrievalToolTestResult:
@@ -214,7 +218,11 @@ class RetrievalToolsController(Controller):
         return result
 
     @observe(name="Executing Retrieval Tool", channel="production")
-    @post("/execute", status_code=HTTP_200_OK)
+    @post(
+        "/execute",
+        status_code=HTTP_200_OK,
+        guards=[require_permission(Permission.RETRIEVAL_TOOLS_READ)],
+    )
     async def retrieval_tool_execute(
         self,
         data: RetrievalToolExecute,

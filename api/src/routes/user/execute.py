@@ -6,6 +6,7 @@ from litestar.params import Body
 from litestar.status_codes import HTTP_200_OK
 
 from api.tags import TagNames
+from guards.permissions import Permission, require_permission
 from prompt_templates.prompt_templates import get_prompt_template_by_system_name_flat
 from services.flow_retrieval_execute import flow_retrieval_execute
 from services.flow_retrieval_test import RetrievalToolTestResult
@@ -42,6 +43,7 @@ class UserExecuteController(Controller):
         status_code=HTTP_200_OK,
         summary="Execute a prompt template",
         description="Executes a predefined prompt template using the provided system name and user message content.",
+        guards=[require_permission(Permission.PROMPTS_READ)],
     )
     async def prompt_template_execute(
         self,
@@ -78,6 +80,7 @@ class UserExecuteController(Controller):
         status_code=HTTP_200_OK,
         summary="Execute a RAG tool",
         description="Executes a Retrieval-Augmented Generation (RAG) tool using the provided system name and user message.",
+        guards=[require_permission(Permission.RAG_TOOLS_READ)],
     )
     async def rag_tool_execute(
         self,
@@ -113,6 +116,7 @@ class UserExecuteController(Controller):
         status_code=HTTP_200_OK,
         summary="Execute a Retrieval Tool",
         description="Executes a Retrieval Tool using the provided configuration and returns the result.",
+        guards=[require_permission(Permission.RETRIEVAL_TOOLS_READ)],
     )
     async def retrieval_tool_execute(
         self,

@@ -8,6 +8,7 @@ from litestar.exceptions import ValidationException
 from pydantic import BaseModel, ConfigDict
 
 from api.tags import TagNames
+from guards.permissions import Permission, require_permission
 from services.agents.conversations import add_user_message, create_conversation
 from services.agents.models import (
     AgentConversationMessageRole,
@@ -214,6 +215,7 @@ async def _process_ask_magnet_request(
 class AskMagnetController(Controller):
     path = "/ask_magnet"
     tags = [TagNames.UserAgentConversations]
+    guards = [require_permission(Permission.AGENTS_EXECUTE)]
 
     @post(
         summary="Accepts Ask Magnet form data",

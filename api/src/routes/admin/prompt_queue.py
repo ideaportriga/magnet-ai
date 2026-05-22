@@ -19,6 +19,7 @@ from core.domain.prompt_queue.schemas import (
     PromptQueueExecuteResponseSchema,
 )
 from core.domain.prompt_queue.service import PromptQueueConfigService
+from guards.permissions import Permission, require_permission
 from services.prompt_queue import execute_prompt_queue
 
 
@@ -40,7 +41,10 @@ class PromptQueueConfigController(Controller):
         },
     )
 
-    @post(status_code=HTTP_201_CREATED)
+    @post(
+        status_code=HTTP_201_CREATED,
+        guards=[require_permission(Permission.PROMPT_QUEUE_WRITE)],
+    )
     async def create_config(
         self,
         config_service: PromptQueueConfigService,
@@ -53,7 +57,7 @@ class PromptQueueConfigController(Controller):
         obj = await config_service.create(data)
         return config_service.to_schema(obj, schema_type=PromptQueueConfigSchema)
 
-    @get()
+    @get(guards=[require_permission(Permission.PROMPT_QUEUE_READ)])
     async def list_configs(
         self,
         config_service: PromptQueueConfigService,
@@ -65,7 +69,7 @@ class PromptQueueConfigController(Controller):
             results, total, filters=filters, schema_type=PromptQueueConfigSchema
         )
 
-    @get("/{config_id:uuid}")
+    @get("/{config_id:uuid}", guards=[require_permission(Permission.PROMPT_QUEUE_READ)])
     async def get_config(
         self,
         config_service: PromptQueueConfigService,
@@ -78,7 +82,11 @@ class PromptQueueConfigController(Controller):
         obj = await config_service.get(config_id)
         return config_service.to_schema(obj, schema_type=PromptQueueConfigSchema)
 
-    @post("/{config_id:uuid}/execute", status_code=HTTP_200_OK)
+    @post(
+        "/{config_id:uuid}/execute",
+        status_code=HTTP_200_OK,
+        guards=[require_permission(Permission.PROMPT_QUEUE_WRITE)],
+    )
     async def execute_config(
         self,
         config_service: PromptQueueConfigService,
@@ -97,7 +105,9 @@ class PromptQueueConfigController(Controller):
         )
         return PromptQueueExecuteResponseSchema(result=result)
 
-    @patch("/{config_id:uuid}")
+    @patch(
+        "/{config_id:uuid}", guards=[require_permission(Permission.PROMPT_QUEUE_WRITE)]
+    )
     async def update_config(
         self,
         config_service: PromptQueueConfigService,
@@ -116,7 +126,11 @@ class PromptQueueConfigController(Controller):
         )
         return config_service.to_schema(obj, schema_type=PromptQueueConfigSchema)
 
-    @delete("/{config_id:uuid}", status_code=HTTP_204_NO_CONTENT)
+    @delete(
+        "/{config_id:uuid}",
+        status_code=HTTP_204_NO_CONTENT,
+        guards=[require_permission(Permission.PROMPT_QUEUE_DELETE)],
+    )
     async def delete_config(
         self,
         config_service: PromptQueueConfigService,

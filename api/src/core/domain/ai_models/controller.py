@@ -16,6 +16,7 @@ from core.domain.ai_models.service import (
     AIModelsService,
 )
 from core.domain.providers.service import ProvidersService
+from guards.permissions import Permission, require_permission
 from openai_model.utils import clear_model_cache
 
 from .schemas import AIModel, AIModelCreate, AIModelSetDefaultRequest, AIModelUpdate
@@ -132,7 +133,7 @@ class AIModelsController(Controller):
         ),
     }
 
-    @get()
+    @get(guards=[require_permission(Permission.AI_MODELS_READ)])
     async def list_ai_models(
         self,
         ai_models_service: AIModelsService,
@@ -157,7 +158,7 @@ class AIModelsController(Controller):
             results, total, filters=active_filters, schema_type=AIModel
         )
 
-    @post()
+    @post(guards=[require_permission(Permission.AI_MODELS_WRITE)])
     async def create_ai_model(
         self,
         ai_models_service: AIModelsService,
@@ -174,7 +175,7 @@ class AIModelsController(Controller):
         await refresh_router()  # Refresh LiteLLM router with new model
         return ai_models_service.to_schema(obj, schema_type=AIModel)
 
-    @get("/code/{code:str}")
+    @get("/code/{code:str}", guards=[require_permission(Permission.AI_MODELS_READ)])
     async def get_ai_model_by_code(
         self, ai_models_service: AIModelsService, code: str
     ) -> AIModel:
@@ -182,7 +183,7 @@ class AIModelsController(Controller):
         obj = await ai_models_service.get_one(system_name=code)
         return ai_models_service.to_schema(obj, schema_type=AIModel)
 
-    @get("/{ai_model_id:uuid}")
+    @get("/{ai_model_id:uuid}", guards=[require_permission(Permission.AI_MODELS_READ)])
     async def get_ai_model(
         self,
         ai_models_service: AIModelsService,
@@ -195,7 +196,9 @@ class AIModelsController(Controller):
         obj = await ai_models_service.get(ai_model_id)
         return ai_models_service.to_schema(obj, schema_type=AIModel)
 
-    @patch("/{ai_model_id:uuid}")
+    @patch(
+        "/{ai_model_id:uuid}", guards=[require_permission(Permission.AI_MODELS_WRITE)]
+    )
     async def update_ai_model(
         self,
         ai_models_service: AIModelsService,
@@ -218,7 +221,9 @@ class AIModelsController(Controller):
         await refresh_router()  # Refresh LiteLLM router with updated model
         return ai_models_service.to_schema(obj, schema_type=AIModel)
 
-    @delete("/{ai_model_id:uuid}")
+    @delete(
+        "/{ai_model_id:uuid}", guards=[require_permission(Permission.AI_MODELS_DELETE)]
+    )
     async def delete_ai_model(
         self,
         ai_models_service: AIModelsService,
@@ -234,7 +239,11 @@ class AIModelsController(Controller):
         clear_model_cache()
         await refresh_router()  # Refresh LiteLLM router after model deletion
 
-    @post("/set_default", status_code=HTTP_204_NO_CONTENT)
+    @post(
+        "/set_default",
+        status_code=HTTP_204_NO_CONTENT,
+        guards=[require_permission(Permission.AI_MODELS_WRITE)],
+    )
     async def set_default_handler(
         self, ai_models_service: AIModelsService, data: AIModelSetDefaultRequest
     ) -> None:
@@ -257,6 +266,7 @@ class AIModelsController(Controller):
         "/{ai_model_id:uuid}/test",
         summary="Test model",
         status_code=HTTP_200_OK,
+        guards=[require_permission(Permission.AI_MODELS_WRITE)],
     )
     async def test_model(
         self,
@@ -634,6 +644,7 @@ class AIModelsController(Controller):
         "/{ai_model_id:uuid}/debug-info",
         summary="Get LiteLLM routing debug info",
         status_code=HTTP_200_OK,
+        guards=[require_permission(Permission.AI_MODELS_READ)],
     )
     async def get_model_debug_info(
         self,
@@ -701,6 +712,7 @@ class AIModelsController(Controller):
         "/{ai_model_id:uuid}/capabilities",
         summary="Get model capabilities",
         status_code=HTTP_200_OK,
+        guards=[require_permission(Permission.AI_MODELS_READ)],
     )
     async def get_model_capabilities(
         self,

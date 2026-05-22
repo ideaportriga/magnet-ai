@@ -74,8 +74,25 @@ def test_api_key_uses_scopes_as_ceiling_without_role_union():
     assert perms == {"read:agents"}
 
 
-def test_api_key_without_scopes_fails_closed():
+def test_api_key_without_scopes_gets_full_access():
+    """Legacy API keys (no scopes column persisted) are treated as full
+    access for backward compatibility. An explicit empty list is a real
+    ceiling — that's covered by `test_api_key_with_empty_scopes_grants_nothing`.
+    """
     auth = _FakeAuth(type_="api_key", data={})
+    perms = get_effective_permissions(auth)
+    assert perms == {p.value for p in Permission}
+
+
+def test_api_key_with_explicit_none_scopes_gets_full_access():
+    auth = _FakeAuth(type_="api_key", data={"scopes": None})
+    perms = get_effective_permissions(auth)
+    assert perms == {p.value for p in Permission}
+
+
+def test_api_key_with_empty_scopes_grants_nothing():
+    """`scopes=[]` is an explicit empty ceiling — opposite of legacy null."""
+    auth = _FakeAuth(type_="api_key", data={"scopes": []})
     perms = get_effective_permissions(auth)
     assert perms == set()
 
