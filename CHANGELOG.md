@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-alpha.31](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.30...v0.7.0-alpha.31) (2026-05-22)
+
+### 🐛 Bug Fixes
+
+* 2nd rbac level fixes ([e747c54](https://github.com/ideaportriga/magnet-ai/commit/e747c54f7116b2d38be72a05e41e75dd08ae29c5))
+* change record visibility ([1239c88](https://github.com/ideaportriga/magnet-ai/commit/1239c8812b6ef62979600e6b918a6e28c07a4bca))
+* rbac tennant level refactor ([ff49e80](https://github.com/ideaportriga/magnet-ai/commit/ff49e80a4ee9878a98453bbb4c2cccbfc1b8f286))
+* some ui fixes ([8db7abc](https://github.com/ideaportriga/magnet-ai/commit/8db7abc1f70343aad36815fd0bba616610b1ebcd))
+
 ## [0.7.0-alpha.30](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.29...v0.7.0-alpha.30) (2026-05-20)
 
 ### ✨ Features
