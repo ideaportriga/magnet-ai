@@ -247,17 +247,22 @@ export const useDeepResearchStore = defineStore('deepResearch', () => {
       })
 
       if (response?.error) {
-        throw new Error(response.error)
+        throw response.error instanceof Error ? response.error : new Error(String(response.error))
       }
 
-      const data = await response.json()
+      let data: any = null
+      try {
+        data = await response.json()
+      } catch {
+        // The server accepted the run but returned a non-JSON body. The
+        // create itself still succeeded, so treat as success with no data.
+        data = null
+      }
 
-      // Fetch updated list
-      await fetchRuns()
+      // Refresh the list, but don't fail the create if the refresh fails.
+      fetchRuns().catch(() => {})
 
-      return normalizeRun(data) ?? data
-    } catch (error) {
-      throw error
+      return data ? (normalizeRun(data) ?? data) : null
     } finally {
       loading.value = false
     }

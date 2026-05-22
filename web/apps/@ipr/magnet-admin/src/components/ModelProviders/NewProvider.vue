@@ -35,6 +35,7 @@
 
 <script>
 import { ref, reactive, computed } from 'vue'
+import { cloneDeep } from 'lodash'
 import { m } from '@/paraglide/messages'
 import { toUpperCaseWithUnderscores } from '@shared'
 import { required } from '@/utils/validationRules'
@@ -46,6 +47,14 @@ import { validateRef } from '@/utils/validateRef'
 
 export default {
   props: {
+    copy: {
+      type: Boolean,
+      default: false,
+    },
+    source: {
+      type: Object,
+      default: null,
+    },
     showNewDialog: {
       type: Boolean,
       default: false,
@@ -124,6 +133,17 @@ export default {
     },
   },
   mounted() {
+    if (this.copy && this.source) {
+      this.newRow = reactive(cloneDeep(this.source))
+      this.newRow.name = (this.newRow.name || '') + '_COPY'
+      this.newRow.system_name = (this.newRow.system_name || '') + '_COPY'
+      delete this.newRow.id
+      delete this.newRow.created_at
+      delete this.newRow.updated_at
+      delete this.newRow.created_by
+      delete this.newRow.updated_by
+      this.autoChangeCode = false
+    }
     this.isMounted = true
   },
   beforeUnmount() {

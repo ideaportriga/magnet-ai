@@ -92,15 +92,6 @@ export default {
     // `permission` are always shown (anchor links / external).
     const { can, isSuperuser } = usePermissions()
 
-    const assemble = [
-      {
-        label: m.nav_aiApps(),
-        icon: 'magic',
-        path: 'ai-apps',
-        permission: 'read:ai_apps',
-      },
-    ]
-
     const evaluation = [
       {
         label: m.nav_testSets(),
@@ -117,6 +108,12 @@ export default {
     ]
 
     const menu = [
+      {
+        label: m.nav_aiApps(),
+        icon: 'magic',
+        path: 'ai-apps',
+        permission: 'read:ai_apps',
+      },
       {
         label: m.nav_agents(),
         icon: 'robot',
@@ -262,12 +259,6 @@ export default {
 
     const experimental = [
       {
-        label: m.nav_aiApps(),
-        icon: 'magic',
-        path: 'ai-apps',
-        permission: 'read:ai_apps',
-      },
-      {
         label: m.nav_knowledgeGraph(),
         icon: 'graph',
         path: 'knowledge-graph',
@@ -338,7 +329,6 @@ export default {
       menu: gate(menu),
       dev,
       logout,
-      assemble: gate(assemble),
       connectors: gate(connectors),
       evaluation: gate(evaluation),
       observabilityItems: gate(observabilityItems),

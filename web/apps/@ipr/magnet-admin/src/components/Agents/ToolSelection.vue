@@ -58,9 +58,14 @@ const emit = defineEmits(['update:selected'])
 const appStore = useAppStore()
 const queries = useEntityQueries()
 
-const { options: api_servers } = useCatalogOptions('api_servers')
+// API and MCP servers carry a nested `tools` array which is needed to render
+// the per-tool checkboxes; the lightweight catalog endpoint strips that, so
+// fetch the full entities directly.
+const { data: apiServersData } = queries.api_servers.useList()
+const api_servers = computed(() => apiServersData.value?.items ?? [])
+const { data: mcpServersData } = queries.mcp_servers.useList()
+const mcp_servers = computed(() => mcpServersData.value?.items ?? [])
 const { options: rag_tools } = useCatalogOptions('rag_tools')
-const { options: mcp_servers } = useCatalogOptions('mcp_servers')
 const { options: retrieval_tools } = useCatalogOptions('retrieval')
 
 const { data: promptTemplatesData } = queries.promptTemplates.useList()

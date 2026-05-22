@@ -18,6 +18,7 @@
         <div class="cluster km-heading-7" data-justify="center">{{ m.deleteConfirm_aboutToDelete({ entity: m.entity_modelProvider() }) }}</div>
         <div class="cluster text-center" data-justify="center">{{ m.deleteConfirm_permanentDeleteDisable({ entity: m.entity_modelProvider() }) }}</div>
       </km-popup-confirm>
+      <model-providers-new-provider v-if="showNewDialog" :show-new-dialog="showNewDialog" copy :source="draft" @cancel="showNewDialog = false" />
     </template>
     <template #content>
       <div class="stack full-height km-flex-min-0" data-gap="0">

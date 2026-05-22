@@ -212,61 +212,59 @@ const closeDialog = () => {
 }
 
 const createRun = async () => {
+  if (!selectedConfigId.value) {
+    notifyError('Please select a config')
+    return
+  }
+
+  let inputPayload
   try {
+    inputPayload = JSON.parse(runInput.value)
+  } catch (e) {
+    notifyError('Invalid JSON input')
+    return
+  }
 
-    if (!selectedConfigId.value) {
-      notifyError('Please select a config')
-      return
-    }
+  const selectedConfig = configOptions.value.find(c => c.id === selectedConfigId.value)
+  if (!selectedConfig) {
+    notifyError('Selected config not found')
+    return
+  }
 
-    // Validate JSON
-    let inputPayload
-    try {
-      inputPayload = JSON.parse(runInput.value)
-    } catch (e) {
-      notifyError('Invalid JSON input')
-      return
-    }
+  const configs = drStore.configs || []
+  const fullConfig = configs.find((c: any) => c.id === selectedConfigId.value)
 
-    creating.value = true
-
-    // Get the selected config
-    const selectedConfig = configOptions.value.find(c => c.id === selectedConfigId.value)
-    if (!selectedConfig) {
-      throw new Error('Selected config not found')
-    }
-
-    // Get full config details
-    const configs = drStore.configs || []
-    const fullConfig = configs.find((c: any) => c.id === selectedConfigId.value)
-
-    const result = await drStore.createRun({
+  creating.value = true
+  let result: any = null
+  try {
+    result = await drStore.createRun({
       config: fullConfig?.config || {},
       input: inputPayload,
       client_id: runClientId.value || undefined,
       config_system_name: fullConfig?.system_name,
     })
-
-    notifySuccess('Run has been created')
-
-    showNewDialog.value = false
-
-    // Reset form
-    selectedConfigId.value = null
-    runInput.value = '{"task": ""}'
-    runClientId.value = ''
-
-    // Navigate to the new run
-    if (result?.id) {
-      router.push(`/deep-research/runs/${result.id}`)
-    } else {
-      // Refresh the list if navigation fails
-      await refreshTable()
-    }
   } catch (error: any) {
     notifyError(error?.message || 'Failed to create run')
-  } finally {
     creating.value = false
+    return
+  }
+
+  notifySuccess('Run has been created')
+  showNewDialog.value = false
+  selectedConfigId.value = null
+  runInput.value = '{"task": ""}'
+  runClientId.value = ''
+  creating.value = false
+
+  // Post-success navigation/refresh must not surface as a "create failed" toast.
+  try {
+    if (result?.id) {
+      await router.push(`/deep-research/runs/${result.id}`)
+    } else {
+      await refreshTable()
+    }
+  } catch {
+    // ignore — the run was created successfully
   }
 }
 
