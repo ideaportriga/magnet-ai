@@ -239,6 +239,20 @@ export default {
         permission: 'read:users',
       },
       {
+        label: 'Departments',
+        icon: 'network',
+        path: 'admin/departments',
+        permission: 'read:users',
+      },
+      {
+        // Superuser-only. `manage:tenants` is not a real permission code, so
+        // only the isSuperuser short-circuit in gate() lets this item through.
+        label: 'Tenants',
+        icon: 'globe',
+        path: 'admin/tenants',
+        permission: 'manage:tenants',
+      },
+      {
         label: 'Access log',
         icon: 'history',
         path: 'admin/access-log',

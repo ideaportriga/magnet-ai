@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from datetime import datetime
+from uuid import UUID
 
 from advanced_alchemy.base import UUIDAuditBase
 from advanced_alchemy.types import DateTimeUTC
-from sqlalchemy import Index, String, UniqueConstraint
+from sqlalchemy import ForeignKey, Index, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 
@@ -16,6 +17,13 @@ class SlackOAuthState(UUIDAuditBase):
         UniqueConstraint("state_token", name="uq_slack_oauth_states_state"),
         Index("ix_slack_oauth_states_agent", "agent_system_name"),
         Index("ix_slack_oauth_states_expires_at", "expires_at"),
+    )
+
+    tenant_id: Mapped[UUID] = mapped_column(
+        ForeignKey("tenant.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Organization-tenant. Resolved from the agent before /authorize redirect.",
     )
 
     state_token: Mapped[str] = mapped_column(

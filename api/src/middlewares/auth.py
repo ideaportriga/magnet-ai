@@ -80,6 +80,9 @@ def create_auth_middleware(
             tokens = set_rls_context(
                 tenant_id=auth.tenant_id,
                 user_id=auth.user_id,
+                is_superuser=bool(
+                    getattr(getattr(auth, "user", None), "is_superuser", False)
+                ),
             )
             try:
                 await self.app(scope, receive, send)

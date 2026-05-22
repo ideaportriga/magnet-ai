@@ -66,6 +66,12 @@ async def bootstrap_superuser(
 
     Caller is responsible for ``session.commit()``.
     """
+    # Bootstrap superuser creation is by definition cross-tenant and
+    # privileged. Bypass RLS for the duration of this session.
+    from core.db.rls_context import apply_session_rls
+
+    await apply_session_rls(session, tenant_id=None, is_superuser=True)
+
     service = UsersService(session=session)
     user = await service.get_one_or_none(email=email)
 

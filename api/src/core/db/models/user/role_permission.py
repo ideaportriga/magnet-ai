@@ -9,7 +9,7 @@ clears its permission grants; removing a permission code from the catalog
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 from uuid import UUID
 
 from advanced_alchemy.base import UUIDv7AuditBase
@@ -28,6 +28,16 @@ class RolePermission(UUIDv7AuditBase):
     __table_args__ = (
         UniqueConstraint("role_id", "permission_code", name="uq_role_permission"),
         {"comment": "Role-permission grants"},
+    )
+
+    tenant_id: Mapped[Optional[UUID]] = mapped_column(
+        ForeignKey("tenant.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+        comment=(
+            "Organization-tenant. NULL when the role is a system role "
+            "(admin/user/viewer). Denormalized from parent role.tenant_id."
+        ),
     )
 
     role_id: Mapped[UUID] = mapped_column(

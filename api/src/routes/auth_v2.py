@@ -845,6 +845,10 @@ class AuthV2Controller(Controller):
                 reset_token = PasswordResetToken(
                     token_hash=token_hash,
                     user_id=user.id,
+                    # Inherit tenant from the user — `password_reset_token`
+                    # carries tenant_id (denormalized from user_account in
+                    # the Phase 5 migration).
+                    tenant_id=user.tenant_id,
                     expires_at=datetime.now(UTC) + timedelta(hours=1),
                 )
                 session.add(reset_token)
@@ -880,7 +884,11 @@ class AuthV2Controller(Controller):
 
         async with alchemy.get_session() as session:
             from core.db.models.user.password_reset_token import PasswordResetToken
+            from core.db.rls_context import apply_session_rls
             from sqlalchemy import select
+
+            # Auth-bootstrap path: token-only lookup, no tenant context yet.
+            await apply_session_rls(session, tenant_id=None, is_superuser=True)
 
             stmt = (
                 select(PasswordResetToken)

@@ -24,6 +24,13 @@ class RefreshToken(UUIDv7AuditBase):
     __tablename__ = "refresh_token"
     __table_args__ = {"comment": "Refresh tokens for JWT session management"}
 
+    tenant_id: Mapped[UUID] = mapped_column(
+        ForeignKey("tenant.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Organization-tenant. Denormalized from parent user_account.",
+    )
+
     token_hash: Mapped[str] = mapped_column(
         String(64),
         unique=True,

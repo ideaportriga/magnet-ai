@@ -657,6 +657,43 @@ const routes = [
       permission: 'read:audit',
     },
   },
+  // Tenants — superuser-only. No permission meta because the gate is
+  // is_superuser, enforced inside the component and the backend controller.
+  {
+    path: '/admin/tenants',
+    name: 'AdminTenants',
+    component: () => import('@/components/AdminAccess/Tenants/Page.vue'),
+    meta: {
+      pageLabel: () => 'Tenants',
+    },
+  },
+  {
+    path: '/admin/tenants/:id',
+    name: 'AdminTenantDetails',
+    component: () => import('@/components/AdminAccess/Tenants/Details.vue'),
+    meta: {
+      pageLabel: () => 'Tenant',
+    },
+  },
+  // Departments — tenant-scoped, gated by read:users / manage:users.
+  {
+    path: '/admin/departments',
+    name: 'AdminDepartments',
+    component: () => import('@/components/AdminAccess/Departments/Page.vue'),
+    meta: {
+      pageLabel: () => 'Departments',
+      permission: 'read:users',
+    },
+  },
+  {
+    path: '/admin/departments/:id',
+    name: 'AdminDepartmentDetails',
+    component: () => import('@/components/AdminAccess/Departments/Details.vue'),
+    meta: {
+      pageLabel: () => 'Department',
+      permission: 'read:users',
+    },
+  },
 ]
 
 if (import.meta.env.DEV) {

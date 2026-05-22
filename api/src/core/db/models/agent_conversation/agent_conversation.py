@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any, Optional
+from uuid import UUID
 
 from advanced_alchemy.base import UUIDv7AuditBase
 from advanced_alchemy.types import DateTimeUTC, JsonB
-from sqlalchemy import String
+from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 
@@ -13,6 +14,13 @@ class AgentConversation(UUIDv7AuditBase):
     """Main AI app table using base entity class with variant validation."""
 
     __tablename__ = "agent_conversations"
+
+    tenant_id: Mapped[UUID] = mapped_column(
+        ForeignKey("tenant.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Organization-tenant — RLS pivot. Inherited from agent at creation.",
+    )
 
     # Agent identifier
     agent: Mapped[Optional[str]] = mapped_column(

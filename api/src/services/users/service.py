@@ -56,8 +56,12 @@ async def upsert_user_from_oidc(
     # concurrent OIDC logins for the same email both see user=None and both
     # try to INSERT.  The loser's INSERT fails with a unique-constraint
     # violation; on retry the SELECT finds the row the winner created.
+    # Auth-bootstrap (OIDC/OAuth callback): email lookup is cross-tenant.
+    from core.db.rls_context import apply_session_rls
+
     for attempt in range(2):
         async with alchemy.get_session() as session:
+            await apply_session_rls(session, tenant_id=None, is_superuser=True)
             service = UsersService(session=session)
 
             # Try to find existing user by email
@@ -142,8 +146,14 @@ async def _upsert_oauth_account(
     oauth_account = result.scalar_one_or_none()
 
     if oauth_account is None:
+        # Resolve tenant from user — auth-bootstrap paths run with
+        # tenant_id=NULL contextvar, so auto-fill listener can't help.
+        tenant_id = (
+            await session.execute(select(User.tenant_id).where(User.id == user_id))
+        ).scalar_one_or_none()
         oauth_account = UserOAuthAccount(
             user_id=user_id,
+            tenant_id=tenant_id,
             oauth_name=oauth_name,
             account_id=account_id,
             account_email=account_email,
@@ -198,8 +208,14 @@ async def _sync_oidc_roles(
 
     # Add missing roles
     to_add = target_role_ids - current_role_ids
-    for role_id in to_add:
-        session.add(UserRole(user_id=user_id, role_id=role_id))
+    if to_add:
+        tenant_id_for_role = (
+            await session.execute(select(User.tenant_id).where(User.id == user_id))
+        ).scalar_one_or_none()
+        for role_id in to_add:
+            session.add(
+                UserRole(user_id=user_id, role_id=role_id, tenant_id=tenant_id_for_role)
+            )
 
     # Remove roles not in OIDC claims
     to_remove = current_role_ids - target_role_ids
@@ -238,18 +254,40 @@ async def _assign_default_role(session: Any, user_id: UUID) -> None:
         )
         return
 
-    session.add(UserRole(user_id=user_id, role_id=default_role.id))
+    # Resolve the user's tenant explicitly — auth-bootstrap paths run with
+    # tenant_id=NULL contextvar, so the auto-fill listener can't help.
+    tenant_id = (
+        await session.execute(select(User.tenant_id).where(User.id == user_id))
+    ).scalar_one_or_none()
+
+    session.add(UserRole(user_id=user_id, role_id=default_role.id, tenant_id=tenant_id))
 
 
 async def get_user_by_email(email: str) -> User | None:
-    """Retrieve a user by email address."""
-    async with alchemy.get_session() as session:
-        service = UsersService(session=session)
-        return await service.get_one_or_none(email=email)
+    """Retrieve a user by email address.
+
+    Auth-bootstrap path: looks up across tenants. Wrapped in a superuser-
+    scoped RLS context so the lookup is not filtered out by the
+    `user_account_tenant_isolation` policy (we don't know the tenant
+    until we've found the user).
+    """
+    from core.db.rls_context import rls_context_scope
+
+    with rls_context_scope(tenant_id=None, is_superuser=True):
+        async with alchemy.get_session() as session:
+            service = UsersService(session=session)
+            return await service.get_one_or_none(email=email)
 
 
 async def get_user_by_id(user_id: str | UUID) -> User | None:
-    """Retrieve a user by ID."""
-    async with alchemy.get_session() as session:
-        service = UsersService(session=session)
-        return await service.get_one_or_none(id=user_id)
+    """Retrieve a user by ID.
+
+    Auth-bootstrap path: see `get_user_by_email` for why this is wrapped in
+    a superuser-scoped RLS context.
+    """
+    from core.db.rls_context import rls_context_scope
+
+    with rls_context_scope(tenant_id=None, is_superuser=True):
+        async with alchemy.get_session() as session:
+            service = UsersService(session=session)
+            return await service.get_one_or_none(id=user_id)

@@ -5,9 +5,10 @@ Provider table definition for storing external connection configurations.
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Optional
+from uuid import UUID
 
 from advanced_alchemy.types import JsonB
-from sqlalchemy import String
+from sqlalchemy import ForeignKey, Index, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.audit.mixin import Auditable
@@ -42,6 +43,23 @@ class Provider(UUIDAuditSimpleBase, Auditable):
     """
 
     __tablename__ = "providers"
+    __table_args__ = (
+        # Composite unique replaces the legacy global UNIQUE on system_name —
+        # one tenant cannot have two providers with the same system_name,
+        # but two tenants may each have one.
+        UniqueConstraint(
+            "tenant_id",
+            "system_name",
+            name="uq_providers_tenant_system_name",
+        ),
+        Index("ix_providers_tenant_id", "tenant_id"),
+    )
+
+    tenant_id: Mapped[UUID] = mapped_column(
+        ForeignKey("tenant.id", ondelete="CASCADE"),
+        nullable=False,
+        comment="Organization-tenant. Providers are per-tenant (Q-1).",
+    )
 
     # Provider type field
     type: Mapped[Optional[str]] = mapped_column(

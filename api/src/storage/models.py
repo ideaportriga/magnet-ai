@@ -8,7 +8,7 @@ from uuid import UUID
 
 from advanced_alchemy.base import UUIDv7AuditBase
 from advanced_alchemy.types import GUID, JsonB
-from sqlalchemy import BigInteger, DateTime, Index, String
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 
@@ -19,6 +19,18 @@ class StoredFile(UUIDv7AuditBase):
     __table_args__ = (
         Index("ix_stored_files_entity", "entity_type", "entity_id"),
         Index("ix_stored_files_backend_path", "backend_key", "path", unique=True),
+        Index("ix_stored_files_tenant_id", "tenant_id"),
+    )
+
+    tenant_id: Mapped[UUID] = mapped_column(
+        GUID(),
+        ForeignKey("tenant.id", ondelete="RESTRICT"),
+        nullable=False,
+        comment=(
+            "Organization tenant. Auto-filled by the before_flush listener in "
+            "core.db.rls_context from the request context. Enforced by "
+            "stored_files_tenant_isolation RLS policy."
+        ),
     )
 
     backend_key: Mapped[str] = mapped_column(String(50), nullable=False)

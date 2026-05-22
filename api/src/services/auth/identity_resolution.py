@@ -49,6 +49,14 @@ async def resolve_identity(
         AuthError: If identity cannot be safely resolved.
     """
     now = datetime.now(UTC)
+
+    # Auth-bootstrap (OIDC/OAuth callback): identity resolution is cross-
+    # tenant by definition. Bypass RLS on user_account / user_role /
+    # user_account_oauth for this transaction.
+    from core.db.rls_context import apply_session_rls
+
+    await apply_session_rls(session, tenant_id=None, is_superuser=True)
+
     service = UsersService(session=session)
 
     # 1. Try to find existing link by (provider, subject_id)
@@ -99,7 +107,7 @@ async def resolve_identity(
         if identity.name and user.name != identity.name:
             user.name = identity.name
 
-        _create_identity_link(session, user.id, identity, now)
+        await _create_identity_link(session, user.id, identity, now)
 
         if identity.suggested_roles:
             await _sync_suggested_roles(session, user.id, identity.suggested_roles)
@@ -125,7 +133,7 @@ async def resolve_identity(
     )
 
     await _assign_default_role(session, user.id)
-    _create_identity_link(session, user.id, identity, now)
+    await _create_identity_link(session, user.id, identity, now)
 
     if identity.suggested_roles:
         await _sync_suggested_roles(session, user.id, identity.suggested_roles)
@@ -134,16 +142,23 @@ async def resolve_identity(
     return user
 
 
-def _create_identity_link(
+async def _create_identity_link(
     session: Any,
     user_id: UUID,
     identity: ExternalIdentity,
     now: datetime,
 ) -> None:
     """Create a UserOAuthAccount link for the identity."""
+    from core.db.models.user.user import User
+
+    tenant_id = (
+        await session.execute(select(User.tenant_id).where(User.id == user_id))
+    ).scalar_one_or_none()
+
     session.add(
         UserOAuthAccount(
             user_id=user_id,
+            tenant_id=tenant_id,
             oauth_name=identity.provider,
             account_id=identity.subject_id,
             account_email=identity.email,
@@ -164,7 +179,15 @@ async def _assign_default_role(session: Any, user_id: UUID) -> None:
     if default_role is None:
         logger.warning("Default role '%s' not found", DEFAULT_ROLE_SLUG)
         return
-    session.add(UserRole(user_id=user_id, role_id=default_role.id))
+
+    # Resolve tenant_id explicitly — auth-bootstrap paths run with
+    # tenant_id=NULL contextvar, so the auto-fill listener won't fill it.
+    from core.db.models.user.user import User
+
+    tenant_id = (
+        await session.execute(select(User.tenant_id).where(User.id == user_id))
+    ).scalar_one_or_none()
+    session.add(UserRole(user_id=user_id, role_id=default_role.id, tenant_id=tenant_id))
 
 
 async def _sync_suggested_roles(
@@ -192,7 +215,19 @@ async def _sync_suggested_roles(
     current_role_ids = {r[0] for r in result.fetchall()}
 
     # Add missing roles (additive only)
-    for slug, role_id in target_roles.items():
-        if role_id not in current_role_ids:
-            session.add(UserRole(user_id=user_id, role_id=role_id))
+    missing = [
+        (slug, role_id)
+        for slug, role_id in target_roles.items()
+        if role_id not in current_role_ids
+    ]
+    if missing:
+        from core.db.models.user.user import User
+
+        tenant_id_for_role = (
+            await session.execute(select(User.tenant_id).where(User.id == user_id))
+        ).scalar_one_or_none()
+        for slug, role_id in missing:
+            session.add(
+                UserRole(user_id=user_id, role_id=role_id, tenant_id=tenant_id_for_role)
+            )
             logger.info("Added suggested role '%s' for user %s", slug, user_id)

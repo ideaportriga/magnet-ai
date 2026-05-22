@@ -21,9 +21,16 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 
 from core.config.app import alchemy
+from core.db.models.department.department import Department
+from core.db.models.department.user_department import UserDepartment
+from core.db.models.tenant.tenant import Tenant
 from core.db.models.user.role import Role
 from core.db.models.user.user import User
 from core.db.models.user.user_role import UserRole
+from core.domain.departments.schemas import (
+    UserDepartmentMembership,
+    UserDepartmentsPatch,
+)
 from core.domain.users.schemas import User as UserSchema
 from core.domain.users.schemas import UserUpdate
 from core.domain.users.service import UsersService
@@ -58,6 +65,10 @@ class UserRolesPatchResponse(BaseModel):
     removed: list[UUID]
     skipped_already_assigned: list[UUID] = Field(default_factory=list)
     skipped_not_assigned: list[UUID] = Field(default_factory=list)
+
+
+class UserTenantPatch(BaseModel):
+    tenant_id: UUID
 
 
 def _require_auth(request: Request) -> Auth:
@@ -259,6 +270,218 @@ class UsersController(Controller):
                 skipped_already_assigned=sorted(already_assigned),
                 skipped_not_assigned=sorted(skipped_remove),
             )
+
+    # ── Department memberships ─────────────────────────────────────────
+
+    @get(
+        "/{id:uuid}/departments",
+        summary="List a user's department memberships",
+        guards=[require_permission(Permission.USERS_READ)],
+    )
+    async def list_user_departments(
+        self, request: Request, id: UUID
+    ) -> list[UserDepartmentMembership]:
+        auth = _require_auth(request)
+        tenant_id = _require_tenant_id(auth)
+        async with alchemy.get_session() as session:
+            await _load_target_user(session, id, tenant_id)
+            rows = (
+                await session.execute(
+                    select(UserDepartment, Department)
+                    .join(Department, Department.id == UserDepartment.department_id)
+                    .where(UserDepartment.user_id == id)
+                    .order_by(Department.slug)
+                )
+            ).all()
+            return [
+                UserDepartmentMembership(
+                    department_id=d.id,
+                    department_slug=d.slug,
+                    department_name=d.name,
+                    is_lead=m.is_lead,
+                )
+                for (m, d) in rows
+            ]
+
+    @patch(
+        "/{id:uuid}/departments",
+        summary="Replace the user's department memberships",
+        guards=[require_permission(Permission.USERS_MANAGE)],
+    )
+    async def replace_user_departments(
+        self, request: Request, id: UUID, data: UserDepartmentsPatch
+    ) -> list[UserDepartmentMembership]:
+        auth = _require_auth(request)
+        tenant_id = _require_tenant_id(auth)
+
+        seen: set[UUID] = set()
+        for m in data.memberships:
+            if m.department_id in seen:
+                raise ValidationException("Duplicate department in memberships")
+            seen.add(m.department_id)
+
+        async with alchemy.get_session() as session:
+            target = await _load_target_user(session, id, tenant_id)
+            requested_ids = {m.department_id for m in data.memberships}
+            requested_depts: dict[UUID, Department] = {}
+            if requested_ids:
+                rows = (
+                    (
+                        await session.execute(
+                            select(Department).where(Department.id.in_(requested_ids))
+                        )
+                    )
+                    .scalars()
+                    .all()
+                )
+                for dept in rows:
+                    if dept.tenant_id != tenant_id:
+                        raise ValidationException(
+                            "Department does not belong to this tenant"
+                        )
+                    requested_depts[dept.id] = dept
+                missing = requested_ids - set(requested_depts.keys())
+                if missing:
+                    raise NotFoundException(
+                        f"Department(s) not found: {', '.join(str(x) for x in missing)}"
+                    )
+
+            current = (
+                (
+                    await session.execute(
+                        select(UserDepartment).where(
+                            UserDepartment.user_id == target.id
+                        )
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            current_by_id = {m.department_id: m for m in current}
+
+            for dept_id, m in current_by_id.items():
+                if dept_id not in requested_depts:
+                    await session.delete(m)
+
+            for req in data.memberships:
+                existing = current_by_id.get(req.department_id)
+                if existing is None:
+                    session.add(
+                        UserDepartment(
+                            tenant_id=tenant_id,
+                            user_id=target.id,
+                            department_id=req.department_id,
+                            is_lead=req.is_lead,
+                        )
+                    )
+                elif existing.is_lead != req.is_lead:
+                    existing.is_lead = req.is_lead
+
+            await write_audit_log(
+                session,
+                tenant_id=tenant_id,
+                actor_id=_get_actor_id(auth),
+                action="user.departments.replace",
+                target_type="user",
+                target_id=target.id,
+                payload={
+                    "departments": [
+                        {
+                            "department_id": str(m.department_id),
+                            "is_lead": m.is_lead,
+                        }
+                        for m in data.memberships
+                    ]
+                },
+            )
+            await session.commit()
+
+            rows = (
+                await session.execute(
+                    select(UserDepartment, Department)
+                    .join(Department, Department.id == UserDepartment.department_id)
+                    .where(UserDepartment.user_id == target.id)
+                    .order_by(Department.slug)
+                )
+            ).all()
+            return [
+                UserDepartmentMembership(
+                    department_id=d.id,
+                    department_slug=d.slug,
+                    department_name=d.name,
+                    is_lead=m.is_lead,
+                )
+                for (m, d) in rows
+            ]
+
+    # ── Move user across tenants (superuser only) ─────────────────────
+
+    @patch(
+        "/{id:uuid}/tenant",
+        summary="Move a user to another tenant (superuser only)",
+    )
+    async def change_user_tenant(
+        self, request: Request, id: UUID, data: UserTenantPatch
+    ) -> UserSchema:
+        auth = _require_auth(request)
+        user = getattr(auth, "user", None)
+        if user is None or not getattr(user, "is_superuser", False):
+            raise PermissionDeniedException(
+                "Moving a user across tenants requires platform superuser."
+            )
+
+        async with alchemy.get_session() as session:
+            target = (
+                await session.execute(select(User).where(User.id == id))
+            ).scalar_one_or_none()
+            if target is None:
+                raise NotFoundException("User not found")
+
+            new_tenant = (
+                await session.execute(select(Tenant).where(Tenant.id == data.tenant_id))
+            ).scalar_one_or_none()
+            if new_tenant is None:
+                raise NotFoundException("Target tenant not found")
+
+            old_tenant_id = target.tenant_id
+            if old_tenant_id == new_tenant.id:
+                return _serialize_admin_user(UsersService(session=session), target)
+
+            # Drop departments & role assignments from the old tenant; cross-
+            # tenant references would otherwise dangle.
+            await session.execute(
+                UserDepartment.__table__.delete().where(
+                    UserDepartment.user_id == target.id
+                )
+            )
+            await session.execute(
+                UserRole.__table__.delete()
+                .where(UserRole.user_id == target.id)
+                .where(
+                    UserRole.role_id.in_(
+                        select(Role.id).where(Role.tenant_id == old_tenant_id)
+                    )
+                )
+            )
+
+            target.tenant_id = new_tenant.id
+
+            await write_audit_log(
+                session,
+                tenant_id=new_tenant.id,
+                actor_id=_get_actor_id(auth),
+                action="user.tenant.change",
+                target_type="user",
+                target_id=target.id,
+                payload={
+                    "from_tenant_id": str(old_tenant_id),
+                    "to_tenant_id": str(new_tenant.id),
+                },
+            )
+            await session.commit()
+            await session.refresh(target)
+            service = UsersService(session=session)
+            return service.to_schema(target, schema_type=UserSchema)
 
 
 async def _load_roles(session, role_ids: set[UUID]) -> dict[UUID, Role]:

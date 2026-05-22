@@ -51,6 +51,13 @@ async def signup(
         password: Plaintext password (will be hashed).
         name: Optional display name.
     """
+    # Auth-bootstrap lookup: email is cross-tenant by definition (we don't
+    # yet know which tenant the user belongs to), so the RLS policy on
+    # user_account/role/etc. must be bypassed for this lookup.
+    from core.db.rls_context import apply_session_rls
+
+    await apply_session_rls(session, tenant_id=None, is_superuser=True)
+
     service = UsersService(session=session)
 
     existing = await service.get_one_or_none(email=email)
@@ -106,6 +113,13 @@ async def authenticate(
         AuthError: If credentials are invalid or account inactive.
     """
     from services.auth.audit import record_login_event
+
+    # Auth-bootstrap lookup: email lookup is inherently cross-tenant. Bypass
+    # RLS on user_account / user_role / role for the duration of the login
+    # transaction so the row is actually visible.
+    from core.db.rls_context import apply_session_rls
+
+    await apply_session_rls(session, tenant_id=None, is_superuser=True)
 
     service = UsersService(session=session)
 

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from typing import Optional
+from uuid import UUID
 
 from advanced_alchemy.base import BigIntAuditBase
 from advanced_alchemy.types import DateTimeUTC, JsonB
-from sqlalchemy import Boolean, Index, Text, UniqueConstraint, text
+from sqlalchemy import Boolean, ForeignKey, Index, Text, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 
@@ -26,6 +27,16 @@ class TeamsMeeting(BigIntAuditBase):
             "graph_online_meeting_id",
             "bot_id",
             name="uq_teams_meeting_graph_online_meeting_id_bot_id",
+        ),
+    )
+
+    tenant_id: Mapped[Optional[UUID]] = mapped_column(
+        ForeignKey("tenant.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+        comment=(
+            "Organization-tenant. NULL during bot setup / discovery; "
+            "resolved from note_taker_settings once meeting is associated."
         ),
     )
 

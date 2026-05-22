@@ -98,6 +98,7 @@ class Permission(StrEnum):
     # Files / jobs / traces / observability
     FILES_READ = "read:files"
     FILES_WRITE = "write:files"
+    FILES_DELETE = "delete:files"
 
     JOBS_READ = "read:jobs"
     JOBS_WRITE = "write:jobs"

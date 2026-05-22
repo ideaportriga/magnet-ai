@@ -25,7 +25,15 @@ from uuid import UUID
 
 from advanced_alchemy.base import AdvancedDeclarativeBase, CommonTableAttributes
 from advanced_alchemy.types import JsonB
-from sqlalchemy import DateTime, Index, Integer, Text, UniqueConstraint, text
+from sqlalchemy import (
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    Text,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import Mapped, mapped_column
@@ -51,6 +59,17 @@ class TeamsWebhookEvent(CommonTableAttributes, AdvancedDeclarativeBase, AsyncAtt
         PGUUID(as_uuid=True),
         primary_key=True,
         server_default=text("gen_random_uuid()"),
+    )
+
+    tenant_id: Mapped[Optional[UUID]] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("tenant.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+        comment=(
+            "Organization-tenant. Resolved from parent teams_meeting. "
+            "NULL during webhook validation handshakes."
+        ),
     )
 
     subscription_id: Mapped[str] = mapped_column(Text, nullable=False)

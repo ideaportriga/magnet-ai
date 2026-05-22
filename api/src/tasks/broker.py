@@ -39,6 +39,7 @@ from core.config.base import get_settings  # noqa: E402
 from tasks.middlewares.enqueue_logging import EnqueueLoggingMiddleware  # noqa: E402
 from tasks.middlewares.lifecycle import PerTaskLifecycleMiddleware  # noqa: E402
 from tasks.middlewares.retry import PerTaskTypeRetryMiddleware  # noqa: E402
+from tasks.middlewares.tenant_context import TenantContextMiddleware  # noqa: E402
 from tasks.middlewares.tracing import TraceContextMiddleware  # noqa: E402
 
 logger = getLogger(__name__)
@@ -85,10 +86,13 @@ broker = (
     )
     .with_middlewares(
         # Order matters: tracing first (wraps all subsequent logs in a span),
-        # enqueue logging after trace so the log line is inside the parent
-        # span, lifecycle third (owns the per-task session + cleanup), retry
-        # last (decides redelivery based on final error state).
+        # tenant-context next (so RLS contextvars are set before lifecycle
+        # opens a DB session and before any pre_execute hook may query DB),
+        # enqueue logging after that so log records carry trace + tenant,
+        # lifecycle then owns the per-task session + cleanup, retry last
+        # (decides redelivery based on final error state).
         TraceContextMiddleware(),
+        TenantContextMiddleware(),
         EnqueueLoggingMiddleware(),
         PerTaskLifecycleMiddleware(),
         PerTaskTypeRetryMiddleware(),

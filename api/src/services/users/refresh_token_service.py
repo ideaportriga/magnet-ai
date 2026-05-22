@@ -72,6 +72,8 @@ def hash_token(token: str) -> str:
 async def create_refresh_token(
     session: Any,
     user_id: UUID,
+    *,
+    tenant_id: UUID,
     device_info: str | None = None,
     family_id: UUID | None = None,
     client_id: str | None = None,
@@ -101,6 +103,7 @@ async def create_refresh_token(
 
     db_token = RefreshToken(
         token_hash=token_hash,
+        tenant_id=tenant_id,
         family_id=family_id,
         user_id=user_id,
         device_info=device_info,
@@ -136,6 +139,13 @@ async def validate_and_rotate(
     Raises:
         AuthError: If token is invalid, expired, or reuse detected.
     """
+    # Auth-bootstrap path: refresh-token rotation happens before we know
+    # which tenant the token belongs to. The token_hash itself is unique
+    # and globally sufficient as a lookup key.
+    from core.db.rls_context import apply_session_rls
+
+    await apply_session_rls(session, tenant_id=None, is_superuser=True)
+
     token_hash = hash_token(plaintext_token)
 
     stmt = (
@@ -195,9 +205,11 @@ async def validate_and_rotate(
 
     # Create new token in the same family — preserve client_id + audience so
     # MCP/OAuth flows keep their audience binding across rotations.
+    # tenant_id is inherited from the rotated token (same user → same tenant).
     new_plaintext, new_db_token = await create_refresh_token(
         session=session,
         user_id=db_token.user_id,
+        tenant_id=db_token.tenant_id,
         device_info=device_info,
         family_id=db_token.family_id,
         client_id=db_token.client_id,

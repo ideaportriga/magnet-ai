@@ -32,6 +32,14 @@ class KnowledgeGraphMetadataDiscovery(UUIDv7AuditBase):
         ),
     )
 
+    tenant_id: Mapped[UUID] = mapped_column(
+        GUID(),
+        ForeignKey("tenant.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Organization-tenant. Denormalized from parent knowledge_graphs.",
+    )
+
     # Parent graph
     graph_id: Mapped[UUID] = mapped_column(
         GUID(),

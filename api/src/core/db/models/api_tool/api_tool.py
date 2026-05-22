@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from typing import Any, Optional
+from uuid import UUID
 
 from advanced_alchemy.types import JsonB
-from sqlalchemy import String
+from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..base import UUIDAuditEntityBase
@@ -13,6 +14,13 @@ class APITool(UUIDAuditEntityBase):
     """Main API tools table using base entity class with variant validation."""
 
     __tablename__ = "api_tools"
+
+    tenant_id: Mapped[UUID] = mapped_column(
+        ForeignKey("tenant.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Organization-tenant. Inherited from api_servers.",
+    )
 
     # API configuration fields
     api_provider: Mapped[Optional[str]] = mapped_column(

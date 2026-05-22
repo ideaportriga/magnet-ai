@@ -5,7 +5,13 @@ from typing import TYPE_CHECKING, Any, Optional
 from uuid import UUID
 
 from advanced_alchemy.types import DateTimeUTC, JsonB
-from sqlalchemy import CheckConstraint, ForeignKey, Index, String
+from sqlalchemy import (
+    CheckConstraint,
+    ForeignKey,
+    ForeignKeyConstraint,
+    Index,
+    String,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.audit.mixin import Auditable
@@ -44,6 +50,14 @@ class Collection(UUIDAuditSimpleBase, Auditable):
             "visibility IN ('private', 'department', 'tenant')",
             name="ck_collections_visibility",
         ),
+        # Composite FK to providers (tenant_id, system_name) — replaces the
+        # legacy single-column FK to providers.system_name.
+        ForeignKeyConstraint(
+            ["tenant_id", "provider_system_name"],
+            ["providers.tenant_id", "providers.system_name"],
+            name="fk_collections_provider_tenant_system_name",
+            ondelete="CASCADE",
+        ),
     )
 
     tenant_id: Mapped[UUID] = mapped_column(
@@ -79,12 +93,11 @@ class Collection(UUIDAuditSimpleBase, Auditable):
     owner: Mapped[Optional["User"]] = relationship(lazy="noload")
     department: Mapped[Optional["Department"]] = relationship(lazy="noload")
 
-    # Foreign key to Provider by system_name
+    # Provider system_name — composite FK with tenant_id (see __table_args__).
     provider_system_name: Mapped[Optional[str]] = mapped_column(
         String(255),
-        ForeignKey("providers.system_name", ondelete="CASCADE"),
         nullable=True,
-        comment="Foreign key to provider system_name",
+        comment="Provider system_name (composite FK with tenant_id)",
         index=True,
     )
 
@@ -93,6 +106,10 @@ class Collection(UUIDAuditSimpleBase, Auditable):
         "Provider",
         back_populates="collections",
         foreign_keys=[provider_system_name],
+        primaryjoin=(
+            "and_(Collection.tenant_id == Provider.tenant_id, "
+            "Collection.provider_system_name == Provider.system_name)"
+        ),
         lazy="noload",
     )
 

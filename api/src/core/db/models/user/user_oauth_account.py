@@ -34,6 +34,13 @@ class UserOAuthAccount(UUIDv7AuditBase):
         {"comment": "OAuth accounts linked to user accounts"},
     )
 
+    tenant_id: Mapped[UUID] = mapped_column(
+        ForeignKey("tenant.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Organization-tenant. Denormalized from parent user_account.",
+    )
+
     user_id: Mapped[UUID] = mapped_column(
         ForeignKey("user_account.id", ondelete="CASCADE"),
         nullable=False,

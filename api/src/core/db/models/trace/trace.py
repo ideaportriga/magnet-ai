@@ -5,13 +5,14 @@ Traces table definition.
 from __future__ import annotations
 
 from typing import Optional
+from uuid import UUID
 
 from advanced_alchemy.base import AdvancedDeclarativeBase, CommonTableAttributes
 from advanced_alchemy.mixins import (
     AuditColumns,
 )
 from advanced_alchemy.types import DateTimeUTC, JsonB
-from sqlalchemy import Float, String
+from sqlalchemy import Float, ForeignKey, String
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -30,6 +31,13 @@ class Trace(CommonTableAttributes, AdvancedDeclarativeBase, AsyncAttrs, AuditCol
         primary_key=True,
         comment="Unique identifier for the trace",
         index=True,
+    )
+
+    tenant_id: Mapped[Optional[UUID]] = mapped_column(
+        ForeignKey("tenant.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+        comment="Organization-tenant. NULL for system-level / unattributed traces.",
     )
 
     # Core trace information

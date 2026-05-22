@@ -18,6 +18,14 @@ class KnowledgeGraphSource(UUIDv7AuditBase):
 
     __tablename__ = "knowledge_graph_sources"
 
+    tenant_id: Mapped[UUID] = mapped_column(
+        GUID(),
+        ForeignKey("tenant.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Organization-tenant. Denormalized from parent knowledge_graphs.",
+    )
+
     name: Mapped[str] = mapped_column(
         String(255),
         nullable=False,

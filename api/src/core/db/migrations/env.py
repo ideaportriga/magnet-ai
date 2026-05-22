@@ -100,6 +100,33 @@ config = context.config
 settings = get_settings()
 # Use effective_url which builds URL from individual components if DATABASE_URL is not set
 effective_url = settings.db.effective_url
+
+# Migrations need privileges the runtime app deliberately doesn't have:
+# ALTER POLICY, FORCE RLS, ALTER OWNER, sometimes CREATE EXTENSION. The
+# runtime connects as a NOSUPERUSER/NOBYPASSRLS role (`magnet_app`) so
+# tenant_isolation RLS actually fires; migrations stay on the cluster
+# owner via these optional overrides. When unset, fall back to the
+# regular DB_USER/DB_PASSWORD (single-role setups, CI, prod where the
+# app role already owns the schema).
+import os  # noqa: E402
+
+_migration_user = os.environ.get("DB_MIGRATION_USER") or ""
+_migration_password = os.environ.get("DB_MIGRATION_PASSWORD") or ""
+if effective_url and _migration_user:
+    from urllib.parse import quote, urlsplit, urlunsplit  # noqa: E402
+
+    _parts = urlsplit(effective_url)
+    _host_port = _parts.hostname or ""
+    if _parts.port:
+        _host_port = f"{_host_port}:{_parts.port}"
+    _auth = quote(_migration_user, safe="")
+    if _migration_password:
+        _auth = f"{_auth}:{quote(_migration_password, safe='')}"
+    _netloc = f"{_auth}@{_host_port}" if _host_port else _auth
+    effective_url = urlunsplit(
+        (_parts.scheme, _netloc, _parts.path, _parts.query, _parts.fragment)
+    )
+
 # Escape % characters in the URL to prevent ConfigParser interpolation issues
 escaped_url = effective_url.replace("%", "%%") if effective_url else ""
 config.set_main_option("sqlalchemy.url", escaped_url)

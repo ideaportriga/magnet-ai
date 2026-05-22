@@ -4,7 +4,16 @@ from typing import TYPE_CHECKING, Any, Optional
 from uuid import UUID
 
 from advanced_alchemy.types import JsonB
-from sqlalchemy import CheckConstraint, ForeignKey, Index, Integer, String, Text, text
+from sqlalchemy import (
+    CheckConstraint,
+    ForeignKey,
+    ForeignKeyConstraint,
+    Index,
+    Integer,
+    String,
+    Text,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.db.models.base import UUIDAuditSimpleBase
@@ -32,6 +41,16 @@ class NoteTakerSettings(UUIDAuditSimpleBase):
         CheckConstraint(
             "visibility IN ('private', 'department', 'tenant')",
             name="ck_note_taker_settings_visibility",
+        ),
+        # Composite FK to providers (tenant_id, system_name). The migration
+        # uses PG-15 column-specific SET NULL — SQLAlchemy can't express that
+        # on a single ForeignKeyConstraint, so we keep `ondelete=None` here
+        # (DDL emit-on-create is suppressed; the constraint already lives in
+        # the DB after the phase-6 migration).
+        ForeignKeyConstraint(
+            ["tenant_id", "provider_system_name"],
+            ["providers.tenant_id", "providers.system_name"],
+            name="fk_note_taker_settings_provider_tenant_system_name",
         ),
     )
 
@@ -80,12 +99,12 @@ class NoteTakerSettings(UUIDAuditSimpleBase):
 
     # Reference to a Provider record that holds Azure Bot credentials
     # (client_id, client_secret, tenant_id stored in Provider.secrets_encrypted).
+    # Composite FK with `tenant_id` — see __table_args__.
     provider_system_name: Mapped[Optional[str]] = mapped_column(
         String(255),
-        ForeignKey("providers.system_name", ondelete="SET NULL"),
         nullable=True,
         index=True,
-        comment="FK to Provider with Azure Bot credentials for this note-taker.",
+        comment="FK to Provider with Azure Bot credentials (composite with tenant_id).",
     )
 
     # AAD object-id of the designated superuser for this note-taker.

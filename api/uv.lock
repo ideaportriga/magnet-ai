@@ -1955,7 +1955,7 @@ wheels = [
 
 [[package]]
 name = "magnet-ai-api"
-version = "0.7.0a28"
+version = "0.7.0a30"
 source = { virtual = "." }
 dependencies = [
     { name = "advanced-alchemy", extra = ["dogpile"] },

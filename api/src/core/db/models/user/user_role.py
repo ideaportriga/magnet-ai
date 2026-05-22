@@ -22,6 +22,13 @@ class UserRole(UUIDv7AuditBase):
         {"comment": "User-role assignments"},
     )
 
+    tenant_id: Mapped[UUID] = mapped_column(
+        ForeignKey("tenant.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Organization-tenant. Denormalized from parent user_account.",
+    )
+
     user_id: Mapped[UUID] = mapped_column(
         ForeignKey("user_account.id", ondelete="CASCADE"),
         nullable=False,

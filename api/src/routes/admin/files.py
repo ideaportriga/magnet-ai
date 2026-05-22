@@ -17,6 +17,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid_utils import uuid7
 
+from guards.permissions import Permission, require_permission
 from storage import StorageService
 from storage.models import StoredFile
 
@@ -51,7 +52,9 @@ class FilesController(Controller):
     path = "/files"
     tags = ["files"]
 
-    @get("/", status_code=HTTP_200_OK)
+    @get(
+        "/", status_code=HTTP_200_OK, guards=[require_permission(Permission.FILES_READ)]
+    )
     async def list_files(
         self,
         db_session: AsyncSession,
@@ -120,7 +123,11 @@ class FilesController(Controller):
             "total": total,
         }
 
-    @get("/stats", status_code=HTTP_200_OK)
+    @get(
+        "/stats",
+        status_code=HTTP_200_OK,
+        guards=[require_permission(Permission.FILES_READ)],
+    )
     async def get_stats(
         self,
         db_session: AsyncSession,
@@ -180,7 +187,11 @@ class FilesController(Controller):
             ],
         }
 
-    @get("/{file_id:uuid}", status_code=HTTP_200_OK)
+    @get(
+        "/{file_id:uuid}",
+        status_code=HTTP_200_OK,
+        guards=[require_permission(Permission.FILES_READ)],
+    )
     async def get_file_metadata(
         self,
         file_id: UUID,
@@ -202,7 +213,7 @@ class FilesController(Controller):
             "created_at": stored.created_at.isoformat() if stored.created_at else None,
         }
 
-    @get("/{file_id:uuid}/download")
+    @get("/{file_id:uuid}/download", guards=[require_permission(Permission.FILES_READ)])
     async def download_file(
         self,
         file_id: UUID,
@@ -271,7 +282,11 @@ class FilesController(Controller):
             headers=headers,
         )
 
-    @post("/temp", status_code=HTTP_201_CREATED)
+    @post(
+        "/temp",
+        status_code=HTTP_201_CREATED,
+        guards=[require_permission(Permission.FILES_WRITE)],
+    )
     async def upload_temp_file(
         self,
         data: UploadFile = Body(media_type=RequestEncodingType.MULTI_PART),
@@ -339,7 +354,11 @@ class FilesController(Controller):
             "expires_at": expires_at.isoformat(),
         }
 
-    @delete("/{file_id:uuid}", status_code=HTTP_204_NO_CONTENT)
+    @delete(
+        "/{file_id:uuid}",
+        status_code=HTTP_204_NO_CONTENT,
+        guards=[require_permission(Permission.FILES_DELETE)],
+    )
     async def delete_file(
         self,
         file_id: UUID,

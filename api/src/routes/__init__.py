@@ -28,9 +28,11 @@ from core.domain.retrieval_tools import RetrievalToolsController
 from core.domain.traces import TracesController
 from routes.admin.access_log import AccessLogController
 from routes.admin.api_keys import ApiKeysController
+from routes.admin.departments import DepartmentsController
 from routes.admin.groups import GroupsController
 from routes.admin.permissions import PermissionsController
 from routes.admin.roles import RolesController
+from routes.admin.tenants import TenantsController
 from routes.admin.users import UsersController
 from routes.user.telemetry import TelemetryController
 
@@ -213,6 +215,8 @@ def get_route_handlers(
         SettingsController,  # Admin / Settings
         TracesController,  # Admin / Traces
         UsersController,  # Admin / Users
+        DepartmentsController,  # Admin / Departments
+        TenantsController,  # Admin / Tenants (superuser)
         UtilsController,  # Admin / Utils
         KnowledgeGraphController,  # Admin / Knowledge Graph
         # Deprecated routes first (with [Deprecated] prefix)

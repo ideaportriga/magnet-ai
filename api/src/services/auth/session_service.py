@@ -103,6 +103,7 @@ async def create_session(
     refresh_plaintext, _ = await create_refresh_token(
         session=session,
         user_id=user.id,
+        tenant_id=user.tenant_id,
         device_info=device_info,
         client_id=client_id,
         audience=audience,

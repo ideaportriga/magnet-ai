@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from typing import Any, Optional
+from uuid import UUID
 
 from advanced_alchemy.types import JsonB
-from sqlalchemy import String
+from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..base import UUIDv7AuditBase
@@ -20,6 +21,13 @@ class DeepResearchRun(UUIDv7AuditBase):
     """
 
     __tablename__ = "deep_research_runs"
+
+    tenant_id: Mapped[UUID] = mapped_column(
+        ForeignKey("tenant.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Organization-tenant. Inherited from deep_research_configs.",
+    )
 
     # Optional client identifier
     client_id: Mapped[Optional[str]] = mapped_column(

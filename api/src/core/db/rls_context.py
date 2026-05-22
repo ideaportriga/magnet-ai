@@ -51,28 +51,40 @@ current_tenant_id: ContextVar[Optional[str]] = ContextVar(
     "current_tenant_id", default=None
 )
 current_user_id: ContextVar[Optional[str]] = ContextVar("current_user_id", default=None)
+# Application-level superuser flag (`User.is_superuser`). When True, RLS
+# policies of the form `..._tenant_isolation` open up cross-tenant reads
+# and writes via an OR-bypass clause. The runtime DB role itself stays
+# non-superuser so the policy is the only thing granting that visibility.
+current_is_superuser: ContextVar[bool] = ContextVar(
+    "current_is_superuser", default=False
+)
 
 
 def set_rls_context(
     *,
     tenant_id: Optional[str],
     user_id: Optional[str] = None,
-) -> tuple[object, object]:
+    is_superuser: bool = False,
+) -> tuple[object, object, object]:
     """Set the RLS contextvars. Returns the tokens needed to reset them."""
     t_token = current_tenant_id.set(str(tenant_id) if tenant_id else None)
     u_token = current_user_id.set(str(user_id) if user_id else None)
-    return t_token, u_token
+    s_token = current_is_superuser.set(bool(is_superuser))
+    return t_token, u_token, s_token
 
 
-def reset_rls_context(tokens: tuple[object, object]) -> None:
+def reset_rls_context(tokens: tuple[object, object, object]) -> None:
     """Reset contextvars to their previous values."""
-    t_token, u_token = tokens
+    t_token, u_token, s_token = tokens
     current_tenant_id.reset(t_token)
     current_user_id.reset(u_token)
+    current_is_superuser.reset(s_token)
 
 
-async def apply_session_rls(session, *, tenant_id: Optional[str]) -> None:
-    """Force `SET LOCAL app.tenant_id = ...` on an open session.
+async def apply_session_rls(
+    session, *, tenant_id: Optional[str], is_superuser: bool = False
+) -> None:
+    """Force `SET LOCAL app.tenant_id / app.is_superuser = ...` on an open session.
 
     `SET LOCAL` fires automatically at transaction-begin via the SQLAlchemy
     listener, so production code rarely needs this. It's useful inside long-
@@ -85,6 +97,10 @@ async def apply_session_rls(session, *, tenant_id: Optional[str]) -> None:
         text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
         {"tenant_id": value},
     )
+    await session.execute(
+        text("SELECT set_config('app.is_superuser', :is_superuser, true)"),
+        {"is_superuser": "true" if is_superuser else ""},
+    )
 
 
 @contextmanager
@@ -92,6 +108,7 @@ def rls_context_scope(
     *,
     tenant_id: Optional[str],
     user_id: Optional[str] = None,
+    is_superuser: bool = False,
 ) -> Iterator[None]:
     """Scope an RLS identity to a block of code (workers, scripts, tests).
 
@@ -99,7 +116,9 @@ def rls_context_scope(
         with rls_context_scope(tenant_id=str(tenant.id)):
             await some_query()
     """
-    tokens = set_rls_context(tenant_id=tenant_id, user_id=user_id)
+    tokens = set_rls_context(
+        tenant_id=tenant_id, user_id=user_id, is_superuser=is_superuser
+    )
     try:
         yield
     finally:
@@ -128,6 +147,7 @@ def install_session_guc_listener() -> None:
     def _emit_set_local(session, transaction, connection):  # noqa: ANN001
         tenant_id = current_tenant_id.get() or ""
         user_id = current_user_id.get() or ""
+        is_superuser = "true" if current_is_superuser.get() else ""
         # `SET LOCAL` requires being inside a transaction (we are, by
         # definition — this is `after_begin`). Postgres-only syntax.
         try:
@@ -138,6 +158,10 @@ def install_session_guc_listener() -> None:
             connection.execute(
                 text("SELECT set_config('app.user_id', :user_id, true)"),
                 {"user_id": user_id},
+            )
+            connection.execute(
+                text("SELECT set_config('app.is_superuser', :is_superuser, true)"),
+                {"is_superuser": is_superuser},
             )
         except Exception:  # pragma: no cover
             # Non-Postgres backends (e.g. SQLite in some scripts) just no-op

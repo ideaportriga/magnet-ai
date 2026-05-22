@@ -23,6 +23,13 @@ class OAuthAuthorizationCode(UUIDv7AuditBase):
     __tablename__ = "oauth_authorization_code"
     __table_args__ = {"comment": "Single-use OAuth authorization codes (5-min TTL)"}
 
+    tenant_id: Mapped[UUID] = mapped_column(
+        ForeignKey("tenant.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Organization-tenant. Denormalized from parent user_account.",
+    )
+
     code_hash: Mapped[str] = mapped_column(
         String(64),
         unique=True,

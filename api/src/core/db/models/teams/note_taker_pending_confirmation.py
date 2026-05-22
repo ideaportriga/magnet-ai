@@ -15,7 +15,7 @@ from uuid import UUID
 
 from advanced_alchemy.base import AdvancedDeclarativeBase, CommonTableAttributes
 from advanced_alchemy.types import JsonB
-from sqlalchemy import DateTime, Text, text
+from sqlalchemy import DateTime, ForeignKey, Text, text
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import Mapped, mapped_column
@@ -30,6 +30,13 @@ class NoteTakerPendingConfirmation(
         PGUUID(as_uuid=True),
         primary_key=True,
         server_default=text("gen_random_uuid()"),
+    )
+    tenant_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("tenant.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Organization-tenant. Inherited from parent note_taker_jobs row.",
     )
     job_id: Mapped[str] = mapped_column(Text, nullable=False, index=True)
     chat_id: Mapped[Optional[str]] = mapped_column(Text, nullable=True, index=True)

@@ -5,9 +5,17 @@ AI Models table definition.
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
+from uuid import UUID
 
 from advanced_alchemy.types import JsonB
-from sqlalchemy import Boolean, ForeignKey, Integer, String
+from sqlalchemy import (
+    Boolean,
+    ForeignKey,
+    ForeignKeyConstraint,
+    Index,
+    Integer,
+    String,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.audit.mixin import Auditable
@@ -27,13 +35,30 @@ class AIModel(UUIDAuditSimpleBase, Auditable):
     """
 
     __tablename__ = "ai_models"
+    __table_args__ = (
+        # Composite FK to providers (tenant_id, system_name). Replaces the
+        # legacy single-column FK that targeted the now-removed global
+        # UNIQUE on providers.system_name.
+        ForeignKeyConstraint(
+            ["tenant_id", "provider_system_name"],
+            ["providers.tenant_id", "providers.system_name"],
+            name="fk_ai_models_provider_tenant_system_name",
+            ondelete="CASCADE",
+        ),
+        Index("ix_ai_models_tenant_id", "tenant_id"),
+    )
 
-    # Foreign key to Provider by system_name
+    tenant_id: Mapped[UUID] = mapped_column(
+        ForeignKey("tenant.id", ondelete="CASCADE"),
+        nullable=False,
+        comment="Organization-tenant. Inherited from parent provider row.",
+    )
+
+    # Foreign key to Provider by (tenant_id, system_name) — see __table_args__.
     provider_system_name: Mapped[Optional[str]] = mapped_column(
         String(255),
-        ForeignKey("providers.system_name", ondelete="CASCADE"),
         nullable=True,
-        comment="Foreign key to provider system_name",
+        comment="Provider system_name (composite FK with tenant_id)",
         index=True,
     )
 
@@ -42,6 +67,10 @@ class AIModel(UUIDAuditSimpleBase, Auditable):
         "Provider",
         back_populates="ai_models",
         foreign_keys=[provider_system_name],
+        primaryjoin=(
+            "and_(AIModel.tenant_id == Provider.tenant_id, "
+            "AIModel.provider_system_name == Provider.system_name)"
+        ),
     )
 
     # Provider information (legacy field - consider migrating to use provider relationship)

@@ -9,9 +9,10 @@ is enabled later — via an RFC 7591 `/register` endpoint.
 from __future__ import annotations
 
 from typing import Optional
+from uuid import UUID
 
 from advanced_alchemy.base import UUIDv7AuditBase
-from sqlalchemy import ARRAY, Boolean, String
+from sqlalchemy import ARRAY, Boolean, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 
@@ -20,6 +21,13 @@ class OAuthClient(UUIDv7AuditBase):
 
     __tablename__ = "oauth_client"
     __table_args__ = {"comment": "OAuth 2.1 clients permitted to use the MCP server"}
+
+    tenant_id: Mapped[UUID] = mapped_column(
+        ForeignKey("tenant.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Organization-tenant. OAuth clients are per-tenant (Q-2).",
+    )
 
     client_id: Mapped[str] = mapped_column(
         String(64),

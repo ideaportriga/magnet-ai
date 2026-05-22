@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import datetime as dt
 from typing import Any, Optional
+from uuid import UUID
 
 from advanced_alchemy.base import UUIDAuditBase
 from advanced_alchemy.types import DateTimeUTC, JsonB
-from sqlalchemy import Index, Text, text
+from sqlalchemy import ForeignKey, Index, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 
@@ -28,6 +29,16 @@ class TeamsUser(UUIDAuditBase):
             "scope",
             "bot_id",
             unique=True,
+        ),
+    )
+
+    tenant_id: Mapped[Optional[UUID]] = mapped_column(
+        ForeignKey("tenant.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+        comment=(
+            "Organization-tenant. Resolved via aad_object_id → "
+            "user_account_oauth. NULL for not-yet-linked users."
         ),
     )
 

@@ -20,6 +20,13 @@ class PasswordResetToken(UUIDv7AuditBase):
     __tablename__ = "password_reset_token"
     __table_args__ = {"comment": "One-time tokens for password reset"}
 
+    tenant_id: Mapped[UUID] = mapped_column(
+        ForeignKey("tenant.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Organization-tenant. Denormalized from parent user_account.",
+    )
+
     token_hash: Mapped[str] = mapped_column(
         String(64),
         unique=True,

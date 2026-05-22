@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any, Optional
+from uuid import UUID
 
 from advanced_alchemy.base import UUIDAuditBase
 from advanced_alchemy.types import DateTimeUTC
-from sqlalchemy import Boolean, Index, String, UniqueConstraint, func
+from sqlalchemy import Boolean, ForeignKey, Index, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from core.config.base import get_general_settings
@@ -34,6 +35,13 @@ class SlackInstallation(UUIDAuditBase):
             "team_id",
         ),
         Index("ix_slack_installations_user", "user_id"),
+    )
+
+    tenant_id: Mapped[UUID] = mapped_column(
+        ForeignKey("tenant.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Organization-tenant. Resolved from the agent during OAuth callback.",
     )
 
     agent_system_name: Mapped[str] = mapped_column(
