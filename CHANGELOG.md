@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.31](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.30...v0.7.0-dev.31) (2026-05-22)
+
+### 🐛 Bug Fixes
+
+* **kg:** fixed isseu when fluid topics chunks are getting truncated ([987d6d3](https://github.com/ideaportriga/magnet-ai/commit/987d6d384baffd5c5dec877237161d5926892570))
+
 ## [0.7.0-dev.30](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.29...v0.7.0-dev.30) (2026-05-22)
 
 ### 🐛 Bug Fixes
