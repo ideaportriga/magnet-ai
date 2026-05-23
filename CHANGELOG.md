@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.32](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.31...v0.7.0-dev.32) (2026-05-23)
+
+### ✨ Features
+
+* **kg:** added extraction entities view inside document details page ([78fd7c1](https://github.com/ideaportriga/magnet-ai/commit/78fd7c1eead2ac30b062fdacfe27a8adacff0d65))
+
 ## [0.7.0-dev.31](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.30...v0.7.0-dev.31) (2026-05-22)
 
 ### 🐛 Bug Fixes
