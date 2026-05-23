@@ -562,6 +562,38 @@ class KnowledgeGraphController(Controller):
             db_session, graph_id, limit, offset, None, document_id
         )
 
+    @get(
+        "/{graph_id:uuid}/documents/{document_id:uuid}/entities",
+        status_code=HTTP_200_OK,
+    )
+    async def list_document_entities(
+        self,
+        entity_service: KnowledgeGraphEntityService,
+        db_session: AsyncSession,
+        graph_id: UUID,
+        document_id: UUID,
+        limit: int = Parameter(default=1000, ge=1, le=5000),
+        offset: int = Parameter(default=0, ge=0),
+    ) -> KnowledgeGraphEntityRecordListResponse:
+        records = await entity_service.list_records_for_document(
+            db_session,
+            graph_id=graph_id,
+            document_id=document_id,
+            limit=limit,
+            offset=offset,
+        )
+        total = await entity_service.count_records_for_document(
+            db_session,
+            graph_id=graph_id,
+            document_id=document_id,
+        )
+        return KnowledgeGraphEntityRecordListResponse(
+            records=[KnowledgeGraphEntityRecordSchema(**r.to_json()) for r in records],
+            total=total,
+            limit=limit,
+            offset=offset,
+        )
+
     ###########################################################################
     # KNOWLEDGE GRAPH ENTITY ENDPOINTS #
     ###########################################################################

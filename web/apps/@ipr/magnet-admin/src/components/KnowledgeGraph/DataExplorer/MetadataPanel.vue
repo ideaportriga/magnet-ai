@@ -1,146 +1,147 @@
 <template>
-  <transition name="meta-slide">
-    <div v-if="open" class="metadata-panel">
-      <div class="panel-header">
-        <div class="panel-header-content">
-          <span class="panel-title">Document Info</span>
-          <span v-if="totalCount > 0" class="panel-count">{{ totalCount }} fields</span>
+  <div class="metadata-panel">
+    <div class="panel-header">
+      <div class="panel-header-content">
+        <span class="panel-title">Document Info</span>
+      </div>
+      <q-btn flat dense round icon="close" size="sm" class="panel-close-btn" @click="$emit('close')" />
+    </div>
+
+    <div v-if="hasAnyContent" class="panel-toolbar">
+      <km-input v-model="search" placeholder="Filter..." icon-before="search" clearable dense />
+    </div>
+
+    <div class="panel-body">
+      <div v-if="!hasAnyContent" class="panel-empty">
+        <div class="empty-icon-wrapper">
+          <q-icon name="label_off" size="32px" />
         </div>
-        <q-btn flat dense round icon="close" size="sm" class="panel-close-btn" @click="$emit('close')" />
+        <div class="empty-text">No information available</div>
+        <div class="empty-subtext">This document has no AI summary or metadata</div>
       </div>
 
-      <div class="panel-body">
-        <div v-if="!hasAnyContent" class="panel-empty">
-          <div class="empty-icon-wrapper">
-            <q-icon name="label_off" size="32px" />
+      <div v-else-if="!hasAnyMatch" class="panel-empty">
+        <div class="empty-icon-wrapper">
+          <q-icon name="search_off" size="32px" />
+        </div>
+        <div class="empty-text">No matches</div>
+        <div class="empty-subtext">Try a different search term</div>
+      </div>
+
+      <div v-else class="metadata-groups">
+        <!-- AI Summary -->
+        <div v-if="showSummary" class="metadata-group">
+          <div class="group-header group-header--summary">
+            <div class="row items-center q-gutter-x-sm">
+              <q-icon name="auto_awesome" size="16px" />
+              <span class="group-title">AI Summary</span>
+            </div>
           </div>
-          <div class="empty-text">No information available</div>
-          <div class="empty-subtext">This document has no AI summary or metadata</div>
+          <div class="group-content">
+            <p class="summary-text">{{ summary }}</p>
+          </div>
         </div>
 
-        <div v-else class="metadata-groups">
-          <!-- AI Summary -->
-          <div v-if="hasSummary || totalCount > 0" class="metadata-group">
-            <div class="group-header group-header--summary">
-              <div class="row items-center q-gutter-x-sm">
-                <q-icon name="auto_awesome" size="16px" />
-                <span class="group-title">AI Summary</span>
-              </div>
-            </div>
-            <div class="group-content">
-              <p v-if="hasSummary" class="summary-text">{{ summary }}</p>
-              <div v-else class="text-grey-5 text-italic q-py-sm">No summary available</div>
+        <!-- File Metadata -->
+        <div v-if="filteredFileMetadata.length > 0" class="metadata-group">
+          <div class="group-header group-header--file">
+            <div class="row items-center q-gutter-x-sm">
+              <q-icon name="insert_drive_file" size="16px" />
+              <span class="group-title">File Metadata</span>
             </div>
           </div>
-
-          <!-- File Metadata -->
-          <div v-if="fileMetadata.length > 0" class="metadata-group">
-            <div class="group-header group-header--file">
-              <div class="row items-center q-gutter-x-sm">
-                <q-icon name="insert_drive_file" size="16px" />
-                <span class="group-title">File Properties</span>
+          <div class="group-content">
+            <div v-for="item in filteredFileMetadata" :key="`file:${item.key}`" class="metadata-item">
+              <div class="item-key-wrapper">
+                <div class="item-key" :class="{ 'item-key--defined': isDefined(item.key) }">{{ item.label }}</div>
+                <q-icon v-if="isDefined(item.key)" name="check_circle" color="primary" size="14px">
+                  <q-tooltip>Defined in Metadata Schema</q-tooltip>
+                </q-icon>
               </div>
-            </div>
-            <div class="group-content">
-              <div v-for="item in fileMetadata" :key="`file:${item.key}`" class="metadata-item">
-                <div class="item-key-wrapper">
-                  <div class="item-key" :class="{ 'item-key--defined': isDefined(item.key) }">{{ item.label }}</div>
-                  <q-icon v-if="isDefined(item.key)" name="check_circle" color="primary" size="14px">
-                    <q-tooltip>Defined in Metadata Schema</q-tooltip>
-                  </q-icon>
-                </div>
-                <div class="item-value">
-                  <q-badge
-                    v-if="item.kind === 'boolean'"
-                    :color="item.value === 'Yes' ? 'teal-5' : 'grey-5'"
-                    text-color="white"
-                    class="boolean-badge"
-                  >
-                    {{ item.value }}
-                  </q-badge>
-                  <span v-else class="value-text">{{ item.value }}</span>
-                </div>
+              <div class="item-value">
+                <q-badge
+                  v-if="item.kind === 'boolean'"
+                  :color="item.value === 'Yes' ? 'teal-5' : 'grey-5'"
+                  text-color="white"
+                  class="boolean-badge"
+                >
+                  {{ item.value }}
+                </q-badge>
+                <span v-else class="value-text">{{ item.value }}</span>
               </div>
             </div>
           </div>
+        </div>
 
-          <!-- Source Metadata -->
-          <div v-if="sourceMetadata.length > 0" class="metadata-group">
-            <div class="group-header group-header--source">
-              <div class="row items-center q-gutter-x-sm">
-                <q-icon name="cloud_sync" size="16px" />
-                <span class="group-title">Source Information</span>
-              </div>
+        <!-- Source Metadata -->
+        <div v-if="filteredSourceMetadata.length > 0" class="metadata-group">
+          <div class="group-header group-header--source">
+            <div class="row items-center q-gutter-x-sm">
+              <q-icon name="cloud_sync" size="16px" />
+              <span class="group-title">Source Metadata</span>
             </div>
-            <div class="group-content">
-              <div v-for="item in sourceMetadata" :key="`source:${item.key}`" class="metadata-item">
-                <div class="item-key-wrapper">
-                  <q-icon v-if="isDefined(item.key)" name="fact_check" size="14px" color="primary" class="q-mr-xs">
-                    <q-tooltip>Defined in Metadata Schema</q-tooltip>
-                  </q-icon>
-                  <div class="item-key" :class="{ 'item-key--defined': isDefined(item.key) }">{{ item.label }}</div>
+          </div>
+          <div class="group-content">
+            <div v-for="item in filteredSourceMetadata" :key="`source:${item.key}`" class="metadata-item">
+              <div class="item-key-wrapper">
+                <q-icon v-if="isDefined(item.key)" name="fact_check" size="14px" color="primary" class="q-mr-xs">
+                  <q-tooltip>Defined in Metadata Schema</q-tooltip>
+                </q-icon>
+                <div class="item-key" :class="{ 'item-key--defined': isDefined(item.key) }">{{ item.label }}</div>
+              </div>
+              <div class="item-value">
+                <q-badge
+                  v-if="item.kind === 'boolean'"
+                  :color="item.value === 'Yes' ? 'teal-5' : 'grey-5'"
+                  text-color="white"
+                  class="boolean-badge"
+                >
+                  {{ item.value }}
+                </q-badge>
+                <div v-else-if="item.kind === 'list'" class="value-list">
+                  <q-chip v-for="(val, idx) in item.value" :key="idx" dense color="grey-2" text-color="grey-9" class="value-chip">
+                    {{ val }}
+                  </q-chip>
                 </div>
-                <div class="item-value">
-                  <q-badge
-                    v-if="item.kind === 'boolean'"
-                    :color="item.value === 'Yes' ? 'teal-5' : 'grey-5'"
-                    text-color="white"
-                    class="boolean-badge"
-                  >
-                    {{ item.value }}
-                  </q-badge>
-                  <div v-else-if="item.kind === 'list'" class="value-list">
-                    <q-chip
-                      v-for="(val, idx) in item.value"
-                      :key="idx"
-                      dense
-                      color="grey-2"
-                      text-color="grey-9"
-                      class="value-chip"
-                    >
-                      {{ val }}
-                    </q-chip>
-                  </div>
-                  <span v-else class="value-text">{{ item.value }}</span>
-                </div>
+                <span v-else class="value-text">{{ item.value }}</span>
               </div>
             </div>
           </div>
+        </div>
 
-          <!-- AI Extracted Metadata -->
-          <div v-if="llmMetadata.length > 0" class="metadata-group">
-            <div class="group-header group-header--ai">
-              <div class="row items-center q-gutter-x-sm">
-                <q-icon name="psychology" size="16px" />
-                <span class="group-title">AI Extracted</span>
-              </div>
+        <!-- AI Extracted Metadata -->
+        <div v-if="filteredLlmMetadata.length > 0" class="metadata-group">
+          <div class="group-header group-header--ai">
+            <div class="row items-center q-gutter-x-sm">
+              <q-icon name="psychology" size="16px" />
+              <span class="group-title">Extracted Metadata</span>
             </div>
-            <div class="group-content">
-              <div v-for="item in llmMetadata" :key="`llm:${item.key}`" class="metadata-item">
-                <div class="item-key-wrapper">
-                  <div class="item-key" :class="{ 'item-key--defined': isDefined(item.key) }">{{ item.label }}</div>
-                  <q-icon v-if="isDefined(item.key)" name="check_circle" size="14px" color="primary">
-                    <q-tooltip>Defined in Metadata Schema</q-tooltip>
-                  </q-icon>
-                </div>
-                <div class="item-value">
-                  <q-badge
-                    v-if="item.kind === 'boolean'"
-                    :color="item.value === 'Yes' ? 'teal-5' : 'grey-5'"
-                    text-color="white"
-                    class="boolean-badge"
-                  >
-                    {{ item.value }}
-                  </q-badge>
-                  <span v-else class="value-text">{{ item.value }}</span>
-                </div>
+          </div>
+          <div class="group-content">
+            <div v-for="item in filteredLlmMetadata" :key="`llm:${item.key}`" class="metadata-item">
+              <div class="item-key-wrapper">
+                <div class="item-key" :class="{ 'item-key--defined': isDefined(item.key) }">{{ item.label }}</div>
+                <q-icon v-if="isDefined(item.key)" name="check_circle" size="14px" color="primary">
+                  <q-tooltip>Defined in Metadata Schema</q-tooltip>
+                </q-icon>
+              </div>
+              <div class="item-value">
+                <q-badge
+                  v-if="item.kind === 'boolean'"
+                  :color="item.value === 'Yes' ? 'teal-5' : 'grey-5'"
+                  text-color="white"
+                  class="boolean-badge"
+                >
+                  {{ item.value }}
+                </q-badge>
+                <span v-else class="value-text">{{ item.value }}</span>
               </div>
             </div>
           </div>
         </div>
       </div>
     </div>
-  </transition>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -161,7 +162,6 @@ interface MetadataItem {
 }
 
 const props = defineProps<{
-  open: boolean
   summary?: string | null
   fileMetadata: MetadataItem[]
   sourceMetadata: MetadataItem[]
@@ -177,13 +177,53 @@ const store = useStore()
 
 const graphId = computed(() => route.params.id as string)
 const definedFieldNames = ref<Set<string>>(new Set())
+const search = ref('')
 
 const summary = computed(() => (props.summary ?? '').trim())
 const hasSummary = computed(() => summary.value.length > 0)
 
 const hasAnyContent = computed(() => hasSummary.value || props.fileMetadata.length + props.sourceMetadata.length + props.llmMetadata.length > 0)
 
-const totalCount = computed(() => props.fileMetadata.length + props.sourceMetadata.length + props.llmMetadata.length)
+const normalizedQuery = computed(() => search.value.trim().toLowerCase())
+
+const stringifyValue = (val: unknown): string => {
+  if (val === null || val === undefined) return ''
+  if (Array.isArray(val)) return val.map((v) => stringifyValue(v)).join(' ')
+  if (typeof val === 'object') {
+    try {
+      return JSON.stringify(val)
+    } catch {
+      return String(val)
+    }
+  }
+  return String(val)
+}
+
+const itemMatches = (item: MetadataItem, q: string): boolean => {
+  if (!q) return true
+  return item.label.toLowerCase().includes(q) || item.key.toLowerCase().includes(q) || stringifyValue(item.value).toLowerCase().includes(q)
+}
+
+const filterItems = (items: MetadataItem[]) => {
+  const q = normalizedQuery.value
+  if (!q) return items
+  return items.filter((item) => itemMatches(item, q))
+}
+
+const filteredFileMetadata = computed(() => filterItems(props.fileMetadata))
+const filteredSourceMetadata = computed(() => filterItems(props.sourceMetadata))
+const filteredLlmMetadata = computed(() => filterItems(props.llmMetadata))
+
+const showSummary = computed(() => {
+  if (!hasSummary.value) return false
+  const q = normalizedQuery.value
+  if (!q) return true
+  return 'ai summary'.includes(q) || summary.value.toLowerCase().includes(q)
+})
+
+const hasAnyMatch = computed(
+  () => showSummary.value || filteredFileMetadata.value.length > 0 || filteredSourceMetadata.value.length > 0 || filteredLlmMetadata.value.length > 0
+)
 
 const fetchGraphSettings = async () => {
   if (!graphId.value) return
@@ -262,10 +302,16 @@ onMounted(() => {
   background: #f1f5f9;
 }
 
+.panel-toolbar {
+  padding: 12px 16px;
+  background: #ffffff;
+  border-bottom: 1px solid #f1f5f9;
+}
+
 .panel-body {
   flex: 1;
   overflow-y: auto;
-  padding: 16px;
+  padding: 12px;
   background: #f8fafc;
 }
 
@@ -306,15 +352,22 @@ onMounted(() => {
 .metadata-groups {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 8px;
 }
 
 .metadata-group {
-  background: white;
+  background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 10px;
+  border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.metadata-group:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.06);
 }
 
 .group-header {
@@ -435,20 +488,6 @@ onMounted(() => {
   line-height: 1.7;
   color: #1e293b;
   white-space: pre-wrap;
-}
-
-/* Slide transition */
-.meta-slide-enter-active,
-.meta-slide-leave-active {
-  transition:
-    opacity 0.2s ease,
-    transform 0.2s ease;
-}
-
-.meta-slide-enter-from,
-.meta-slide-leave-to {
-  opacity: 0;
-  transform: translateX(12px);
 }
 
 /* Responsive */
