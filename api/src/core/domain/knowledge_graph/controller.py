@@ -47,6 +47,7 @@ from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphSourceCreateResponse,
     KnowledgeGraphSourceExternalSchema,
     KnowledgeGraphSourceScheduleSyncRequest,
+    KnowledgeGraphSourceSyncRequest,
     KnowledgeGraphSourceUpdateRequest,
     KnowledgeGraphUpdateRequest,
     KnowledgeGraphUpdateResponse,
@@ -66,15 +67,26 @@ from services.knowledge_graph import (
     unschedule_source_sync,
 )
 from services.knowledge_graph.llm_entity_extraction import (
+    _active_extraction_tasks,
     is_extraction_task_active,
+    log_entity_extraction_outcome,
     run_entity_extraction_background,
+)
+from services.knowledge_graph.llm_metadata_extraction import (
+    _active_metadata_tasks,
+    log_metadata_extraction_outcome,
+    run_metadata_extraction_background,
 )
 from services.knowledge_graph.retrievers.agent_retriever.agent import (
     continue_conversation,
     start_conversation,
 )
 from services.knowledge_graph.sources import FileUploadDataSource
-from services.knowledge_graph.sources.sync_services import sync_source_background
+from services.knowledge_graph.sources.sync_services import (
+    _active_sync_tasks,
+    log_sync_outcome,
+    sync_source_background,
+)
 from services.observability import observability_overrides, observe
 from utils.datetime_utils import utc_now_isoformat
 
@@ -431,13 +443,25 @@ class KnowledgeGraphController(Controller):
         db_session: AsyncSession,
         graph_id: UUID,
         source_id: UUID,
+        data: Annotated[KnowledgeGraphSourceSyncRequest | None, Body()] = None,
     ) -> dict[str, Any]:
+        from_scratch = bool(data.from_scratch) if data is not None else False
+
         # Update status to "syncing" synchronously before launching background task
         await source_service.set_source_status(db_session, source_id, "syncing")
         await db_session.commit()
 
-        # Launch sync in background and return immediately to prevent stuck "syncing" status on page refresh
-        asyncio.create_task(sync_source_background(graph_id, source_id))
+        # Launch sync in background and return immediately to prevent stuck "syncing" status on page refresh.
+        # Store the Task object in a strong-ref registry so the event loop cannot
+        # garbage-collect it, and attach a done-callback that guarantees a final
+        # log line regardless of how the task terminates (success / exception /
+        # CancelledError during shutdown).
+        task = asyncio.create_task(
+            sync_source_background(graph_id, source_id, from_scratch=from_scratch),
+            name=f"source-sync-{source_id}",
+        )
+        _active_sync_tasks[source_id] = task
+        task.add_done_callback(log_sync_outcome(source_id))
         return {"status": "started", "message": "Sync started in background"}
 
     @observe(
@@ -536,6 +560,38 @@ class KnowledgeGraphController(Controller):
     ) -> KnowledgeGraphChunkListResponse:
         return await chunk_service.list_chunks(
             db_session, graph_id, limit, offset, None, document_id
+        )
+
+    @get(
+        "/{graph_id:uuid}/documents/{document_id:uuid}/entities",
+        status_code=HTTP_200_OK,
+    )
+    async def list_document_entities(
+        self,
+        entity_service: KnowledgeGraphEntityService,
+        db_session: AsyncSession,
+        graph_id: UUID,
+        document_id: UUID,
+        limit: int = Parameter(default=1000, ge=1, le=5000),
+        offset: int = Parameter(default=0, ge=0),
+    ) -> KnowledgeGraphEntityRecordListResponse:
+        records = await entity_service.list_records_for_document(
+            db_session,
+            graph_id=graph_id,
+            document_id=document_id,
+            limit=limit,
+            offset=offset,
+        )
+        total = await entity_service.count_records_for_document(
+            db_session,
+            graph_id=graph_id,
+            document_id=document_id,
+        )
+        return KnowledgeGraphEntityRecordListResponse(
+            records=[KnowledgeGraphEntityRecordSchema(**r.to_json()) for r in records],
+            total=total,
+            limit=limit,
+            offset=offset,
         )
 
     ###########################################################################
@@ -650,9 +706,12 @@ class KnowledgeGraphController(Controller):
         flag_modified(graph_obj, "state")
         await db_session.commit()
 
-        asyncio.create_task(
-            run_entity_extraction_background(graph_id, data.model_dump())
+        task = asyncio.create_task(
+            run_entity_extraction_background(graph_id, data.model_dump()),
+            name=f"entity-extraction-{graph_id}",
         )
+        _active_extraction_tasks[graph_id] = task
+        task.add_done_callback(log_entity_extraction_outcome(graph_id))
         return {"status": "started"}
 
     @post("/{graph_id:uuid}/entities/extract/cancel", status_code=HTTP_200_OK)
@@ -755,8 +814,52 @@ class KnowledgeGraphController(Controller):
         db_session: AsyncSession,
         graph_id: UUID,
         data: KnowledgeGraphMetadataExtractionRunRequest,
-    ) -> KnowledgeGraphMetadataExtractionRunResponse:
-        """Start (and run) metadata extraction for all documents/chunks in a graph."""
-        return await metadata_service.run_metadata_extraction(
-            db_session, graph_id, data
+    ) -> KnowledgeGraphMetadataExtractionRunResponse | dict[str, Any]:
+        """Start metadata extraction.
+
+        - When `document_ids` is provided (per-document re-extraction): runs
+          synchronously and returns the full result (fast — single document).
+        - When `document_ids` is omitted (bulk re-extraction across the graph):
+          runs in a background task to avoid HTTP client / proxy timeouts that
+          previously caused 9+ hour runs to silently disappear. Returns
+          `{"status": "started"}` immediately; track progress via
+          `state.metadata_extraction.status` on the graph.
+        """
+        is_bulk = not getattr(data, "document_ids", None)
+
+        if not is_bulk:
+            return await metadata_service.run_metadata_extraction(
+                db_session, graph_id, data
+            )
+
+        graph_res = await db_session.execute(
+            select(KnowledgeGraph).where(KnowledgeGraph.id == graph_id)
         )
+        graph_obj = graph_res.scalar_one_or_none()
+        if not graph_obj:
+            raise ClientException("Graph not found")
+
+        current_state = dict(getattr(graph_obj, "state", None) or {})
+        prev_meta = current_state.get("metadata_extraction") or {}
+        if isinstance(prev_meta, dict) and prev_meta.get("status") in (
+            "running",
+            "cancelling",
+        ):
+            raise ClientException("Metadata extraction is already running")
+
+        current_state["metadata_extraction"] = {
+            **(prev_meta if isinstance(prev_meta, dict) else {}),
+            "status": "running",
+            "started_at": utc_now_isoformat(),
+        }
+        graph_obj.state = current_state
+        flag_modified(graph_obj, "state")
+        await db_session.commit()
+
+        task = asyncio.create_task(
+            run_metadata_extraction_background(graph_id, data.model_dump()),
+            name=f"metadata-extraction-{graph_id}",
+        )
+        _active_metadata_tasks[graph_id] = task
+        task.add_done_callback(log_metadata_extraction_outcome(graph_id))
+        return {"status": "started"}

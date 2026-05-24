@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
@@ -12,6 +13,7 @@ from core.domain.jobs.service import JobsService
 from scheduler.executors import (
     RUN_CONFIG_HANDLERS,
 )
+from scheduler.manager import _scheduler_thread_pool
 from scheduler.types import JobDefinition, JobStatus, JobType
 from scheduler.utils import update_job_status
 
@@ -130,19 +132,28 @@ async def create_job(
         "params": job_definition.run_configuration.params,
     }
 
-    # Configure and add the job to the scheduler
+    # Configure and add the job to the scheduler.
+    # All scheduler.add_job() calls are offloaded to a thread pool because
+    # APScheduler 3.x SQLAlchemyJobStore methods are synchronous and can block
+    # the event loop if the underlying DB connection is stale (e.g. dead TCP socket
+    # causes pre-ping to hang for the OS TCP retransmit timeout, ~15 minutes).
+    loop = asyncio.get_running_loop()
+
     if job_definition.job_type == JobType.ONE_TIME_IMMEDIATE:
         run_date = datetime.now(UTC) + timedelta(seconds=1)
         logger.info(f"Scheduling immediate job {job_id} to run at {run_date}")
 
-        scheduler.add_job(
-            func=run_handler,
-            trigger="date",
-            run_date=run_date,
-            id=job_id,
-            replace_existing=True,
-            kwargs=job_kwargs,
-            misfire_grace_time=60,  # Allow 60 seconds of misfire grace time
+        await loop.run_in_executor(
+            _scheduler_thread_pool,
+            lambda: scheduler.add_job(
+                func=run_handler,
+                trigger="date",
+                run_date=run_date,
+                id=job_id,
+                replace_existing=True,
+                kwargs=job_kwargs,
+                misfire_grace_time=60,
+            ),
         )
     elif job_definition.job_type == JobType.ONE_TIME_SCHEDULED:
         # Ensure scheduled_start_time is timezone-aware
@@ -162,14 +173,17 @@ async def create_job(
         if scheduled_time <= datetime.now(UTC):
             raise ValueError("Scheduled start time must be in the future")
 
-        scheduler.add_job(
-            func=run_handler,
-            trigger="date",
-            run_date=scheduled_time,
-            id=job_id,
-            replace_existing=True,
-            kwargs=job_kwargs,
-            misfire_grace_time=60,  # Allow 60 seconds of misfire grace time
+        await loop.run_in_executor(
+            _scheduler_thread_pool,
+            lambda: scheduler.add_job(
+                func=run_handler,
+                trigger="date",
+                run_date=scheduled_time,
+                id=job_id,
+                replace_existing=True,
+                kwargs=job_kwargs,
+                misfire_grace_time=60,
+            ),
         )
     elif job_definition.job_type == JobType.RECURRING:
         # For recurring jobs, extract cron parameters from the CronConfig object
@@ -186,13 +200,16 @@ async def create_job(
         # Create the CronTrigger with the extracted parameters
         cron_trigger = CronTrigger(**cron_params)
 
-        scheduler.add_job(
-            func=run_handler,
-            trigger=cron_trigger,
-            id=job_id,
-            replace_existing=True,
-            kwargs=job_kwargs,
-            misfire_grace_time=60,  # Allow 60 seconds of misfire grace time
+        await loop.run_in_executor(
+            _scheduler_thread_pool,
+            lambda: scheduler.add_job(
+                func=run_handler,
+                trigger=cron_trigger,
+                id=job_id,
+                replace_existing=True,
+                kwargs=job_kwargs,
+                misfire_grace_time=60,
+            ),
         )
     return {
         "job_id": job_id,
@@ -212,9 +229,14 @@ async def cancel_job(
         if not job:
             raise ValueError(f"Job with ID {job_id} not found")
 
-        # Try to remove the job from the scheduler
+        # Try to remove the job from the scheduler (offloaded to thread pool
+        # to avoid blocking the event loop on sync jobstore operations).
         try:
-            scheduler.remove_job(job_id)
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(
+                _scheduler_thread_pool,
+                lambda: scheduler.remove_job(job_id),
+            )
             logger.info(f"Successfully removed job {job_id} from scheduler")
         except Exception as e:
             logger.error(f"Error removing job {job_id} from scheduler: {e!s}")

@@ -15,6 +15,7 @@ class PromptTemplatePreviewRequest(BaseModel):
     max_tokens: int | None = None  # TODO default?
     response_format: dict | None = None
     system_name_for_model: str | None = None
+    reasoning_effort: str | None = None
 
 
 class PromptTemplateExecuteRequest(BaseModel):
@@ -32,6 +33,8 @@ class PromptTemplateExecutionResponse:
     tool_calls: list[dict] | None = field(
         default=None
     )  # Tool calls from chat completion
+    trace_id: str | None = field(default=None)
+    analytics_id: str | None = field(default=None)
 
 
 @dataclass
@@ -43,3 +46,4 @@ class PromptTemplateConfig:
     max_tokens: int | None = None
     response_format: dict | None = None
     model: str | None = None
+    reasoning_effort: str | None = None

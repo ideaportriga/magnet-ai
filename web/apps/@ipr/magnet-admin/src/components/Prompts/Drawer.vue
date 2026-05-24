@@ -452,6 +452,7 @@ export default defineComponent({
           system_name_for_model: this.selectedRowDetails?.system_name_for_model,
           system_name_for_prompt_template: this.promptSystemName,
           prompt_template_variant: this.selectedRowDetails?.variant,
+          reasoning_effort: this.selectedRowDetails?.reasoning_effort,
         })) || undefined
 
       this.text = this.detailedResponse?.['content'] ?? ''

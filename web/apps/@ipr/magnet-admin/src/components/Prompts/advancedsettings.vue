@@ -18,12 +18,14 @@ div
             q-item-label.km-label {{ opt.display_name }}
             .row.q-mt-xs(v-if='opt.provider_system_name')
               q-chip(color='primary-light', text-color='primary', size='sm', dense) {{ opt.provider_system_name }}
-  q-separator.q-my-lg
+  q-separator.q-my-lg(v-if='showTemperature || showTopP || showReasoningEffortSelector || showMaxTokens')
   km-section(
-    title='Output diversity',
-    subTitle='Temperature controls randomness of output. Top p controls diversity and unpredictability of output. Use default value if you are not certain about these parameters.'
+    v-if='showTemperature || showTopP || showReasoningEffortSelector || showMaxTokens',
+    title='Parameters',
+    subTitle='Control how the model generates output. Use default values if you are not certain about these parameters.'
   )
     km-slider-card.q-mb-lg(
+      v-if='showTemperature',
       v-model='temperature',
       name='Temperature',
       :min='0',
@@ -31,12 +33,11 @@ div
       :defaultValue='1',
       minLabel='Less random',
       maxLabel='More random',
-      description='We generally recommend altering this or top p, but not both.',
+      description='Controls randomness of output. We generally recommend altering this or Top P, but not both.',
       infoTooltip='Temperature controls randomness of output.'
     )
-
-  km-section
-    km-slider-card(
+    km-slider-card.q-mb-lg(
+      v-if='showTopP',
       v-model='topP',
       name='Top P',
       :min='0',
@@ -44,15 +45,28 @@ div
       :defaultValue='1',
       minLabel='Less diverse',
       maxLabel='More diverse',
-      description='We generally recommend altering this or top p, but not both.',
-      infoTooltip='Top p controls diversity and unpredictability of output.'
+      description='Controls diversity of output. We generally recommend altering this or Temperature, but not both.',
+      infoTooltip='Top P controls diversity and unpredictability of output.'
     )
-  q-separator.q-my-lg
-  km-section(title='Output limit', subTitle='Limits generated output length. Leave blank if not necessary')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 Max tokens
-      div(style='max-width: 200px')
-        km-input(type='number', height='30px', placeholder='Max tokens', v-model='maxTokens')
-      .km-description.text-secondary-text.q-pb-4 1 token = approx. 4 characters in English
+    .q-mb-lg(v-if='showReasoningEffortSelector')
+      .km-button-text.q-pb-xs Reasoning Effort
+      km-select(
+        height='auto',
+        minHeight='36px',
+        placeholder='Select reasoning effort',
+        v-model='reasoningEffort',
+        :options='reasoningEffortOptions',
+        optionLabel='label',
+        optionValue='value',
+        emit-value,
+        map-options,
+        clearable
+      )
+      .km-description.text-text-gray.q-mt-8 Controls how much effort the reasoning model spends on the answer. Available values are configured per-model.
+    .q-mb-sm(v-if='showMaxTokens')
+      .km-button-text.q-pb-xs Max Tokens
+      km-input(type='number', height='36px', placeholder='Leave blank for no limit', v-model='maxTokens')
+      .km-description.text-text-gray.q-mt-8 Limits the generated output length. 1 token ≈ 4 characters in English.
   q-separator.q-my-lg
   km-section(
     title='Observability',
@@ -157,6 +171,35 @@ export default {
         this.$store.commit('updateNestedPromptTemplateProperty', { path: 'topP', value })
       },
     },
+    reasoningEffort: {
+      get() {
+        return this.$store.getters.promptTemplateVariant?.reasoning_effort || null
+      },
+      set(value) {
+        this.$store.commit('updateNestedPromptTemplateProperty', { path: 'reasoning_effort', value: value || null })
+      },
+    },
+    selectedModel() {
+      const sysName = this.$store.getters.promptTemplateVariant?.system_name_for_model
+      if (!sysName) return null
+      return (this.$store.getters['chroma/model'].items || []).find((m) => m?.system_name === sysName) || null
+    },
+    reasoningEffortOptions() {
+      const opts = this.selectedModel?.reasoning_effort_options || []
+      return opts.map((v) => ({ label: v, value: v }))
+    },
+    showReasoningEffortSelector() {
+      return !!this.selectedModel?.reasoning && this.reasoningEffortOptions.length > 0
+    },
+    showTemperature() {
+      return this.selectedModel?.supports_temperature !== false
+    },
+    showTopP() {
+      return this.selectedModel?.supports_top_p !== false
+    },
+    showMaxTokens() {
+      return this.selectedModel?.supports_max_tokens !== false
+    },
     model: {
       get() {
         return this.model_name || ''
@@ -193,6 +236,27 @@ export default {
     },
     canSave() {
       return !!this.prompt.text && !!this.prompt.description && !!this.prompt.name
+    },
+  },
+  watch: {
+    selectedModel() {
+      const variant = this.$store.getters.promptTemplateVariant
+      const current = variant?.reasoning_effort
+      if (current) {
+        const allowed = this.selectedModel?.reasoning_effort_options || []
+        if (!allowed.includes(current)) {
+          this.$store.commit('updateNestedPromptTemplateProperty', { path: 'reasoning_effort', value: null })
+        }
+      }
+      if (this.selectedModel?.supports_temperature === false && variant?.temperature != null) {
+        this.$store.commit('updateNestedPromptTemplateProperty', { path: 'temperature', value: null })
+      }
+      if (this.selectedModel?.supports_top_p === false && variant?.topP != null) {
+        this.$store.commit('updateNestedPromptTemplateProperty', { path: 'topP', value: null })
+      }
+      if (this.selectedModel?.supports_max_tokens === false && variant?.maxTokens != null) {
+        this.$store.commit('updateNestedPromptTemplateProperty', { path: 'maxTokens', value: null })
+      }
     },
   },
   created() {},

@@ -60,7 +60,9 @@ class FluidTopicsSource(AbstractDataSource):
 
     @override
     @observe(name="Sync Fluid Topics source")
-    async def sync_source(self, db_session: AsyncSession) -> dict[str, Any]:
+    async def sync_source(
+        self, db_session: AsyncSession, *, from_scratch: bool = False
+    ) -> dict[str, Any]:
         """Synchronize documents/topics from Fluid Topics into the Knowledge Graph."""
 
         logger.info(
@@ -103,6 +105,7 @@ class FluidTopicsSource(AbstractDataSource):
             fluid_topics_config=cfg,
             embedding_model=embedding_model,
         )
+        pipeline.from_scratch = from_scratch
 
         try:
             counters = await pipeline.run()

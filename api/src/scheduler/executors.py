@@ -39,28 +39,54 @@ def get_interval_days(interval):
 # Decorator to set status to PROCESSING before execution and apply timeout.
 # Note: ERROR status is NOT set here — it is handled by APScheduler's job_error_listener
 # to avoid race conditions with double status updates.
-def with_progress_status(func):
-    @wraps(func)
-    async def wrapper(**kwargs):
-        job_id = kwargs.get("job_id")
+#
+# Usage:
+#   @with_progress_status                  — uses SCHEDULER_DEFAULT_JOB_TIMEOUT from settings
+#   @with_progress_status(timeout="sync")        — uses SCHEDULER_SYNC_JOB_TIMEOUT from settings
+#   @with_progress_status(timeout="evaluation")  — uses SCHEDULER_EVALUATION_JOB_TIMEOUT from settings
+def with_progress_status(func=None, *, timeout=None):
+    def decorator(fn):
+        @wraps(fn)
+        async def wrapper(**kwargs):
+            job_id = kwargs.get("job_id")
 
-        try:
-            if job_id:
-                await update_job_status(job_id, JobStatus.PROCESSING)
-            return await asyncio.wait_for(
-                func(**kwargs),
-                timeout=DEFAULT_JOB_TIMEOUT_SECONDS,
-            )
-        except asyncio.TimeoutError:
-            logger.error(f"Job {job_id} timed out after {DEFAULT_JOB_TIMEOUT_SECONDS}s")
-            # Re-raise so APScheduler's job_error_listener handles the ERROR status
-            raise
-        except Exception:
-            # Re-raise the original exception — APScheduler's job_error_listener
-            # will handle setting the ERROR/WAITING status in the database.
-            raise
+            from core.config.base import get_scheduler_settings
 
-    return wrapper
+            settings = get_scheduler_settings()
+            if timeout == "sync":
+                effective_timeout = settings.SCHEDULER_SYNC_JOB_TIMEOUT
+            elif timeout == "evaluation":
+                effective_timeout = settings.SCHEDULER_EVALUATION_JOB_TIMEOUT
+            elif timeout is not None:
+                effective_timeout = timeout
+            else:
+                effective_timeout = settings.SCHEDULER_DEFAULT_JOB_TIMEOUT
+
+            try:
+                if job_id:
+                    await update_job_status(job_id, JobStatus.PROCESSING)
+                if effective_timeout:
+                    return await asyncio.wait_for(
+                        fn(**kwargs),
+                        timeout=effective_timeout,
+                    )
+                else:
+                    return await fn(**kwargs)
+            except asyncio.TimeoutError:
+                logger.error(f"Job {job_id} timed out after {effective_timeout}s")
+                # Re-raise so APScheduler's job_error_listener handles the ERROR status
+                raise
+            except Exception:
+                # Re-raise the original exception — APScheduler's job_error_listener
+                # will handle setting the ERROR/WAITING status in the database.
+                raise
+
+        return wrapper
+
+    # Support both @with_progress_status and @with_progress_status(timeout=...)
+    if func is not None:
+        return decorator(func)
+    return decorator
 
 
 @with_progress_status
@@ -98,7 +124,7 @@ async def execute_custom_function(**kwargs):
         raise
 
 
-@with_progress_status
+@with_progress_status(timeout="sync")
 @observe(name="Sync knowledge source", channel="Job")
 async def execute_sync_collection(**kwargs):
     """Execute a sync collection job with the given parameters."""
@@ -129,12 +155,25 @@ async def execute_sync_collection(**kwargs):
 
         collection_id = await get_ids_by_system_names(system_name, "collections")
         if not collection_id:
-            # Collection was deleted — remove the job so it doesn't keep retrying
-            from scheduler.manager import get_global_scheduler
+            # Collection was deleted — remove the job so it doesn't keep retrying.
+            # Offloaded to thread pool to avoid blocking the event loop on sync
+            # jobstore operations (APScheduler 3.x SQLAlchemyJobStore is sync).
+            from scheduler.manager import (
+                _scheduler_thread_pool,
+                get_global_scheduler,
+            )
 
             scheduler = get_global_scheduler()
-            if scheduler and scheduler.get_job(job_id):
-                scheduler.remove_job(job_id)
+            loop = asyncio.get_running_loop()
+            job_exists = await loop.run_in_executor(
+                _scheduler_thread_pool,
+                lambda: scheduler.get_job(job_id) if scheduler else None,
+            )
+            if job_exists:
+                await loop.run_in_executor(
+                    _scheduler_thread_pool,
+                    lambda: scheduler.remove_job(job_id),
+                )
                 logger.warning(
                     f"Removed recurring job {job_id}: collection '{system_name}' no longer exists"
                 )
@@ -284,16 +323,18 @@ async def execute_post_process_configuration(**kwargs):
         raise
 
 
-@with_progress_status
-@observe(name="Evaluation job", channel="Job")
+@with_progress_status(timeout="evaluation")
+@observe(name="Evaluation job", channel="evaluation")
 async def execute_evaluation(**kwargs):
     """Execute an evaluation job with the given parameters."""
     job_id = kwargs.get("job_id")
+    params = kwargs.get("params", {})
 
     try:
         # Extract job information and parameters
         job_definition = kwargs.get("job_definition")
-        params = kwargs.get("params", {})
+
+        logger.info(f"execute_evaluation received: job_id={job_id} params={params!r}")
 
         observability_context.update_current_trace(
             type="evaluation",
@@ -358,9 +399,21 @@ async def execute_evaluation(**kwargs):
 
         # Error status will be set by APScheduler's job_error_listener
         raise
+    finally:
+        # Flush OTel spans to DB before the worker moves on or cancellation
+        # propagates further. Without this, spans buffered in BatchSpanProcessor's
+        # queue can be lost when long-running evaluation jobs time out or fail.
+        try:
+            from opentelemetry import trace as otel_trace
+
+            otel_trace.get_tracer_provider().force_flush(timeout_millis=30000)
+        except Exception as flush_error:
+            logger.warning(
+                f"Failed to flush OTel tracer provider for job {job_id}: {flush_error}"
+            )
 
 
-@with_progress_status
+@with_progress_status(timeout="sync")
 @observe(name="Sync knowledge graph", channel="Job")
 async def execute_sync_knowledge_graph_source(**kwargs):
     """Execute a knowledge graph source sync job."""

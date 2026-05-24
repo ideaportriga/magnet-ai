@@ -1,6 +1,3 @@
-@description('Environment name (dev, staging, prod)')
-param environment string
-
 @description('Azure region for all resources')
 param location string
 
@@ -8,7 +5,21 @@ param location string
 @description('Administrator password for PostgreSQL')
 param adminPassword string
 
-var serverName = 'psql-magnet-ai-${environment}'
+@description('Subnet resource ID for private endpoints')
+param privateEndpointSubnetId string
+
+@description('Private DNS zone resource ID for PostgreSQL')
+param privateDnsZoneId string
+
+@description('Allow public access for dev/debugging (adds devIpAddress to firewall)')
+param allowDevAccess bool = false
+
+@description('Developer IP address to allow when allowDevAccess is true')
+param devIpAddress string = ''
+
+@description('PostgreSQL server name (globally unique). Override if default is taken.')
+param serverName string
+
 var databaseName = 'magnet'
 
 resource postgresServer 'Microsoft.DBforPostgreSQL/flexibleServers@2024-08-01' = {
@@ -27,7 +38,7 @@ resource postgresServer 'Microsoft.DBforPostgreSQL/flexibleServers@2024-08-01' =
       autoGrow: 'Disabled'
     }
     network: {
-      publicNetworkAccess: 'Enabled'
+      publicNetworkAccess: allowDevAccess ? 'Enabled' : 'Disabled'
     }
     authConfig: {
       activeDirectoryAuth: 'Disabled'
@@ -55,15 +66,6 @@ resource database 'Microsoft.DBforPostgreSQL/flexibleServers/databases@2024-08-0
   }
 }
 
-resource allowAzureServices 'Microsoft.DBforPostgreSQL/flexibleServers/firewallRules@2024-08-01' = {
-  parent: postgresServer
-  name: 'AllowAllAzureServicesAndResourcesWithinAzureIps'
-  properties: {
-    startIpAddress: '0.0.0.0'
-    endIpAddress: '0.0.0.0'
-  }
-}
-
 resource vectorExtension 'Microsoft.DBforPostgreSQL/flexibleServers/configurations@2024-08-01' = {
   parent: postgresServer
   name: 'azure.extensions'
@@ -72,6 +74,54 @@ resource vectorExtension 'Microsoft.DBforPostgreSQL/flexibleServers/configuratio
     source: 'user-override'
   }
   dependsOn: [database]
+}
+
+// Dev access: allow a specific IP when debugging
+resource devFirewallRule 'Microsoft.DBforPostgreSQL/flexibleServers/firewallRules@2024-08-01' = if (allowDevAccess && devIpAddress != '') {
+  parent: postgresServer
+  name: 'AllowDevAccess'
+  properties: {
+    startIpAddress: devIpAddress
+    endIpAddress: devIpAddress
+  }
+}
+
+// Private endpoint for VNet access
+resource privateEndpoint 'Microsoft.Network/privateEndpoints@2024-01-01' = {
+  name: 'pe-pg-${serverName}'
+  location: location
+  dependsOn: [vectorExtension]
+  properties: {
+    subnet: {
+      id: privateEndpointSubnetId
+    }
+    privateLinkServiceConnections: [
+      {
+        name: 'pe-pg-${serverName}'
+        properties: {
+          privateLinkServiceId: postgresServer.id
+          groupIds: [
+            'postgresqlServer'
+          ]
+        }
+      }
+    ]
+  }
+}
+
+resource privateDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2024-01-01' = {
+  parent: privateEndpoint
+  name: 'default'
+  properties: {
+    privateDnsZoneConfigs: [
+      {
+        name: 'postgres'
+        properties: {
+          privateDnsZoneId: privateDnsZoneId
+        }
+      }
+    ]
+  }
 }
 
 @description('PostgreSQL server FQDN')

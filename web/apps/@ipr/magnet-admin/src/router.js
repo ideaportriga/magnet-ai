@@ -20,8 +20,6 @@ import DeepResearchPage from '@/components/DeepResearch/Configs/Page.vue'
 import DeepResearchRunsPage from '@/components/DeepResearch/Runs/Page.vue'
 import DeepResearchDetailPage from '@/components/DeepResearch/Configs/Details.vue'
 import DeepResearchRunDetailsPage from '@/components/DeepResearch/Runs/Details.vue'
-import ModelPage from '@/components/ModelConfig/Page.vue'
-import ModelDetailPage from '@/components/ModelConfig/details.vue'
 import AssistantToolsPage from '@/components/AssistantTools/Page.vue'
 import AssistantToolsDetailPage from '@/components/AssistantTools/details.vue'
 import EvaluationDetailsCompare from '@/components/EvaluationJobs/detailsCompare.vue'
@@ -234,24 +232,6 @@ const routes = [
       pageLabel: 'Model Providers',
       chroma: true,
       entity: 'provider',
-    },
-  },
-  {
-    path: '/model/:id?',
-    name: 'Model',
-    component: ModelPage,
-    meta: {
-      pageLabel: 'Models',
-    },
-  },
-  {
-    path: '/model/:id',
-    name: 'ModelItems',
-    component: ModelDetailPage,
-    meta: {
-      pageLabel: 'Models',
-      chroma: true,
-      entity: 'model',
     },
   },
   {
@@ -601,7 +581,6 @@ router.beforeEach((to, from, next) => {
   }
 
   if (
-    (from.name === 'ModelItems' && store.getters['modelConfig/isEntityChanged']) ||
     (from.name === 'ConfigurationItems' && store.getters.isRagChanged) ||
     (from.name === 'RetrievalItems' && store.getters.isRetrievalChanged) ||
     (from.name === 'EvaluationSetDetails' && store.getters.isEvaluationSetChanged) ||

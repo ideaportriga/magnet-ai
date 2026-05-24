@@ -74,6 +74,21 @@ def resolve_sharepoint_location(cfg: dict[str, Any]) -> tuple[str, str | None, b
     return library, folder, recursive
 
 
+def resolve_sharepoint_file_patterns(cfg: dict[str, Any]) -> tuple[str, ...]:
+    """Parse comma-separated glob patterns from source config.
+
+    Returns a normalized (lowercased, stripped, non-empty) tuple of patterns,
+    or an empty tuple if none are configured.
+    """
+
+    raw = cfg.get("file_patterns") or cfg.get("sharepoint_file_patterns") or ""
+    if not isinstance(raw, str):
+        return ()
+
+    patterns = tuple(p.strip().lower() for p in raw.split(",") if p.strip())
+    return patterns
+
+
 def resolve_sharepoint_auth(
     cfg: dict[str, Any],
 ) -> tuple[str, str | None, str | None, str | None, str | None]:

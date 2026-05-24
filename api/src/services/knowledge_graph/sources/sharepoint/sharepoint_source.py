@@ -15,6 +15,7 @@ from .sharepoint_models import SharePointRuntimeConfig
 from .sharepoint_sync import SharePointSyncPipeline
 from .sharepoint_utils import (
     resolve_sharepoint_auth,
+    resolve_sharepoint_file_patterns,
     resolve_sharepoint_location,
     resolve_sharepoint_site_url,
     validate_sharepoint_runtime_config,
@@ -49,7 +50,9 @@ class SharePointDataSource(AbstractDataSource):
 
     @override
     @observe(name="Sync SharePoint source")
-    async def sync_source(self, db_session: AsyncSession) -> dict[str, Any]:
+    async def sync_source(
+        self, db_session: AsyncSession, *, from_scratch: bool = False
+    ) -> dict[str, Any]:
         """Synchronize PDF documents from SharePoint into the Knowledge Graph."""
 
         logger.info(
@@ -90,6 +93,7 @@ class SharePointDataSource(AbstractDataSource):
             sharepoint_config=cfg,
             embedding_model=embedding_model,
         )
+        pipeline.from_scratch = from_scratch
 
         try:
             counters = await pipeline.run()
@@ -142,6 +146,7 @@ class SharePointDataSource(AbstractDataSource):
         client_id, client_secret, tenant, thumbprint, private_key = (
             resolve_sharepoint_auth(cfg)
         )
+        file_patterns = resolve_sharepoint_file_patterns(cfg)
 
         runtime_cfg = SharePointRuntimeConfig(
             site_url=site_url,
@@ -153,6 +158,7 @@ class SharePointDataSource(AbstractDataSource):
             tenant=tenant,
             thumbprint=thumbprint,
             private_key=private_key,
+            file_patterns=file_patterns,
         )
 
         validate_sharepoint_runtime_config(runtime_cfg)

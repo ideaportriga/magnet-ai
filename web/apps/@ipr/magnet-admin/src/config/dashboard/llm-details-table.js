@@ -4,6 +4,7 @@ import { markRaw, h } from 'vue'
 import StatusField from './components/StatusField.vue'
 import ChipCell from './components/ChipCell.vue'
 import NameVariant from './components/NameVariant.vue'
+import FeedbackChip from './components/FeedbackChip.vue'
 
 const controls = {
   _id: {
@@ -114,6 +115,35 @@ const controls = {
     display: true,
     align: 'left',
     sortable: true,
+  },
+  ['extra_data.answer_feedback.type']: {
+    name: 'extra_data.answer_feedback.type',
+    label: 'User feedback',
+    field: 'feedback',
+    type: 'component',
+    component: markRaw(FeedbackChip),
+    align: 'left',
+    display: true,
+    sortable: true,
+  },
+  ['extra_data.substandart_result_reason']: {
+    name: 'extra_data.substandart_result_reason',
+    label: 'Substandard Result',
+    field: (row) => row?.extra_data?.substandart_result_reason,
+    readonly: true,
+    align: 'left',
+    display: true,
+    sortable: true,
+    format: (val) => {
+      const map = {
+        prompt_issue: 'Prompt issue',
+        model_limitation: 'Model limitation',
+        hallucination: 'Hallucination',
+        format_issue: 'Format issue',
+        incorrect_output: 'Incorrect output',
+      }
+      return val ? (map[val] ?? val) : '-'
+    },
   },
   organization: {
     name: 'x_attributes.org-id',

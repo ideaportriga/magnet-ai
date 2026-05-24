@@ -33,6 +33,7 @@ class AIProviderInterface(ABC):
         tool_choice: str | dict | None = None,
         model_config: dict | None = None,
         parallel_tool_calls: bool | None = None,
+        reasoning_effort: str | None = None,
     ) -> ChatCompletion:
         pass
 
@@ -48,6 +49,7 @@ class AIProviderInterface(ABC):
         tool_choice: str | dict | None = None,
         model_config: dict | None = None,
         parallel_tool_calls: bool | None = None,
+        reasoning_effort: str | None = None,
     ) -> AsyncIterator[ChatCompletionChunk]:
         """Stream chat completion chunks. Override in subclasses that support streaming."""
         raise NotImplementedError("Streaming is not supported by this provider")

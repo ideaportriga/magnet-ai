@@ -6,13 +6,38 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from core.domain.base.schemas import (
     BaseSimpleCreateSchema,
     BaseSimpleSchema,
     BaseSimpleUpdateSchema,
 )
+
+
+def _normalize_reasoning_effort_options(
+    value: Optional[list[str]],
+) -> Optional[list[str]]:
+    """Trim, validate, and de-duplicate reasoning_effort_options.
+
+    Values are arbitrary provider-specific tokens (e.g. ``minimal``, ``low``,
+    ``medium``, ``high``, ``max``). ``None`` and ``[]`` both mean "no options";
+    ``[]`` is coerced to ``None`` for a single canonical empty representation.
+    """
+    if value is None:
+        return None
+    if not isinstance(value, list):
+        raise ValueError("reasoning_effort_options must be a list of strings")
+    seen: list[str] = []
+    for item in value:
+        if not isinstance(item, str):
+            raise ValueError("reasoning_effort_options entries must be strings")
+        token = item.strip()
+        if not token:
+            raise ValueError("reasoning_effort_options entries must not be empty")
+        if token not in seen:
+            seen.append(token)
+    return seen or None
 
 
 class RoutingConfig(BaseModel):
@@ -115,8 +140,27 @@ class AIModelFieldsMixin(BaseModel):
     )
     tool_calling: bool = Field(default=False, description="Supports tool calling")
     reasoning: bool = Field(default=False, description="Supports reasoning")
+    reasoning_effort_options: Optional[list[str]] = Field(
+        default=None,
+        description=(
+            "Arbitrary provider-specific reasoning-effort tokens "
+            "(e.g. 'minimal', 'low', 'medium', 'high', 'max') selectable in "
+            "prompt template variants for this model. "
+            "Null/empty hides the reasoning-effort selector in the prompt template UI."
+        ),
+    )
     diarization: bool = Field(default=False, description="Supports speaker diarization")
     keyterms: bool = Field(default=False, description="Supports keyterms")
+    supports_temperature: bool = Field(
+        default=True,
+        description="Whether the model accepts the `temperature` parameter",
+    )
+    supports_top_p: bool = Field(
+        default=True, description="Whether the model accepts the `top_p` parameter"
+    )
+    supports_max_tokens: bool = Field(
+        default=True, description="Whether the model accepts the `max_tokens` parameter"
+    )
 
     # Type and default settings
     type: str = Field(..., description="Model type (e.g., prompts)")
@@ -131,9 +175,6 @@ class AIModelFieldsMixin(BaseModel):
     price_input: Optional[str] = Field(None, description="Price per input unit")
     price_output: Optional[str] = Field(None, description="Price per output unit")
     price_cached: Optional[str] = Field(None, description="Price per cached input unit")
-    price_reasoning: Optional[str] = Field(
-        None, description="Price per reasoning output unit"
-    )
 
     # Unit counts for pricing
     price_standard_input_unit_count: Optional[int] = Field(
@@ -145,9 +186,6 @@ class AIModelFieldsMixin(BaseModel):
     price_standard_output_unit_count: Optional[int] = Field(
         None, description="Standard output unit count for pricing"
     )
-    price_reasoning_output_unit_count: Optional[int] = Field(
-        None, description="Reasoning output unit count for pricing"
-    )
 
     # Unit names
     price_input_unit_name: Optional[str] = Field(
@@ -155,6 +193,24 @@ class AIModelFieldsMixin(BaseModel):
     )
     price_output_unit_name: Optional[str] = Field(
         None, description="Output price unit name (e.g., tokens)"
+    )
+
+    # Long-context pricing
+    price_long_context_threshold: Optional[int] = Field(
+        None,
+        description="Input token threshold above which long-context pricing applies",
+    )
+    price_long_context_input: Optional[str] = Field(
+        None,
+        description="Price per input unit when input exceeds long-context threshold",
+    )
+    price_long_context_cached: Optional[str] = Field(
+        None,
+        description="Price per cached input unit when input exceeds long-context threshold",
+    )
+    price_long_context_output: Optional[str] = Field(
+        None,
+        description="Price per output unit when input exceeds long-context threshold",
     )
 
     # Resources and documentation
@@ -173,6 +229,13 @@ class AIModelFieldsMixin(BaseModel):
         None,
         description="Routing config: rpm, tpm, fallback_models, cache, priority, weight",
     )
+
+    @field_validator("reasoning_effort_options")
+    @classmethod
+    def _validate_reasoning_effort_options(
+        cls, value: Optional[list[str]]
+    ) -> Optional[list[str]]:
+        return _normalize_reasoning_effort_options(value)
 
 
 # Mixin for update operations with all fields optional
@@ -202,6 +265,24 @@ class AIModelUpdateFieldsMixin(BaseModel):
     )
     keyterms: Optional[bool] = Field(None, description="Supports keyterms")
     reasoning: Optional[bool] = Field(None, description="Supports reasoning")
+    supports_temperature: Optional[bool] = Field(
+        None, description="Whether the model accepts the `temperature` parameter"
+    )
+    supports_top_p: Optional[bool] = Field(
+        None, description="Whether the model accepts the `top_p` parameter"
+    )
+    supports_max_tokens: Optional[bool] = Field(
+        None, description="Whether the model accepts the `max_tokens` parameter"
+    )
+    reasoning_effort_options: Optional[list[str]] = Field(
+        None,
+        description=(
+            "Arbitrary provider-specific reasoning-effort tokens "
+            "(e.g. 'minimal', 'low', 'medium', 'high', 'max') selectable in "
+            "prompt template variants for this model. "
+            "Null/empty hides the reasoning-effort selector in the prompt template UI."
+        ),
+    )
 
     # Type and default settings
     type: Optional[str] = Field(None, description="Model type (e.g., prompts)")
@@ -216,9 +297,6 @@ class AIModelUpdateFieldsMixin(BaseModel):
     price_input: Optional[str] = Field(None, description="Price per input unit")
     price_output: Optional[str] = Field(None, description="Price per output unit")
     price_cached: Optional[str] = Field(None, description="Price per cached input unit")
-    price_reasoning: Optional[str] = Field(
-        None, description="Price per reasoning output unit"
-    )
 
     # Unit counts for pricing
     price_standard_input_unit_count: Optional[int] = Field(
@@ -230,9 +308,6 @@ class AIModelUpdateFieldsMixin(BaseModel):
     price_standard_output_unit_count: Optional[int] = Field(
         None, description="Standard output unit count for pricing"
     )
-    price_reasoning_output_unit_count: Optional[int] = Field(
-        None, description="Reasoning output unit count for pricing"
-    )
 
     # Unit names
     price_input_unit_name: Optional[str] = Field(
@@ -240,6 +315,24 @@ class AIModelUpdateFieldsMixin(BaseModel):
     )
     price_output_unit_name: Optional[str] = Field(
         None, description="Output price unit name (e.g., tokens)"
+    )
+
+    # Long-context pricing
+    price_long_context_threshold: Optional[int] = Field(
+        None,
+        description="Input token threshold above which long-context pricing applies",
+    )
+    price_long_context_input: Optional[str] = Field(
+        None,
+        description="Price per input unit when input exceeds long-context threshold",
+    )
+    price_long_context_cached: Optional[str] = Field(
+        None,
+        description="Price per cached input unit when input exceeds long-context threshold",
+    )
+    price_long_context_output: Optional[str] = Field(
+        None,
+        description="Price per output unit when input exceeds long-context threshold",
     )
 
     # Resources and documentation
@@ -258,6 +351,13 @@ class AIModelUpdateFieldsMixin(BaseModel):
         None,
         description="Routing config: rpm, tpm, fallback_models, cache, priority, weight",
     )
+
+    @field_validator("reasoning_effort_options")
+    @classmethod
+    def _validate_reasoning_effort_options(
+        cls, value: Optional[list[str]]
+    ) -> Optional[list[str]]:
+        return _normalize_reasoning_effort_options(value)
 
 
 # Pydantic schemas for AI Models

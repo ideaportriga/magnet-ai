@@ -4,6 +4,7 @@ from .chunkers import (
     KreuzbergChunker,
     LLMChunker,
     NoneChunker,
+    PageChunker,
 )
 from .models import ChunkerResult, ChunkerStrategy, ContentConfig
 
@@ -28,6 +29,8 @@ async def split_content(
             chunker = KreuzbergChunker(config)
         case ChunkerStrategy.HTML_LLM:
             chunker = HtmlLlmChunker(config)
+        case ChunkerStrategy.PAGE:
+            chunker = PageChunker(config)
         case _:
             raise ValueError(f"Unsupported strategy: {strategy!r}")
 

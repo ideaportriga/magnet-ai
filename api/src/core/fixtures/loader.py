@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import aiofiles
@@ -154,6 +155,41 @@ class FixtureLoader:
 
         for entity_dir in sorted(entity_dirs, key=_sort_key):
             await self.load_entity_fixtures(entity_dir.name)
+
+        await self._apply_environment_overrides()
+
+    async def _apply_environment_overrides(self) -> None:
+        """Apply environment variable overrides to seeded providers."""
+        endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT")
+        api_key = os.environ.get("AZURE_OPENAI_API_KEY")
+
+        if not endpoint and not api_key:
+            return
+
+        model_class = self._get_model_class("provider")
+        if model_class is None:
+            return
+
+        async with alchemy.get_session() as session:
+            result = await session.execute(
+                select(model_class).where(model_class.system_name == "AZURE_OPEN_AI")
+            )
+            provider = result.scalar_one_or_none()
+            if not provider:
+                await self.logger.awarning(
+                    "AZURE_OPEN_AI provider not found, skipping environment overrides"
+                )
+                return
+
+            if endpoint:
+                provider.endpoint = endpoint
+            if api_key:
+                provider.secrets_encrypted = {"api_key": api_key}
+
+            await session.commit()
+            await self.logger.ainfo(
+                "Applied environment overrides to AZURE_OPEN_AI provider"
+            )
 
     def _get_model_class(self, entity_name: str) -> type | None:
         """Get the model class for an entity name.

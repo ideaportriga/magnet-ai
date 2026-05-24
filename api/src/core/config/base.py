@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, cast
+from urllib.parse import quote as urlquote
 
 from litestar.data_extractors import RequestExtractorField
 from litestar.serialization import decode_json, encode_json
@@ -151,13 +152,17 @@ class DatabaseSettings:
             db_name = self.NAME or "db.sqlite3"
             return f"{driver}:///{db_name}"
 
-        # Build URL for other database types
+        # Build URL for other database types. User and password are
+        # percent-encoded so reserved characters like '@' or ':' in the
+        # password don't corrupt the URL structure.
         auth_part = ""
         if self.USER:
+            encoded_user = urlquote(self.USER, safe="")
             if self.PASSWORD:
-                auth_part = f"{self.USER}:{self.PASSWORD}@"
+                encoded_password = urlquote(self.PASSWORD, safe="")
+                auth_part = f"{encoded_user}:{encoded_password}@"
             else:
-                auth_part = f"{self.USER}@"
+                auth_part = f"{encoded_user}@"
 
         port_part = f":{self.PORT}" if self.PORT else ""
         db_part = f"/{self.NAME}" if self.NAME else ""
@@ -300,6 +305,28 @@ class SchedulerSettings:
     the asyncio event loop — APScheduler 3.x calls jobstore methods synchronously,
     and pool_pre_ping adds a blocking SELECT 1 on every connection checkout.
     Stale connections are handled by pool_recycle instead."""
+    SCHEDULER_DEFAULT_JOB_TIMEOUT: int = field(
+        default_factory=get_env("SCHEDULER_DEFAULT_JOB_TIMEOUT", 1800)
+    )
+    """Default timeout in seconds for scheduled jobs (default: 1800 = 30 minutes)."""
+    SCHEDULER_SYNC_JOB_TIMEOUT: int = field(
+        default_factory=get_env("SCHEDULER_SYNC_JOB_TIMEOUT", 0)
+    )
+    """Timeout in seconds for knowledge source sync jobs (default: 0 = no timeout)."""
+    SCHEDULER_EVALUATION_JOB_TIMEOUT: int = field(
+        default_factory=get_env("SCHEDULER_EVALUATION_JOB_TIMEOUT", 0)
+    )
+    """Timeout in seconds for evaluation jobs (default: 0 = no timeout — rely on
+    per-item timeouts instead, since dataset size is unbounded)."""
+    SCHEDULER_EVALUATION_ITEM_TIMEOUT: int = field(
+        default_factory=get_env("SCHEDULER_EVALUATION_ITEM_TIMEOUT", 180)
+    )
+    """Timeout in seconds for a single test set item evaluation (default: 180 = 3 minutes).
+    Prevents one stuck LLM call from blocking the whole evaluation run."""
+    SCHEDULER_EVALUATION_MAX_CONCURRENCY: int = field(
+        default_factory=get_env("SCHEDULER_EVALUATION_MAX_CONCURRENCY", 10)
+    )
+    """Maximum concurrent test set item evaluations within a single variant run."""
 
     def get_scheduler_database_url(self, db_settings: DatabaseSettings) -> str:
         """Get synchronous database URL for APScheduler jobstore."""

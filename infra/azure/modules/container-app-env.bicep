@@ -11,6 +11,9 @@ param logAnalyticsCustomerId string
 @description('Log Analytics workspace shared key')
 param logAnalyticsSharedKey string
 
+@description('Subnet resource ID for Container Apps VNet integration')
+param infrastructureSubnetId string
+
 var envName = 'cae-magnet-ai-${environment}'
 
 resource containerAppEnv 'Microsoft.App/managedEnvironments@2024-03-01' = {
@@ -23,6 +26,15 @@ resource containerAppEnv 'Microsoft.App/managedEnvironments@2024-03-01' = {
         customerId: logAnalyticsCustomerId
         sharedKey: logAnalyticsSharedKey
       }
+    }
+    workloadProfiles: [
+      {
+        name: 'Consumption'
+        workloadProfileType: 'Consumption'
+      }
+    ]
+    vnetConfiguration: {
+      infrastructureSubnetId: infrastructureSubnetId
     }
     zoneRedundant: false
     peerAuthentication: {

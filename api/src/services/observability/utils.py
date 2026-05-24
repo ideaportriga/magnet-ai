@@ -26,7 +26,11 @@ class ModelPricing:
     input_cached_price_per_unit: float = 0.0
     output_units: str = "tokens"
     output_standard_price_per_unit: float = 0.0
-    output_reasoning_price_per_unit: float = 0.0
+    # Long-context pricing: applied when total input tokens exceed threshold.
+    long_context_threshold: int | None = None
+    long_context_input_price_per_unit: float = 0.0
+    long_context_input_cached_price_per_unit: float = 0.0
+    long_context_output_price_per_unit: float = 0.0
 
 
 def observability_overrides(
@@ -186,15 +190,37 @@ async def get_usage_and_cost_details(
             total=total_tokens,
         )
 
+        # Detect long-context pricing tier (driven by total input token count).
+        is_long_context = (
+            pricing.long_context_threshold is not None
+            and total_input_tokens is not None
+            and total_input_tokens > pricing.long_context_threshold
+        )
+        input_price_per_unit = (
+            pricing.long_context_input_price_per_unit
+            if is_long_context
+            else pricing.input_standard_price_per_unit
+        )
+        cached_price_per_unit = (
+            pricing.long_context_input_cached_price_per_unit
+            if is_long_context
+            else pricing.input_cached_price_per_unit
+        )
+        output_price_per_unit = (
+            pricing.long_context_output_price_per_unit
+            if is_long_context
+            else pricing.output_standard_price_per_unit
+        )
+
         # Calculate input cost
         if input_units == pricing.input_units:
             cached_input_cost = (
-                (pricing.input_cached_price_per_unit * cached_input_tokens)
+                (cached_price_per_unit * cached_input_tokens)
                 if cached_input_tokens is not None
                 else None
             )
             standard_input_cost = (
-                (pricing.input_standard_price_per_unit * standard_input_tokens)
+                (input_price_per_unit * standard_input_tokens)
                 if standard_input_tokens is not None
                 else None
             )
@@ -208,26 +234,19 @@ async def get_usage_and_cost_details(
             standard_input_cost = None
             total_input_cost = None
 
-        # Calculate output cost
+        # Calculate output cost — reasoning tokens are billed at the standard
+        # output rate (no separate reasoning-output price).
         if output_units == pricing.output_units:
-            reasoning_output_cost = (
-                (pricing.output_reasoning_price_per_unit * reasoning_output_tokens)
-                if reasoning_output_tokens is not None
-                else None
-            )
             standard_output_cost = (
-                (pricing.output_standard_price_per_unit * standard_output_tokens)
-                if standard_output_tokens is not None
+                (output_price_per_unit * total_output_tokens)
+                if total_output_tokens is not None
                 else None
             )
-            total_output_cost = (
-                (standard_output_cost + (reasoning_output_cost or 0))
-                if standard_output_cost is not None
-                else None
-            )
-        else:
             reasoning_output_cost = None
+            total_output_cost = standard_output_cost
+        else:
             standard_output_cost = None
+            reasoning_output_cost = None
             total_output_cost = None
 
         # Calculate total cost and prepare cost details
@@ -275,9 +294,23 @@ def _get_model_pricing(model_config: dict | None) -> ModelPricing:
     output_standard_unit_count = int(
         model_config.get("price_standard_output_unit_count") or 1000000,
     )
-    output_reasoning_price_per_unit = float(model_config.get("price_reasoning") or 0.0)
-    output_reasoning_unit_count = int(
-        model_config.get("price_reasoning_output_unit_count") or 1000000,
+
+    # Long-context pricing reuses the standard unit counts (only the per-unit
+    # price differs); a missing threshold disables the long-context tier.
+    raw_long_context_threshold = model_config.get("price_long_context_threshold")
+    long_context_threshold = (
+        int(raw_long_context_threshold)
+        if raw_long_context_threshold not in (None, "")
+        else None
+    )
+    long_context_input_price = float(
+        model_config.get("price_long_context_input") or 0.0
+    )
+    long_context_cached_price = float(
+        model_config.get("price_long_context_cached") or 0.0
+    )
+    long_context_output_price = float(
+        model_config.get("price_long_context_output") or 0.0
     )
 
     return ModelPricing(
@@ -289,8 +322,13 @@ def _get_model_pricing(model_config: dict | None) -> ModelPricing:
         output_units=output_unit_name,
         output_standard_price_per_unit=output_standard_price_per_unit
         / output_standard_unit_count,
-        output_reasoning_price_per_unit=output_reasoning_price_per_unit
-        / output_reasoning_unit_count,
+        long_context_threshold=long_context_threshold,
+        long_context_input_price_per_unit=long_context_input_price
+        / input_standard_unit_count,
+        long_context_input_cached_price_per_unit=long_context_cached_price
+        / input_cached_unit_count,
+        long_context_output_price_per_unit=long_context_output_price
+        / output_standard_unit_count,
     )
 
 

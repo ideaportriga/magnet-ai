@@ -26,28 +26,27 @@
     </kg-dialog-section>
 
     <kg-dialog-section title="Scope" description="Optionally configure which content to sync from SharePoint." icon="folder">
-      <q-btn-toggle
-        v-model="contentType"
-        :options="[
-          { label: 'Documents', value: 'documents' },
-          { label: 'Pages', value: 'pages' },
-          { label: 'Custom', value: 'custom' }
-        ]"
-        toggle-color="primary"
-        unelevated
-        class="q-mb-lg"
-      />
+      <kg-field-row>
+        <q-btn-toggle
+          v-model="contentType"
+          :options="[
+            { label: 'Documents', value: 'documents' },
+            { label: 'Pages', value: 'pages' },
+            { label: 'Custom', value: 'custom' }
+          ]"
+          toggle-color="primary"
+          unelevated
+        />
+      </kg-field-row>
 
-      <div class="q-mb-md">
-        <div class="km-input-label q-pb-xs">Library</div>
+      <kg-field-row label="Library" class="q-mt-md">
         <km-input v-model="library" height="36px" />
-      </div>
+      </kg-field-row>
 
       <template v-if="library !== SITEPAGES_LIBRARY">
-        <div class="q-mb-md">
-          <div class="km-input-label q-pb-xs">Folder Path</div>
+        <kg-field-row label="Folder Path" class="q-mt-md">
           <km-input v-model="folderPath" height="36px" placeholder="MyFolder/SubFolder" />
-        </div>
+        </kg-field-row>
 
         <kg-toggle-field
           v-model="includeSubfolders"
@@ -55,9 +54,13 @@
           description="Sync all nested folders under the selected path"
           class="q-mt-lg"
         />
+
+        <kg-field-row label="File Patterns" hint="Comma-separated glob patterns. Leave empty to sync all files." class="q-mt-lg">
+          <km-input v-model="filePatterns" height="36px" placeholder="*.pdf, *.docx" />
+        </kg-field-row>
       </template>
 
-      <div v-else class="text-grey-7 text-body2">
+      <div v-else class="text-grey-7 text-body2 q-mt-md">
         <div>Will sync all pages from the SitePages library</div>
         <div class="q-mt-sm">
           Tip: SitePages content is processed through the SharePoint Pages content profile for `.aspx` files.
@@ -80,6 +83,7 @@ type SharePointSourceConfig = {
   library?: string | null
   folder_path?: string | null
   recursive?: boolean
+  file_patterns?: string | null
 }
 
 type SharePointSourceRecord = Omit<SourceRow, 'type' | 'config'> & {
@@ -105,6 +109,7 @@ const siteUrl = ref('')
 const folderPath = ref('')
 const library = ref('')
 const includeSubfolders = ref<boolean>(false)
+const filePatterns = ref('')
 const loading = ref(false)
 const error = ref('')
 const showValidation = ref(false)
@@ -156,6 +161,7 @@ watch(
           library.value = cfg.library || DEFAULT_DOCUMENTS_LIBRARY
           folderPath.value = cfg.folder_path || ''
           includeSubfolders.value = !!cfg.recursive
+          filePatterns.value = cfg.file_patterns || ''
         } catch {
           // ignore prefill errors
         }
@@ -165,6 +171,7 @@ watch(
         library.value = DEFAULT_DOCUMENTS_LIBRARY
         folderPath.value = ''
         includeSubfolders.value = false
+        filePatterns.value = ''
       }
     }
   },
@@ -234,6 +241,7 @@ const addSource = async (sourceName: string, schedule: ScheduleFormState) => {
         library: library.value.trim() || null,
         folder_path: folderPath.value.trim() || null,
         recursive: !!includeSubfolders.value,
+        file_patterns: filePatterns.value.trim() || null,
       },
     }
 
@@ -291,6 +299,7 @@ const updateSource = async (sourceName: string, schedule: ScheduleFormState) => 
         library: library.value.trim() || null,
         folder_path: folderPath.value.trim() || null,
         recursive: !!includeSubfolders.value,
+        file_patterns: filePatterns.value.trim() || null,
       },
     }
     const response = await fetchData({
@@ -327,7 +336,7 @@ const onConfirm = async (payload: { sourceName: string; schedule: ScheduleFormSt
 }
 
 // Clear error message when user edits inputs
-watch([siteUrl, contentType, library, folderPath, includeSubfolders], () => {
+watch([siteUrl, contentType, library, folderPath, includeSubfolders, filePatterns], () => {
   if (error.value) error.value = ''
 })
 </script>

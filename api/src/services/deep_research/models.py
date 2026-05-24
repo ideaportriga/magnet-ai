@@ -53,6 +53,29 @@ class WebhookConfig(BaseModel):
     )
 
 
+class ContentProcessingConfig(BaseModel):
+    """Configuration for page content chunked processing."""
+
+    chunk_size: int = Field(
+        default=20_000,
+        ge=5000,
+        le=200_000,
+        description="Max characters per chunk. Pages under this processed as single chunk.",
+    )
+    chunk_overlap: float = Field(
+        default=0.1,
+        ge=0.0,
+        le=0.5,
+        description="Overlap ratio between chunks (0.1 = 10%).",
+    )
+    max_chunks: int = Field(
+        default=5,
+        ge=1,
+        le=50,
+        description="Max chunks per page (hard cost cap).",
+    )
+
+
 class DeepResearchConfig(BaseModel):
     """Configuration for deep research execution."""
 
@@ -85,6 +108,23 @@ class DeepResearchConfig(BaseModel):
         description="Enable parallel tool calls for reasoning step (OpenAI only)",
     )
 
+    # Force report transition message
+    force_report_message: str | None = Field(
+        default=None,
+        max_length=2000,
+        description=(
+            "Optional message injected as a synthetic assistant message when max iterations "
+            "is reached, to transition the LLM from research mode to report generation mode. "
+            "When null, a default English message is used."
+        ),
+    )
+
+    # Content processing configuration
+    content_processing: ContentProcessingConfig = Field(
+        default_factory=ContentProcessingConfig,
+        description="Configuration for page content chunked processing",
+    )
+
     # Webhook configuration (optional)
     webhook: WebhookConfig | None = Field(
         default=None,
@@ -106,6 +146,7 @@ class StepType(str, Enum):
     SEARCH = "search"
     ANALYZE_RESULTS = "analyze_results"
     PROCESS_PAGE = "process_page"
+    FORCE_REPORT = "force_report"
 
 
 class ReasoningStepDetails(BaseModel):
@@ -136,12 +177,47 @@ class AnalyzeResultsStepDetails(BaseModel):
     )
 
 
+class ChunkDetail(BaseModel):
+    """Details for a single chunk processing result."""
+
+    chunk_number: int = Field(description="Chunk number (1-based)")
+    findings: str = Field(description="Findings extracted from this chunk")
+    cost: float | None = Field(default=None, description="Cost of this chunk in USD")
+    latency: float | None = Field(
+        default=None, description="Latency of this chunk in milliseconds"
+    )
+    usage: dict[str, Any] | None = Field(
+        default=None, description="Token usage for this chunk"
+    )
+    error: str | None = Field(
+        default=None, description="Error message if chunk processing failed"
+    )
+
+
+class ForceReportStepDetails(BaseModel):
+    """Details for a force report transition step."""
+
+    message: str = Field(
+        description="The transition message injected into conversation history"
+    )
+
+
 class ProcessPageStepDetails(BaseModel):
     """Details for a process page step."""
 
     url: str = Field(description="URL of the page processed")
     page_title: str = Field(description="Title of the page")
     summary: str = Field(description="Summary of extracted information")
+    chunks_total: int | None = Field(
+        default=None, description="Total chunks the page was split into"
+    )
+    chunks_processed: int | None = Field(
+        default=None, description="Chunks actually processed"
+    )
+    chunk_details: list[ChunkDetail] | None = Field(
+        default=None,
+        description="Per-chunk processing details (only for multi-chunk pages)",
+    )
 
 
 class DeepResearchStep(BaseModel):
@@ -156,6 +232,7 @@ class DeepResearchStep(BaseModel):
         | SearchStepDetails
         | AnalyzeResultsStepDetails
         | ProcessPageStepDetails
+        | ForceReportStepDetails
     ) = Field(description="Step-specific details with strict typing based on step type")
 
     error: str | None = Field(default=None, description="Error message if step failed")
@@ -194,7 +271,7 @@ class DeepResearchMemory(BaseModel):
         default_factory=dict,
         description=(
             "Full analysis results for each URL. "
-            "Keys are URLs, values contain: title, snippet, raw_content, search_query, "
+            "Keys are URLs, values contain: title, snippet, search_query, "
             "is_relevant (bool), relevance_reasoning (str), "
             "processed (bool), processing_summary (str)"
         ),

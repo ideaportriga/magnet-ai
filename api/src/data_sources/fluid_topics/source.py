@@ -5,11 +5,24 @@ from urllib.parse import urlparse, urlunparse
 
 import aiofiles
 import httpx
+from tenacity import (
+    AsyncRetrying,
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential_jitter,
+)
 
 from data_sources.data_source import DataSource
 from data_sources.fluid_topics.types import FluidTopicsDocument
 
 logger = logging.getLogger(__name__)
+
+_ft_retry = retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential_jitter(initial=1, max=10),
+    retry=retry_if_exception_type(httpx.ConnectError),
+)
 
 
 class FluidTopicsDataSource(DataSource[str]):
@@ -86,17 +99,23 @@ class FluidTopicsDataSource(DataSource[str]):
             page = 1
             async with httpx.AsyncClient() as client:
                 while True:
-                    response = await client.post(
-                        self._search_api_url,
-                        json={
-                            "filters": self._filters,
-                            "paging": {
-                                "page": page,
-                                "perPage": 50,
-                            },
-                        },
-                        headers={"x-api-key": self._search_api_key},
-                    )
+                    async for attempt in AsyncRetrying(
+                        stop=stop_after_attempt(3),
+                        wait=wait_exponential_jitter(initial=1, max=10),
+                        retry=retry_if_exception_type(httpx.ConnectError),
+                    ):
+                        with attempt:
+                            response = await client.post(
+                                self._search_api_url,
+                                json={
+                                    "filters": self._filters,
+                                    "paging": {
+                                        "page": page,
+                                        "perPage": 50,
+                                    },
+                                },
+                                headers={"x-api-key": self._search_api_key},
+                            )
                     response.raise_for_status()
                     json_response = response.json()
                     for result in json_response.get("results", []):
@@ -171,6 +190,7 @@ class FluidTopicsDataSource(DataSource[str]):
         )
         return urlunparse(replaced)
 
+    @_ft_retry
     async def get_url(self, file_name: str) -> str:
         if not self._pdf_api_url or not self._search_api_key:
             raise RuntimeError(
@@ -192,6 +212,7 @@ class FluidTopicsDataSource(DataSource[str]):
             traceback.print_exc()
             raise
 
+    @_ft_retry
     async def download_file(self, url: str, local_path: str) -> None:
         """Downloads a file from a given URL to a local path.
 

@@ -1,5 +1,6 @@
 """Startup plugin for handling application initialization."""
 
+import asyncio
 import os
 from logging import getLogger
 from typing import TYPE_CHECKING
@@ -32,6 +33,13 @@ class StartupPlugin(InitPluginProtocol):
         """Application startup handler."""
         logger.info("Starting application...")
 
+        # Install a global asyncio exception handler so background tasks that
+        # die without anyone awaiting them still produce a log line. Without
+        # this, an unhandled exception in a fire-and-forget asyncio.create_task
+        # can disappear silently — which is one of the root causes of the
+        # "long-running extraction stopped without any log" bug.
+        self._install_asyncio_exception_handler()
+
         # Register LiteLLM callback logger for observability
         self._register_litellm_callbacks()
 
@@ -55,6 +63,46 @@ class StartupPlugin(InitPluginProtocol):
 
         # Load additional note-taker runtimes from DB provider references
         await self._initialize_note_taker_registry(app)
+
+        # Reconcile stale 'running' extraction state in DB. The previous
+        # process may have crashed / been SIGKILL'd while an extraction was
+        # in flight, leaving the graph's state forever stuck on 'running'.
+        await self._reconcile_stale_extractions()
+
+    @staticmethod
+    def _install_asyncio_exception_handler() -> None:
+        """Catch-all logging for exceptions raised in detached asyncio tasks."""
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            logger.warning(
+                "No running event loop at startup; "
+                "asyncio exception handler not installed"
+            )
+            return
+
+        def _handler(_loop, context):
+            message = context.get("message") or "asyncio unhandled exception"
+            exc = context.get("exception")
+            task = context.get("task")
+            task_name = task.get_name() if task is not None else None
+            if exc is not None:
+                logger.error(
+                    "asyncio loop error: %s (task=%s)",
+                    message,
+                    task_name,
+                    exc_info=exc,
+                )
+            else:
+                logger.error(
+                    "asyncio loop error: %s (task=%s, context=%r)",
+                    message,
+                    task_name,
+                    context,
+                )
+
+        loop.set_exception_handler(_handler)
+        logger.info("Global asyncio exception handler installed")
 
     @staticmethod
     def _register_litellm_callbacks() -> None:
@@ -196,6 +244,32 @@ class StartupPlugin(InitPluginProtocol):
             logger.info("Teams note-taker runtime initialized.")
         except Exception as exc:
             logger.exception("Failed to initialize Teams note-taker runtime: %s", exc)
+
+    @staticmethod
+    async def _reconcile_stale_extractions() -> None:
+        """Mark orphan 'running'/'syncing' KG state as 'interrupted' on startup."""
+        try:
+            from services.knowledge_graph.llm_entity_extraction import (
+                reconcile_stale_entity_extractions,
+            )
+            from services.knowledge_graph.llm_metadata_extraction import (
+                reconcile_stale_metadata_extractions,
+            )
+            from services.knowledge_graph.sources.sync_services import (
+                reconcile_stale_source_syncs,
+            )
+
+            entity_updated = await reconcile_stale_entity_extractions()
+            metadata_updated = await reconcile_stale_metadata_extractions()
+            sync_updated = await reconcile_stale_source_syncs()
+            logger.info(
+                "Startup reconciliation: entity=%d, metadata=%d, sync=%d row(s) marked interrupted",
+                entity_updated,
+                metadata_updated,
+                sync_updated,
+            )
+        except Exception as exc:
+            logger.exception("Failed to reconcile stale extractions: %s", exc)
 
     async def _initialize_note_taker_registry(self, app: Litestar) -> None:
         """Load all note-taker runtimes from DB records that reference a Provider."""

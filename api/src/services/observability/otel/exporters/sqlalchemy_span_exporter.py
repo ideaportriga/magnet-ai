@@ -12,9 +12,12 @@ from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
 from opentelemetry.trace import format_span_id
 from opentelemetry.trace.status import StatusCode
-from sqlalchemy import select, update
+from litestar.serialization import decode_json
+from sqlalchemy import select, text, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from core.config.base import json_serializer_for_sqlalchemy
 from core.db.models.metric import Metric
 from core.db.models.trace import Trace
 from services.observability.models import (
@@ -45,6 +48,66 @@ from services.observability.utils import (
 )
 
 logger = getLogger(__name__)
+
+
+def _get_async_database_url(db_settings: Any) -> str:
+    """Return a SQLAlchemy async URL for span export."""
+    database_url = db_settings.effective_url
+    if not database_url:
+        raise ValueError(
+            "Database URL is empty. Set DATABASE_URL or configure DB_TYPE/DB_HOST/DB_NAME."
+        )
+
+    driver_replacements = {
+        "postgresql://": "postgresql+asyncpg://",
+        "postgres://": "postgresql+asyncpg://",
+        "postgresql+psycopg2://": "postgresql+asyncpg://",
+        "mysql://": "mysql+aiomysql://",
+        "mysql+pymysql://": "mysql+aiomysql://",
+        "sqlite://": "sqlite+aiosqlite://",
+        "oracle+cx_oracle://": "oracle+oracledb://",
+    }
+    for sync_driver, async_driver in driver_replacements.items():
+        if database_url.startswith(sync_driver):
+            return database_url.replace(sync_driver, async_driver, 1)
+
+    return database_url
+
+
+def _filter_new_spans(
+    existing_spans: list[dict[str, Any]], candidate_spans: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    existing_span_ids = {
+        span.get("id") for span in existing_spans if isinstance(span, dict)
+    }
+    return [
+        span
+        for span in candidate_spans
+        if not isinstance(span, dict) or span.get("id") not in existing_span_ids
+    ]
+
+
+def _get_costs_from_spans(spans: list[dict[str, Any]]) -> dict[str, float]:
+    costs = {"chat": 0.0, "embed": 0.0, "rerank": 0.0, "total": 0.0}
+    for span in spans:
+        if not isinstance(span, dict):
+            continue
+
+        cost_details = span.get("cost_details") or {}
+        span_cost = (cost_details.get("total") if cost_details else None) or 0.0
+        span_type = span.get("type")
+        span_type_value = getattr(span_type, "value", span_type)
+
+        if span_type_value == SpanType.CHAT_COMPLETION.value:
+            costs["chat"] += span_cost
+        elif span_type_value == SpanType.EMBEDDING.value:
+            costs["embed"] += span_cost
+        elif span_type_value == SpanType.RERANKING.value:
+            costs["rerank"] += span_cost
+
+        costs["total"] += span_cost
+
+    return costs
 
 
 def _sanitize_json_data(obj: Any) -> Any:
@@ -194,8 +257,10 @@ class SqlAlchemySpanExporter(SpanExporter):
         # Use a separate engine instance for span export to avoid conflicts
         # with the main application's database connections
         engine = create_async_engine(
-            url=settings.db.URL,
+            url=_get_async_database_url(settings.db),
             future=True,
+            json_serializer=json_serializer_for_sqlalchemy,
+            json_deserializer=decode_json,
             pool_pre_ping=True,
             pool_recycle=3600,
             pool_size=5,  # Smaller pool for background operations
@@ -403,8 +468,8 @@ class SqlAlchemySpanExporter(SpanExporter):
             }
             for key, value in (extra_data or {}).items():
                 full_extra_data[key] = value
-            for key, value in (global_fields.x_attributes.value or {}).items():
-                full_extra_data[f"x_attributes.{key}"] = value
+
+            x_attributes = dict(global_fields.x_attributes.value or {}) or None
 
             # Calculate min start_time and max end_time
             current_start = analytics.get("start_time")
@@ -439,6 +504,7 @@ class SqlAlchemySpanExporter(SpanExporter):
                     "conversation_id": conversation.id.value,
                     "conversation_data": conversation_data,
                     "extra_data": full_extra_data,
+                    "x_attributes": x_attributes,
                 }
             )
             if cost_details:
@@ -480,151 +546,234 @@ class SqlAlchemySpanExporter(SpanExporter):
     async def _upsert_trace(
         self, session: AsyncSession, trace_id: str, trace_patch: TraceToSave
     ):
-        # Check if trace exists
-        result = await session.execute(select(Trace).where(Trace.id == trace_id))
-        existing_trace = result.scalar_one_or_none()
-
-        if existing_trace:
-            # Update existing trace
-            trace_start_time = existing_trace.start_time
-            trace_end_time = existing_trace.end_time
-
-            if trace_start_time and trace_patch.start_time:
-                trace_start_time = _safe_min_datetime(
-                    trace_start_time, trace_patch.start_time
-                )
-            elif trace_patch.start_time:
-                trace_start_time = trace_patch.start_time
-
-            if trace_end_time and trace_patch.end_time:
-                trace_end_time = _safe_max_datetime(
-                    trace_end_time, trace_patch.end_time
-                )
-            elif trace_patch.end_time:
-                trace_end_time = trace_patch.end_time
-
-            # Merge spans
-            existing_spans = existing_trace.spans or []
-            new_spans = []
-
-            # Add idle span if needed
-            if trace_patch.root_span and existing_spans:
-                latest_existing_root_span_end_time = None
-                for existing_span in existing_spans:
-                    if existing_span.get("parent_id") == trace_id:
-                        if latest_existing_root_span_end_time is None:
-                            latest_existing_root_span_end_time = _safe_max_span_time(
-                                existing_span.get("end_time")
-                            )
-                        else:
-                            span_end_time = _safe_max_span_time(
-                                existing_span.get("end_time")
-                            )
-                            if span_end_time:
-                                latest_existing_root_span_end_time = max(
-                                    latest_existing_root_span_end_time,
-                                    span_end_time,
-                                )
-
-                if latest_existing_root_span_end_time:
-                    latest_existing_root_span_end_time = apply_utc_timezone(
-                        latest_existing_root_span_end_time
-                    )
-
-                    # Convert root span start_time to datetime if it's a string
-                    root_span_start_time = _safe_max_span_time(
-                        trace_patch.root_span.get("start_time")
-                    )
-
-                    idle_span = {
-                        "id": format_span_id(RandomIdGenerator().generate_span_id()),
-                        "parent_id": trace_id,
-                        "type": "idle",
-                        "start_time": latest_existing_root_span_end_time,
-                        "end_time": root_span_start_time,
-                        "latency": get_duration(
-                            latest_existing_root_span_end_time,
-                            root_span_start_time,
-                        ),
-                    }
-                    new_spans.append(idle_span)
-
-            new_spans.extend(trace_patch.spans)
-            all_spans = existing_spans + new_spans
-
-            # Update cost details
-            existing_cost_details = existing_trace.cost_details or {
-                "chat": 0.0,
-                "embed": 0.0,
-                "rerank": 0.0,
-                "total": 0.0,
-            }
-
-            updated_cost_details = {
-                "chat": existing_cost_details.get("chat", 0.0) + trace_patch.chat_cost,
-                "embed": existing_cost_details.get("embed", 0.0)
-                + trace_patch.embed_cost,
-                "rerank": existing_cost_details.get("rerank", 0.0)
-                + trace_patch.rerank_cost,
-                "total": existing_cost_details.get("total", 0.0)
-                + trace_patch.total_cost,
-            }
-
-            # Update the existing trace
+        # Slim metadata SELECT: deliberately excludes the `spans` JSONB column.
+        # Reading `spans` round-trips an unbounded blob that grows with every
+        # export batch, which causes Postgres `printtup` OOM on long traces.
+        meta_row = (
             await session.execute(
-                update(Trace)
-                .where(Trace.id == trace_id)
-                .values(
-                    name=existing_trace.name or trace_patch.name,
-                    type=existing_trace.type or trace_patch.type,
-                    # Propagate error: if any new span is error, override trace status
-                    status=(
-                        "error"
-                        if trace_patch.status == "error"
-                        else existing_trace.status
-                    ),
-                    channel=existing_trace.channel or trace_patch.channel,
-                    source=existing_trace.source or trace_patch.source,
-                    extra_data=existing_trace.extra_data or trace_patch.extra_data,
-                    user_id=existing_trace.user_id or trace_patch.user_id,
-                    start_time=trace_start_time,
-                    end_time=trace_end_time,
-                    latency=get_duration(
-                        _to_datetime(trace_start_time), _to_datetime(trace_end_time)
-                    ),
-                    cost_details=updated_cost_details,
-                    spans=all_spans if new_spans else existing_trace.spans,
-                )
+                select(
+                    Trace.name,
+                    Trace.type,
+                    Trace.status,
+                    Trace.channel,
+                    Trace.source,
+                    Trace.user_id,
+                    Trace.start_time,
+                    Trace.end_time,
+                    Trace.extra_data,
+                ).where(Trace.id == trace_id)
             )
-        else:
-            # Create new trace
-            cost_details = {
+        ).one_or_none()
+
+        if meta_row is not None:
+            await self._update_existing_trace(session, trace_id, trace_patch, meta_row)
+            return
+
+        # Create new trace
+        cost_details = {
+            "chat": trace_patch.chat_cost,
+            "embed": trace_patch.embed_cost,
+            "rerank": trace_patch.rerank_cost,
+            "total": trace_patch.total_cost,
+        }
+
+        spans = list(trace_patch.spans) if trace_patch.spans else []
+
+        trace_values = {
+            "id": trace_id,
+            "name": trace_patch.name or "Unknown",
+            "type": trace_patch.type or "unknown",
+            "status": trace_patch.status or "success",
+            "channel": trace_patch.channel,
+            "source": trace_patch.source,
+            "user_id": trace_patch.user_id,
+            "start_time": trace_patch.start_time,
+            "end_time": trace_patch.end_time,
+            "latency": get_duration(trace_patch.start_time, trace_patch.end_time),
+            "cost_details": cost_details,
+            "extra_data": trace_patch.extra_data,
+            "spans": spans,
+        }
+
+        if session.get_bind().dialect.name == "postgresql":
+            result = await session.execute(
+                pg_insert(Trace)
+                .values(**trace_values)
+                .on_conflict_do_nothing(index_elements=["id"])
+            )
+            if result.rowcount == 0:
+                # Another writer beat us to the insert — merge into the now-existing row.
+                meta_row = (
+                    await session.execute(
+                        select(
+                            Trace.name,
+                            Trace.type,
+                            Trace.status,
+                            Trace.channel,
+                            Trace.source,
+                            Trace.user_id,
+                            Trace.start_time,
+                            Trace.end_time,
+                            Trace.extra_data,
+                        ).where(Trace.id == trace_id)
+                    )
+                ).one_or_none()
+                if meta_row is not None:
+                    await self._update_existing_trace(
+                        session, trace_id, trace_patch, meta_row
+                    )
+            return
+
+        session.add(Trace(**trace_values))
+
+    async def _update_existing_trace(
+        self,
+        session: AsyncSession,
+        trace_id: str,
+        trace_patch: TraceToSave,
+        meta_row: Any,
+    ):
+        # Dedup candidate spans by ID server-side so we never read the full
+        # `spans` blob over the wire.
+        candidate_ids = [
+            s.get("id")
+            for s in trace_patch.spans
+            if isinstance(s, dict) and s.get("id")
+        ]
+        existing_ids: set[str] = set()
+        if candidate_ids:
+            dupe_result = await session.execute(
+                text(
+                    "SELECT s->>'id' AS span_id "
+                    "FROM traces, jsonb_array_elements(spans) s "
+                    "WHERE traces.id = :trace_id "
+                    "AND s->>'id' = ANY(CAST(:ids AS text[]))"
+                ),
+                {"trace_id": trace_id, "ids": candidate_ids},
+            )
+            existing_ids = {row[0] for row in dupe_result if row[0] is not None}
+
+        trace_spans_to_add = [
+            s
+            for s in trace_patch.spans
+            if not isinstance(s, dict) or s.get("id") not in existing_ids
+        ]
+
+        new_spans: list[dict[str, Any]] = []
+
+        # Idle-span detection: ask Postgres for the latest end_time among
+        # existing root-parented spans rather than scanning the JSONB in Python.
+        if trace_patch.root_span and trace_spans_to_add:
+            anchor_result = await session.execute(
+                text(
+                    "SELECT max((s->>'end_time')::timestamptz) "
+                    "FROM traces, jsonb_array_elements(spans) s "
+                    "WHERE traces.id = :trace_id "
+                    "AND s->>'parent_id' = :trace_id"
+                ),
+                {"trace_id": trace_id},
+            )
+            latest_existing_root_span_end_time = anchor_result.scalar()
+
+            if latest_existing_root_span_end_time:
+                latest_existing_root_span_end_time = apply_utc_timezone(
+                    latest_existing_root_span_end_time
+                )
+                root_span_start_time = _safe_max_span_time(
+                    trace_patch.root_span.get("start_time")
+                )
+                idle_span = {
+                    "id": format_span_id(RandomIdGenerator().generate_span_id()),
+                    "parent_id": trace_id,
+                    "type": "idle",
+                    "start_time": latest_existing_root_span_end_time,
+                    "end_time": root_span_start_time,
+                    "latency": get_duration(
+                        latest_existing_root_span_end_time,
+                        root_span_start_time,
+                    ),
+                }
+                new_spans.append(idle_span)
+
+        new_spans.extend(trace_spans_to_add)
+
+        costs_to_add = (
+            {
                 "chat": trace_patch.chat_cost,
                 "embed": trace_patch.embed_cost,
                 "rerank": trace_patch.rerank_cost,
                 "total": trace_patch.total_cost,
             }
+            if len(trace_spans_to_add) == len(trace_patch.spans)
+            else _get_costs_from_spans(trace_spans_to_add)
+        )
 
-            spans = []
-            if trace_patch.spans:
-                spans.extend(trace_patch.spans)
+        new_status = "error" if trace_patch.status == "error" else meta_row.status
 
-            new_trace = Trace(
-                id=trace_id,
-                name=trace_patch.name or "Unknown",
-                type=trace_patch.type or "unknown",
-                status=trace_patch.status or "success",
-                channel=trace_patch.channel,
-                source=trace_patch.source,
-                user_id=trace_patch.user_id,
-                start_time=trace_patch.start_time,
-                end_time=trace_patch.end_time,
-                latency=get_duration(trace_patch.start_time, trace_patch.end_time),
-                cost_details=cost_details,
-                extra_data=trace_patch.extra_data,
-                spans=spans,
+        merged_start = _safe_min_datetime(meta_row.start_time, trace_patch.start_time)
+        merged_end = _safe_max_datetime(meta_row.end_time, trace_patch.end_time)
+        merged_latency = (
+            get_duration(_to_datetime(merged_start), _to_datetime(merged_end))
+            if merged_start and merged_end
+            else None
+        )
+
+        # Build the UPDATE. Append spans server-side via JSONB `||` and roll
+        # cost_details forward in-place — `spans` never leaves Postgres.
+        new_spans_json = (
+            json_serializer_for_sqlalchemy(new_spans) if new_spans else None
+        )
+
+        params: dict[str, Any] = {
+            "trace_id": trace_id,
+            "name": meta_row.name or trace_patch.name,
+            "type": meta_row.type or trace_patch.type,
+            "status": new_status,
+            "channel": meta_row.channel or trace_patch.channel,
+            "source": meta_row.source or trace_patch.source,
+            "user_id": meta_row.user_id or trace_patch.user_id,
+            "start_time": merged_start,
+            "end_time": merged_end,
+            "latency": merged_latency,
+            "chat_cost": costs_to_add["chat"],
+            "embed_cost": costs_to_add["embed"],
+            "rerank_cost": costs_to_add["rerank"],
+            "total_cost": costs_to_add["total"],
+        }
+
+        set_clauses = [
+            "name = :name",
+            "type = :type",
+            "status = :status",
+            "channel = :channel",
+            "source = :source",
+            "user_id = :user_id",
+            "start_time = :start_time",
+            "end_time = :end_time",
+            "latency = :latency",
+            "cost_details = jsonb_build_object("
+            "'chat', COALESCE((cost_details->>'chat')::float8, 0) + :chat_cost, "
+            "'embed', COALESCE((cost_details->>'embed')::float8, 0) + :embed_cost, "
+            "'rerank', COALESCE((cost_details->>'rerank')::float8, 0) + :rerank_cost, "
+            "'total', COALESCE((cost_details->>'total')::float8, 0) + :total_cost)",
+        ]
+
+        if meta_row.extra_data is None and trace_patch.extra_data is not None:
+            set_clauses.append("extra_data = CAST(:extra_data AS jsonb)")
+            params["extra_data"] = json_serializer_for_sqlalchemy(
+                trace_patch.extra_data
             )
-            session.add(new_trace)
+
+        if new_spans_json is not None:
+            set_clauses.append(
+                "spans = COALESCE(spans, '[]'::jsonb) || CAST(:new_spans AS jsonb)"
+            )
+            params["new_spans"] = new_spans_json
+
+        await session.execute(
+            text(f"UPDATE traces SET {', '.join(set_clauses)} WHERE id = :trace_id"),
+            params,
+        )
 
     async def _upsert_metrics(self, session: AsyncSession, metric_id: str, patch: dict):
         # Filter out None values
@@ -680,8 +829,19 @@ class SqlAlchemySpanExporter(SpanExporter):
                 if hasattr(Metric, key):
                     metric_data[key] = value
 
-            new_metric = Metric(**metric_data)
-            session.add(new_metric)
+            if session.get_bind().dialect.name == "postgresql":
+                result = await session.execute(
+                    pg_insert(Metric)
+                    .values(**metric_data)
+                    .on_conflict_do_nothing(index_elements=["id"])
+                )
+                if result.rowcount == 0:
+                    await self._upsert_metrics(
+                        session, metric_id, patch | {"cost": cost}
+                    )
+                return
+
+            session.add(Metric(**metric_data))
 
 
 def _get_error_message(span: ReadableSpan) -> str:

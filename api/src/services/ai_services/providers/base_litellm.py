@@ -159,6 +159,7 @@ class BaseLiteLLMProvider(AIProviderInterface):
         tool_choice: str | dict | None = None,
         model_config: dict | None = None,
         parallel_tool_calls: bool | None = None,
+        reasoning_effort: str | None = None,
     ) -> ChatCompletion:
         """
         Create chat completion using LiteLLM with routing_config support.
@@ -187,6 +188,7 @@ class BaseLiteLLMProvider(AIProviderInterface):
             model_config=model_config,
             parallel_tool_calls=parallel_tool_calls,
             routing_config=routing_config,
+            reasoning_effort=reasoning_effort,
         )
 
         response = await self._execute_completion(params, routing_config, model_config)
@@ -213,6 +215,7 @@ class BaseLiteLLMProvider(AIProviderInterface):
         tool_choice: str | dict | None = None,
         model_config: dict | None = None,
         parallel_tool_calls: bool | None = None,
+        reasoning_effort: str | None = None,
     ) -> AsyncIterator[ChatCompletionChunk]:
         """
         Stream chat completion chunks using LiteLLM.
@@ -238,6 +241,7 @@ class BaseLiteLLMProvider(AIProviderInterface):
             model_config=model_config,
             parallel_tool_calls=parallel_tool_calls,
             routing_config=routing_config,
+            reasoning_effort=reasoning_effort,
         )
 
         # Enable streaming
@@ -288,6 +292,7 @@ class BaseLiteLLMProvider(AIProviderInterface):
         model_config: dict | None,
         parallel_tool_calls: bool | None,
         routing_config: RoutingConfig,
+        reasoning_effort: str | None = None,
     ) -> dict[str, Any]:
         """Build the full parameter dict for a chat completion call.
 
@@ -327,20 +332,37 @@ class BaseLiteLLMProvider(AIProviderInterface):
         # Check if reasoning model (for reasoning_effort parameter)
         is_reasoning_model = model_config and model_config.get("reasoning")
 
-        # Add optional parameters based on model support
-        if temperature is not None:
-            if is_reasoning_model:
-                # Reasoning models use reasoning_effort instead of temperature
-                params["reasoning_effort"] = (model_config or {}).get(
-                    "reasoning_effort", "medium"
-                )
-            elif "temperature" in supported_params:
-                params["temperature"] = temperature
+        # Per-model parameter flags configured in the Model card → Capabilities
+        # tab. Default to True so models without the flag set keep their old
+        # behavior. False means the parameter is stripped from the outgoing call
+        # even if the caller still has a stale value in their variant.
+        supports_temperature = (
+            model_config.get("supports_temperature", True) if model_config else True
+        )
+        supports_top_p = (
+            model_config.get("supports_top_p", True) if model_config else True
+        )
+        supports_max_tokens = (
+            model_config.get("supports_max_tokens", True) if model_config else True
+        )
 
-        if top_p is not None and "top_p" in supported_params:
+        # Add optional parameters based on model support.
+        # Reasoning models use reasoning_effort instead of temperature; if the
+        # caller didn't pass one, omit the param and let the provider default.
+        if is_reasoning_model and reasoning_effort:
+            params["reasoning_effort"] = reasoning_effort
+
+        if (
+            temperature is not None
+            and "temperature" in supported_params
+            and supports_temperature
+        ):
+            params["temperature"] = temperature
+
+        if top_p is not None and "top_p" in supported_params and supports_top_p:
             params["top_p"] = top_p
 
-        if max_tokens is not None:
+        if max_tokens is not None and supports_max_tokens:
             # Prefer max_completion_tokens for newer models that support it.
             # litellm reports both params as supported for most models, but newer
             # OpenAI models (o3-mini, o4-mini, gpt-5, etc.) reject max_tokens.
@@ -416,6 +438,7 @@ class BaseLiteLLMProvider(AIProviderInterface):
                 if k not in ("api_key", "api_base", "api_version")
             }
             router_params["model"] = model_system_name
+            effective_params = router_params
             response = await router.acompletion(**router_params)
         else:
             if model_system_name:
@@ -423,9 +446,66 @@ class BaseLiteLLMProvider(AIProviderInterface):
                     "Model '%s' not in Router, using direct litellm call",
                     model_system_name,
                 )
+            effective_params = params
             response = await litellm.acompletion(**params)
 
+        self._attach_litellm_payloads_to_span(effective_params, response)
+
         return cast(ChatCompletion, response)
+
+    @staticmethod
+    def _attach_litellm_payloads_to_span(params: dict[str, Any], response: Any) -> None:
+        """Attach the actual litellm request/response payloads to the current
+        OTEL span as extra_data, for the Traces UI to render.
+
+        Captured as close to the litellm boundary as possible so the trace
+        reflects what was really sent and received (not a downstream
+        reconstruction). ``messages`` and assistant message content/tool_calls
+        are omitted to avoid duplicating data already shown in the Messages
+        section of the UI and to keep span size bounded.
+
+        Sensitive params (``api_key``) are stripped before attaching.
+        """
+        try:
+            from services.observability import observability_context
+
+            redacted_request = {
+                k: v for k, v in params.items() if k not in ("messages", "api_key")
+            }
+            messages = params.get("messages") or []
+            redacted_request["_messages_count"] = (
+                len(messages) if isinstance(messages, list) else 0
+            )
+
+            response_dump = (
+                response.model_dump() if hasattr(response, "model_dump") else None
+            )
+            hidden = getattr(response, "_hidden_params", None) or {}
+            captured_hidden = {
+                k: hidden.get(k)
+                for k in (
+                    "cache_hit",
+                    "model_id",
+                    "response_cost",
+                    "additional_headers",
+                )
+                if k in hidden
+            }
+
+            observability_context.update_current_span(
+                extra_data={
+                    "litellm_request": redacted_request,
+                    "litellm_response": {
+                        "raw": response_dump,
+                        "hidden_params": captured_hidden,
+                    },
+                },
+            )
+        except Exception:
+            logger.debug(
+                "Failed to attach litellm payloads to current span",
+                exc_info=True,
+            )
 
     async def get_embeddings(
         self,

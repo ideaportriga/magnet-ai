@@ -5,7 +5,7 @@ from uuid import UUID
 
 from advanced_alchemy.base import UUIDv7AuditBase
 from advanced_alchemy.types import GUID, JsonB
-from sqlalchemy import ForeignKey, Integer, String
+from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
@@ -67,19 +67,25 @@ class KnowledgeGraphSource(UUIDv7AuditBase):
         comment="Source status",
     )
 
-    # Number of documents from this source
-    documents_count: Mapped[Optional[int]] = mapped_column(
-        Integer,
-        nullable=True,
-        default=0,
-        comment="Number of documents from this source",
-    )
-
     # Last sync timestamp
     last_sync_at: Mapped[Optional[str]] = mapped_column(
         String(100),
         nullable=True,
         comment="Last sync timestamp",
+    )
+
+    # Snapshot of the most recent completed sync (counters, timings, top errors)
+    last_sync_stats: Mapped[Optional[dict[str, Any]]] = mapped_column(
+        JsonB,
+        nullable=True,
+        comment="Snapshot of the most recent completed sync (counters, timings, errors)",
+    )
+
+    # Live progress for an in-flight sync; cleared on finalize
+    sync_progress: Mapped[Optional[dict[str, Any]]] = mapped_column(
+        JsonB,
+        nullable=True,
+        comment="Live progress for an in-flight sync (phase, processed/total)",
     )
 
     # Discovered metadata fields observed for this source

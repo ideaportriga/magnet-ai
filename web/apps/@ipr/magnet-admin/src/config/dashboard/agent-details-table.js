@@ -113,6 +113,25 @@ const controls = {
     type: 'component',
     component: markRaw(AgentFeedback),
   },
+  ['conversation_data.substandart_result_reason']: {
+    name: 'conversation_data.substandart_result_reason',
+    label: 'Substandard Result',
+    field: (row) => row?.conversation_data?.substandart_result_reason,
+    readonly: true,
+    align: 'left',
+    display: true,
+    sortable: true,
+    format: (val) => {
+      const map = {
+        user_input_issue: 'User input issue',
+        topic_selection_issue: 'Topic selection issue',
+        action_selection_issue: 'Action selection issue',
+        action_execution_issue: 'Action execution issue',
+        other: 'Other',
+      }
+      return val ? (map[val] ?? val) : '-'
+    },
+  },
 
   ['conversation_data.language']: {
     name: 'conversation_data.language',

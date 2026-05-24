@@ -86,6 +86,36 @@ async def list_evaluations_with_aggregations(
                 WHERE elem->'usage'->>'cached_tokens' IS NOT NULL
             ) as average_cached_tokens,
             (
+                SELECT COALESCE(AVG((elem->>'cost')::float), 0)
+                FROM jsonb_array_elements(
+                    CASE 
+                        WHEN jsonb_typeof(e.results) = 'array' THEN e.results
+                        ELSE '[]'::jsonb
+                    END
+                ) elem
+                WHERE elem->>'cost' IS NOT NULL
+            ) as average_cost,
+            (
+                SELECT COALESCE(SUM((elem->>'cost')::float), 0)
+                FROM jsonb_array_elements(
+                    CASE 
+                        WHEN jsonb_typeof(e.results) = 'array' THEN e.results
+                        ELSE '[]'::jsonb
+                    END
+                ) elem
+                WHERE elem->>'cost' IS NOT NULL
+            ) as total_cost,
+            (
+                SELECT COUNT(*)
+                FROM jsonb_array_elements(
+                    CASE 
+                        WHEN jsonb_typeof(e.results) = 'array' THEN e.results
+                        ELSE '[]'::jsonb
+                    END
+                ) elem
+                WHERE elem->>'cost' IS NOT NULL
+            ) as results_with_cost,
+            (
                 SELECT COUNT(*)
                 FROM jsonb_array_elements(
                     CASE 
@@ -112,6 +142,9 @@ async def list_evaluations_with_aggregations(
         average_completion_tokens,
         average_prompt_tokens,
         average_cached_tokens,
+        average_cost,
+        total_cost,
+        results_with_cost,
         records_count,
         results_with_score
     FROM evaluation_results
@@ -137,6 +170,9 @@ async def list_evaluations_with_aggregations(
             "average_completion_tokens": float(row.average_completion_tokens or 0),
             "average_prompt_tokens": float(row.average_prompt_tokens or 0),
             "average_cached_tokens": float(row.average_cached_tokens or 0),
+            "average_cost": float(row.average_cost or 0),
+            "total_cost": float(row.total_cost or 0),
+            "results_with_cost": int(row.results_with_cost or 0),
             "records_count": int(row.records_count or 0),
             "results_with_score": int(row.results_with_score or 0),
         }

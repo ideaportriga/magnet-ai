@@ -143,7 +143,7 @@ export default {
     async createKnowledgeProvider() {
       if (!this.validateFields()) return
 
-      const result = await this.create(JSON.stringify(this.newRow))
+      const result = await this.create(this.newRow)
 
       if (!result?.id) {
         return

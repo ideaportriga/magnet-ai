@@ -2,14 +2,15 @@ import logging
 import re
 import time
 from abc import ABC, abstractmethod
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
 from litestar.exceptions import ClientException
-from sqlalchemy import select, text
+from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.config.app import alchemy
 from core.db.models.knowledge_graph import (
     KnowledgeGraphChunk,
     KnowledgeGraphSource,
@@ -21,6 +22,7 @@ from core.domain.knowledge_graph.services import (
     KnowledgeGraphDocumentService,
 )
 from open_ai.utils_new import get_embeddings
+from utils.datetime_utils import utc_now_isoformat
 
 from ..chunk_indexing import get_indexing_config, prepare_embedding_parts
 from ..content_config_services import get_graph_embedding_model
@@ -46,7 +48,9 @@ class AbstractDataSource(ABC):
             self.type = SourceType(source.type)
 
     @abstractmethod
-    async def sync_source(self, db_session: AsyncSession) -> dict[str, Any]: ...
+    async def sync_source(
+        self, db_session: AsyncSession, *, from_scratch: bool = False
+    ) -> dict[str, Any]: ...
 
     async def get_or_create_source(
         self,
@@ -71,7 +75,6 @@ class AbstractDataSource(ABC):
                 graph_id=graph_id,
                 config={},
                 status=status,
-                documents_count=0,
             )
             db_session.add(source_entity)
             await db_session.commit()
@@ -237,6 +240,25 @@ class AbstractDataSource(ABC):
         if not options:
             return document_title, chunks
 
+        try:
+            chunk_max_size = int(options.get("chunk_max_size", 18000))
+        except Exception:  # noqa: BLE001
+            chunk_max_size = 18000
+
+        if chunk_max_size < 0:
+            chunk_max_size = 0
+
+        skip_truncation = False
+        if config and config.chunker:
+            strategy = config.chunker.get("strategy")
+            if strategy in (
+                ChunkerStrategy.NONE,
+                "none",
+                ChunkerStrategy.HTML_LLM,
+                "html_llm",
+            ):
+                skip_truncation = True
+
         source_name = self.source.name if self.source else ""
         source_date = (
             source_modified_at.date().isoformat()
@@ -267,8 +289,12 @@ class AbstractDataSource(ABC):
         for index, chunk in enumerate(chunks, start=1):
             content = chunk.content or chunk.embedded_content or ""
             embedded_content = chunk.embedded_content or content
-            chunk.content = content
-            chunk.embedded_content = embedded_content
+            if skip_truncation:
+                chunk.content = content
+                chunk.embedded_content = embedded_content
+            else:
+                chunk.content = content[:chunk_max_size]
+                chunk.embedded_content = embedded_content[:chunk_max_size]
 
             if (
                 not isinstance(chunk.embedded_content, str)
@@ -457,24 +483,35 @@ class AbstractDataSource(ABC):
                 chunks_to_insert = result.chunks
 
                 if len(chunks_to_insert) == 0:
-                    status_msg = (
-                        "No chunks were generated for this document during processing."
-                    )
-                    await self._update_document_status(
-                        db_session,
-                        docs_table=docs_table,
-                        doc_id=doc_id,
-                        status="failed",
-                        status_message=status_msg,
-                        processing_time=float(time.perf_counter() - start_time),
-                    )
-                    await db_session.commit()
-                    logger.warning(
-                        "No chunks generated for document '%s' (id=%s), strategy=%s",
+                    logger.info(
+                        "No chunks generated for document '%s' (id=%s), strategy=%s — marking completed",
                         document.get("name"),
                         doc_id,
                         chunker_strategy,
                     )
+                    # Still persist document-level metadata (title, link, etc.)
+                    # so the document is not left without a title.
+                    try:
+                        await self.document_service.update_document(
+                            db_session,
+                            graph_id=document["graph_id"],
+                            document_id=doc_id,
+                            fields={
+                                "title": document_title,
+                                "external_link": external_link,
+                            },
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        logger.warning("Failed to persist document metadata: %s", exc)
+                    await self._update_document_status(
+                        db_session,
+                        docs_table=docs_table,
+                        doc_id=doc_id,
+                        status="completed",
+                        status_message=None,
+                        processing_time=float(time.perf_counter() - start_time),
+                    )
+                    await db_session.commit()
                     return {"chunks_count": 0}
 
                 # Prefer explicit metadata provided by the caller. Otherwise take the
@@ -633,7 +670,12 @@ class AbstractDataSource(ABC):
     async def _finalize(
         self, db_session: AsyncSession, *, counters: SyncCounters
     ) -> None:
-        """Finalize source status, timestamps, and document count after a sync run."""
+        """Finalize source status and timestamp after a sync run.
+
+        Uses a fresh, short-lived session for the final UPDATE so an
+        invalidated long-lived ``db_session`` (e.g. asyncpg connection dropped
+        mid-sync) does not prevent us from recording the outcome.
+        """
 
         # Determine final status based on sync results.
         #
@@ -642,27 +684,116 @@ class AbstractDataSource(ABC):
         # - partial: some succeeded, some failed
         # - failed: nothing succeeded and at least one failed
         if counters.synced > 0 and counters.failed == 0:
-            self.source.status = "completed"
+            final_status = "completed"
         elif counters.synced > 0 and counters.failed > 0:
-            self.source.status = "partial"
+            final_status = "partial"
         elif counters.synced == 0 and counters.failed > 0:
-            self.source.status = "failed"
-        elif counters.synced == 0 and counters.failed == 0:
-            # Nothing found or everything skipped
-            self.source.status = "completed"
+            final_status = "failed"
+        else:
+            final_status = "completed"
 
-        self.source.last_sync_at = datetime.now(timezone.utc).isoformat()
+        last_sync_at = utc_now_isoformat()
+
+        # Keep in-memory ORM attributes consistent for any caller still
+        # inspecting `self.source` after this method returns.
+        self.source.status = final_status
+        self.source.last_sync_at = last_sync_at
+
+        # Build a snapshot of this run for the UI: counters + timings + top errors.
+        # `sync_progress.started_at` was written at sync entry; preserving it lets
+        # us compute a real duration even though `_finalize` runs in a fresh session.
+        started_at = None
+        progress = self.source.sync_progress or {}
+        if isinstance(progress, dict):
+            started_at = progress.get("started_at")
+        duration_seconds: float | None = None
+        if started_at:
+            try:
+                from datetime import datetime as _dt
+
+                started_dt = _dt.fromisoformat(str(started_at).replace("Z", "+00:00"))
+                completed_dt = _dt.fromisoformat(last_sync_at.replace("Z", "+00:00"))
+                duration_seconds = (completed_dt - started_dt).total_seconds()
+            except Exception:  # noqa: BLE001
+                duration_seconds = None
+
+        last_sync_stats: dict[str, Any] = {
+            "started_at": started_at,
+            "completed_at": last_sync_at,
+            "duration_seconds": duration_seconds,
+            "outcome": final_status,
+            "total_found": counters.total_found,
+            "synced": counters.synced,
+            "failed": counters.failed,
+            "skipped": counters.skipped,
+            "unchanged_skipped": counters.unchanged_skipped,
+            "metadata_only_updated": counters.metadata_only_updated,
+            "content_changed": counters.content_changed,
+            "deleted": counters.deleted,
+        }
+
+        self.source.last_sync_stats = last_sync_stats
+        self.source.sync_progress = None
+
         try:
-            docs_table = docs_table_name(self.source.graph_id)
-            count_result = await db_session.execute(
-                text(f"SELECT COUNT(*) FROM {docs_table} WHERE source_id = :sid"),
-                {"sid": str(self.source.id)},
-            )
-            self.source.documents_count = int(count_result.scalar_one() or 0)
+            async with alchemy.get_session() as fresh:
+                await fresh.execute(
+                    update(KnowledgeGraphSource)
+                    .where(KnowledgeGraphSource.id == self.source.id)
+                    .values(
+                        status=final_status,
+                        last_sync_at=last_sync_at,
+                        last_sync_stats=last_sync_stats,
+                        sync_progress=None,
+                    )
+                )
+                await fresh.commit()
         except Exception:
             logger.warning(
-                "Failed to recalculate documents_count for source %s",
+                "Failed to persist final source status for %s",
                 str(self.source.id),
             )
 
-        await db_session.commit()
+    async def _collect_top_failed_documents(
+        self, *, limit: int = 10
+    ) -> list[dict[str, Any]]:
+        """Fetch the most recently failed documents for this source for the UI.
+
+        Best-effort: pipeline finalization must not be blocked by a query
+        failure (e.g. graph without a docs table yet).
+        """
+        if not self.source:
+            return []
+        try:
+            docs_table = docs_table_name(self.source.graph_id)
+        except Exception:  # noqa: BLE001
+            return []
+
+        try:
+            async with alchemy.get_session() as fresh:
+                result = await fresh.execute(
+                    text(
+                        f"""
+                        SELECT
+                            COALESCE(title, name) AS name,
+                            status_message
+                        FROM {docs_table}
+                        WHERE source_id = :sid
+                          AND status IN ('failed', 'error')
+                        ORDER BY updated_at DESC NULLS LAST
+                        LIMIT :lim
+                        """
+                    ),
+                    {"sid": str(self.source.id), "lim": int(limit)},
+                )
+                rows = result.all()
+                errors: list[dict[str, Any]] = []
+                for name, message in rows:
+                    msg = str(message or "")
+                    # Keep the JSONB column small.
+                    if len(msg) > 500:
+                        msg = msg[:497] + "..."
+                    errors.append({"document": str(name or ""), "message": msg})
+                return errors
+        except Exception:  # noqa: BLE001
+            return []

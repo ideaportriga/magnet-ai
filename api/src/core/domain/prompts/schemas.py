@@ -66,6 +66,15 @@ class PromptVariantSchema(BaseModel):
         default=PromptObservabilityLevel.FULL,
         description="Level of observability logging: 'none' (no logging), 'metadata-only' (tokens/cost/latency only), 'full' (includes input/output)",
     )
+    reasoning_effort: Optional[str] = Field(
+        None,
+        description=(
+            "Reasoning-effort token for reasoning-capable models. The set of "
+            "valid values is provider/model specific and is configured per AI "
+            "model via `reasoning_effort_options`. Ignored for non-reasoning models."
+        ),
+        alias="reasoningEffort",
+    )
 
 
 # Pydantic schemas for serialization with variant validation

@@ -265,6 +265,34 @@
                                   .q-pa-md.bg-white.border-radius-4.q-mt-xs.summary-text
                                     | {{ step.details.summary }}
 
+                                //- Chunk Processing Details (for multi-chunk pages)
+                                .q-mt-md(v-if='step.details.chunk_details && step.details.chunk_details.length > 0')
+                                  .row.items-center.q-gap-sm.q-mb-sm
+                                    q-icon(name='view_module', color='blue-grey', size='20px')
+                                    .text-weight-bold.text-grey-8 Chunks Processed:
+                                    q-chip(size='sm', color='blue-grey-2', text-color='blue-grey-8')
+                                      | {{ step.details.chunks_processed }}/{{ step.details.chunks_total }}
+                                  q-expansion-item.bg-grey-2.border-radius-4(
+                                    dense,
+                                    label='View chunk details',
+                                    icon='unfold_more'
+                                  )
+                                    .q-pa-sm
+                                      .q-mb-sm.q-pa-sm.bg-white.border-radius-4(
+                                        v-for='chunk in step.details.chunk_details',
+                                        :key='chunk.chunk_number'
+                                      )
+                                        .row.items-center.q-gap-sm.q-mb-xs
+                                          .text-weight-medium.text-grey-8 Chunk {{ chunk.chunk_number }}
+                                          q-chip(v-if='chunk.cost', size='xs', color='green-2', text-color='green-8', icon='attach_money')
+                                            | {{ formatCost(chunk.cost) }}
+                                          q-chip(v-if='chunk.usage', size='xs', color='orange-2', text-color='orange-8', icon='analytics')
+                                            | {{ formatTokens(chunk.usage) }}
+                                          q-chip(v-if='chunk.latency', size='xs', color='blue-grey-2', text-color='blue-grey-8', icon='schedule')
+                                            | {{ formatLatency(chunk.latency) }}
+                                        .text-caption.text-grey-8(style='white-space: pre-wrap; word-wrap: break-word')
+                                          | {{ chunk.findings }}
+
                             //- Step Metrics (Latency, Cost, Usage)
                             .row.q-gutter-sm.q-mt-md(v-if='step.latency || step.cost || step.usage')
                               q-separator.q-mb-sm

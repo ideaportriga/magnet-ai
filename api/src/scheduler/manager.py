@@ -31,6 +31,7 @@ _scheduler_thread_pool = ThreadPoolExecutor(
 
 # Global scheduler instance
 _scheduler = None
+_scheduler_loop: asyncio.AbstractEventLoop | None = None
 
 
 def _schedule_async(coro):
@@ -39,11 +40,18 @@ def _schedule_async(coro):
     Uses call_soon_threadsafe + create_task so this works both from the event loop
     thread and from the scheduler's dedicated jobstore thread (see _patch_scheduler_wakeup).
     """
+    if _scheduler_loop is None or _scheduler_loop.is_closed():
+        logger.warning(
+            "Scheduler event loop is not available, cannot schedule async task"
+        )
+        coro.close()
+        return
+
     try:
-        loop = asyncio.get_event_loop()
-        loop.call_soon_threadsafe(loop.create_task, coro)
+        _scheduler_loop.call_soon_threadsafe(_scheduler_loop.create_task, coro)
     except RuntimeError:
-        logger.warning("No event loop found, cannot schedule async task")
+        logger.warning("Scheduler event loop rejected async task")
+        coro.close()
 
 
 def get_global_scheduler() -> AsyncIOScheduler:
@@ -158,7 +166,9 @@ def job_missed_listener(event):
     )
 
 
-def _patch_scheduler_wakeup(scheduler: AsyncIOScheduler) -> None:
+def _patch_scheduler_wakeup(
+    scheduler: AsyncIOScheduler, loop: asyncio.AbstractEventLoop
+) -> None:
     """Patch AsyncIOScheduler.wakeup so that _process_jobs runs in a thread.
 
     APScheduler 3.x calls SQLAlchemyJobStore methods (get_due_jobs, update_job,
@@ -167,12 +177,15 @@ def _patch_scheduler_wakeup(scheduler: AsyncIOScheduler) -> None:
 
     This patch replaces that with an async version that offloads the call to a
     dedicated ThreadPoolExecutor.
+
+    The patched wakeup is also thread-safe: when called from a worker thread
+    (e.g. after scheduler.add_job() in _scheduler_thread_pool), it uses
+    call_soon_threadsafe to schedule the async wakeup on the event loop.
     """
 
     async def _async_wakeup():
         scheduler._stop_timer()
         try:
-            loop = asyncio.get_running_loop()
             wait_seconds = await loop.run_in_executor(
                 _scheduler_thread_pool, scheduler._process_jobs
             )
@@ -182,14 +195,64 @@ def _patch_scheduler_wakeup(scheduler: AsyncIOScheduler) -> None:
         scheduler._start_timer(wait_seconds)
 
     def _patched_wakeup():
-        asyncio.ensure_future(_async_wakeup())
+        # wakeup() can be called from APScheduler/jobstore worker threads.
+        # Always create the coroutine on the scheduler's loop thread.
+        loop.call_soon_threadsafe(lambda: loop.create_task(_async_wakeup()))
 
     scheduler.wakeup = _patched_wakeup
 
 
+def _patch_asyncio_executor(scheduler: AsyncIOScheduler) -> None:
+    """Make AsyncIOExecutor._do_submit_job thread-safe.
+
+    APScheduler 3.x AsyncIOExecutor._do_submit_job calls
+    ``self._eventloop.create_task(coro)`` directly. Because _process_jobs now
+    runs in a worker thread (see _patch_scheduler_wakeup), that call happens
+    off the loop thread and is unsafe — the task may be silently abandoned
+    while EVENT_JOB_EXECUTED still fires from the done-callback. Symptom:
+    evaluation jobs finish in <1s, trace contains only the outer "Evaluate
+    variant" span, no real work runs.
+
+    This patch reroutes task creation through asyncio.run_coroutine_threadsafe
+    so the coroutine is always scheduled on the loop's own thread.
+    """
+    import sys
+
+    from apscheduler.executors.base import run_coroutine_job, run_job
+    from apscheduler.util import iscoroutinefunction_partial
+
+    def _do_submit_job(self, job, run_times):
+        def callback(f):
+            self._pending_futures.discard(f)
+            try:
+                events = f.result()
+            except BaseException:
+                self._run_job_error(job.id, *sys.exc_info()[1:])
+            else:
+                self._run_job_success(job.id, events)
+
+        if iscoroutinefunction_partial(job.func):
+            coro = run_coroutine_job(
+                job, job._jobstore_alias, run_times, self._logger.name
+            )
+            f = asyncio.run_coroutine_threadsafe(coro, self._eventloop)
+        else:
+            f = self._eventloop.run_in_executor(
+                None, run_job, job, job._jobstore_alias, run_times, self._logger.name
+            )
+
+        f.add_done_callback(callback)
+        self._pending_futures.add(f)
+
+    executor = scheduler._executors.get("default")
+    if executor is not None:
+        executor._do_submit_job = _do_submit_job.__get__(executor, type(executor))
+
+
 async def create_scheduler() -> AsyncIOScheduler:
     """Creates and configures the application scheduler"""
-    global _scheduler
+    global _scheduler, _scheduler_loop
+    _scheduler_loop = asyncio.get_running_loop()
 
     executors = {
         "default": AsyncIOExecutor(),
@@ -220,9 +283,20 @@ async def create_scheduler() -> AsyncIOScheduler:
     # Get engine options from scheduler settings
     engine_options = scheduler_settings.get_engine_options()
 
-    # Add database-specific connect_args
+    # Add database-specific connect_args with TCP keepalive to detect dead
+    # connections quickly.  Without keepalive, a silently-dropped TCP connection
+    # causes synchronous pre-ping / query calls to hang for the OS TCP
+    # retransmit timeout (~15 min on Linux), which blocks the scheduler thread.
     if "postgresql" in sync_connection_string:
-        engine_options["connect_args"] = {"application_name": "magnetui_scheduler"}
+        engine_options["connect_args"] = {
+            "application_name": "magnetui_scheduler",
+            "connect_timeout": 10,
+            "keepalives": 1,
+            "keepalives_idle": 30,
+            "keepalives_interval": 10,
+            "keepalives_count": 3,
+            "options": "-c statement_timeout=30000",
+        }
 
     logger.info(
         f"Configuring scheduler jobstore with pool_size={scheduler_settings.SCHEDULER_POOL_SIZE}, "
@@ -250,13 +324,14 @@ async def create_scheduler() -> AsyncIOScheduler:
     # APScheduler 3.x AsyncIOScheduler calls sync SQLAlchemy jobstore methods
     # directly from the event loop in _process_jobs(), which blocks all async I/O.
     # This patch offloads those sync DB calls to a dedicated thread.
-    _patch_scheduler_wakeup(scheduler)
+    _patch_scheduler_wakeup(scheduler, _scheduler_loop)
+    _patch_asyncio_executor(scheduler)
 
+    # Store the scheduler before start(), because APScheduler may emit events
+    # immediately while starting and listeners resolve the global scheduler.
+    _scheduler = scheduler
     logger.info("Starting scheduler...")
     scheduler.start()
-
-    # Store the scheduler instance globally
-    _scheduler = scheduler
 
     return scheduler
 

@@ -127,11 +127,13 @@ export const createEntityStore = (namespace) => {
           'price_input',
           'price_cached',
           'price_output',
-          'price_reasoning',
           'price_standard_input_unit_count',
           'price_cached_input_unit_count',
           'price_standard_output_unit_count',
-          'price_reasoning_output_unit_count',
+          'price_long_context_threshold',
+          'price_long_context_input',
+          'price_long_context_cached',
+          'price_long_context_output',
         ]
 
         priceFields.forEach((field) => {

@@ -78,12 +78,40 @@ class AIModel(UUIDAuditSimpleBase):
         Boolean, nullable=False, default=False, comment="Supports reasoning"
     )
 
+    reasoning_effort_options: Mapped[Optional[list]] = mapped_column(
+        JsonB,
+        nullable=True,
+        comment="Allowed reasoning effort values selectable in prompt template variants (e.g. ['low','medium','high'])",
+    )
+
     diarization: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, comment="Supports speaker diarization"
     )
 
     keyterms: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, comment="Supports keyterms"
+    )
+
+    supports_temperature: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default="true",
+        comment="Whether the model accepts the `temperature` parameter",
+    )
+    supports_top_p: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default="true",
+        comment="Whether the model accepts the `top_p` parameter",
+    )
+    supports_max_tokens: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default="true",
+        comment="Whether the model accepts the `max_tokens` parameter",
     )
 
     # Type and default settings
@@ -114,9 +142,6 @@ class AIModel(UUIDAuditSimpleBase):
     price_cached: Mapped[Optional[str]] = mapped_column(
         String(20), nullable=True, comment="Price per cached input unit"
     )
-    price_reasoning: Mapped[Optional[str]] = mapped_column(
-        String(20), nullable=True, comment="Price per reasoning output unit"
-    )
 
     # Unit counts for pricing
     price_standard_input_unit_count: Mapped[Optional[int]] = mapped_column(
@@ -128,9 +153,6 @@ class AIModel(UUIDAuditSimpleBase):
     price_standard_output_unit_count: Mapped[Optional[int]] = mapped_column(
         Integer, nullable=True, comment="Standard output unit count for pricing"
     )
-    price_reasoning_output_unit_count: Mapped[Optional[int]] = mapped_column(
-        Integer, nullable=True, comment="Reasoning output unit count for pricing"
-    )
 
     # Unit names
     price_input_unit_name: Mapped[Optional[str]] = mapped_column(
@@ -138,6 +160,28 @@ class AIModel(UUIDAuditSimpleBase):
     )
     price_output_unit_name: Mapped[Optional[str]] = mapped_column(
         String(50), nullable=True, comment="Output price unit name (e.g., tokens)"
+    )
+
+    # Long-context pricing: applied when input token count exceeds the threshold.
+    price_long_context_threshold: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        nullable=True,
+        comment="Input token threshold above which long-context pricing applies",
+    )
+    price_long_context_input: Mapped[Optional[str]] = mapped_column(
+        String(20),
+        nullable=True,
+        comment="Price per input unit when input exceeds long-context threshold",
+    )
+    price_long_context_cached: Mapped[Optional[str]] = mapped_column(
+        String(20),
+        nullable=True,
+        comment="Price per cached input unit when input exceeds long-context threshold",
+    )
+    price_long_context_output: Mapped[Optional[str]] = mapped_column(
+        String(20),
+        nullable=True,
+        comment="Price per output unit when input exceeds long-context threshold",
     )
 
     # Resources and documentation

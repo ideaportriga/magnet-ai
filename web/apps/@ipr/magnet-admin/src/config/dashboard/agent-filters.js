@@ -100,6 +100,19 @@ const filter = {
       return filter
     },
   },
+  ['conversation_data.substandart_result_reason']: {
+    label: 'Substandard Result',
+    key: 'conversation_data.substandart_result_reason',
+    type: 'component',
+    options: [
+      { label: 'User input issue', value: 'user_input_issue' },
+      { label: 'Topic selection issue', value: 'topic_selection_issue' },
+      { label: 'Action selection issue', value: 'action_selection_issue' },
+      { label: 'Action execution issue', value: 'action_execution_issue' },
+      { label: 'Other', value: 'other' },
+    ],
+    multiple: true,
+  },
 
   ['conversation_data.language']: {
     label: 'Language',

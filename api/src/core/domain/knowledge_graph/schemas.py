@@ -33,6 +33,7 @@ class KnowledgeGraphExternalSchema(BaseModel):
     system_name: Optional[str]
     description: Optional[str]
     documents_count: int = 0
+    source_types: list[str] = []
     created_at: Optional[str]
     updated_at: Optional[str]
     settings: Optional[dict[str, Any]] = None
@@ -127,6 +128,10 @@ class KnowledgeGraphMetadataExtractionRunRequest(BaseModel):
         le=0.9,
         description="Segment overlap ratio 0..0.9 (used when approach=document)",
     )
+    document_ids: Optional[list[str]] = Field(
+        default=None,
+        description="Optional list of document IDs to extract. If omitted, all documents are processed.",
+    )
 
 
 class KnowledgeGraphMetadataExtractionRunResponse(BaseModel):
@@ -194,6 +199,67 @@ class KnowledgeGraphUploadUrlRequest(BaseModel):
     url: str = Field(..., description="Direct http(s) URL to a file")
 
 
+class KnowledgeGraphPhaseStatsSchema(BaseModel):
+    """Aggregated per-phase counts for a source.
+
+    Used to render the per-source pipeline strip in the UI (Sync / Metadata /
+    Entities) without having to fetch every document.
+
+    ``total`` reflects documents that have entered the phase (completed +
+    running + failed + pending). Documents that have never been touched by the
+    phase are excluded so the UI can distinguish "not run" from "pending".
+    """
+
+    completed: int = 0
+    failed: int = 0
+    running: int = 0
+    pending: int = 0
+    total: int = 0
+
+
+class KnowledgeGraphSourceStatsSchema(BaseModel):
+    """Per-source pipeline aggregates (computed on read)."""
+
+    documents_count: int = 0
+    sync: KnowledgeGraphPhaseStatsSchema = Field(
+        default_factory=KnowledgeGraphPhaseStatsSchema
+    )
+    metadata: KnowledgeGraphPhaseStatsSchema = Field(
+        default_factory=KnowledgeGraphPhaseStatsSchema
+    )
+    entities: KnowledgeGraphPhaseStatsSchema = Field(
+        default_factory=KnowledgeGraphPhaseStatsSchema
+    )
+
+
+class KnowledgeGraphSourceLastSyncSchema(BaseModel):
+    """Snapshot of the most recent completed sync run (persisted on the source)."""
+
+    started_at: Optional[str] = None
+    completed_at: Optional[str] = None
+    duration_seconds: Optional[float] = None
+    outcome: Optional[str] = None
+    total_found: int = 0
+    synced: int = 0
+    failed: int = 0
+    skipped: int = 0
+    unchanged_skipped: int = 0
+    metadata_only_updated: int = 0
+    content_changed: int = 0
+    deleted: int = 0
+
+
+class KnowledgeGraphSourceSyncProgressSchema(BaseModel):
+    """Live progress for an in-flight sync."""
+
+    phase: Optional[str] = None
+    processed: int = 0
+    total: int = 0
+    current_document: Optional[str] = None
+    started_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
 class KnowledgeGraphSourceExternalSchema(BaseModel):
     """Item model for knowledge graph source list endpoint."""
 
@@ -206,6 +272,9 @@ class KnowledgeGraphSourceExternalSchema(BaseModel):
     last_sync_at: Optional[str] = None
     created_at: Optional[str] = None
     schedule: Optional[KnowledgeGraphSourceScheduleExternalSchema] = None
+    stats: Optional[KnowledgeGraphSourceStatsSchema] = None
+    last_sync: Optional[KnowledgeGraphSourceLastSyncSchema] = None
+    sync_progress: Optional[KnowledgeGraphSourceSyncProgressSchema] = None
 
 
 class KnowledgeGraphSourceCreateRequest(BaseModel):
@@ -226,6 +295,19 @@ class KnowledgeGraphSourceUpdateRequest(BaseModel):
         None, description="Partial config to merge into existing config"
     )
     status: Optional[str] = Field(None, description="Optional status override")
+
+
+class KnowledgeGraphSourceSyncRequest(BaseModel):
+    """Optional body for the per-source sync endpoint."""
+
+    from_scratch: bool = Field(
+        default=False,
+        description=(
+            "If true, bypass change detection (content hash / source modified "
+            "timestamp) and re-process every document found in the source. "
+            "Existing document IDs are preserved."
+        ),
+    )
 
 
 class KnowledgeGraphSourceScheduleSyncRequest(BaseModel):
@@ -276,6 +358,36 @@ class KnowledgeGraphSourceCreateResponse(BaseModel):
     type: str
 
 
+class KnowledgeGraphDocumentPipelinePhaseSchema(BaseModel):
+    """State of a single pipeline phase for one document."""
+
+    status: str = "not_run"
+    started_at: Optional[str] = None
+    completed_at: Optional[str] = None
+    failed_at: Optional[str] = None
+    error_message: Optional[str] = None
+    fields_count: Optional[int] = None
+
+
+class KnowledgeGraphDocumentPipelineStateSchema(BaseModel):
+    """Unified per-document pipeline state across all three phases.
+
+    The ``sync`` phase is synthesized from the existing top-level
+    ``status``/``status_message``/``processing_time`` columns so the frontend
+    has one consistent shape for every phase.
+    """
+
+    sync: KnowledgeGraphDocumentPipelinePhaseSchema = Field(
+        default_factory=KnowledgeGraphDocumentPipelinePhaseSchema
+    )
+    metadata_extraction: KnowledgeGraphDocumentPipelinePhaseSchema = Field(
+        default_factory=KnowledgeGraphDocumentPipelinePhaseSchema
+    )
+    entity_extraction: KnowledgeGraphDocumentPipelinePhaseSchema = Field(
+        default_factory=KnowledgeGraphDocumentPipelinePhaseSchema
+    )
+
+
 class KnowledgeGraphDocumentExternalSchema(BaseModel):
     """Item model for knowledge graph document list endpoint."""
 
@@ -290,9 +402,11 @@ class KnowledgeGraphDocumentExternalSchema(BaseModel):
     processing_time: Optional[float] = None
     external_link: Optional[str] = None
     chunks_count: int = 0
+    source_id: Optional[str] = None
     source_name: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
+    pipeline_state: Optional[KnowledgeGraphDocumentPipelineStateSchema] = None
 
 
 class KnowledgeGraphDocumentMetadataExternalSchema(BaseModel):
@@ -320,9 +434,11 @@ class KnowledgeGraphDocumentDetailSchema(BaseModel):
     external_link: Optional[str] = None
     metadata: Optional[KnowledgeGraphDocumentMetadataExternalSchema] = None
     source_id: Optional[str] = None
+    source_document_id: Optional[str] = None
     chunks_count: int = 0
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
+    pipeline_state: Optional[KnowledgeGraphDocumentPipelineStateSchema] = None
 
 
 class KnowledgeGraphChunkExternalSchema(BaseModel):
@@ -452,10 +568,29 @@ class KnowledgeGraphEntityQueryRequest(BaseModel):
     offset: int = Field(default=0, ge=0)
 
 
-class KnowledgeGraphEntityQueryResponse(BaseModel):
-    """Response model for entity query — returns column_values records."""
+class KnowledgeGraphEntityDocumentReferenceSchema(BaseModel):
+    """Reference to a source document for an entity record."""
 
-    records: list[dict[str, Any]]
+    id: str
+    name: str
+    title: Optional[str] = None
+    external_link: Optional[str] = None
+
+
+class KnowledgeGraphEntityQueryRecordSchema(BaseModel):
+    """Single entity record in a query response, with source document refs."""
+
+    column_values: dict[str, Any]
+    document_ids: list[str] = Field(default_factory=list)
+
+
+class KnowledgeGraphEntityQueryResponse(BaseModel):
+    """Response model for entity query — records plus deduped document refs."""
+
+    records: list[KnowledgeGraphEntityQueryRecordSchema]
+    documents: list[KnowledgeGraphEntityDocumentReferenceSchema] = Field(
+        default_factory=list
+    )
     total: int
     limit: int
     offset: int
@@ -467,8 +602,44 @@ class KnowledgeGraphEntityExtractionRunRequest(BaseModel):
     approach: Optional[str] = Field(
         default=None, description="Extraction approach: 'document' or 'chunks'"
     )
+    mode: Optional[str] = Field(
+        default=None,
+        description=(
+            "Extraction mode: 'basic' (single-pass per segment), "
+            "'reflective' (per-segment call returns analysis + records; analysis "
+            "carries to the next segment), or 'self-tuning' (per-segment delta "
+            "analysis that tailors the extraction prompt body itself)."
+        ),
+    )
     prompt_template_system_name: Optional[str] = Field(
-        default=None, description="Prompt template system name to execute"
+        default=None, description="Prompt template system name for entity extraction"
+    )
+    reflective_prompt_template_system_name: Optional[str] = Field(
+        default=None,
+        description=(
+            "Prompt template system name for the reflective extraction pass "
+            "(required when mode='reflective'). The template must instruct the "
+            "model to emit analysis + records on the first call."
+        ),
+    )
+    self_tuning_prompt_template_system_name: Optional[str] = Field(
+        default=None,
+        description=(
+            "Prompt template system name for the self-tuning extraction pass "
+            "(required when mode='self-tuning'). The template must reference "
+            "the {TUNED_INSTRUCTIONS}, {SHARED_VALUES}, and {EXAMPLES} "
+            "placeholders so the accumulated self-tuning state can be injected."
+        ),
+    )
+    self_tuning_analysis_prompt_template_system_name: Optional[str] = Field(
+        default=None,
+        description=(
+            "Prompt template system name for the self-tuning analysis pass "
+            "(required when mode='self-tuning'). The template must emit a "
+            "delta envelope (Status + optional Instruction/Shared value/Example "
+            "deltas) so cross-segment state grows by patches rather than full "
+            "snapshots."
+        ),
     )
     segment_size: Optional[int] = Field(
         default=None,
@@ -486,6 +657,26 @@ class KnowledgeGraphEntityExtractionRunRequest(BaseModel):
         ge=1,
         description="Total extraction passes per segment (1 = single pass, 3 = initial + 2 verification passes)",
     )
+    schema_format: Optional[str] = Field(
+        default=None,
+        description=(
+            "How the entity schema is conveyed to the LLM: "
+            "'json_schema' (strict structured output), 'typescript' (TS class-style "
+            "block in the prompt), or 'markdown' (markdown listing in the prompt)."
+        ),
+    )
+    relevance_filter_prompt_template_system_name: Optional[str] = Field(
+        default=None,
+        description=(
+            "Prompt template system name for the relevance pre-filter. "
+            "When set, each chunk is classified by a lightweight LLM call and "
+            "dropped if irrelevant before segmentation."
+        ),
+    )
+    document_ids: Optional[list[str]] = Field(
+        default=None,
+        description="Optional list of document IDs to extract. If omitted, all documents are processed.",
+    )
 
 
 class KnowledgeGraphEntityExtractionRunResponse(BaseModel):
@@ -502,6 +693,10 @@ class KnowledgeGraphEntityExtractionRunResponse(BaseModel):
     )
     skipped_chunks: int = Field(
         default=0, description="Chunks skipped due to missing content"
+    )
+    filtered_chunks: int = Field(
+        default=0,
+        description="Chunks dropped by the relevance pre-filter (when enabled)",
     )
     upserted_records: int = Field(
         default=0, description="Entity rows inserted or updated"

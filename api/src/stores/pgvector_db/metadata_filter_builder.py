@@ -1,3 +1,4 @@
+import json as _json
 from logging import getLogger
 from typing import Any, Optional, Union
 
@@ -33,8 +34,14 @@ class PgVectorMetadataFilterBuilder:
 
         raise TypeError(f"Unsupported value type: {type(value)}")
 
+    def _format_jsonb_value(self, value: Any) -> str:
+        """Format a value as a JSONB literal for use with the @> containment operator."""
+        json_str = _json.dumps(value)
+        escaped = json_str.replace("'", "''")
+        return f"'{escaped}'::jsonb"
+
     def _get_json_path(self, field: str, field_mapping: dict[str, str]) -> str:
-        """Get the JSON path for a field, using mapping if available."""
+        """Get the text-extraction JSON path for a field (using ->>)."""
         mapped_path = field_mapping.get(field, field)
         # Convert dot notation to PostgreSQL JSON path notation
         if "." in mapped_path:
@@ -52,6 +59,22 @@ class PgVectorMetadataFilterBuilder:
             if last_part.startswith('"') and last_part.endswith('"'):
                 last_part = last_part[1:-1]
             return f" ->> '{last_part}'"
+
+    def _get_jsonb_path(self, field: str, field_mapping: dict[str, str]) -> str:
+        """Get the JSONB-extraction JSON path for a field (using ->)."""
+        mapped_path = field_mapping.get(field, field)
+        if "." in mapped_path:
+            parts = mapped_path.split(".")
+            parts = [part.strip('"') for part in parts]
+            path = ""
+            for part in parts:
+                path += f" -> '{part}'"
+            return path
+        else:
+            last_part = mapped_path
+            if last_part.startswith('"') and last_part.endswith('"'):
+                last_part = last_part[1:-1]
+            return f" -> '{last_part}'"
 
     def _parse_node(
         self, node: Union[dict, list], field_mapping: dict[str, str]
@@ -102,14 +125,23 @@ class PgVectorMetadataFilterBuilder:
             base_expression = f"metadata ? '{field_mapping.get(field, field)}'"
             return base_expression if val else f"NOT ({base_expression})"
 
+        # JSONB path (using ->) needed for containment operator (@>)
+        # which correctly handles both scalar and array metadata values.
+        jsonb_path = self._get_jsonb_path(field, field_mapping)
+
         if op == "$in":
             if not isinstance(val, list):
                 raise ValueError(f"Value for $in must be a list for field '{field}'")
             if not val:  # Handle empty list for $in
                 return "FALSE"  # Always false
-            sub_clauses = [
-                f"metadata{json_path} = {self._format_value(item)}" for item in val
-            ]
+            sub_clauses = []
+            for item in val:
+                if item is None:
+                    sub_clauses.append(f"metadata{json_path} IS NULL")
+                else:
+                    sub_clauses.append(
+                        f"metadata{jsonb_path} @> {self._format_jsonb_value(item)}"
+                    )
             return f"({' OR '.join(sub_clauses)})"
 
         if op == "$nin":
@@ -117,12 +149,34 @@ class PgVectorMetadataFilterBuilder:
                 raise ValueError(f"Value for $nin must be a list for field '{field}'")
             if not val:  # Handle empty list for $nin
                 return "TRUE"  # Always true
-            sub_clauses = [
-                f"metadata{json_path} != {self._format_value(item)}" for item in val
-            ]
+            sub_clauses = []
+            for item in val:
+                if item is None:
+                    sub_clauses.append(f"metadata{json_path} IS NOT NULL")
+                else:
+                    sub_clauses.append(
+                        f"NOT (metadata{jsonb_path} @> {self._format_jsonb_value(item)})"
+                    )
             return f"({' AND '.join(sub_clauses)})"
 
-        # Handle simple comparison operators
+        # Handle null for comparison operators
+        if val is None:
+            if op == "$eq":
+                return f"metadata{json_path} IS NULL"
+            elif op == "$ne":
+                return f"metadata{json_path} IS NOT NULL"
+            else:
+                return "FALSE"
+
+        # $eq / $ne use JSONB containment (@>) to support array metadata fields
+        if op in ("$eq", "$ne"):
+            jsonb_val = self._format_jsonb_value(val)
+            if op == "$eq":
+                return f"metadata{jsonb_path} @> {jsonb_val}"
+            else:
+                return f"NOT (metadata{jsonb_path} @> {jsonb_val})"
+
+        # Handle remaining comparison operators ($gt, $gte, $lt, $lte)
         try:
             sql_operator = self.OPERATOR_MAP[op]
             formatted_value = self._format_value(val)

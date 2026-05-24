@@ -101,7 +101,10 @@ const headerStyle = computed(() => ({
   color: var(--q-secondary-text);
   line-height: 1.4;
   margin-top: 4px;
-  margin-bottom: 16px;
+}
+
+.kg-dialog-section__content {
+  margin-top: 16px;
 }
 
 .kg-dialog-section__content--disabled {
@@ -125,4 +128,3 @@ const headerStyle = computed(() => ({
   transition: all 600ms;
 }
 </style>
-

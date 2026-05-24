@@ -2,6 +2,218 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.33](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.32...v0.7.0-dev.33) (2026-05-24)
+
+### ✨ Features
+
+* **kg:** added sync status and source details sections to the document details ([41b05dc](https://github.com/ideaportriga/magnet-ai/commit/41b05dcb6c9c8731cf2f6267eeec99e7a5040db0))
+
+## [0.7.0-dev.32](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.31...v0.7.0-dev.32) (2026-05-23)
+
+### ✨ Features
+
+* **kg:** added extraction entities view inside document details page ([78fd7c1](https://github.com/ideaportriga/magnet-ai/commit/78fd7c1eead2ac30b062fdacfe27a8adacff0d65))
+
+## [0.7.0-dev.31](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.30...v0.7.0-dev.31) (2026-05-22)
+
+### 🐛 Bug Fixes
+
+* **kg:** fixed isseu when fluid topics chunks are getting truncated ([987d6d3](https://github.com/ideaportriga/magnet-ai/commit/987d6d384baffd5c5dec877237161d5926892570))
+
+## [0.7.0-dev.30](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.29...v0.7.0-dev.30) (2026-05-22)
+
+### 🐛 Bug Fixes
+
+* **kg:** fixed document title search ([3f76181](https://github.com/ideaportriga/magnet-ai/commit/3f761819915a5b572493da5aa702c568c5e40737))
+
+## [0.7.0-dev.29](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.28...v0.7.0-dev.29) (2026-05-20)
+
+### ✨ Features
+
+* **kg:** improved sync status handling for knowledge graph sources ([0cacf09](https://github.com/ideaportriga/magnet-ai/commit/0cacf094ca4fc6bcdeb15723cb2fd100e93eba85))
+* **kg:** improved UX for sync dialog in knowledge graphs ([4132f05](https://github.com/ideaportriga/magnet-ai/commit/4132f0575b92c1a50824534016d562dd2a46c84f))
+
+### 🐛 Bug Fixes
+
+* **kg:** fixed import button on empty entity extraction tab ([edba3ad](https://github.com/ideaportriga/magnet-ai/commit/edba3add240ec0724128df2f2b3a7aac4533c3ff))
+* **kg:** fixed issue when embedding model is changed from one dimension ([327a196](https://github.com/ideaportriga/magnet-ai/commit/327a196f531d043bee067777e243c5f24ea0cca7))
+* **kg:** fixing unexpected stops of sync and extraction processes ([a32064b](https://github.com/ideaportriga/magnet-ai/commit/a32064bcb98b7a3682e107ac9a9bcd8372f89474))
+* **panel:** fixing markdown content code style ([6854f7c](https://github.com/ideaportriga/magnet-ai/commit/6854f7c6f7ae60880644a03b205614c8b7d9a489))
+
+## [0.7.0-dev.28](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.27...v0.7.0-dev.28) (2026-05-19)
+
+### ✨ Features
+
+* **kg:** added option to select logging level for sync and extract ([fcde3ba](https://github.com/ideaportriga/magnet-ai/commit/fcde3ba28a20a703fb3b79f135dacdc548d3f52f))
+* **kg:** added options to run extractions for individual documents ([8f865ad](https://github.com/ideaportriga/magnet-ai/commit/8f865ad1288b767f54e37ac4d6ed1b5ffae8eda4))
+* **kg:** improved knowledge graph sync status tracking ([9936799](https://github.com/ideaportriga/magnet-ai/commit/993679934cab0a33b1da0b27aa2441fef94db740))
+
+## [0.7.0-dev.27](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.26...v0.7.0-dev.27) (2026-05-17)
+
+### ✨ Features
+
+* **kg:** implemented sources icons on the knowledge graph records ([90bc80c](https://github.com/ideaportriga/magnet-ai/commit/90bc80c3b4722ada92a11cbce2e0f5db6357f523))
+
+### 🐛 Bug Fixes
+
+* **kg:** fixed document count issue on long running syncs ([b3e850b](https://github.com/ideaportriga/magnet-ai/commit/b3e850ba223196889f0da3cc354feaf20cfc4a54))
+
+## [0.7.0-dev.26](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.25...v0.7.0-dev.26) (2026-05-16)
+
+### ✨ Features
+
+* **kg:** added ability to import entity schemas when there are zero ([196df4a](https://github.com/ideaportriga/magnet-ai/commit/196df4a952f3e48020356b577dd080dc9269bf35))
+* **kg:** added filter pattern filtering for the sharepoint source ([c85f18e](https://github.com/ideaportriga/magnet-ai/commit/c85f18efbcf40c189803063b3be8484642d16d56))
+
+### 🐛 Bug Fixes
+
+* **evaluation:** fixed race condition in pgvector client initialization ([278df49](https://github.com/ideaportriga/magnet-ai/commit/278df493e6bd3a83e9573157f619aaa6c43e92c7))
+* **observability:** fixed OOM crashed when exporting spans ([14096f2](https://github.com/ideaportriga/magnet-ai/commit/14096f2bd9a96d83ebc6a50e0ebc07349720f036))
+
+## [0.7.0-dev.25](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.24...v0.7.0-dev.25) (2026-05-16)
+
+### 🐛 Bug Fixes
+
+* **evaluation:** fixed metadata filter use when running RAG evaluation ([50f50da](https://github.com/ideaportriga/magnet-ai/commit/50f50da26a4ac540fa3887ce1d86814c3940de08))
+* fixed evaluation tracing ([ad8de0b](https://github.com/ideaportriga/magnet-ai/commit/ad8de0b96a7b379bd4b783c71b636738ec6be1c5))
+
+## [0.7.0-dev.24](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.23...v0.7.0-dev.24) (2026-05-15)
+
+### ✨ Features
+
+* **kg:** implemented performance optimizations for entity extraction ([35d8f3f](https://github.com/ideaportriga/magnet-ai/commit/35d8f3fd64d9f0a194937305051e1279310e34d1))
+
+## [0.7.0-dev.23](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.22...v0.7.0-dev.23) (2026-05-08)
+
+### ✨ Features
+
+* **kg:** added ability to specify user agnet for web source in ([4309ad9](https://github.com/ideaportriga/magnet-ai/commit/4309ad930e92be72d387ee12c8d8ba1a02ab5d9a))
+
+## [0.7.0-dev.22](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.21...v0.7.0-dev.22) (2026-05-07)
+
+### 🐛 Bug Fixes
+
+* **evaluation:** now metadata filter is included in test set when ([9e2fabd](https://github.com/ideaportriga/magnet-ai/commit/9e2fabdbfdb034159d8b73e0130d893f8bb40bca))
+
+## [0.7.0-dev.21](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.20...v0.7.0-dev.21) (2026-05-07)
+
+### 🐛 Bug Fixes
+
+* **evaluation:** fixed long evaluation runs getting stuck ([e9e09e9](https://github.com/ideaportriga/magnet-ai/commit/e9e09e9155ff2a216675d06ec53146f516a81b4d))
+
+## [0.7.0-dev.20](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.19...v0.7.0-dev.20) (2026-05-07)
+
+### ✨ Features
+
+* **kg:** improved extraction of entities, added different startegies, added import/export ([ba5e85a](https://github.com/ideaportriga/magnet-ai/commit/ba5e85aca53f790fe1af0765b3899c2d5294cea7))
+
+## [0.7.0-dev.19](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.18...v0.7.0-dev.19) (2026-05-05)
+
+### 🐛 Bug Fixes
+
+* **observability:** fixed export of the x-attrib headers, this field was ([ed5aef1](https://github.com/ideaportriga/magnet-ai/commit/ed5aef13dd76cf2aefed7dab5ad183aeb0aa2ebe))
+
+## [0.7.0-dev.18](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.17...v0.7.0-dev.18) (2026-04-30)
+
+### ✨ Features
+
+* **model:** add ability to configure what parameters are available ([e2946dc](https://github.com/ideaportriga/magnet-ai/commit/e2946dc48c68bec4366c0f3db5c27e96f23acc45))
+* **prompts:** improved UI for settings up model parameters ([31ae6bc](https://github.com/ideaportriga/magnet-ai/commit/31ae6bcb8603f92bdc6788b718110586667454fb))
+* **traces:** added raw request and reponse payloads for chat trace ([e0593fc](https://github.com/ideaportriga/magnet-ai/commit/e0593fc6dea4ebd016fee1827deaa7be16e072e6))
+
+## [0.7.0-dev.17](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.16...v0.7.0-dev.17) (2026-04-29)
+
+### ✨ Features
+
+* **model:** implement additional pricing configuration for long ([9767b36](https://github.com/ideaportriga/magnet-ai/commit/9767b368fe075c34070fb19cef432138fad1b747))
+
+## [0.7.0-dev.16](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.15...v0.7.0-dev.16) (2026-04-29)
+
+### ✨ Features
+
+* **models:** implemented reasoning effort field for models ([c965f0b](https://github.com/ideaportriga/magnet-ai/commit/c965f0bc8085df61d0cf63ab8f1aab40293748af))
+
+## [0.7.0-dev.15](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.14...v0.7.0-dev.15) (2026-04-27)
+
+### 🐛 Bug Fixes
+
+* **ks:** fix new ks provider creation ([9aeb071](https://github.com/ideaportriga/magnet-ai/commit/9aeb0714cfb0407da10f05841ed8b93eef86cf12))
+
+## [0.7.0-dev.14](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.13...v0.7.0-dev.14) (2026-04-23)
+
+### ✨ Features
+
+* **usage:** added Substandard Result analysis field to the usage table ([6090999](https://github.com/ideaportriga/magnet-ai/commit/609099965c2ba7fcbbc8bc7eaaf48de7ca9235b5))
+* **usage:** added user feedback support for LLM Calls (prompt ([6a23219](https://github.com/ideaportriga/magnet-ai/commit/6a232199b092a61687490d3f43ed7d9622bd1cab))
+
+## [0.7.0-dev.13](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.12...v0.7.0-dev.13) (2026-04-19)
+
+### 🐛 Bug Fixes
+
+* fixed database password handling, when special characters are used ([607550e](https://github.com/ideaportriga/magnet-ai/commit/607550ed912bdd4c8c75eb261d71760287f36b58))
+
+## [0.7.0-dev.12](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.11...v0.7.0-dev.12) (2026-04-19)
+
+### 🐛 Bug Fixes
+
+* changed pgvector registration time and place ([#115](https://github.com/ideaportriga/magnet-ai/issues/115)) ([c3b74e3](https://github.com/ideaportriga/magnet-ai/commit/c3b74e3f3e451d3e3539f651f2ffdc7d8a3c958e))
+
+## [0.7.0-dev.11](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.10...v0.7.0-dev.11) (2026-04-17)
+
+### ✨ Features
+
+* **infra:** add azure networking setup ([b0fdc0c](https://github.com/ideaportriga/magnet-ai/commit/b0fdc0cea6c8bd311779073011a6c7a9f3ce76df))
+* **infra:** add option to run fixtures on deployment ([dc00ecf](https://github.com/ideaportriga/magnet-ai/commit/dc00ecf1ee64af4064d46924682e6bd0fe8cee77))
+* **infra:** adjust container app ingress restriction setup ([cd7d7ab](https://github.com/ideaportriga/magnet-ai/commit/cd7d7ab0eb50ac783260e9a334588fb6bd52d14a))
+* **infra:** use azure provider for models in seed data ([eb2f02e](https://github.com/ideaportriga/magnet-ai/commit/eb2f02eafb6eb9093516b3ce115546f56ec6d6fd))
+
+## [0.7.0-dev.10](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.9...v0.7.0-dev.10) (2026-04-15)
+
+### 🐛 Bug Fixes
+
+* **jobs:** knowledge sources and knowledge graphs sync job now has ([808e585](https://github.com/ideaportriga/magnet-ai/commit/808e58538826e2de534964b167dc56deee212126))
+
+## [0.7.0-dev.9](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.8...v0.7.0-dev.9) (2026-04-14)
+
+### 🐛 Bug Fixes
+
+* fixed regression after previous atempt to fix app freezes ([9906b0c](https://github.com/ideaportriga/magnet-ai/commit/9906b0c2f8ff988015b5a764ace339e102cc353c))
+
+## [0.7.0-dev.8](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.7...v0.7.0-dev.8) (2026-04-14)
+
+### 🐛 Bug Fixes
+
+* attempt to fix random 15 min app freezes ([b88dfa8](https://github.com/ideaportriga/magnet-ai/commit/b88dfa89168ae9c8b2521a8a93a56a451d843a22))
+
+## [0.7.0-dev.7](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.6...v0.7.0-dev.7) (2026-04-13)
+
+### 🐛 Bug Fixes
+
+* **knowledge-sources:** fixed long running fluid topics syncs by adding ([2de2d4b](https://github.com/ideaportriga/magnet-ai/commit/2de2d4ba385fc480ee3cc78320790677d64c8c28))
+
+## [0.7.0-dev.6](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.5...v0.7.0-dev.6) (2026-04-09)
+
+### ✨ Features
+
+* **deep-research:** implement chunked page processing ([d5259cf](https://github.com/ideaportriga/magnet-ai/commit/d5259cf8fd3191cee85b18373ded9ece8c34244d))
+* **deep-research:** improve error handling ([a89011a](https://github.com/ideaportriga/magnet-ai/commit/a89011a69acbd56c8a33741c52e688c7716bb998))
+* **deep-research:** improve handling forced exit ([e1b072a](https://github.com/ideaportriga/magnet-ai/commit/e1b072add52b3ecb7f79302eae78961963345f71))
+* **deep-research:** optimize db connection usage ([952f2ed](https://github.com/ideaportriga/magnet-ai/commit/952f2eddb8226d6b3f5e40c856a9171bd782078c))
+* **deep-research:** optimize resource usage by not storing page raw contents ([714ee61](https://github.com/ideaportriga/magnet-ai/commit/714ee61d65dc6be8bef52e834d2def5308881fcf))
+
+## [0.7.0-dev.5](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.4...v0.7.0-dev.5) (2026-04-08)
+
+### 🐛 Bug Fixes
+
+* fixed metadata filtering for knowledge sources. ([4dcbdc0](https://github.com/ideaportriga/magnet-ai/commit/4dcbdc0eaf143a0f73d9bccde29825d99237748c))
+* fixed migration scripts for table note_taker_settings ([c5254db](https://github.com/ideaportriga/magnet-ai/commit/c5254dbffe025592a0546f0d6bb1e4fc5bdf70d1))
+
+## [0.7.0-dev.4](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.3...v0.7.0-dev.4) (2026-04-07)
+
+### ✨ Features
+
+* **knowledge-graph:** implemented very basic web source for the ([74e7a4e](https://github.com/ideaportriga/magnet-ai/commit/74e7a4eb70c09d590877bca44e18e57026921665))
+
 ## [0.7.0-dev.3](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.2...v0.7.0-dev.3) (2026-04-04)
 
 ### ✨ Features

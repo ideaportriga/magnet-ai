@@ -4,13 +4,14 @@ from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from advanced_alchemy.extensions.litestar import repository, service
-from litestar.exceptions import NotFoundException
-from sqlalchemy import func, select
+from litestar.exceptions import ClientException, NotFoundException
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db.models.knowledge_graph import (
     KnowledgeGraph,
     KnowledgeGraphSource,
+    docs_table_name,
     resolve_vector_size_for_embedding_model,
 )
 from core.domain.ai_models.service import AIModelsService
@@ -50,17 +51,28 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
     """Service for Knowledge Graph operations."""
 
     @staticmethod
-    def _documents_count_subquery():
-        return (
-            select(
-                KnowledgeGraphSource.graph_id.label("graph_id"),
-                func.coalesce(func.sum(KnowledgeGraphSource.documents_count), 0).label(
-                    "documents_count"
-                ),
+    async def _documents_count_for_graph(
+        db_session: AsyncSession, graph_id: UUID
+    ) -> int:
+        """Live document count for a single graph, computed on read.
+
+        Returns 0 when the per-graph docs table doesn't exist (e.g. graph has
+        no embedding model configured yet, so the table was never created).
+        """
+        try:
+            docs_table = docs_table_name(graph_id)
+            result = await db_session.execute(
+                text(f"SELECT COUNT(*) FROM {docs_table}")
             )
-            .group_by(KnowledgeGraphSource.graph_id)
-            .subquery()
-        )
+            return int(result.scalar_one() or 0)
+        except Exception:
+            # Roll back so the session remains usable for subsequent ops
+            # (e.g. the framework's auto-commit on response).
+            try:
+                await db_session.rollback()
+            except Exception:  # noqa: BLE001
+                pass
+            return 0
 
     async def _has_sources_of_type(
         self, db_session: AsyncSession, *, graph_id: UUID, source_type: str
@@ -73,58 +85,66 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
         )
         return result.scalar_one_or_none() is not None
 
+    @staticmethod
+    async def _source_types_by_graph(
+        db_session: AsyncSession, graph_ids: list[UUID]
+    ) -> dict[UUID, list[str]]:
+        if not graph_ids:
+            return {}
+        result = await db_session.execute(
+            select(KnowledgeGraphSource.graph_id, KnowledgeGraphSource.type)
+            .where(KnowledgeGraphSource.graph_id.in_(graph_ids))
+            .distinct()
+        )
+        mapping: dict[UUID, list[str]] = {}
+        for graph_id, source_type in result.all():
+            mapping.setdefault(graph_id, []).append(source_type)
+        return mapping
+
     async def list_graphs(
         self, db_session: AsyncSession
     ) -> list[KnowledgeGraphExternalSchema]:
-        documents_count_sq = self._documents_count_subquery()
-
         result = await db_session.execute(
-            select(
-                KnowledgeGraph,
-                func.coalesce(documents_count_sq.c.documents_count, 0).label(
-                    "documents_count"
-                ),
-            )
-            .outerjoin(
-                documents_count_sq, documents_count_sq.c.graph_id == KnowledgeGraph.id
-            )
-            .order_by(KnowledgeGraph.created_at.desc())
+            select(KnowledgeGraph).order_by(KnowledgeGraph.created_at.desc())
         )
-        rows = result.all()
+        graphs = list(result.scalars().all())
 
-        return [
-            KnowledgeGraphExternalSchema(
-                id=str(graph.id),
-                name=graph.name,
-                system_name=getattr(graph, "system_name", None),
-                description=getattr(graph, "description", None),
-                documents_count=int(documents_count or 0),
-                created_at=graph.created_at.isoformat() if graph.created_at else None,
-                updated_at=graph.updated_at.isoformat() if graph.updated_at else None,
+        graph_ids = [graph.id for graph in graphs]
+        source_types_map = await self._source_types_by_graph(db_session, graph_ids)
+
+        schemas: list[KnowledgeGraphExternalSchema] = []
+        for graph in graphs:
+            documents_count = await self._documents_count_for_graph(
+                db_session, graph.id
             )
-            for graph, documents_count in rows
-        ]
+            schemas.append(
+                KnowledgeGraphExternalSchema(
+                    id=str(graph.id),
+                    name=graph.name,
+                    system_name=getattr(graph, "system_name", None),
+                    description=getattr(graph, "description", None),
+                    documents_count=documents_count,
+                    source_types=source_types_map.get(graph.id, []),
+                    created_at=graph.created_at.isoformat()
+                    if graph.created_at
+                    else None,
+                    updated_at=graph.updated_at.isoformat()
+                    if graph.updated_at
+                    else None,
+                )
+            )
+        return schemas
 
     async def get_graph(
         self, db_session: AsyncSession, graph_id: UUID
     ) -> KnowledgeGraphExternalSchema:
-        documents_count_sq = self._documents_count_subquery()
         graph_res = await db_session.execute(
-            select(
-                KnowledgeGraph,
-                func.coalesce(documents_count_sq.c.documents_count, 0).label(
-                    "documents_count"
-                ),
-            )
-            .outerjoin(
-                documents_count_sq, documents_count_sq.c.graph_id == KnowledgeGraph.id
-            )
-            .where(KnowledgeGraph.id == graph_id)
+            select(KnowledgeGraph).where(KnowledgeGraph.id == graph_id)
         )
-        row = graph_res.one_or_none()
-        if not row:
+        graph = graph_res.scalar_one_or_none()
+        if not graph:
             raise NotFoundException("Graph not found")
-        graph, documents_count = row
+        documents_count = await self._documents_count_for_graph(db_session, graph.id)
         settings = (
             build_graph_settings_with_virtual_last_resort_profile(
                 getattr(graph, "settings", None)
@@ -137,7 +157,7 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
             name=graph.name,
             system_name=getattr(graph, "system_name", None),
             description=getattr(graph, "description", None),
-            documents_count=int(documents_count or 0),
+            documents_count=documents_count,
             settings=settings,
             state=getattr(graph, "state", None),
             created_at=graph.created_at.isoformat() if graph.created_at else None,
@@ -296,6 +316,46 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
             validate_unique_content_profile_names(settings_to_apply)
             update_payload["settings"] = settings_to_apply
 
+        # Detect embedding-model change before persisting, so we can validate
+        # that the per-graph chunks table can be re-shaped to the new vector
+        # dimension. If chunks already exist we refuse the change.
+        new_indexing_pending = (
+            settings_to_apply.get("indexing")
+            if isinstance(settings_to_apply, dict)
+            else None
+        )
+        new_embedding_model = (
+            (new_indexing_pending or {}).get("embedding_model")
+            if isinstance(new_indexing_pending, dict)
+            else None
+        )
+        embedding_model_changed = (
+            isinstance(new_embedding_model, str)
+            and new_embedding_model.strip()
+            and new_embedding_model != prev_embedding_model
+        )
+
+        new_vector_size: int | None = None
+        prev_vector_size: int | None = None
+        if embedding_model_changed:
+            new_vector_size = await resolve_vector_size_for_embedding_model(
+                new_embedding_model
+            )
+            if isinstance(prev_embedding_model, str) and prev_embedding_model.strip():
+                prev_vector_size = await resolve_vector_size_for_embedding_model(
+                    prev_embedding_model
+                )
+
+            if prev_vector_size is not None and prev_vector_size != new_vector_size:
+                ch_svc = chunk_service or KnowledgeGraphChunkService()
+                chunk_count = await ch_svc.count_chunks(db_session, graph_id=graph_id)
+                if chunk_count > 0:
+                    raise ClientException(
+                        "Changing the embedding model is not supported while "
+                        "the knowledge graph already contains indexed chunks. "
+                        "Delete existing chunks/documents first."
+                    )
+
         updated = await self.update(
             update_payload,
             item_id=graph_id,
@@ -303,33 +363,23 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
             auto_refresh=True,
         )
 
-        # If embedding model is configured (and changed), ensure per-graph tables exist.
-        new_settings = getattr(updated, "settings", None) or {}
-        new_indexing = (
-            new_settings.get("indexing") if isinstance(new_settings, dict) else None
-        )
-        new_embedding_model = (
-            (new_indexing or {}).get("embedding_model")
-            if isinstance(new_indexing, dict)
-            else None
-        )
-        if (
-            isinstance(new_embedding_model, str)
-            and new_embedding_model.strip()
-            and new_embedding_model != prev_embedding_model
-        ):
-            vector_size = await resolve_vector_size_for_embedding_model(
-                new_embedding_model
-            )
+        if embedding_model_changed:
+            assert new_vector_size is not None
             doc_svc = document_service or KnowledgeGraphDocumentService()
             ch_svc = chunk_service or KnowledgeGraphChunkService()
+            if prev_vector_size is not None and prev_vector_size != new_vector_size:
+                # Chunks table is empty (validated above) — drop & recreate
+                # both per-graph tables so the vector column matches the new
+                # embedding dimension. Drop chunks first (FK -> docs).
+                await ch_svc.drop_table(db_session, graph_id=graph_id)
+                await doc_svc.drop_table(db_session, graph_id=graph_id)
             await doc_svc.create_table(
-                db_session, graph_id=graph_id, vector_size=vector_size
+                db_session, graph_id=graph_id, vector_size=new_vector_size
             )
             await ch_svc.create_table(db_session, graph_id=graph_id)
             vec_svc = vector_service or KnowledgeGraphVectorService()
             await vec_svc.create_table(
-                db_session, graph_id=graph_id, vector_size=vector_size
+                db_session, graph_id=graph_id, vector_size=new_vector_size
             )
 
         return KnowledgeGraphUpdateResponse(

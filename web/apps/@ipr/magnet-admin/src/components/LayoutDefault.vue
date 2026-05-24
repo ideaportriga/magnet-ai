@@ -42,8 +42,6 @@ q-layout.bg-light.full-height.overflow-hidden(view='hHh lpR fFf')
         retrieval-header
       template(v-if='route.name === "AssistantItems"')
         assistant-tools-header
-      template(v-if='route.name === "ModelItems"')
-        model-config-header
       //- template(v-if='route.name === "ApiToolsDetails"')
       //-   api-tools-header
       template(v-if='route.name === "AgentDetail" || route.name == "AgentTopicDetail" || route.name == "AgentTopicActionDetail"')

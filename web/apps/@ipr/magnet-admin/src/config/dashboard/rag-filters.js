@@ -70,6 +70,18 @@ const filter = {
       { label: 'Dislike', value: 'dislike' },
     ],
   },
+  ['extra_data.substandart_result_reason']: {
+    label: 'Substandard Result',
+    key: 'extra_data.substandart_result_reason',
+    options: [
+      { label: 'Knowledge source quality', value: 'knowledge_source_quality' },
+      { label: 'Parsing issue', value: 'parsing_issue' },
+      { label: 'Chunking issue', value: 'chunking_issue' },
+      { label: 'Retrieval issue', value: 'retrieval_issue' },
+      { label: 'Generation issue', value: 'generation_issue' },
+      { label: 'User question', value: 'user_question' },
+    ],
+  },
 
   ['extra_data.language']: {
     label: 'Language',

@@ -14,6 +14,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+_MD_BASE64_IMG_RE = re.compile(
+    r"!\[[^\]]*\]\(data:image/[^)]*;base64,[^)]*\)", re.IGNORECASE
+)
+
 
 def _log_extra_from_ctx(
     pipeline: FluidTopicsSyncPipeline, **extra: Any
@@ -40,6 +44,7 @@ async def _extract_text_from_html(html: str) -> str:
     text_out = re.sub(r"\r\n?", "\n", text_out)
     text_out = re.sub(r"\n{3,}", "\n\n", text_out)
     text_out = re.sub(r"[ \t]{2,}", " ", text_out)
+    text_out = _MD_BASE64_IMG_RE.sub("", text_out)
     return text_out.strip()
 
 

@@ -109,7 +109,7 @@
                   <q-menu anchor="bottom left" self="top left" :offset="[0, 4]">
                     <q-list dense style="min-width: 280px">
                       <q-item
-                        v-for="option in chunkingStrategyOptions"
+                        v-for="option in visibleChunkingStrategyOptions"
                         :key="option.value"
                         v-close-popup
                         clickable
@@ -467,6 +467,7 @@ import {
   hasReservedFluidTopicsNativeProfileName,
   hasReservedVirtualFallbackProfileName,
   isLockedFluidTopicsNativeProfile,
+  isPagedReaderName,
   isVirtualFallbackContentProfile,
   readerOptions,
   selectableReaderOptions,
@@ -707,6 +708,7 @@ const dialogTitle = computed(() => (isReadonlyProfile.value ? 'View Content Prof
 const dismissLabel = computed(() => (isReadonlyProfile.value ? 'Close' : 'Cancel'))
 const isLockedNativeProfile = computed(() => isEditing.value && isLockedFluidTopicsNativeProfile(props.config ?? form.value))
 const isSourceMetadataReader = computed(() => form.value.reader.name === SOURCE_METADATA_READER)
+const isPagedReader = computed(() => isPagedReaderName(form.value.reader.name))
 const selectedReaderLabel = computed(() => {
   const option = readerOptions.find((o) => o.value === form.value.reader.name)
   return option?.label ?? form.value.reader.name
@@ -715,6 +717,9 @@ const selectedReaderDescription = computed(() => {
   const option = readerOptions.find((o) => o.value === form.value.reader.name)
   return option?.description || ''
 })
+const visibleChunkingStrategyOptions = computed(() =>
+  chunkingStrategyOptions.filter((o) => o.value !== 'page' || isPagedReader.value)
+)
 const selectedStrategyLabel = computed(() => {
   const option = chunkingStrategyOptions.find((o) => o.value === form.value.chunker.strategy)
   return option?.label ?? form.value.chunker.strategy
@@ -966,13 +971,18 @@ watch(
       isHydratingForm.value ||
       isLockedNativeProfile.value ||
       isReadonlyProfile.value ||
-      readerName !== SHAREPOINT_PAGE_READER ||
       readerName === previousReaderName
     ) {
       return
     }
 
-    applySharePointPageDefaults(form.value)
+    if (form.value.chunker.strategy === 'page' && !isPagedReaderName(readerName)) {
+      form.value.chunker.strategy = 'recursive_character_text_splitting'
+    }
+
+    if (readerName === SHAREPOINT_PAGE_READER) {
+      applySharePointPageDefaults(form.value)
+    }
   }
 )
 

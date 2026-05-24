@@ -48,6 +48,7 @@ async def create_chat_completion(
     tool_choice: str | dict | None = None,
     related_prompt_template_config: dict | None = None,
     parallel_tool_calls: bool | None = None,
+    reasoning_effort: str | None = None,
 ) -> ChatCompletionWithMetrics:
     provider_system_name = None
 
@@ -117,13 +118,14 @@ async def create_chat_completion(
             "max_tokens": max_tokens,
             "response_format": response_format,
             "tools": tools,
+            "reasoning_effort": reasoning_effort,
         },
     )
 
     # Prepare input for traces and metrics
     call_input = messages
 
-    with observability_context.observe_feature(observed_feature):
+    with observability_context.observe_feature(observed_feature) as instance_id:
         observability_context.update_current_span(
             name="Generate text",
             description=f'Generating text using chat completion API powered by "{llm}" LLM, provided by {provider_display_name}.',
@@ -157,6 +159,7 @@ async def create_chat_completion(
             tool_choice=tool_choice,
             model_config=model_config,
             parallel_tool_calls=parallel_tool_calls,
+            reasoning_effort=reasoning_effort,
         )
         call_end_time = time.time()
         call_duration = call_end_time - call_start_time
@@ -272,6 +275,7 @@ async def create_chat_completion(
             **chat_completion.model_dump(),
             usage_details=call_usage,
             cost_details=call_cost,
+            feature_instance_id=instance_id,
         )
 
         return result
@@ -324,6 +328,8 @@ async def create_chat_completion_from_prompt_template(
         tool_choice=tool_choice,
         related_prompt_template_config=prompt_template_config,
         parallel_tool_calls=parallel_tool_calls,
+        reasoning_effort=prompt_template_config.get("reasoning_effort")
+        or prompt_template_config.get("reasoningEffort"),
     )
 
     return chat_completion, messages

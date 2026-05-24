@@ -34,8 +34,85 @@ from core.db.models.knowledge_graph import (
 from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphDocumentDetailSchema,
     KnowledgeGraphDocumentExternalSchema,
+    KnowledgeGraphDocumentPipelinePhaseSchema,
+    KnowledgeGraphDocumentPipelineStateSchema,
+    KnowledgeGraphEntityDocumentReferenceSchema,
 )
 from services.knowledge_graph.utils import normalize_metadata_value
+
+
+_SYNC_STATUS_MAP: dict[str, str] = {
+    "completed": "completed",
+    "pending": "pending",
+    "processing": "running",
+    "failed": "failed",
+    "error": "failed",
+}
+
+
+def _build_pipeline_state(
+    *,
+    sync_status: Any,
+    sync_status_message: Any,
+    sync_processing_time: Any,
+    sync_updated_at: Any,
+    pipeline_state_raw: Any,
+) -> KnowledgeGraphDocumentPipelineStateSchema:
+    """Project the raw doc fields into the unified per-document pipeline state.
+
+    The frontend renders all three phases with the same shape, so we normalize
+    the existing ``status`` column into a ``sync`` phase here, and decode the
+    JSONB ``pipeline_state`` column for the two extraction phases.
+    """
+    raw: dict[str, Any]
+    if isinstance(pipeline_state_raw, dict):
+        raw = pipeline_state_raw
+    elif isinstance(pipeline_state_raw, str) and pipeline_state_raw:
+        try:
+            parsed = json.loads(pipeline_state_raw)
+            raw = parsed if isinstance(parsed, dict) else {}
+        except Exception:  # noqa: BLE001
+            raw = {}
+    else:
+        raw = {}
+
+    sync_str = str(sync_status or "").lower()
+    sync_normalized = _SYNC_STATUS_MAP.get(sync_str, sync_str or "not_run")
+    completed_at = None
+    failed_at = None
+    if isinstance(sync_updated_at, datetime):
+        iso = sync_updated_at.isoformat()
+        if sync_normalized == "completed":
+            completed_at = iso
+        elif sync_normalized == "failed":
+            failed_at = iso
+
+    sync_phase = KnowledgeGraphDocumentPipelinePhaseSchema(
+        status=sync_normalized,
+        completed_at=completed_at,
+        failed_at=failed_at,
+        error_message=str(sync_status_message) if sync_status_message else None,
+    )
+
+    def _phase_from_raw(key: str) -> KnowledgeGraphDocumentPipelinePhaseSchema:
+        sub = raw.get(key)
+        if not isinstance(sub, dict):
+            return KnowledgeGraphDocumentPipelinePhaseSchema(status="not_run")
+        return KnowledgeGraphDocumentPipelinePhaseSchema(
+            status=str(sub.get("status") or "not_run"),
+            started_at=sub.get("started_at"),
+            completed_at=sub.get("completed_at"),
+            failed_at=sub.get("failed_at"),
+            error_message=sub.get("error_message"),
+            fields_count=sub.get("fields_count"),
+        )
+
+    return KnowledgeGraphDocumentPipelineStateSchema(
+        sync=sync_phase,
+        metadata_extraction=_phase_from_raw("metadata_extraction"),
+        entity_extraction=_phase_from_raw("entity_extraction"),
+    )
+
 
 logger = logging.getLogger(__name__)
 
@@ -127,6 +204,8 @@ class KnowledgeGraphDocumentService:
                 docs_tbl.c.created_at.label("created_at"),
                 docs_tbl.c.updated_at.label("updated_at"),
                 docs_tbl.c.external_link.label("external_link"),
+                docs_tbl.c.source_id.label("source_id"),
+                docs_tbl.c.pipeline_state.label("pipeline_state"),
                 sources_tbl.c.name.label("source_name"),
                 chunks_count_sq.label("chunks_count"),
             )
@@ -155,9 +234,19 @@ class KnowledgeGraphDocumentService:
                     processing_time=doc.processing_time,
                     external_link=doc.external_link,
                     chunks_count=int(row.get("chunks_count") or 0),
+                    source_id=str(row.get("source_id"))
+                    if row.get("source_id")
+                    else None,
                     source_name=(row.get("source_name") or None),
                     created_at=doc.created_at.isoformat() if doc.created_at else None,
                     updated_at=doc.updated_at.isoformat() if doc.updated_at else None,
+                    pipeline_state=_build_pipeline_state(
+                        sync_status=doc.status,
+                        sync_status_message=doc.status_message,
+                        sync_processing_time=doc.processing_time,
+                        sync_updated_at=doc.updated_at,
+                        pipeline_state_raw=row.get("pipeline_state"),
+                    ),
                 )
             )
 
@@ -199,6 +288,9 @@ class KnowledgeGraphDocumentService:
                 docs_tbl.c.total_pages.label("total_pages"),
                 docs_tbl.c.processing_time.label("processing_time"),
                 docs_tbl.c.external_link.label("external_link"),
+                docs_tbl.c.source_id.label("source_id"),
+                docs_tbl.c.source_document_id.label("source_document_id"),
+                docs_tbl.c.pipeline_state.label("pipeline_state"),
                 docs_tbl.c.created_at.label("created_at"),
                 docs_tbl.c.updated_at.label("updated_at"),
                 chunks_count_sq.label("chunks_count"),
@@ -225,11 +317,68 @@ class KnowledgeGraphDocumentService:
             processing_time=doc.processing_time,
             external_link=doc.external_link,
             metadata=doc.metadata.to_dict() if doc.metadata else None,
-            source_id=None,
+            source_id=str(row.get("source_id")) if row.get("source_id") else None,
+            source_document_id=row.get("source_document_id") or None,
             chunks_count=int(row.get("chunks_count") or 0),
             created_at=doc.created_at.isoformat() if doc.created_at else None,
             updated_at=doc.updated_at.isoformat() if doc.updated_at else None,
+            pipeline_state=_build_pipeline_state(
+                sync_status=doc.status,
+                sync_status_message=doc.status_message,
+                sync_processing_time=doc.processing_time,
+                sync_updated_at=doc.updated_at,
+                pipeline_state_raw=row.get("pipeline_state"),
+            ),
         )
+
+    async def get_document_references(
+        self,
+        db_session: AsyncSession,
+        *,
+        graph_id: UUID | str,
+        document_ids: list[UUID | str],
+    ) -> list[KnowledgeGraphEntityDocumentReferenceSchema]:
+        """Bulk-fetch lightweight document references (id, name, title, external_link)."""
+
+        normalized_ids: list[UUID] = []
+        seen: set[str] = set()
+        for raw in document_ids:
+            if raw is None:
+                continue
+            try:
+                doc_uuid = raw if isinstance(raw, UUID) else UUID(str(raw))
+            except (ValueError, AttributeError):
+                continue
+            key = str(doc_uuid)
+            if key in seen:
+                continue
+            seen.add(key)
+            normalized_ids.append(doc_uuid)
+
+        if not normalized_ids:
+            return []
+
+        docs_table = docs_table_name(graph_id)
+        md = MetaData()
+        docs_tbl = knowledge_graph_document_table(md, docs_table, vector_size=None)
+
+        stmt = select(
+            docs_tbl.c.id.label("id"),
+            docs_tbl.c.name.label("name"),
+            docs_tbl.c.title.label("title"),
+            docs_tbl.c.external_link.label("external_link"),
+        ).where(docs_tbl.c.id.in_(normalized_ids))
+
+        rows = (await db_session.execute(stmt)).mappings().all()
+        return [
+            KnowledgeGraphEntityDocumentReferenceSchema(
+                id=str(row["id"]),
+                name=str(row.get("name") or ""),
+                title=row.get("title"),
+                external_link=row.get("external_link"),
+            )
+            for row in rows
+        ]
 
     async def query_documents(
         self,
@@ -384,6 +533,12 @@ class KnowledgeGraphDocumentService:
         base_name = PurePath(filename).name
         file_ext = base_name.rsplit(".", 1)[-1].lower() if "." in base_name else ""
 
+        # For newly inserted documents, default the title to the filename stem so
+        # the document is never left titleless on the UI. For existing rows the
+        # UPDATE branch uses COALESCE(:title, title) and must keep receiving the
+        # raw caller-provided title to preserve any previously persisted value.
+        effective_title_for_insert = title or PurePath(base_name).stem or base_name
+
         doc_metadata_json: str | None = None
         doc_metadata_payload: dict[str, Any] = {}
         if isinstance(file_metadata, dict) and file_metadata:
@@ -524,15 +679,13 @@ class KnowledgeGraphDocumentService:
                     "source_document_id": source_document_id,
                     "source_modified_at": source_modified_at,
                     "content_hash": content_hash,
-                    "title": title,
+                    "title": effective_title_for_insert,
                     "external_link": external_link,
                     "toc_json": toc_json,
                 },
             )
             document_id = res.scalar_one()
             await db_session.commit()
-
-        await self._refresh_documents_count(db_session, source)
 
         return {"id": document_id, "graph_id": str(source.graph_id), "name": base_name}
 
@@ -671,22 +824,6 @@ class KnowledgeGraphDocumentService:
             },
         )
         await db_session.commit()
-
-    async def _refresh_documents_count(
-        self, db_session: AsyncSession, source: KnowledgeGraphSource
-    ):
-        try:
-            table = docs_table_name(source.graph_id)
-            res = await db_session.execute(
-                text(f"SELECT COUNT(*) FROM {table} WHERE source_id = :sid"),
-                {"sid": str(source.id)},
-            )
-            source.documents_count = int(res.scalar_one() or 0)
-            await db_session.commit()
-        except Exception:
-            logger.warning(
-                "Failed to update documents_count for source %s", str(source.id)
-            )
 
     async def delete_document(
         self, db_session: AsyncSession, graph_id: UUID, id: UUID

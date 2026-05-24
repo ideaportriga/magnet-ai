@@ -9,16 +9,23 @@
     color="grey-3"
     text-color="grey-8"
     dense
-    :options="options"
+    :options="toggleOptions"
     :disable="disabled"
     @update:model-value="$emit('update:modelValue', $event)"
-  />
+  >
+    <template v-for="opt in options" :key="opt.value" #[opt.value]>
+      <q-tooltip v-if="opt.hint" :delay="300">{{ opt.hint }}</q-tooltip>
+    </template>
+  </q-btn-toggle>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+
 export type ControlOption = {
   label: string
   value: string
+  hint?: string
 }
 
 interface Props {
@@ -38,6 +45,14 @@ const props = withDefaults(defineProps<Props>(), {
 defineEmits<{
   (e: 'update:modelValue', value: string): void
 }>()
+
+const toggleOptions = computed(() =>
+  props.options.map((opt) => ({
+    label: opt.label,
+    value: opt.value,
+    slot: opt.hint ? opt.value : undefined,
+  }))
+)
 </script>
 
 <style scoped>

@@ -22,9 +22,29 @@
               :disable="!slotScope.row.external_link"
               @click.stop="emit('open-external-link', slotScope.row.external_link)"
             />
-            <q-btn dense flat color="dark" icon="more_vert" :disable="deletingIds.has(slotScope.row.id)" @click.stop>
+            <q-btn
+              dense
+              flat
+              color="dark"
+              icon="more_vert"
+              :disable="deletingIds.has(slotScope.row.id) || extractingMetadataIds.has(slotScope.row.id) || extractingEntityIds.has(slotScope.row.id)"
+              @click.stop
+            >
               <q-menu anchor="bottom right" self="top right" auto-close>
                 <q-list dense>
+                  <q-item clickable @click="emit('extract-metadata', slotScope.row)">
+                    <q-item-section thumbnail>
+                      <q-icon name="fact_check" color="primary" size="20px" class="q-ml-sm" />
+                    </q-item-section>
+                    <q-item-section>Run metadata extraction</q-item-section>
+                  </q-item>
+                  <q-item clickable @click="emit('extract-entities', slotScope.row)">
+                    <q-item-section thumbnail>
+                      <q-icon name="account_tree" color="primary" size="20px" class="q-ml-sm" />
+                    </q-item-section>
+                    <q-item-section>Run entity extraction</q-item-section>
+                  </q-item>
+                  <q-separator />
                   <q-item clickable @click="emit('delete-document', slotScope.row)">
                     <q-item-section thumbnail>
                       <q-icon name="delete" color="negative" size="20px" class="q-ml-sm" />
@@ -42,15 +62,20 @@
           <div class="row items-center no-wrap q-gutter-x-sm">
             <kg-file-type-badge :type="slotScope.row.type" />
             <div class="text-body2 text-weight-medium ellipsis" style="max-width: 300px">
-              {{ slotScope.row.title }}
-              <q-tooltip>{{ slotScope.row.title }}</q-tooltip>
+              {{ slotScope.row.title || slotScope.row.name }}
+              <q-tooltip>{{ slotScope.row.title || slotScope.row.name }}</q-tooltip>
             </div>
           </div>
         </q-td>
       </template>
       <template #body-cell-status="slotScope">
         <q-td :props="slotScope">
-          <kg-status-badge :status="slotScope.row.status" :message="slotScope.row.status_message" />
+          <div class="kg-doc-status">
+            <kg-pipeline-strip :phases="phasesForDoc(slotScope.row)" mode="compact" />
+            <div v-if="slotScope.row.status_message" class="kg-doc-status__message">
+              {{ slotScope.row.status_message }}
+            </div>
+          </div>
         </q-td>
       </template>
     </q-table>
@@ -61,18 +86,22 @@
 import { formatDuration, formatRelative } from '@shared/utils'
 import type { QTableColumn } from 'quasar'
 import { ref } from 'vue'
-import { KgFileTypeBadge, KgStatusBadge } from '../common'
-import type { Document } from './models'
+import { KgFileTypeBadge, KgPipelineStrip, type KgPhaseState, type KgPipelinePhase } from '../common'
+import type { Document, DocumentPipelinePhase, DocumentPipelineState } from './models'
 
 const props = defineProps<{
   documents: Document[]
   deletingIds: Set<string>
+  extractingMetadataIds: Set<string>
+  extractingEntityIds: Set<string>
 }>()
 
 const emit = defineEmits<{
   'document-click': [row: Document]
   'delete-document': [row: Document]
   'open-external-link': [url?: string]
+  'extract-metadata': [row: Document]
+  'extract-entities': [row: Document]
 }>()
 
 const pagination = ref({ rowsPerPage: 10, page: 1 })
@@ -149,6 +178,48 @@ const documentsColumns: QTableColumn<Document>[] = [
 const handleDocumentClick = (_event: Event, row: Document) => {
   emit('document-click', row)
 }
+
+// --- Pipeline strip --------------------------------------------------------
+//
+// Each document carries a `pipeline_state` block from the backend that
+// describes its position in the Sync -> Metadata -> Entities pipeline. We map
+// the raw payload into the shape the shared strip component renders.
+
+const ALLOWED_STATES = new Set<KgPhaseState>(['pending', 'running', 'completed', 'failed', 'skipped', 'not_run'])
+
+function normalizeState(raw: string | undefined | null): KgPhaseState {
+  const v = String(raw || '').toLowerCase()
+  if (v === 'error') return 'failed'
+  if (v === 'processing') return 'running'
+  if (ALLOWED_STATES.has(v as KgPhaseState)) return v as KgPhaseState
+  return 'not_run'
+}
+
+function tooltipLinesFor(phase: DocumentPipelinePhase | undefined): string[] {
+  if (!phase) return []
+  const lines: string[] = []
+  if (phase.completed_at) lines.push(`Completed: ${new Date(phase.completed_at).toLocaleString()}`)
+  if (phase.failed_at) lines.push(`Failed: ${new Date(phase.failed_at).toLocaleString()}`)
+  if (phase.fields_count != null) lines.push(`${phase.fields_count} fields`)
+  if (phase.error_message) lines.push(phase.error_message)
+  return lines
+}
+
+function phasesForDoc(row: Document): KgPipelinePhase[] {
+  const ps: DocumentPipelineState | null | undefined = row.pipeline_state
+  const sync = ps?.sync
+  const meta = ps?.metadata_extraction
+  const ent = ps?.entity_extraction
+  return [
+    {
+      phase: 'sync',
+      state: sync ? normalizeState(sync.status) : normalizeState(row.status),
+      tooltipLines: tooltipLinesFor(sync),
+    },
+    { phase: 'metadata', state: normalizeState(meta?.status), tooltipLines: tooltipLinesFor(meta) },
+    { phase: 'entities', state: normalizeState(ent?.status), tooltipLines: tooltipLinesFor(ent) },
+  ]
+}
 </script>
 
 <style scoped>
@@ -160,6 +231,24 @@ const handleDocumentClick = (_event: Event, row: Document) => {
 :deep(.q-table tbody td) {
   height: 40px;
   padding: 2px 16px;
+}
+
+.kg-doc-status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  min-width: 220px;
+}
+
+.kg-doc-status__message {
+  max-width: 260px;
+  color: var(--q-secondary-text, rgba(0, 0, 0, 0.55));
+  font-size: 11px;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 :deep(.sticky-col) {

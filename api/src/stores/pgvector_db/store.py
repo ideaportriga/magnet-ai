@@ -833,6 +833,26 @@ class PgVectorStore(DocumentStore):
         if not model_name:
             raise ValueError(f"No model specified for collection {collection_id}")
 
+        # Filter out documents with empty content that would cause embedding API errors
+        valid_documents = [
+            doc
+            for doc in documents
+            if doc.content and isinstance(doc.content, str) and doc.content.strip()
+        ]
+        if len(valid_documents) < len(documents):
+            skipped = len(documents) - len(valid_documents)
+            logger.warning(
+                "Skipped %s document(s) with empty content in collection '%s'",
+                skipped,
+                collection_id,
+            )
+        if not valid_documents:
+            logger.info(
+                "No valid documents to create for collection '%s'", collection_id
+            )
+            return []
+        documents = valid_documents
+
         # Get embeddings for all documents with reduced concurrency
         # Process in smaller batches to avoid overwhelming the connection pool
         batch_size = 10  # Process 10 embeddings at a time

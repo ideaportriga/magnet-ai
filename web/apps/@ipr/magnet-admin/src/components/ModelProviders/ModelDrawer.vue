@@ -47,130 +47,201 @@
         km-checkbox(label='Active', :model-value='is_active', @update:model-value='is_active = $event')
         .km-description.text-secondary-text.q-pl-8.q-pt-xs When disabled, this model will not be available for selection
 
-      q-separator.q-my-16
-
+    //- Capabilities Tab — feature flags + per-type configuration
+    .column.q-gap-16.q-pa-16(v-if='tab == "capabilities"')
       // Features section for prompts models
       template(v-if='type === "prompts"')
-        .km-title Features
-        km-checkbox(label='JSON mode', :model-value='json_mode', @update:model-value='json_mode = $event')
-        km-checkbox(label='Structured Outputs', :model-value='json_schema', @update:model-value='json_schema = $event')
-        km-checkbox(label='Tool calling', :model-value='tool_calling', @update:model-value='tool_calling = $event')
-        km-checkbox(label='Reasoning', :model-value='reasoning', @update:model-value='reasoning = $event')
+        q-card.km-capability-card(flat, bordered)
+          q-card-section
+            .km-title Features
+            .km-description.text-secondary-text.q-pb-12 Toggle the capabilities this model supports. These flags drive which options become available in the prompt template UI.
+            .column.q-gap-8
+              km-checkbox(label='JSON mode', :model-value='json_mode', @update:model-value='json_mode = $event')
+              km-checkbox(label='Structured Outputs', :model-value='json_schema', @update:model-value='json_schema = $event')
+              km-checkbox(label='Tool calling', :model-value='tool_calling', @update:model-value='tool_calling = $event')
+              km-checkbox(label='Reasoning', :model-value='reasoning', @update:model-value='reasoning = $event')
+
+        q-card.km-capability-card(flat, bordered)
+          q-card-section
+            .km-title Parameters
+            .km-description.text-secondary-text.q-pb-12 Toggle which standard sampling parameters this model accepts. Disabled parameters are hidden from the prompt template editor and stripped from outgoing requests.
+            .column.q-gap-8
+              km-checkbox(label='Temperature', :model-value='supports_temperature', @update:model-value='supports_temperature = $event')
+              km-checkbox(label='Top P', :model-value='supports_top_p', @update:model-value='supports_top_p = $event')
+              km-checkbox(label='Max tokens', :model-value='supports_max_tokens', @update:model-value='supports_max_tokens = $event')
+
+        q-card.km-capability-card(v-if='reasoning', flat, bordered)
+          q-card-section
+            .km-title Reasoning Effort Options
+            .km-description.text-secondary-text.q-pb-12 Reasoning-effort tokens this model accepts. Type each value and press Enter. Refer to the provider's documentation for valid values. Leave empty to hide the selector in the prompt template UI.
+            q-select(
+              filled,
+              dense,
+              multiple,
+              use-chips,
+              use-input,
+              hide-dropdown-icon,
+              input-debounce='0',
+              new-value-mode='add-unique',
+              placeholder='Type a value and press Enter (e.g. minimal, low, medium, high, max)',
+              :model-value='reasoning_effort_options',
+              @update:model-value='reasoning_effort_options = $event'
+            )
 
       // Vector configuration for embeddings models
       template(v-if='type === "embeddings"')
-        .km-title Vector Configuration
-        div
-          .km-field.text-secondary-text.q-pb-xs.q-pl-8 Vector Size
-          km-input(height='32px', type='number', placeholder='E.g. 1536', :model-value='vectorSize', @update:model-value='vectorSize = $event')
-          .km-description.text-secondary-text.q-pl-8.q-pt-xs Dimension of the embedding vector. Common values: 1536 (ada-002), 1024 (embed-3-small), 3072 (embed-3-large)
+        q-card.km-capability-card(flat, bordered)
+          q-card-section
+            .km-title Vector Configuration
+            .km-description.text-secondary-text.q-pb-12 Dimension of the embedding vector. Common values: 1536 (ada-002), 1024 (embed-3-small), 3072 (embed-3-large).
+            .km-field.text-secondary-text.q-pb-xs.q-pl-8 Vector Size
+            km-input(height='32px', type='number', placeholder='E.g. 1536', :model-value='vectorSize', @update:model-value='vectorSize = $event')
 
       // Features section for stt models
       template(v-if='type === "stt"')
-        .km-title Features
-        km-checkbox(label='Diarization', :model-value='diarization', @update:model-value='diarization = $event')
-        km-checkbox(label='Keyterms', :model-value='keyterms', @update:model-value='keyterms = $event')
+        q-card.km-capability-card(flat, bordered)
+          q-card-section
+            .km-title Features
+            .km-description.text-secondary-text.q-pb-12 Toggle the capabilities this speech-to-text model supports.
+            .column.q-gap-8
+              km-checkbox(label='Diarization', :model-value='diarization', @update:model-value='diarization = $event')
+              km-checkbox(label='Keyterms', :model-value='keyterms', @update:model-value='keyterms = $event')
 
     .column.q-gap-16.q-pa-16(v-if='tab == "pricing"')
-      .km-title Inputs
-      div
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Input units
-        km-select(
-          height='32px',
-          :options='priceUnitOptions',
-          :model-value='price_input_unit_name',
-          @update:model-value='price_input_unit_name = $event',
-          emit-value,
-          map-options
-        )
-      div
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Price for standard input
-        .row.items-center.q-gap-8.no-wrap
-          km-input(
-            prefix='$',
-            height='32px',
-            :model-value='price_standard_input',
-            @update:model-value='price_standard_input = $event',
-            style='max-width: 120px'
-          )
-          .text-secondary-text per
-          km-input(
-            height='32px',
-            :model-value='price_standard_input_unit_count',
-            @update:model-value='price_standard_input_unit_count = $event',
-            style='max-width: 120px'
-          )
-          .text-secondary-text {{ price_input_unit_name }}
-      div
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Price for cached input
-        .row.items-center.q-gap-8.no-wrap
-          km-input(
-            prefix='$',
-            height='32px',
-            :model-value='price_cached_input',
-            @update:model-value='price_cached_input = $event',
-            style='max-width: 120px'
-          )
-          .text-secondary-text per
-          km-input(
-            height='32px',
-            :model-value='price_cached_input_unit_count',
-            @update:model-value='price_cached_input_unit_count = $event',
-            style='max-width: 120px'
-          )
-          .text-secondary-text {{ price_input_unit_name }}
-      q-separator.q-my-16
-      .km-title Outputs
-      div
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Output units
-        km-select(
-          height='32px',
-          :options='priceUnitOptions',
-          :model-value='price_output_unit_name',
-          @update:model-value='price_output_unit_name = $event',
-          emit-value,
-          map-options
-        )
-      div
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Price for standard output
-        .row.items-center.q-gap-8.no-wrap
-          km-input(
-            prefix='$',
-            height='32px',
-            :model-value='price_standard_output',
-            @update:model-value='price_standard_output = $event',
-            style='max-width: 120px'
-          )
-          .text-secondary-text per
-          km-input(
-            height='32px',
-            :model-value='price_standard_output_unit_count',
-            @update:model-value='price_standard_output_unit_count = $event',
-            style='max-width: 120px'
-          )
-          .text-secondary-text {{ price_output_unit_name }}
-      template(v-if='reasoning')
-        q-separator.q-my-16
-        .km-title Reasoning Output
-        div
-          .km-field.text-secondary-text.q-pb-xs.q-pl-8 Price for reasoning output
-          .row.items-center.q-gap-8.no-wrap
-            km-input(
-              prefix='$',
+      q-card.km-pricing-card(flat, bordered)
+        q-card-section.q-pa-16
+          .km-title Input Pricing
+          .km-description.text-secondary-text.q-pb-12 Pricing applied to tokens, characters or queries sent to the model.
+          .row.items-center.q-gap-8.q-mb-12
+            .text-caption.text-secondary-text(style='min-width: 32px') Unit
+            km-select(
               height='32px',
-              :model-value='price_reasoning_output',
-              @update:model-value='price_reasoning_output = $event',
-              style='max-width: 120px'
+              :options='priceUnitOptions',
+              :model-value='price_input_unit_name',
+              @update:model-value='price_input_unit_name = $event',
+              emit-value,
+              map-options,
+              style='width: 120px'
             )
-            .text-secondary-text per
+            .text-caption.text-secondary-text per
             km-input(
               height='32px',
-              :model-value='price_reasoning_output_unit_count',
-              @update:model-value='price_reasoning_output_unit_count = $event',
-              style='max-width: 120px'
+              type='number',
+              :model-value='priceInputUnitCount',
+              @update:model-value='priceInputUnitCount = $event',
+              style='width: 120px'
             )
-            .text-secondary-text {{ price_output_unit_name }}
+            .text-caption.text-secondary-text {{ price_input_unit_name }}
+          q-separator.q-mb-12
+          .column.q-gap-8
+            .row.items-center.no-wrap.q-gap-12
+              .km-field.text-secondary-text.col Standard
+              km-input(
+                prefix='$',
+                height='32px',
+                :model-value='price_standard_input',
+                @update:model-value='price_standard_input = $event',
+                style='width: 140px'
+              )
+            .row.items-center.no-wrap.q-gap-12
+              .km-field.text-secondary-text.col Cached
+              km-input(
+                prefix='$',
+                height='32px',
+                :model-value='price_cached_input',
+                @update:model-value='price_cached_input = $event',
+                style='width: 140px'
+              )
 
+      q-card.km-pricing-card(flat, bordered)
+        q-card-section.q-pa-16
+          .km-title Output Pricing
+          .km-description.text-secondary-text.q-pb-12 Pricing applied to tokens, characters or queries returned by the model.
+          .row.items-center.q-gap-8.q-mb-12
+            .text-caption.text-secondary-text(style='min-width: 32px') Unit
+            km-select(
+              height='32px',
+              :options='priceUnitOptions',
+              :model-value='price_output_unit_name',
+              @update:model-value='price_output_unit_name = $event',
+              emit-value,
+              map-options,
+              style='width: 120px'
+            )
+            .text-caption.text-secondary-text per
+            km-input(
+              height='32px',
+              type='number',
+              :model-value='priceOutputUnitCount',
+              @update:model-value='priceOutputUnitCount = $event',
+              style='width: 120px'
+            )
+            .text-caption.text-secondary-text {{ price_output_unit_name }}
+          q-separator.q-mb-12
+          .column.q-gap-8
+            .row.items-center.no-wrap.q-gap-12
+              .km-field.text-secondary-text.col Standard
+              km-input(
+                prefix='$',
+                height='32px',
+                :model-value='price_standard_output',
+                @update:model-value='price_standard_output = $event',
+                style='width: 140px'
+              )
+
+      q-card.km-pricing-card(flat, bordered)
+        q-card-section.q-pa-16
+          .km-title Long Context Pricing
+          .km-description.text-secondary-text.q-pb-12 Some providers charge a different rate when the input exceeds a token threshold. Enable this to override the rates above for long inputs.
+          km-checkbox(
+            label='Apply different pricing for long inputs',
+            :model-value='longContextEnabled',
+            @update:model-value='longContextEnabled = $event'
+          )
+          template(v-if='longContextEnabled')
+            q-separator.q-my-16
+            .row.items-center.q-gap-8.q-mb-16
+              .text-caption.text-secondary-text Threshold
+              km-input(
+                height='32px',
+                type='number',
+                placeholder='200000',
+                :model-value='price_long_context_threshold',
+                @update:model-value='price_long_context_threshold = $event',
+                style='width: 120px'
+              )
+              .text-caption.text-secondary-text tokens
+            .km-pricing-subtitle.q-mb-8 Input
+            .column.q-gap-8.q-mb-16
+              .row.items-center.no-wrap.q-gap-12
+                .km-field.text-secondary-text.col Standard
+                km-input(
+                  prefix='$',
+                  height='32px',
+                  :model-value='price_long_context_input',
+                  @update:model-value='price_long_context_input = $event',
+                  style='width: 140px'
+                )
+              .row.items-center.no-wrap.q-gap-12
+                .km-field.text-secondary-text.col Cached
+                km-input(
+                  prefix='$',
+                  height='32px',
+                  :model-value='price_long_context_cached',
+                  @update:model-value='price_long_context_cached = $event',
+                  style='width: 140px'
+                )
+            .km-pricing-subtitle.q-mb-8 Output
+            .column.q-gap-8
+              .row.items-center.no-wrap.q-gap-12
+                .km-field.text-secondary-text.col Standard
+                km-input(
+                  prefix='$',
+                  height='32px',
+                  :model-value='price_long_context_output',
+                  @update:model-value='price_long_context_output = $event',
+                  style='width: 140px'
+                )
 
     //- Routing Config Tab
     .column.q-gap-16.q-pa-16(v-if='tab == "routing"')
@@ -180,7 +251,7 @@
         km-input(:model-value='apiPath', @update:model-value='apiPath = $event', placeholder='/v2')
         .km-description.text-secondary-text.q-pl-8.q-pt-xs
           | Path appended to the provider endpoint for this model. Must start with /.
-          template(v-if="type === 're-ranking'")
+          template(v-if='type === "re-ranking"')
             br
             | Azure AI Foundry rerank paths: /v1 → /v1/rerank, /v2 → /v2/rerank, /providers/cohere/v2 → /providers/cohere/v2/rerank
       div
@@ -305,13 +376,7 @@
 
         .km-title Supported Parameters
         .row.q-gap-4.flex-wrap(v-if='capabilities.supported_params?.length')
-          q-chip(
-            v-for='param in capabilities.supported_params',
-            :key='param',
-            color='grey-3',
-            text-color='grey-8',
-            size='sm'
-          ) {{ param }}
+          q-chip(v-for='param in capabilities.supported_params', :key='param', color='grey-3', text-color='grey-8', size='sm') {{ param }}
         .text-secondary-text.km-description(v-else) No supported parameters information available
 
       template(v-else)
@@ -398,15 +463,28 @@ q-inner-loading(:showing='loading')
 import { ref, watch } from 'vue'
 import { useChroma } from '@shared'
 import { categoryOptions } from '../../config/model/model.js'
+const DEFAULT_PRICE_UNIT_COUNT = 1000000
+const DEFAULT_PRICE_UNIT_NAME = 'tokens'
+const DEFAULT_LONG_CONTEXT_THRESHOLD = 200000
 
 export default {
   setup() {
-    const { items, update, create, selectedRow, test, capabilities: capabilitiesAction, debugInfo: debugInfoAction, ...useCollection } = useChroma('model')
+    const {
+      items,
+      update,
+      create,
+      selectedRow,
+      test,
+      capabilities: capabilitiesAction,
+      debugInfo: debugInfoAction,
+      ...useCollection
+    } = useChroma('model')
 
     return {
       tab: ref('parameters'),
       tabs: ref([
-        { name: 'parameters', label: 'Parameters' },
+        { name: 'parameters', label: 'General' },
+        { name: 'capabilities', label: 'Capabilities' },
         { name: 'pricing', label: 'Pricing' },
         { name: 'routing', label: 'Routing' },
         { name: 'info', label: 'Info' },
@@ -451,8 +529,8 @@ export default {
     availableFallbackModels() {
       const currentSystemName = this.modelConfig?.system_name
       return this.allModels
-        .filter(m => m.system_name !== currentSystemName)
-        .map(m => ({
+        .filter((m) => m.system_name !== currentSystemName)
+        .map((m) => ({
           label: `${m.display_name} (${m.provider_system_name || m.provider_name})`,
           value: m.system_name,
         }))
@@ -580,9 +658,54 @@ export default {
         this.$store.commit('modelConfig/updateEntityProperty', { key: 'reasoning', value })
       },
     },
+    supports_temperature: {
+      get() {
+        return this.modelConfig?.supports_temperature !== false
+      },
+      set(value) {
+        this.$store.commit('modelConfig/updateEntityProperty', { key: 'supports_temperature', value })
+      },
+    },
+    supports_top_p: {
+      get() {
+        return this.modelConfig?.supports_top_p !== false
+      },
+      set(value) {
+        this.$store.commit('modelConfig/updateEntityProperty', { key: 'supports_top_p', value })
+      },
+    },
+    supports_max_tokens: {
+      get() {
+        return this.modelConfig?.supports_max_tokens !== false
+      },
+      set(value) {
+        this.$store.commit('modelConfig/updateEntityProperty', { key: 'supports_max_tokens', value })
+      },
+    },
+    reasoning_effort_options: {
+      get() {
+        return this.modelConfig?.reasoning_effort_options || []
+      },
+      set(value) {
+        let normalized = null
+        if (Array.isArray(value)) {
+          const seen = []
+          for (const raw of value) {
+            if (typeof raw !== 'string') continue
+            const token = raw.trim()
+            if (token && !seen.includes(token)) seen.push(token)
+          }
+          normalized = seen.length > 0 ? seen : null
+        }
+        this.$store.commit('modelConfig/updateEntityProperty', {
+          key: 'reasoning_effort_options',
+          value: normalized,
+        })
+      },
+    },
     price_input_unit_name: {
       get() {
-        return this.modelConfig?.price_input_unit_name || ''
+        return this.modelConfig?.price_input_unit_name || DEFAULT_PRICE_UNIT_NAME
       },
       set(value) {
         this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_input_unit_name', value })
@@ -590,39 +713,35 @@ export default {
     },
     price_standard_input: {
       get() {
-        return this.modelConfig?.price_input || ''
+        return this.modelConfig?.price_input ?? ''
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_input', value: parseFloat(value) })
+        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_input', value: this.parsePrice(value) })
       },
     },
-    price_standard_input_unit_count: {
+    // Standard and cached input share a single unit count (the common case);
+    // the setter writes both fields to keep the data model consistent.
+    priceInputUnitCount: {
       get() {
-        return this.modelConfig?.price_standard_input_unit_count || ''
+        return this.modelConfig?.price_standard_input_unit_count || DEFAULT_PRICE_UNIT_COUNT
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_standard_input_unit_count', value: parseFloat(value) })
+        const parsed = parseInt(value, 10) || DEFAULT_PRICE_UNIT_COUNT
+        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_standard_input_unit_count', value: parsed })
+        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_cached_input_unit_count', value: parsed })
       },
     },
     price_cached_input: {
       get() {
-        return this.modelConfig?.price_cached || ''
+        return this.modelConfig?.price_cached ?? ''
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_cached', value: parseFloat(value) })
-      },
-    },
-    price_cached_input_unit_count: {
-      get() {
-        return this.modelConfig?.price_cached_input_unit_count || ''
-      },
-      set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_cached_input_unit_count', value: parseFloat(value) })
+        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_cached', value: this.parsePrice(value) })
       },
     },
     price_output_unit_name: {
       get() {
-        return this.modelConfig?.price_output_unit_name || ''
+        return this.modelConfig?.price_output_unit_name || DEFAULT_PRICE_UNIT_NAME
       },
       set(value) {
         this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_output_unit_name', value })
@@ -630,34 +749,74 @@ export default {
     },
     price_standard_output: {
       get() {
-        return this.modelConfig?.price_output || ''
+        return this.modelConfig?.price_output ?? ''
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_output', value: parseFloat(value) })
+        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_output', value: this.parsePrice(value) })
       },
     },
-    price_standard_output_unit_count: {
+    priceOutputUnitCount: {
       get() {
-        return this.modelConfig?.price_standard_output_unit_count || ''
+        return this.modelConfig?.price_standard_output_unit_count || DEFAULT_PRICE_UNIT_COUNT
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_standard_output_unit_count', value: parseFloat(value) })
+        const parsed = parseInt(value, 10) || DEFAULT_PRICE_UNIT_COUNT
+        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_standard_output_unit_count', value: parsed })
       },
     },
-    price_reasoning_output: {
+    longContextEnabled: {
       get() {
-        return this.modelConfig?.price_reasoning || ''
+        return this.modelConfig?.price_long_context_threshold != null
       },
-      set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_reasoning', value: parseFloat(value) || null })
+      set(enabled) {
+        if (enabled) {
+          if (this.modelConfig?.price_long_context_threshold == null) {
+            this.$store.commit('modelConfig/updateEntityProperty', {
+              key: 'price_long_context_threshold',
+              value: DEFAULT_LONG_CONTEXT_THRESHOLD,
+            })
+          }
+        } else {
+          ;['price_long_context_threshold', 'price_long_context_input', 'price_long_context_cached', 'price_long_context_output'].forEach((key) => {
+            this.$store.commit('modelConfig/updateEntityProperty', { key, value: null })
+          })
+        }
       },
     },
-    price_reasoning_output_unit_count: {
+    price_long_context_threshold: {
       get() {
-        return this.modelConfig?.price_reasoning_output_unit_count || ''
+        return this.modelConfig?.price_long_context_threshold ?? ''
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_reasoning_output_unit_count', value: parseFloat(value) || null })
+        const parsed = parseInt(value, 10)
+        this.$store.commit('modelConfig/updateEntityProperty', {
+          key: 'price_long_context_threshold',
+          value: Number.isFinite(parsed) ? parsed : null,
+        })
+      },
+    },
+    price_long_context_input: {
+      get() {
+        return this.modelConfig?.price_long_context_input ?? ''
+      },
+      set(value) {
+        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_long_context_input', value: this.parsePrice(value) })
+      },
+    },
+    price_long_context_cached: {
+      get() {
+        return this.modelConfig?.price_long_context_cached ?? ''
+      },
+      set(value) {
+        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_long_context_cached', value: this.parsePrice(value) })
+      },
+    },
+    price_long_context_output: {
+      get() {
+        return this.modelConfig?.price_long_context_output ?? ''
+      },
+      set(value) {
+        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_long_context_output', value: this.parsePrice(value) })
       },
     },
     is_active: {
@@ -798,6 +957,11 @@ export default {
     },
   },
   methods: {
+    parsePrice(value) {
+      if (value === '' || value === null || value === undefined) return null
+      const parsed = parseFloat(value)
+      return Number.isFinite(parsed) ? parsed : null
+    },
     updateRoutingConfigProperty(key, value) {
       const currentConfig = this.modelConfig?.routing_config || {}
       const newConfig = { ...currentConfig }
@@ -919,3 +1083,23 @@ export default {
   },
 }
 </script>
+
+<style scoped>
+.km-capability-card {
+  border-radius: 8px;
+  background: #fff;
+}
+.km-capability-card :deep(.km-title) {
+  margin-bottom: 4px;
+}
+.km-pricing-card {
+  border-radius: 8px;
+}
+.km-pricing-subtitle {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--q-secondary-text, #888);
+}
+</style>

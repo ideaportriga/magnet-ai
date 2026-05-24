@@ -25,17 +25,22 @@ async def _setup_connection_types(connection: Connection) -> None:
     await connection.set_type_codec(
         "json", encoder=json.dumps, decoder=json.loads, schema="pg_catalog"
     )
-    # Try to register pgvector codec, but don't fail if extension is missing yet
+    # Register pgvector codec. If the extension is missing on this connection
+    # (e.g. it was dropped externally), install it on the same connection and
+    # retry. Do NOT silently continue without a codec — that leaves the
+    # connection unable to encode list[float] into the `vector` type and causes
+    # "expected str, got list" errors downstream.
     try:
         await register_vector(connection)
-    except Exception as e:  # asyncpg raises ValueError("unknown type: public.vector")
+    except ValueError as e:  # asyncpg raises ValueError("unknown type: public.vector")
         msg = str(e).lower()
         if "unknown type" in msg and "vector" in msg:
             logger.warning(
-                "pgvector extension not available yet; skipping type registration on this connection"
+                "pgvector type missing on connection; installing extension and retrying codec registration"
             )
+            await connection.execute("CREATE EXTENSION IF NOT EXISTS vector")
+            await register_vector(connection)
         else:
-            # Re-raise unexpected errors
             raise
 
 
@@ -52,19 +57,21 @@ class PgVectorClient:
         self.connection_string = connection_string
         self.pool_size = pool_size
         self.pool: Pool | None = None
-        self._initialization_started = False
+        self._init_lock = asyncio.Lock()
 
     async def _ensure_pool_initialized(self) -> None:
         """Ensure the connection pool is initialized."""
-        if self.pool is None and not self._initialization_started:
-            await self.init_pool()
+        if self.pool is not None:
+            return
+        async with self._init_lock:
+            if self.pool is None:
+                await self.init_pool()
 
     async def init_pool(self) -> None:
         """Initialize the connection pool."""
-        if self._initialization_started or self.pool is not None:
+        if self.pool is not None:
             return
 
-        self._initialization_started = True
         logger.info("Initializing PostgreSQL connection pool")
 
         # Log connection string (without password for security)
@@ -74,6 +81,12 @@ class PgVectorClient:
         logger.info(f"Using connection string: {safe_connection_string}")
 
         try:
+            # Install pgvector on a one-off connection BEFORE the pool is
+            # created. Otherwise the pool's eagerly-created initial connection
+            # can run its init hook before the extension exists, leaving that
+            # connection without a vector codec for the rest of its life.
+            await self._ensure_extension_standalone()
+
             self.pool = await asyncpg.create_pool(
                 self.connection_string,
                 min_size=1,
@@ -84,8 +97,16 @@ class PgVectorClient:
             logger.info("PostgreSQL connection pool initialized successfully")
         except Exception as e:
             logger.error("Failed to initialize PostgreSQL connection pool: %s", e)
-            self._initialization_started = False
             raise
+
+    async def _ensure_extension_standalone(self) -> None:
+        """Install pgvector via a one-off connection, before the pool is created."""
+        conn = await asyncpg.connect(self.connection_string)
+        try:
+            await conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
+            logger.info("pgvector extension ensured (pre-pool)")
+        finally:
+            await conn.close()
 
     async def close_pool(self) -> None:
         """Close the connection pool."""
@@ -184,21 +205,9 @@ class PgVectorClient:
             return False
 
     async def ensure_pgvector_extension(self) -> None:
-        """Ensure pgvector extension is installed."""
+        """Ensure pgvector extension is installed. Real work happens in init_pool()."""
         if not await self.check_pgvector_extension():
-            logger.info("Installing pgvector extension")
+            logger.warning("pgvector extension missing post-init; creating now")
             await self.execute_command("CREATE EXTENSION IF NOT EXISTS vector")
-            logger.info("pgvector extension installed")
-            # After installing the extension, ensure the current pool connection(s)
-            # have the vector codec registered
-            try:
-                if self.pool:
-                    async with self.pool.acquire() as connection:
-                        await register_vector(connection)
-                        logger.info("pgvector type codec registered on pool connection")
-            except Exception as e:
-                logger.warning(
-                    "Failed to register pgvector codec after installation: %s", e
-                )
         else:
             logger.info("pgvector extension is already installed")

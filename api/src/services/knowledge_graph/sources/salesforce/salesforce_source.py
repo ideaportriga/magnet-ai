@@ -69,7 +69,9 @@ class SalesforceSource(AbstractDataSource):
 
     @override
     @observe(name="Sync Salesforce source")
-    async def sync_source(self, db_session: AsyncSession) -> dict[str, Any]:
+    async def sync_source(
+        self, db_session: AsyncSession, *, from_scratch: bool = False
+    ) -> dict[str, Any]:
         """Synchronize Salesforce Knowledge Articles into the Knowledge Graph."""
 
         logger.info(
@@ -107,6 +109,7 @@ class SalesforceSource(AbstractDataSource):
             salesforce_config=cfg,
             embedding_model=embedding_model,
         )
+        pipeline.from_scratch = from_scratch
 
         try:
             counters = await pipeline.run()

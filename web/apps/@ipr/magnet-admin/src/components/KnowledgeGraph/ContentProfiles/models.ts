@@ -38,6 +38,9 @@ export const LITEPARSE_READER_LABEL = 'LiteParse'
 export const SOURCE_METADATA_READER = 'source_metadata'
 export const SOURCE_METADATA_READER_LABEL = 'Metadata Reader'
 
+export const PAGED_READERS = ['pdf', KREUZBERG_READER, LITEPARSE_READER] as const
+export const isPagedReaderName = (readerName?: string) => PAGED_READERS.includes(readerName as any)
+
 export const readerOptions = [
   {
     label: 'Plain Text Reader',
@@ -232,5 +235,11 @@ export const chunkingStrategyOptions = [
     value: 'html_llm',
     description:
       'Uses an LLM to analyze simplified HTML structure and identify main content block containers. Each identified block becomes a separate chunk, preserving semantic document structure. Requires a prompt template. Best for web pages and HTML documents where structure-aware chunking is important.',
+  },
+  {
+    label: 'Page-Based Chunking',
+    value: 'page',
+    description:
+      'Splits paged content into one chunk per page, using the [Page: N] markers emitted by paged readers. Each chunk preserves its source page number. Only available with the PyPDF, Kreuzberg, or LiteParse reader.',
   },
 ]

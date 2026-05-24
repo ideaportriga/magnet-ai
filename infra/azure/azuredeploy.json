@@ -1,11 +1,11 @@
 {
-  "$schema": "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#",
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
   "contentVersion": "1.0.0.0",
   "metadata": {
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "15924507858784111483"
+      "templateHash": "13177346812322310902"
     }
   },
   "parameters": {
@@ -23,37 +23,364 @@
         "description": "Container image tag"
       }
     },
+    "authEnabled": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Enable authentication (Entra ID). Defaults to false so the template can deploy without a pre-existing Entra app registration; set to true and supply entraClientId/entraClientSecret/entraTenantId to turn auth on."
+      }
+    },
+    "entraClientId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Microsoft Entra ID Application (client) ID"
+      }
+    },
+    "entraClientSecret": {
+      "type": "securestring",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Microsoft Entra ID client secret"
+      }
+    },
+    "entraTenantId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Microsoft Entra ID tenant ID"
+      }
+    },
+    "allowDevAccess": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Allow public access to PostgreSQL and AI Services for dev/debugging"
+      }
+    },
+    "devIpAddress": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Developer IP address to allow when allowDevAccess is true (e.g. 1.2.3.4)"
+      }
+    },
+    "ingressAllowedIpRange": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "CIDR range allowed through Container App ingress (e.g. 1.2.3.0/24). Empty = no restriction. Strongly recommended while authEnabled=false so the unauthenticated app is not publicly reachable — see azure_auth.md to enable Entra ID auth."
+      }
+    },
+    "postgresServerName": {
+      "type": "string",
+      "defaultValue": "",
+      "maxLength": 63,
+      "metadata": {
+        "description": "PostgreSQL server name. Must be globally unique in Azure. 3-63 chars, lowercase letters/digits/hyphens, start with a letter. Leave empty to auto-generate: psql-magnet-ai-<env>-<suffix>."
+      }
+    },
+    "aiServicesAccountName": {
+      "type": "string",
+      "defaultValue": "",
+      "maxLength": 64,
+      "metadata": {
+        "description": "AI Services (Cognitive Services) account name. Must be globally unique in Azure. 2-64 chars, alphanumeric + hyphens. Leave empty to auto-generate: ai-magnet-ai-<env>-<suffix>."
+      }
+    },
     "postgresAdminPassword": {
       "type": "securestring",
-      "defaultValue": "ChangeMe123!",
       "metadata": {
-        "description": "PostgreSQL admin password"
+        "description": "PostgreSQL admin password. 8+ chars, must contain uppercase, lowercase, digit, and special char. Provide the same value on redeploy to avoid regeneration."
       }
     },
     "secretEncryptionKey": {
       "type": "securestring",
-      "defaultValue": "ZmVybmV0LWRlZmF1bHQta2V5LWNoYW5nZW1l",
       "metadata": {
-        "description": "Fernet encryption key for SECRET_ENCRYPTION_KEY"
+        "description": "Fernet encryption key (44-char base64url string ending with =). Provide the same value on redeploy to avoid regeneration."
+      }
+    },
+    "loadDefaultData": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Load default data (providers, models, agents, etc.) on first deployment. Set to true only for initial setup, then set back to false."
       }
     }
   },
   "variables": {
-    "location": "[deployment().location]",
-    "rgName": "[format('rg-magnet-ai-{0}', parameters('environment'))]"
+    "location": "[resourceGroup().location]",
+    "uniqueSuffix": "[uniqueString(resourceGroup().id)]",
+    "resolvedPostgresServerName": "[if(empty(parameters('postgresServerName')), format('psql-magnet-ai-{0}-{1}', parameters('environment'), variables('uniqueSuffix')), parameters('postgresServerName'))]",
+    "resolvedAiServicesName": "[if(empty(parameters('aiServicesAccountName')), format('ai-magnet-ai-{0}-{1}', parameters('environment'), variables('uniqueSuffix')), parameters('aiServicesAccountName'))]"
   },
   "resources": [
     {
-      "type": "Microsoft.Resources/resourceGroups",
-      "apiVersion": "2024-03-01",
-      "name": "[variables('rgName')]",
-      "location": "[variables('location')]"
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "vnet",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "environment": {
+            "value": "[parameters('environment')]"
+          },
+          "location": {
+            "value": "[variables('location')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "9789034836620590884"
+            }
+          },
+          "parameters": {
+            "environment": {
+              "type": "string",
+              "metadata": {
+                "description": "Environment name (dev, staging, prod)"
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for all resources"
+              }
+            }
+          },
+          "variables": {
+            "vnetName": "[format('vnet-magnet-ai-{0}', parameters('environment'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/virtualNetworks",
+              "apiVersion": "2024-01-01",
+              "name": "[variables('vnetName')]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "addressSpace": {
+                  "addressPrefixes": [
+                    "10.0.0.0/16"
+                  ]
+                },
+                "subnets": [
+                  {
+                    "name": "container-apps",
+                    "properties": {
+                      "addressPrefix": "10.0.0.0/23",
+                      "delegations": [
+                        {
+                          "name": "Microsoft.App.environments",
+                          "properties": {
+                            "serviceName": "Microsoft.App/environments"
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "name": "private-endpoints",
+                    "properties": {
+                      "addressPrefix": "10.0.2.0/24",
+                      "privateEndpointNetworkPolicies": "Disabled"
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "outputs": {
+            "vnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "VNet resource ID"
+              },
+              "value": "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]"
+            },
+            "containerAppsSubnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Container Apps subnet resource ID"
+              },
+              "value": "[reference(resourceId('Microsoft.Network/virtualNetworks', variables('vnetName')), '2024-01-01').subnets[0].id]"
+            },
+            "privateEndpointsSubnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Private Endpoints subnet resource ID"
+              },
+              "value": "[reference(resourceId('Microsoft.Network/virtualNetworks', variables('vnetName')), '2024-01-01').subnets[1].id]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "private-dns-zones",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "vnetId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'vnet'), '2025-04-01').outputs.vnetId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "3402766687136436645"
+            }
+          },
+          "parameters": {
+            "vnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "VNet resource ID to link DNS zones to"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/privateDnsZones",
+              "apiVersion": "2024-06-01",
+              "name": "privatelink.postgres.database.azure.com",
+              "location": "global"
+            },
+            {
+              "type": "Microsoft.Network/privateDnsZones",
+              "apiVersion": "2024-06-01",
+              "name": "privatelink.cognitiveservices.azure.com",
+              "location": "global"
+            },
+            {
+              "type": "Microsoft.Network/privateDnsZones",
+              "apiVersion": "2024-06-01",
+              "name": "privatelink.openai.azure.com",
+              "location": "global"
+            },
+            {
+              "type": "Microsoft.Network/privateDnsZones",
+              "apiVersion": "2024-06-01",
+              "name": "privatelink.services.ai.azure.com",
+              "location": "global"
+            },
+            {
+              "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+              "apiVersion": "2024-06-01",
+              "name": "[format('{0}/{1}', 'privatelink.postgres.database.azure.com', 'postgres-vnet-link')]",
+              "location": "global",
+              "properties": {
+                "virtualNetwork": {
+                  "id": "[parameters('vnetId')]"
+                },
+                "registrationEnabled": false
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.postgres.database.azure.com')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+              "apiVersion": "2024-06-01",
+              "name": "[format('{0}/{1}', 'privatelink.cognitiveservices.azure.com', 'cognitiveservices-vnet-link')]",
+              "location": "global",
+              "properties": {
+                "virtualNetwork": {
+                  "id": "[parameters('vnetId')]"
+                },
+                "registrationEnabled": false
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.cognitiveservices.azure.com')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+              "apiVersion": "2024-06-01",
+              "name": "[format('{0}/{1}', 'privatelink.openai.azure.com', 'openai-vnet-link')]",
+              "location": "global",
+              "properties": {
+                "virtualNetwork": {
+                  "id": "[parameters('vnetId')]"
+                },
+                "registrationEnabled": false
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.openai.azure.com')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+              "apiVersion": "2024-06-01",
+              "name": "[format('{0}/{1}', 'privatelink.services.ai.azure.com', 'aiservices-vnet-link')]",
+              "location": "global",
+              "properties": {
+                "virtualNetwork": {
+                  "id": "[parameters('vnetId')]"
+                },
+                "registrationEnabled": false
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.services.ai.azure.com')]"
+              ]
+            }
+          ],
+          "outputs": {
+            "postgresDnsZoneId": {
+              "type": "string",
+              "metadata": {
+                "description": "Private DNS zone ID for PostgreSQL"
+              },
+              "value": "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.postgres.database.azure.com')]"
+            },
+            "cognitiveServicesDnsZoneId": {
+              "type": "string",
+              "metadata": {
+                "description": "Private DNS zone ID for Cognitive Services"
+              },
+              "value": "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.cognitiveservices.azure.com')]"
+            },
+            "openAiDnsZoneId": {
+              "type": "string",
+              "metadata": {
+                "description": "Private DNS zone ID for OpenAI"
+              },
+              "value": "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.openai.azure.com')]"
+            },
+            "aiServicesDnsZoneId": {
+              "type": "string",
+              "metadata": {
+                "description": "Private DNS zone ID for AI Services"
+              },
+              "value": "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.services.ai.azure.com')]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'vnet')]"
+      ]
     },
     {
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2025-04-01",
       "name": "log-analytics",
-      "resourceGroup": "[variables('rgName')]",
       "properties": {
         "expressionEvaluationOptions": {
           "scope": "inner"
@@ -132,27 +459,41 @@
             }
           }
         }
-      },
-      "dependsOn": [
-        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('rgName'))]"
-      ]
+      }
     },
     {
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2025-04-01",
       "name": "ai-foundry",
-      "resourceGroup": "[variables('rgName')]",
       "properties": {
         "expressionEvaluationOptions": {
           "scope": "inner"
         },
         "mode": "Incremental",
         "parameters": {
-          "environment": {
-            "value": "[parameters('environment')]"
-          },
           "location": {
             "value": "[variables('location')]"
+          },
+          "aiServicesName": {
+            "value": "[variables('resolvedAiServicesName')]"
+          },
+          "privateEndpointSubnetId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'vnet'), '2025-04-01').outputs.privateEndpointsSubnetId.value]"
+          },
+          "cognitiveServicesDnsZoneId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'private-dns-zones'), '2025-04-01').outputs.cognitiveServicesDnsZoneId.value]"
+          },
+          "openAiDnsZoneId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'private-dns-zones'), '2025-04-01').outputs.openAiDnsZoneId.value]"
+          },
+          "aiServicesDnsZoneId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'private-dns-zones'), '2025-04-01').outputs.aiServicesDnsZoneId.value]"
+          },
+          "allowDevAccess": {
+            "value": "[parameters('allowDevAccess')]"
+          },
+          "devIpAddress": {
+            "value": "[parameters('devIpAddress')]"
           }
         },
         "template": {
@@ -162,31 +503,66 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "15254377621010111257"
+              "templateHash": "9549257718945156240"
             }
           },
           "parameters": {
-            "environment": {
-              "type": "string",
-              "metadata": {
-                "description": "Environment name (dev, staging, prod)"
-              }
-            },
             "location": {
               "type": "string",
               "metadata": {
                 "description": "Azure region for all resources"
               }
+            },
+            "privateEndpointSubnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Subnet resource ID for private endpoints"
+              }
+            },
+            "cognitiveServicesDnsZoneId": {
+              "type": "string",
+              "metadata": {
+                "description": "Private DNS zone resource ID for Cognitive Services (privatelink.cognitiveservices.azure.com)"
+              }
+            },
+            "openAiDnsZoneId": {
+              "type": "string",
+              "metadata": {
+                "description": "Private DNS zone resource ID for OpenAI (privatelink.openai.azure.com)"
+              }
+            },
+            "aiServicesDnsZoneId": {
+              "type": "string",
+              "metadata": {
+                "description": "Private DNS zone resource ID for AI Services (privatelink.services.ai.azure.com)"
+              }
+            },
+            "allowDevAccess": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Allow public access for dev/debugging (adds devIpAddress to networkAcls)"
+              }
+            },
+            "devIpAddress": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Developer IP address to allow when allowDevAccess is true"
+              }
+            },
+            "aiServicesName": {
+              "type": "string",
+              "metadata": {
+                "description": "AI Services account name (globally unique). Override if default is taken."
+              }
             }
-          },
-          "variables": {
-            "aiServicesName": "[format('mf-magnet-ai-{0}', parameters('environment'))]"
           },
           "resources": [
             {
               "type": "Microsoft.CognitiveServices/accounts",
               "apiVersion": "2025-04-01-preview",
-              "name": "[variables('aiServicesName')]",
+              "name": "[parameters('aiServicesName')]",
               "location": "[parameters('location')]",
               "sku": {
                 "name": "S0"
@@ -196,11 +572,13 @@
                 "type": "SystemAssigned"
               },
               "properties": {
-                "customSubDomainName": "[variables('aiServicesName')]",
+                "customSubDomainName": "[parameters('aiServicesName')]",
                 "networkAcls": {
-                  "defaultAction": "Allow"
+                  "defaultAction": "Deny",
+                  "bypass": "AzureServices",
+                  "ipRules": "[if(and(parameters('allowDevAccess'), not(equals(parameters('devIpAddress'), ''))), createArray(createObject('value', parameters('devIpAddress'))), createArray())]"
                 },
-                "publicNetworkAccess": "Enabled",
+                "publicNetworkAccess": "[if(parameters('allowDevAccess'), 'Enabled', 'Disabled')]",
                 "allowProjectManagement": true,
                 "defaultProject": "magnet-ai",
                 "associatedProjects": [
@@ -211,18 +589,18 @@
             {
               "type": "Microsoft.CognitiveServices/accounts/defenderForAISettings",
               "apiVersion": "2025-04-01-preview",
-              "name": "[format('{0}/{1}', variables('aiServicesName'), 'Default')]",
+              "name": "[format('{0}/{1}', parameters('aiServicesName'), 'Default')]",
               "properties": {
                 "state": "Disabled"
               },
               "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', variables('aiServicesName'))]"
+                "[resourceId('Microsoft.CognitiveServices/accounts', parameters('aiServicesName'))]"
               ]
             },
             {
               "type": "Microsoft.CognitiveServices/accounts/deployments",
               "apiVersion": "2025-04-01-preview",
-              "name": "[format('{0}/{1}', variables('aiServicesName'), 'gpt-4.1')]",
+              "name": "[format('{0}/{1}', parameters('aiServicesName'), 'gpt-4.1')]",
               "sku": {
                 "name": "GlobalStandard",
                 "capacity": 250
@@ -237,14 +615,14 @@
                 "raiPolicyName": "Microsoft.DefaultV2"
               },
               "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', variables('aiServicesName'))]",
-                "[resourceId('Microsoft.CognitiveServices/accounts/projects', variables('aiServicesName'), 'magnet-ai')]"
+                "[resourceId('Microsoft.CognitiveServices/accounts', parameters('aiServicesName'))]",
+                "[resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('aiServicesName'), 'magnet-ai')]"
               ]
             },
             {
               "type": "Microsoft.CognitiveServices/accounts/deployments",
               "apiVersion": "2025-04-01-preview",
-              "name": "[format('{0}/{1}', variables('aiServicesName'), 'gpt-4.1-mini')]",
+              "name": "[format('{0}/{1}', parameters('aiServicesName'), 'gpt-4.1-mini')]",
               "sku": {
                 "name": "GlobalStandard",
                 "capacity": 250
@@ -259,14 +637,14 @@
                 "raiPolicyName": "Microsoft.DefaultV2"
               },
               "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', variables('aiServicesName'))]",
-                "[resourceId('Microsoft.CognitiveServices/accounts/deployments', variables('aiServicesName'), 'gpt-4.1')]"
+                "[resourceId('Microsoft.CognitiveServices/accounts', parameters('aiServicesName'))]",
+                "[resourceId('Microsoft.CognitiveServices/accounts/deployments', parameters('aiServicesName'), 'gpt-4.1')]"
               ]
             },
             {
               "type": "Microsoft.CognitiveServices/accounts/projects",
               "apiVersion": "2025-04-01-preview",
-              "name": "[format('{0}/{1}', variables('aiServicesName'), 'magnet-ai')]",
+              "name": "[format('{0}/{1}', parameters('aiServicesName'), 'magnet-ai')]",
               "location": "[parameters('location')]",
               "kind": "AIServices",
               "identity": {
@@ -277,7 +655,63 @@
                 "displayName": "magnet-ai"
               },
               "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', variables('aiServicesName'))]"
+                "[resourceId('Microsoft.CognitiveServices/accounts', parameters('aiServicesName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/privateEndpoints",
+              "apiVersion": "2024-01-01",
+              "name": "[format('pe-ai-{0}', parameters('aiServicesName'))]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "subnet": {
+                  "id": "[parameters('privateEndpointSubnetId')]"
+                },
+                "privateLinkServiceConnections": [
+                  {
+                    "name": "[format('pe-ai-{0}', parameters('aiServicesName'))]",
+                    "properties": {
+                      "privateLinkServiceId": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('aiServicesName'))]",
+                      "groupIds": [
+                        "account"
+                      ]
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts', parameters('aiServicesName'))]",
+                "[resourceId('Microsoft.CognitiveServices/accounts/deployments', parameters('aiServicesName'), 'gpt-4.1-mini')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+              "apiVersion": "2024-01-01",
+              "name": "[format('{0}/{1}', format('pe-ai-{0}', parameters('aiServicesName')), 'default')]",
+              "properties": {
+                "privateDnsZoneConfigs": [
+                  {
+                    "name": "cognitiveservices",
+                    "properties": {
+                      "privateDnsZoneId": "[parameters('cognitiveServicesDnsZoneId')]"
+                    }
+                  },
+                  {
+                    "name": "openai",
+                    "properties": {
+                      "privateDnsZoneId": "[parameters('openAiDnsZoneId')]"
+                    }
+                  },
+                  {
+                    "name": "aiservices",
+                    "properties": {
+                      "privateDnsZoneId": "[parameters('aiServicesDnsZoneId')]"
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateEndpoints', format('pe-ai-{0}', parameters('aiServicesName')))]"
               ]
             }
           ],
@@ -287,48 +721,60 @@
               "metadata": {
                 "description": "AI Services endpoint URL"
               },
-              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', variables('aiServicesName')), '2025-04-01-preview').endpoint]"
+              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('aiServicesName')), '2025-04-01-preview').endpoint]"
             },
             "aiServicesName": {
               "type": "string",
               "metadata": {
-                "description": "AI Services account name (use with az cognitiveservices account keys list)"
+                "description": "AI Services account name (use with: az cognitiveservices account keys list --name <name> --resource-group <rg>)"
               },
-              "value": "[variables('aiServicesName')]"
+              "value": "[parameters('aiServicesName')]"
             },
-            "apiKey": {
+            "aiServicesKey": {
               "type": "string",
               "metadata": {
-                "description": "AI Services API key"
+                "description": "AI Services primary key"
               },
-              "value": "[listKeys(resourceId('Microsoft.CognitiveServices/accounts', variables('aiServicesName')), '2025-04-01-preview').key1]"
+              "value": "[listKeys(resourceId('Microsoft.CognitiveServices/accounts', parameters('aiServicesName')), '2025-04-01-preview').key1]"
             }
           }
         }
       },
       "dependsOn": [
-        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('rgName'))]"
+        "[resourceId('Microsoft.Resources/deployments', 'private-dns-zones')]",
+        "[resourceId('Microsoft.Resources/deployments', 'vnet')]"
       ]
     },
     {
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2025-04-01",
       "name": "postgresql",
-      "resourceGroup": "[variables('rgName')]",
       "properties": {
         "expressionEvaluationOptions": {
           "scope": "inner"
         },
         "mode": "Incremental",
         "parameters": {
-          "environment": {
-            "value": "[parameters('environment')]"
-          },
           "location": {
             "value": "[variables('location')]"
           },
+          "serverName": {
+            "value": "[variables('resolvedPostgresServerName')]"
+          },
           "adminPassword": {
             "value": "[parameters('postgresAdminPassword')]"
+          },
+          "privateEndpointSubnetId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'vnet'), '2025-04-01').outputs.privateEndpointsSubnetId.value]"
+          },
+          "privateDnsZoneId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'private-dns-zones'), '2025-04-01').outputs.postgresDnsZoneId.value]"
+          },
+          "allowDevAccess": {
+            "value": "[parameters('allowDevAccess')]"
+          },
+          "devIpAddress": {
+            "value": "[parameters('devIpAddress')]"
           }
         },
         "template": {
@@ -338,16 +784,10 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "10899668269615551112"
+              "templateHash": "17220548025966930528"
             }
           },
           "parameters": {
-            "environment": {
-              "type": "string",
-              "metadata": {
-                "description": "Environment name (dev, staging, prod)"
-              }
-            },
             "location": {
               "type": "string",
               "metadata": {
@@ -359,17 +799,48 @@
               "metadata": {
                 "description": "Administrator password for PostgreSQL"
               }
+            },
+            "privateEndpointSubnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Subnet resource ID for private endpoints"
+              }
+            },
+            "privateDnsZoneId": {
+              "type": "string",
+              "metadata": {
+                "description": "Private DNS zone resource ID for PostgreSQL"
+              }
+            },
+            "allowDevAccess": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Allow public access for dev/debugging (adds devIpAddress to firewall)"
+              }
+            },
+            "devIpAddress": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Developer IP address to allow when allowDevAccess is true"
+              }
+            },
+            "serverName": {
+              "type": "string",
+              "metadata": {
+                "description": "PostgreSQL server name (globally unique). Override if default is taken."
+              }
             }
           },
           "variables": {
-            "serverName": "[format('psql-magnet-ai-{0}', parameters('environment'))]",
             "databaseName": "magnet"
           },
           "resources": [
             {
               "type": "Microsoft.DBforPostgreSQL/flexibleServers",
               "apiVersion": "2024-08-01",
-              "name": "[variables('serverName')]",
+              "name": "[parameters('serverName')]",
               "location": "[parameters('location')]",
               "sku": {
                 "name": "Standard_B2s",
@@ -384,7 +855,7 @@
                   "autoGrow": "Disabled"
                 },
                 "network": {
-                  "publicNetworkAccess": "Enabled"
+                  "publicNetworkAccess": "[if(parameters('allowDevAccess'), 'Enabled', 'Disabled')]"
                 },
                 "authConfig": {
                   "activeDirectoryAuth": "Disabled",
@@ -405,38 +876,83 @@
             {
               "type": "Microsoft.DBforPostgreSQL/flexibleServers/databases",
               "apiVersion": "2024-08-01",
-              "name": "[format('{0}/{1}', variables('serverName'), variables('databaseName'))]",
+              "name": "[format('{0}/{1}', parameters('serverName'), variables('databaseName'))]",
               "properties": {
                 "charset": "UTF8",
                 "collation": "en_US.utf8"
               },
               "dependsOn": [
-                "[resourceId('Microsoft.DBforPostgreSQL/flexibleServers', variables('serverName'))]"
-              ]
-            },
-            {
-              "type": "Microsoft.DBforPostgreSQL/flexibleServers/firewallRules",
-              "apiVersion": "2024-08-01",
-              "name": "[format('{0}/{1}', variables('serverName'), 'AllowAllAzureServicesAndResourcesWithinAzureIps')]",
-              "properties": {
-                "startIpAddress": "0.0.0.0",
-                "endIpAddress": "0.0.0.0"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.DBforPostgreSQL/flexibleServers', variables('serverName'))]"
+                "[resourceId('Microsoft.DBforPostgreSQL/flexibleServers', parameters('serverName'))]"
               ]
             },
             {
               "type": "Microsoft.DBforPostgreSQL/flexibleServers/configurations",
               "apiVersion": "2024-08-01",
-              "name": "[format('{0}/{1}', variables('serverName'), 'azure.extensions')]",
+              "name": "[format('{0}/{1}', parameters('serverName'), 'azure.extensions')]",
               "properties": {
                 "value": "VECTOR",
                 "source": "user-override"
               },
               "dependsOn": [
-                "[resourceId('Microsoft.DBforPostgreSQL/flexibleServers/databases', variables('serverName'), variables('databaseName'))]",
-                "[resourceId('Microsoft.DBforPostgreSQL/flexibleServers', variables('serverName'))]"
+                "[resourceId('Microsoft.DBforPostgreSQL/flexibleServers/databases', parameters('serverName'), variables('databaseName'))]",
+                "[resourceId('Microsoft.DBforPostgreSQL/flexibleServers', parameters('serverName'))]"
+              ]
+            },
+            {
+              "condition": "[and(parameters('allowDevAccess'), not(equals(parameters('devIpAddress'), '')))]",
+              "type": "Microsoft.DBforPostgreSQL/flexibleServers/firewallRules",
+              "apiVersion": "2024-08-01",
+              "name": "[format('{0}/{1}', parameters('serverName'), 'AllowDevAccess')]",
+              "properties": {
+                "startIpAddress": "[parameters('devIpAddress')]",
+                "endIpAddress": "[parameters('devIpAddress')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.DBforPostgreSQL/flexibleServers', parameters('serverName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/privateEndpoints",
+              "apiVersion": "2024-01-01",
+              "name": "[format('pe-pg-{0}', parameters('serverName'))]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "subnet": {
+                  "id": "[parameters('privateEndpointSubnetId')]"
+                },
+                "privateLinkServiceConnections": [
+                  {
+                    "name": "[format('pe-pg-{0}', parameters('serverName'))]",
+                    "properties": {
+                      "privateLinkServiceId": "[resourceId('Microsoft.DBforPostgreSQL/flexibleServers', parameters('serverName'))]",
+                      "groupIds": [
+                        "postgresqlServer"
+                      ]
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.DBforPostgreSQL/flexibleServers', parameters('serverName'))]",
+                "[resourceId('Microsoft.DBforPostgreSQL/flexibleServers/configurations', parameters('serverName'), 'azure.extensions')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+              "apiVersion": "2024-01-01",
+              "name": "[format('{0}/{1}', format('pe-pg-{0}', parameters('serverName')), 'default')]",
+              "properties": {
+                "privateDnsZoneConfigs": [
+                  {
+                    "name": "postgres",
+                    "properties": {
+                      "privateDnsZoneId": "[parameters('privateDnsZoneId')]"
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateEndpoints', format('pe-pg-{0}', parameters('serverName')))]"
               ]
             }
           ],
@@ -446,27 +962,27 @@
               "metadata": {
                 "description": "PostgreSQL server FQDN"
               },
-              "value": "[reference(resourceId('Microsoft.DBforPostgreSQL/flexibleServers', variables('serverName')), '2024-08-01').fullyQualifiedDomainName]"
+              "value": "[reference(resourceId('Microsoft.DBforPostgreSQL/flexibleServers', parameters('serverName')), '2024-08-01').fullyQualifiedDomainName]"
             },
             "connectionString": {
               "type": "string",
               "metadata": {
                 "description": "Connection string for the magnet database (asyncpg format)"
               },
-              "value": "[format('postgresql+asyncpg://postgres:{0}@{1}:5432/{2}', parameters('adminPassword'), reference(resourceId('Microsoft.DBforPostgreSQL/flexibleServers', variables('serverName')), '2024-08-01').fullyQualifiedDomainName, variables('databaseName'))]"
+              "value": "[format('postgresql+asyncpg://postgres:{0}@{1}:5432/{2}', parameters('adminPassword'), reference(resourceId('Microsoft.DBforPostgreSQL/flexibleServers', parameters('serverName')), '2024-08-01').fullyQualifiedDomainName, variables('databaseName'))]"
             }
           }
         }
       },
       "dependsOn": [
-        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('rgName'))]"
+        "[resourceId('Microsoft.Resources/deployments', 'private-dns-zones')]",
+        "[resourceId('Microsoft.Resources/deployments', 'vnet')]"
       ]
     },
     {
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2025-04-01",
       "name": "container-app-env",
-      "resourceGroup": "[variables('rgName')]",
       "properties": {
         "expressionEvaluationOptions": {
           "scope": "inner"
@@ -480,10 +996,13 @@
             "value": "[variables('location')]"
           },
           "logAnalyticsCustomerId": {
-            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', 'log-analytics'), '2025-04-01').outputs.customerId.value]"
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'log-analytics'), '2025-04-01').outputs.customerId.value]"
           },
           "logAnalyticsSharedKey": {
-            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', 'log-analytics'), '2025-04-01').outputs.sharedKey.value]"
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'log-analytics'), '2025-04-01').outputs.sharedKey.value]"
+          },
+          "infrastructureSubnetId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'vnet'), '2025-04-01').outputs.containerAppsSubnetId.value]"
           }
         },
         "template": {
@@ -493,7 +1012,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "3445700738105478187"
+              "templateHash": "5410930020791646993"
             }
           },
           "parameters": {
@@ -520,6 +1039,12 @@
               "metadata": {
                 "description": "Log Analytics workspace shared key"
               }
+            },
+            "infrastructureSubnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Subnet resource ID for Container Apps VNet integration"
+              }
             }
           },
           "variables": {
@@ -538,6 +1063,15 @@
                     "customerId": "[parameters('logAnalyticsCustomerId')]",
                     "sharedKey": "[parameters('logAnalyticsSharedKey')]"
                   }
+                },
+                "workloadProfiles": [
+                  {
+                    "name": "Consumption",
+                    "workloadProfileType": "Consumption"
+                  }
+                ],
+                "vnetConfiguration": {
+                  "infrastructureSubnetId": "[parameters('infrastructureSubnetId')]"
                 },
                 "zoneRedundant": false,
                 "peerAuthentication": {
@@ -567,15 +1101,14 @@
         }
       },
       "dependsOn": [
-        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', 'log-analytics')]",
-        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('rgName'))]"
+        "[resourceId('Microsoft.Resources/deployments', 'log-analytics')]",
+        "[resourceId('Microsoft.Resources/deployments', 'vnet')]"
       ]
     },
     {
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2025-04-01",
       "name": "container-app",
-      "resourceGroup": "[variables('rgName')]",
       "properties": {
         "expressionEvaluationOptions": {
           "scope": "inner"
@@ -589,19 +1122,43 @@
             "value": "[variables('location')]"
           },
           "environmentId": {
-            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', 'container-app-env'), '2025-04-01').outputs.environmentId.value]"
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'container-app-env'), '2025-04-01').outputs.environmentId.value]"
           },
           "envDefaultDomain": {
-            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', 'container-app-env'), '2025-04-01').outputs.defaultDomain.value]"
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'container-app-env'), '2025-04-01').outputs.defaultDomain.value]"
           },
           "containerImage": {
             "value": "[format('ghcr.io/ideaportriga/magnet-ai:{0}', parameters('containerImageTag'))]"
           },
           "databaseConnectionString": {
-            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', 'postgresql'), '2025-04-01').outputs.connectionString.value]"
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'postgresql'), '2025-04-01').outputs.connectionString.value]"
           },
           "secretEncryptionKey": {
             "value": "[parameters('secretEncryptionKey')]"
+          },
+          "authEnabled": {
+            "value": "[parameters('authEnabled')]"
+          },
+          "entraClientId": {
+            "value": "[parameters('entraClientId')]"
+          },
+          "entraClientSecret": {
+            "value": "[parameters('entraClientSecret')]"
+          },
+          "entraTenantId": {
+            "value": "[parameters('entraTenantId')]"
+          },
+          "ingressAllowedIpRange": {
+            "value": "[parameters('ingressAllowedIpRange')]"
+          },
+          "loadDefaultData": {
+            "value": "[parameters('loadDefaultData')]"
+          },
+          "aiServicesEndpoint": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'ai-foundry'), '2025-04-01').outputs.endpoint.value]"
+          },
+          "aiServicesKey": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'ai-foundry'), '2025-04-01').outputs.aiServicesKey.value]"
           }
         },
         "template": {
@@ -611,7 +1168,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "17534568290488842364"
+              "templateHash": "11153963398015016282"
             }
           },
           "parameters": {
@@ -656,11 +1213,185 @@
               "metadata": {
                 "description": "Fernet encryption key"
               }
+            },
+            "authEnabled": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Enable authentication (Entra ID)"
+              }
+            },
+            "entraClientId": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Microsoft Entra ID Application (client) ID"
+              }
+            },
+            "entraClientSecret": {
+              "type": "securestring",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Microsoft Entra ID client secret"
+              }
+            },
+            "entraTenantId": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Microsoft Entra ID tenant ID"
+              }
+            },
+            "ingressAllowedIpRange": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "CIDR range allowed through Container App ingress (e.g. 1.2.3.0/24). Empty = no restriction. Strongly recommended while authEnabled=false so the unauthenticated app is not publicly reachable — see azure_auth.md to enable Entra ID auth."
+              }
+            },
+            "loadDefaultData": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Load default data into the database on startup"
+              }
+            },
+            "aiServicesEndpoint": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Azure OpenAI endpoint URL for provider configuration"
+              }
+            },
+            "aiServicesKey": {
+              "type": "securestring",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Azure OpenAI API key for provider configuration"
+              }
             }
           },
           "variables": {
             "appName": "[format('ca-magnet-ai-{0}', parameters('environment'))]",
-            "redirectUri": "[format('https://{0}.{1}/auth/callback', variables('appName'), parameters('envDefaultDomain'))]"
+            "redirectUri": "[format('https://{0}.{1}/auth/callback', variables('appName'), parameters('envDefaultDomain'))]",
+            "baseSecrets": [
+              {
+                "name": "database-url",
+                "value": "[parameters('databaseConnectionString')]"
+              },
+              {
+                "name": "pgvector-connection-string",
+                "value": "[parameters('databaseConnectionString')]"
+              },
+              {
+                "name": "secret-encryption-key",
+                "value": "[parameters('secretEncryptionKey')]"
+              },
+              {
+                "name": "azure-openai-api-key",
+                "value": "[parameters('aiServicesKey')]"
+              }
+            ],
+            "entraSecrets": "[if(parameters('authEnabled'), createArray(createObject('name', 'entra-client-id', 'value', parameters('entraClientId')), createObject('name', 'entra-client-secret', 'value', parameters('entraClientSecret'))), createArray())]",
+            "baseEnv": [
+              {
+                "name": "AUTH_ENABLED",
+                "value": "[if(parameters('authEnabled'), 'true', 'false')]"
+              },
+              {
+                "name": "AUTH_ENABLED_FOR_SCHEMA",
+                "value": "[if(parameters('authEnabled'), 'true', 'false')]"
+              },
+              {
+                "name": "ENV",
+                "value": "[parameters('environment')]"
+              },
+              {
+                "name": "DATABASE_URL",
+                "secretRef": "database-url"
+              },
+              {
+                "name": "PGVECTOR_CONNECTION_STRING",
+                "secretRef": "pgvector-connection-string"
+              },
+              {
+                "name": "SECRET_ENCRYPTION_KEY",
+                "secretRef": "secret-encryption-key"
+              },
+              {
+                "name": "MICROSOFT_ENTRA_ID_REDIRECT_URI",
+                "value": "[variables('redirectUri')]"
+              },
+              {
+                "name": "RUN_MIGRATIONS",
+                "value": "true"
+              },
+              {
+                "name": "RUN_FIXTURES",
+                "value": "[if(parameters('loadDefaultData'), 'true', 'false')]"
+              },
+              {
+                "name": "AZURE_OPENAI_ENDPOINT",
+                "value": "[format('{0}openai/v1/', parameters('aiServicesEndpoint'))]"
+              },
+              {
+                "name": "AZURE_OPENAI_API_KEY",
+                "secretRef": "azure-openai-api-key"
+              },
+              {
+                "name": "WEB_INCLUDED",
+                "value": "true"
+              },
+              {
+                "name": "HELP_BASE_URL",
+                "value": "/help"
+              },
+              {
+                "name": "DATABASE_POOL_SIZE",
+                "value": "5"
+              },
+              {
+                "name": "DATABASE_MAX_POOL_OVERFLOW",
+                "value": "3"
+              },
+              {
+                "name": "DATABASE_POOL_TIMEOUT",
+                "value": "60"
+              },
+              {
+                "name": "DATABASE_POOL_RECYCLE",
+                "value": "3600"
+              },
+              {
+                "name": "DATABASE_PRE_POOL_PING",
+                "value": "true"
+              },
+              {
+                "name": "PGVECTOR_POOL_SIZE",
+                "value": "5"
+              },
+              {
+                "name": "SCHEDULER_POOL_SIZE",
+                "value": "2"
+              },
+              {
+                "name": "SCHEDULER_MAX_POOL_OVERFLOW",
+                "value": "0"
+              },
+              {
+                "name": "SCHEDULER_POOL_TIMEOUT",
+                "value": "300"
+              },
+              {
+                "name": "SCHEDULER_POOL_RECYCLE",
+                "value": "3600"
+              },
+              {
+                "name": "SCHEDULER_POOL_PRE_PING",
+                "value": "true"
+              }
+            ],
+            "entraEnv": "[if(parameters('authEnabled'), createArray(createObject('name', 'MICROSOFT_ENTRA_ID_CLIENT_ID', 'secretRef', 'entra-client-id'), createObject('name', 'MICROSOFT_ENTRA_ID_CLIENT_SECRET', 'secretRef', 'entra-client-secret'), createObject('name', 'MICROSOFT_ENTRA_ID_TENANT_ID', 'value', parameters('entraTenantId'))), createArray())]"
           },
           "resources": [
             {
@@ -671,20 +1402,7 @@
               "properties": {
                 "managedEnvironmentId": "[parameters('environmentId')]",
                 "configuration": {
-                  "secrets": [
-                    {
-                      "name": "database-url",
-                      "value": "[parameters('databaseConnectionString')]"
-                    },
-                    {
-                      "name": "pgvector-connection-string",
-                      "value": "[parameters('databaseConnectionString')]"
-                    },
-                    {
-                      "name": "secret-encryption-key",
-                      "value": "[parameters('secretEncryptionKey')]"
-                    }
-                  ],
+                  "secrets": "[concat(variables('baseSecrets'), variables('entraSecrets'))]",
                   "activeRevisionsMode": "Single",
                   "ingress": {
                     "external": true,
@@ -696,7 +1414,8 @@
                         "latestRevision": true
                       }
                     ],
-                    "allowInsecure": false
+                    "allowInsecure": false,
+                    "ipSecurityRestrictions": "[if(not(equals(parameters('ingressAllowedIpRange'), '')), createArray(createObject('name', 'AllowSpecificRange', 'action', 'Allow', 'ipAddressRange', parameters('ingressAllowedIpRange'))), createArray())]"
                   }
                 },
                 "template": {
@@ -704,92 +1423,7 @@
                     {
                       "image": "[parameters('containerImage')]",
                       "name": "[variables('appName')]",
-                      "env": [
-                        {
-                          "name": "AUTH_ENABLED",
-                          "value": "false"
-                        },
-                        {
-                          "name": "AUTH_ENABLED_FOR_SCHEMA",
-                          "value": "false"
-                        },
-                        {
-                          "name": "ENV",
-                          "value": "[parameters('environment')]"
-                        },
-                        {
-                          "name": "DATABASE_URL",
-                          "secretRef": "database-url"
-                        },
-                        {
-                          "name": "PGVECTOR_CONNECTION_STRING",
-                          "secretRef": "pgvector-connection-string"
-                        },
-                        {
-                          "name": "SECRET_ENCRYPTION_KEY",
-                          "secretRef": "secret-encryption-key"
-                        },
-                        {
-                          "name": "MICROSOFT_ENTRA_ID_REDIRECT_URI",
-                          "value": "[variables('redirectUri')]"
-                        },
-                        {
-                          "name": "RUN_MIGRATIONS",
-                          "value": "true"
-                        },
-                        {
-                          "name": "WEB_INCLUDED",
-                          "value": "true"
-                        },
-                        {
-                          "name": "HELP_BASE_URL",
-                          "value": "/help"
-                        },
-                        {
-                          "name": "DATABASE_POOL_SIZE",
-                          "value": "5"
-                        },
-                        {
-                          "name": "DATABASE_MAX_POOL_OVERFLOW",
-                          "value": "3"
-                        },
-                        {
-                          "name": "DATABASE_POOL_TIMEOUT",
-                          "value": "60"
-                        },
-                        {
-                          "name": "DATABASE_POOL_RECYCLE",
-                          "value": "3600"
-                        },
-                        {
-                          "name": "DATABASE_PRE_POOL_PING",
-                          "value": "true"
-                        },
-                        {
-                          "name": "PGVECTOR_POOL_SIZE",
-                          "value": "5"
-                        },
-                        {
-                          "name": "SCHEDULER_POOL_SIZE",
-                          "value": "2"
-                        },
-                        {
-                          "name": "SCHEDULER_MAX_POOL_OVERFLOW",
-                          "value": "0"
-                        },
-                        {
-                          "name": "SCHEDULER_POOL_TIMEOUT",
-                          "value": "300"
-                        },
-                        {
-                          "name": "SCHEDULER_POOL_RECYCLE",
-                          "value": "3600"
-                        },
-                        {
-                          "name": "SCHEDULER_POOL_PRE_PING",
-                          "value": "true"
-                        }
-                      ],
+                      "env": "[concat(variables('baseEnv'), variables('entraEnv'))]",
                       "resources": {
                         "cpu": "[json('0.5')]",
                         "memory": "1Gi"
@@ -856,9 +1490,9 @@
         }
       },
       "dependsOn": [
-        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', 'container-app-env')]",
-        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', 'postgresql')]",
-        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('rgName'))]"
+        "[resourceId('Microsoft.Resources/deployments', 'ai-foundry')]",
+        "[resourceId('Microsoft.Resources/deployments', 'container-app-env')]",
+        "[resourceId('Microsoft.Resources/deployments', 'postgresql')]"
       ]
     }
   ],
@@ -868,42 +1502,35 @@
       "metadata": {
         "description": "Full HTTPS URL of the backend container app"
       },
-      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', 'container-app'), '2025-04-01').outputs.url.value]"
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'container-app'), '2025-04-01').outputs.url.value]"
     },
     "aiServicesEndpoint": {
       "type": "string",
       "metadata": {
         "description": "AI Services endpoint URL"
       },
-      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', 'ai-foundry'), '2025-04-01').outputs.endpoint.value]"
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'ai-foundry'), '2025-04-01').outputs.endpoint.value]"
     },
     "aiServicesName": {
       "type": "string",
       "metadata": {
-        "description": "AI Services account name"
+        "description": "AI Services account name (use: az cognitiveservices account keys list --name <name> --resource-group <rg>)"
       },
-      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', 'ai-foundry'), '2025-04-01').outputs.aiServicesName.value]"
-    },
-    "aiServicesApiKey": {
-      "type": "string",
-      "metadata": {
-        "description": "AI Services API key"
-      },
-      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', 'ai-foundry'), '2025-04-01').outputs.apiKey.value]"
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'ai-foundry'), '2025-04-01').outputs.aiServicesName.value]"
     },
     "postgresServerFqdn": {
       "type": "string",
       "metadata": {
         "description": "PostgreSQL server FQDN"
       },
-      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', 'postgresql'), '2025-04-01').outputs.serverFqdn.value]"
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'postgresql'), '2025-04-01').outputs.serverFqdn.value]"
     },
     "resourceGroupName": {
       "type": "string",
       "metadata": {
         "description": "Resource group name"
       },
-      "value": "[variables('rgName')]"
+      "value": "[resourceGroup().name]"
     }
   }
 }

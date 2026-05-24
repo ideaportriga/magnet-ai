@@ -11,12 +11,17 @@
 
     <q-separator class="q-my-md" />
 
+    <input ref="fileInputRef" type="file" accept="application/json,.json" class="hidden-file-input" @change="onImportFileChange">
+
     <div v-if="entities.length === 0" class="q-mt-md">
       <div class="text-center q-pa-lg">
         <q-icon name="o_category" size="64px" color="grey-5" />
         <div class="km-heading-7 text-grey-7 q-mt-md">No entities defined yet</div>
         <div class="km-description text-grey-6">Create at least one entity definition so the prompt knows what to extract.</div>
-        <q-btn no-caps unelevated color="primary" label="Create First Entity" class="q-mt-lg" :disable="saving" @click="openCreateDialog" />
+        <div class="q-mt-lg q-gutter-sm">
+          <q-btn no-caps unelevated color="primary" label="Create First Entity" :disable="saving" @click="openCreateDialog" />
+          <q-btn no-caps flat color="primary" label="Import" icon="o_file_upload" :disable="saving" @click="triggerImport" />
+        </div>
       </div>
     </div>
 
@@ -63,6 +68,15 @@
 
         <template #trailing>
           <km-btn flat icon="o_add_circle" label="New Entity" size="sm" :disable="saving" @click="openCreateDialog" />
+          <km-btn flat icon="o_file_upload" label="Import" size="sm" :disable="saving" @click="triggerImport" />
+          <km-btn
+            flat
+            icon="o_file_download"
+            :label="exportButtonLabel"
+            size="sm"
+            :disable="saving || entities.length === 0"
+            @click="exportEntitiesFromToolbar"
+          />
           <km-btn flat icon="settings" label="Settings" size="sm" :disable="saving" @click="showExtractionDialog = true" />
           <km-btn flat icon="refresh" label="Refresh" size="sm" :disable="saving" @click="emit('refresh')" />
         </template>
@@ -70,7 +84,9 @@
 
       <q-table
         v-model:pagination="pagination"
+        v-model:selected="selected"
         flat
+        selection="multiple"
         table-header-class="bg-primary-light"
         :rows="entities"
         :columns="columns"
@@ -118,6 +134,13 @@
                     <q-item-section>Edit</q-item-section>
                   </q-item>
                   <q-separator />
+                  <q-item v-ripple="false" clickable :disable="saving" @click="exportEntities([slotScope.row])">
+                    <q-item-section thumbnail>
+                      <q-icon name="o_file_download" color="primary" size="20px" class="q-ml-sm" />
+                    </q-item-section>
+                    <q-item-section>Export</q-item-section>
+                  </q-item>
+                  <q-separator />
                   <q-item v-ripple="false" clickable :disable="saving" @click="confirmDelete(slotScope.row)">
                     <q-item-section thumbnail>
                       <q-icon name="delete" color="negative" size="20px" class="q-ml-sm" />
@@ -144,6 +167,7 @@
     <entity-extraction-settings-dialog
       :show-dialog="showExtractionDialog"
       :settings="extractionSettings"
+      :performance-tuning="performanceTuning"
       :prompt-template-options="promptTemplateOptions"
       :loading-prompt-templates="loadingPromptTemplates"
       @update:show-dialog="showExtractionDialog = $event"
@@ -192,6 +216,35 @@
     >
       <template #warning>Entities already extracted will be kept, but the remaining documents will not be processed.</template>
     </kg-confirm-dialog>
+
+    <kg-confirm-dialog
+      v-model="showImportConfirmDialog"
+      title="Import entity definitions"
+      icon="o_file_upload"
+      icon-variant="info"
+      :description="importDialogDescription"
+      confirm-label="Import"
+      :loading="saving"
+      :disable-confirm="!pendingImport || (pendingImport.added.length === 0 && pendingImport.overwritten.length === 0)"
+      @update:model-value="onImportDialogToggle"
+      @confirm="onConfirmImport"
+    >
+      <template v-if="pendingImport && (pendingImport.overwritten.length > 0 || pendingImport.warnings.length > 0)" #default>
+        <div v-if="pendingImport.overwritten.length > 0" class="km-description text-secondary-text">
+          <div class="text-weight-medium q-mb-xs">Will overwrite:</div>
+          <div>{{ formatNameList(pendingImport.overwritten) }}</div>
+        </div>
+        <div v-if="pendingImport.warnings.length > 0" class="km-description text-warning q-mt-sm">
+          <div class="text-weight-medium q-mb-xs">Warnings:</div>
+          <ul class="q-my-none q-pl-md">
+            <li v-for="(warning, i) in pendingImport.warnings" :key="i">{{ warning }}</li>
+          </ul>
+        </div>
+      </template>
+      <template v-if="pendingImport && pendingImport.overwritten.length > 0" #warning>
+        Overwriting an entity replaces its definition. Existing extracted rows are not deleted automatically.
+      </template>
+    </kg-confirm-dialog>
   </div>
 </template>
 
@@ -206,16 +259,25 @@ import EntityDialog from './EntityDialog.vue'
 import EntityExtractionSettingsDialog from './EntityExtractionSettingsDialog.vue'
 import {
   cloneEntityDefinitions,
+  cloneEntityExtractionPerformanceTuningSettings,
   cloneEntityExtractionRunSettings,
   createDefaultEntityExtractionRunSettings,
+  createDefaultPerformanceTuningSettings,
   getEntityExtractionSettingsFromSettings,
   getExtractionStatusFromGraphDetails,
+  mergeEntityDefinitions,
+  parseEntityDefinitionsFromImport,
+  serializeEntityDefinitionsForExport,
   withEntityDefinitions,
+  withEntityExtractionPerformanceTuning,
   withEntityExtractionRunSettings,
   type EntityDefinition,
+  type EntityDefinitionsMergeResult,
+  type EntityExtractionPerformanceTuningSettings,
   type EntityExtractionRunSettings,
   type EntityExtractionStatusInfo,
 } from './models'
+import type { EntityExtractionDialogPayload } from './EntityExtractionSettingsDialog.vue'
 
 const props = defineProps<{
   graphId: string
@@ -231,7 +293,9 @@ const $q = useQuasar()
 
 const entities = ref<EntityDefinition[]>([])
 const extractionSettings = ref<EntityExtractionRunSettings>(createDefaultEntityExtractionRunSettings())
+const performanceTuning = ref<EntityExtractionPerformanceTuningSettings>(createDefaultPerformanceTuningSettings())
 const selectedEntity = ref<EntityDefinition | null>(null)
+const selected = ref<EntityDefinition[]>([])
 const dialogOpen = ref(false)
 const showDeleteDialog = ref(false)
 const showExtractionDialog = ref(false)
@@ -240,6 +304,27 @@ const saving = ref(false)
 const loadingPromptTemplates = ref(false)
 const promptTemplateOptions = ref<any[]>([])
 const baseSettings = ref<Record<string, any>>({})
+
+const fileInputRef = ref<HTMLInputElement | null>(null)
+const showImportConfirmDialog = ref(false)
+const pendingImport = ref<(EntityDefinitionsMergeResult & { warnings: string[] }) | null>(null)
+
+const exportButtonLabel = computed(() => (selected.value.length > 0 ? `Export (${selected.value.length})` : 'Export'))
+
+const importDialogDescription = computed(() => {
+  if (!pendingImport.value) return ''
+  const parts: string[] = []
+  if (pendingImport.value.added.length > 0) {
+    parts.push(`${pendingImport.value.added.length} new`)
+  }
+  if (pendingImport.value.overwritten.length > 0) {
+    parts.push(`${pendingImport.value.overwritten.length} to overwrite`)
+  }
+  if (parts.length === 0) {
+    return 'No entity definitions to import.'
+  }
+  return `About to import: ${parts.join(', ')}.`
+})
 
 const columns: QTableColumn<EntityDefinition>[] = [
   {
@@ -285,7 +370,18 @@ const columns: QTableColumn<EntityDefinition>[] = [
 ]
 
 const canRunExtraction = computed(() => {
-  return !!String(extractionSettings.value.prompt_template_system_name || '').trim() && entities.value.length > 0 && !loadingPromptTemplates.value
+  const mode = extractionSettings.value.mode
+  let promptsConfigured: boolean
+  if (mode === 'reflective') {
+    promptsConfigured = !!String(extractionSettings.value.reflective_prompt_template_system_name || '').trim()
+  } else if (mode === 'self-tuning') {
+    promptsConfigured =
+      !!String(extractionSettings.value.self_tuning_prompt_template_system_name || '').trim() &&
+      !!String(extractionSettings.value.self_tuning_analysis_prompt_template_system_name || '').trim()
+  } else {
+    promptsConfigured = !!String(extractionSettings.value.prompt_template_system_name || '').trim()
+  }
+  return promptsConfigured && entities.value.length > 0 && !loadingPromptTemplates.value
 })
 
 const extractionStatus = computed<EntityExtractionStatusInfo>(() => {
@@ -354,6 +450,11 @@ function initializeFromSettings() {
   const normalizedSettings = getEntityExtractionSettingsFromSettings(baseSettings.value)
   entities.value = cloneEntityDefinitions(normalizedSettings.entity_definitions)
   extractionSettings.value = cloneEntityExtractionRunSettings(normalizedSettings.extraction)
+  performanceTuning.value = cloneEntityExtractionPerformanceTuningSettings(normalizedSettings.advanced_settings)
+  if (selected.value.length > 0) {
+    const validIds = new Set(entities.value.map((entity) => entity.id))
+    selected.value = selected.value.filter((entity) => validIds.has(entity.id))
+  }
 }
 
 async function loadPromptTemplates() {
@@ -419,7 +520,8 @@ async function getResponseErrorMessage(response: Response, fallbackMessage: stri
 async function persistEntityExtractionSettings(
   nextEntities: EntityDefinition[],
   nextExtractionSettings: EntityExtractionRunSettings,
-  successMessage: string
+  successMessage: string,
+  nextPerformanceTuning: EntityExtractionPerformanceTuningSettings = performanceTuning.value
 ) {
   if (saving.value) {
     return false
@@ -434,7 +536,10 @@ async function persistEntityExtractionSettings(
       return false
     }
 
-    const nextSettings = withEntityExtractionRunSettings(withEntityDefinitions(baseSettings.value, nextEntities), nextExtractionSettings)
+    const nextSettings = withEntityExtractionPerformanceTuning(
+      withEntityExtractionRunSettings(withEntityDefinitions(baseSettings.value, nextEntities), nextExtractionSettings),
+      nextPerformanceTuning
+    )
 
     const response = await fetchData({
       endpoint,
@@ -456,6 +561,7 @@ async function persistEntityExtractionSettings(
     baseSettings.value = cloneSettings(nextSettings)
     entities.value = cloneEntityDefinitions(nextEntities)
     extractionSettings.value = cloneEntityExtractionRunSettings(nextExtractionSettings)
+    performanceTuning.value = cloneEntityExtractionPerformanceTuningSettings(nextPerformanceTuning)
     emit('refresh')
     $q.notify({
       type: 'positive',
@@ -499,8 +605,13 @@ async function onDialogSave(entity: EntityDefinition) {
   selectedEntity.value = null
 }
 
-async function onExtractionSettingsSave(nextSettings: EntityExtractionRunSettings) {
-  const success = await persistEntityExtractionSettings(entities.value, nextSettings, 'Entity extraction settings updated')
+async function onExtractionSettingsSave(payload: EntityExtractionDialogPayload) {
+  const success = await persistEntityExtractionSettings(
+    entities.value,
+    payload.extraction,
+    'Entity extraction settings updated',
+    payload.advanced_settings
+  )
   if (!success) {
     return
   }
@@ -564,9 +675,14 @@ async function runExtraction() {
 
     const payload = {
       approach: extractionSettings.value.approach,
+      mode: extractionSettings.value.mode,
+      schema_format: performanceTuning.value.schema_format,
       prompt_template_system_name: String(extractionSettings.value.prompt_template_system_name || '').trim(),
+      reflective_prompt_template_system_name: String(extractionSettings.value.reflective_prompt_template_system_name || '').trim(),
       segment_size: extractionSettings.value.segment_size,
       segment_overlap: extractionSettings.value.segment_overlap,
+      max_extraction_iterations: performanceTuning.value.max_extraction_iterations,
+      relevance_filter_prompt_template_system_name: String(performanceTuning.value.relevance_filter.prompt_template_system_name || '').trim(),
     }
 
     const response = await fetchData({
@@ -658,6 +774,110 @@ watch(
   { immediate: true }
 )
 
+function slugifyName(value: string): string {
+  return (value || '')
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+function buildExportFilename(list: EntityDefinition[]): string {
+  if (list.length === 1) {
+    const slug = slugifyName(list[0].name) || 'entity'
+    return `kg-entity-${slug}.json`
+  }
+  const graphSlug = slugifyName(props.graphDetails?.name) || 'graph'
+  const now = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const stamp =
+    `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}` + `-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
+  return `kg-entities-${graphSlug}-${stamp}.json`
+}
+
+function triggerDownload(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+function exportEntities(list: EntityDefinition[]) {
+  if (list.length === 0) {
+    $q.notify({ type: 'warning', message: 'No entities to export', position: 'top' })
+    return
+  }
+  const json = serializeEntityDefinitionsForExport(list)
+  const blob = new Blob([json], { type: 'application/json' })
+  triggerDownload(blob, buildExportFilename(list))
+}
+
+function exportEntitiesFromToolbar() {
+  const list = selected.value.length > 0 ? selected.value : entities.value
+  exportEntities(list)
+}
+
+function triggerImport() {
+  if (saving.value) return
+  if (fileInputRef.value) {
+    fileInputRef.value.value = ''
+    fileInputRef.value.click()
+  }
+}
+
+function formatNameList(names: string[], max = 8): string {
+  if (names.length <= max) return names.join(', ')
+  return `${names.slice(0, max).join(', ')} and ${names.length - max} more`
+}
+
+async function onImportFileChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+
+  try {
+    const text = await file.text()
+    const parsed = parseEntityDefinitionsFromImport(text)
+
+    if (parsed.entities.length === 0) {
+      const message = parsed.warnings.length > 0 ? parsed.warnings[0] : 'No valid entity definitions found in file'
+      $q.notify({ type: 'negative', message, position: 'top' })
+      return
+    }
+
+    const merge = mergeEntityDefinitions(entities.value, parsed.entities)
+    pendingImport.value = { ...merge, warnings: parsed.warnings }
+    showImportConfirmDialog.value = true
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to parse import file'
+    $q.notify({ type: 'negative', message, position: 'top' })
+  } finally {
+    if (input) input.value = ''
+  }
+}
+
+function onImportDialogToggle(value: boolean) {
+  showImportConfirmDialog.value = value
+  if (!value) {
+    pendingImport.value = null
+  }
+}
+
+async function onConfirmImport() {
+  if (!pendingImport.value) return
+  const success = await persistEntityExtractionSettings(pendingImport.value.merged, extractionSettings.value, 'Entity definitions imported')
+  if (!success) return
+
+  selected.value = []
+  showImportConfirmDialog.value = false
+  pendingImport.value = null
+}
+
 defineExpose({
   refresh: () => {
     initializeFromSettings()
@@ -697,5 +917,9 @@ defineExpose({
 
 :deep(.entity-row-menu .q-item.q-focusable:hover) {
   background: transparent !important;
+}
+
+.hidden-file-input {
+  display: none;
 }
 </style>

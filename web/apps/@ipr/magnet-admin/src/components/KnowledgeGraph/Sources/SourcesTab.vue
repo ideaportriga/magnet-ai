@@ -44,21 +44,7 @@
       >
         <template #body-cell-last_sync_at="slotScope">
           <q-td :props="slotScope">
-            <div class="kg-sync-cell row items-center no-wrap">
-              <!-- Status column (fixed width for alignment) -->
-              <div class="column items-start justify-center q-gap-6">
-                <kg-status-badge :status="effectiveStatus(slotScope.row)" />
-                <div class="kg-sync-meta row items-center no-wrap q-gutter-x-xs q-ml-4">
-                  <span class="kg-sync-meta-label">Last sync:</span>
-                  <span class="kg-sync-meta-value">
-                    {{ formatRelative(slotScope.row?.last_sync_at) }}
-                    <q-tooltip anchor="top middle" self="bottom middle">
-                      {{ formatFull(slotScope.row?.last_sync_at) }}
-                    </q-tooltip>
-                  </span>
-                </div>
-              </div>
-            </div>
+            <kg-source-status-cell :row="slotScope.row" :effective-status="effectiveStatus(slotScope.row)" />
           </q-td>
         </template>
         <template #body-cell-schedule="slotScope">
@@ -80,16 +66,18 @@
             <q-btn dense flat color="dark" icon="more_vert" :disable="deletingIds.has(slotScope.row.id)" @click.stop>
               <q-menu class="kg-source-menu" anchor="bottom right" self="top right" auto-close>
                 <q-list dense>
-                  <q-item
-                    v-ripple="false"
-                    :disable="!isSyncable(slotScope.row.type) || syncingIds.has(slotScope.row.id)"
-                    clickable
-                    @click="handleSync(slotScope.row)"
-                  >
+                  <q-item v-ripple="false" clickable @click="openEdit(slotScope.row)">
+                    <q-item-section thumbnail>
+                      <q-icon name="edit" color="primary" size="20px" class="q-ml-sm" />
+                    </q-item-section>
+                    <q-item-section>Edit</q-item-section>
+                  </q-item>
+
+                  <q-item v-ripple="false" clickable @click="openSyncStatus(slotScope.row)">
                     <q-item-section thumbnail>
                       <q-icon name="sync" color="primary" size="20px" class="q-ml-sm" />
                     </q-item-section>
-                    <q-item-section>Sync now</q-item-section>
+                    <q-item-section>Sync center</q-item-section>
                   </q-item>
 
                   <q-separator />
@@ -114,6 +102,16 @@
         </template>
       </q-table>
     </div>
+
+    <!-- Sync Status Dialog -->
+    <source-detail-drawer
+      v-if="detailRow"
+      v-model="detailDrawerOpen"
+      :source="detailRow"
+      :effective-status="effectiveStatus(detailRow)"
+      :is-syncable="isSyncable(detailRow.type)"
+      @sync="handleDrawerSync"
+    />
 
     <!-- Source Type Selection Dialog -->
     <source-type-dialog
@@ -182,13 +180,14 @@
 
 <script setup lang="ts">
 import { fetchData } from '@shared'
-import { formatRelative } from '@shared/utils'
 import { QTableColumn, useQuasar } from 'quasar'
 import { computed, inject, onMounted, ref, type Ref } from 'vue'
 import { useStore } from 'vuex'
-import { KgConfirmDialog, KgStatusBadge, KgTableToolbar } from '../common'
+import { KgConfirmDialog, KgTableToolbar } from '../common'
 import { fetchKnowledgeGraphSources } from './api'
+import KgSourceStatusCell from './KgSourceStatusCell.vue'
 import { formatAdded, getSourceTypeName, type SourceRow, type SourceSchedule } from './models'
+import SourceDetailDrawer from './SourceDetailDrawer.vue'
 import SourceTypeDialog from './SourceTypeDialog.vue'
 import { getDialogComponentFor, isSyncable, type SourceTypeKey } from './SourceTypes/registry'
 
@@ -211,6 +210,8 @@ const sourceDialogOpen = ref(false)
 
 const rows = ref<SourceRow[]>([])
 const selectedRow = ref<SourceRow | null>(null)
+const detailRow = ref<SourceRow | null>(null)
+const detailDrawerOpen = ref(false)
 const pagination = ref({ rowsPerPage: 10, page: 1 })
 const deletingIds = ref<Set<string>>(new Set())
 const syncingIds = ref<Set<string>>(new Set())
@@ -309,6 +310,11 @@ const fetchSources = async (force = false) => {
     if (selectedRow.value) {
       selectedRow.value = rows.value.find((r) => r.id === selectedRow.value?.id) || null
     }
+    // Keep the detail drawer's bound row pointing at the freshest data so
+    // counters/progress update live while it's open.
+    if (detailRow.value) {
+      detailRow.value = rows.value.find((r) => r.id === detailRow.value?.id) || detailRow.value
+    }
   } catch (error) {
     console.error('Error fetching sources:', error)
   } finally {
@@ -398,7 +404,7 @@ const handleSourceCancelled = () => {
   selectedRow.value = null
 }
 
-const syncSource = async (source: SourceRow, showNotification = true): Promise<boolean> => {
+const syncSource = async (source: SourceRow, showNotification = true, fromScratch = false): Promise<boolean> => {
   try {
     const endpoint = store.getters.config.api.aiBridge.urlAdmin
     const response = await fetchData({
@@ -406,12 +412,15 @@ const syncSource = async (source: SourceRow, showNotification = true): Promise<b
       service: `knowledge_graphs/${props.graphId}/sources/${source.id}/sync`,
       method: 'POST',
       credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from_scratch: fromScratch }),
     })
 
     if (response.ok) {
       if (showNotification) {
+        const verb = fromScratch ? 'Resync from scratch' : 'Sync'
         $q.notify({
-          message: `Sync started for ${source.name}. Click Refresh to see progress.`,
+          message: `${verb} started for ${source.name}. Click Refresh to see progress.`,
           position: 'top',
           color: 'info',
           textColor: 'white',
@@ -443,22 +452,6 @@ const syncSource = async (source: SourceRow, showNotification = true): Promise<b
   } finally {
     $q.loading.hide()
   }
-}
-
-function formatFull(dateStr?: string) {
-  if (!dateStr) return 'Never'
-  try {
-    const date = new Date(dateStr)
-    return date.toLocaleString()
-  } catch {
-    return '—'
-  }
-}
-
-const handleSync = async (source: SourceRow) => {
-  await syncSource(source)
-  // Fetch sources to show the "syncing" status from backend
-  await fetchSources(true)
 }
 
 function onConfirmSyncAll() {
@@ -594,10 +587,27 @@ const performPurge = async () => {
   }
 }
 
-const onRowClick = (evt: Event, row: SourceRow) => {
+const onRowClick = (_evt: Event, row: SourceRow) => {
+  openEdit(row)
+}
+
+const openEdit = (row: SourceRow) => {
   selectedRow.value = row
   activeSourceType.value = (row.type as SourceTypeKey) || null
   sourceDialogOpen.value = true
+}
+
+const openSyncStatus = (row: SourceRow) => {
+  detailRow.value = row
+  detailDrawerOpen.value = true
+}
+
+const handleDrawerSync = async (opts: { fromScratch: boolean }) => {
+  if (!detailRow.value) return
+  const row = detailRow.value
+  await syncSource(row, true, opts.fromScratch)
+  await fetchSources(true)
+  detailRow.value = rows.value.find((r) => r.id === row.id) || null
 }
 
 defineExpose({
@@ -613,20 +623,6 @@ onMounted(() => {
 :deep(.q-table thead th) {
   font-size: 14px;
   font-weight: 600;
-}
-
-.kg-sync-meta {
-  margin-top: 2px;
-}
-
-.kg-sync-meta-label {
-  font-size: 12px;
-  color: var(--q-secondary-text, rgba(0, 0, 0, 0.5));
-}
-
-.kg-sync-meta-value {
-  font-size: 12px;
-  color: var(--q-secondary-text, rgba(0, 0, 0, 0.75));
 }
 
 .kg-sync-schedule-interval {

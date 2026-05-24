@@ -2,9 +2,10 @@ import json
 import logging
 import re
 from datetime import datetime
-from typing import Any, Awaitable, Callable
+from typing import Any
 from uuid import UUID
 
+from kreuzberg import ChunkingConfig, ExtractionConfig, extract_bytes
 from opentelemetry import trace as otel_trace
 from opentelemetry.trace.status import StatusCode as OtelStatusCode
 
@@ -18,12 +19,14 @@ from services.prompt_templates import execute_prompt_template
 
 from .models import (
     AnalyzeResultsStepDetails,
+    ChunkDetail,
     DeepResearchConfig,
     DeepResearchIteration,
     DeepResearchMemory,
     DeepResearchRun,
     DeepResearchStatus,
     DeepResearchStep,
+    ForceReportStepDetails,
     ProcessPageStepDetails,
     ReasoningStepDetails,
     SearchResultsAnalysis,
@@ -36,6 +39,12 @@ from core.db.models.deep_research.run import DeepResearchRun as DeepResearchRunD
 
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_FORCE_REPORT_MESSAGE = (
+    "I have reached the maximum number of research iterations. "
+    "I will now compile all findings into the final report, "
+    "following the exact output structure from my instructions."
+)
 
 
 def _sanitize_json_data(obj: Any) -> Any:
@@ -98,13 +107,10 @@ def _track_usage(run: DeepResearchRun, result_data: Any) -> None:
 @observe(name="Deep research execution")
 async def execute_deep_research(
     run: DeepResearchRun,
-    persist_callback: Callable[[DeepResearchRun], Awaitable[None]] | None = None,
 ) -> None:
     async def persist_state() -> None:
-        if not persist_callback:
-            return
         try:
-            await persist_callback(run)
+            await _persist_run_state(run)
         except Exception:
             logger.exception(
                 "Failed to persist deep research run state",
@@ -122,11 +128,11 @@ async def execute_deep_research(
         # Main research loop - counts reasoning iterations
         iteration_num = 0
 
-        while iteration_num <= config.max_iterations:
+        while iteration_num < config.max_iterations:
             logger.info(
                 "Deep research run %s, iteration %s/%s",
                 run.run_id,
-                iteration_num,
+                iteration_num + 1,
                 config.max_iterations,
             )
 
@@ -135,7 +141,19 @@ async def execute_deep_research(
 
             # Determine if we should still allow tool calls
             # On the last iteration, don't allow tools to force final report
-            allow_tools = iteration_num < config.max_iterations
+            allow_tools = iteration_num < config.max_iterations - 1
+
+            # Record force report transition step if max iterations reached
+            if not allow_tools:
+                force_message = (
+                    config.force_report_message or DEFAULT_FORCE_REPORT_MESSAGE
+                )
+                force_step = DeepResearchStep(
+                    type=StepType.FORCE_REPORT,
+                    title="Maximum iterations reached, generating final report",
+                    details=ForceReportStepDetails(message=force_message),
+                )
+                current_iteration.steps.append(force_step)
 
             # Step 1: Agent reasoning - decide what to do next (may call tools)
             reasoning_step = await _execute_reasoning_step(
@@ -528,7 +546,7 @@ async def _execute_reasoning_step(
         template_values = {
             **run.input,  # Spread all input variables for backward compatibility (e.g., {task})
             **flattened_input,  # Also provide namespaced access (e.g., {input.task})
-            "iteration": iteration,
+            "current_iteration": iteration + 1,
             "max_iterations": config.max_iterations,
             "search_history": "\n".join(f"- {q}" for q in memory.search_queries),
             "extracted_info": "\n".join(f"- {info}" for info in memory.extracted_info),
@@ -563,6 +581,17 @@ async def _execute_reasoning_step(
         else:
             # Max iterations reached - don't pass tools or tool_choice to force final report
             logger.info("Max iterations reached, forcing final report generation")
+
+            # Inject synthetic assistant message to prime LLM into report mode.
+            # Without this, the LLM continues in research/reasoning mode and produces
+            # mid-research style output instead of a structured final report.
+            force_message = config.force_report_message or DEFAULT_FORCE_REPORT_MESSAGE
+            memory.conversation_history.append(
+                {
+                    "role": "assistant",
+                    "content": force_message,
+                }
+            )
 
         # Execute reasoning prompt template with tool calling support
         # Pass full conversation history as additional messages
@@ -606,7 +635,7 @@ async def _execute_reasoning_step(
 
         step = DeepResearchStep(
             type=StepType.REASONING,
-            title=f"Iteration {iteration}: Planning next action",
+            title=f"Iteration {iteration + 1}: Planning next action",
             details=ReasoningStepDetails(decided_action=decided_action),
             cost=result.cost if hasattr(result, "cost") else None,
             latency=result.latency if hasattr(result, "latency") else None,
@@ -617,6 +646,7 @@ async def _execute_reasoning_step(
 
     except Exception as e:
         logger.exception(f"Reasoning step in iteration {iteration} failed")
+        otel_trace.get_current_span().set_status(OtelStatusCode.ERROR, str(e))
         return DeepResearchStep(
             type=StepType.REASONING,
             title=f"Iteration {iteration}: Reasoning failed",
@@ -691,7 +721,6 @@ async def _execute_search_step(
                 memory.url_analysis[url] = {
                     "title": r.get("title", ""),
                     "snippet": r.get("snippet", ""),
-                    "raw_content": r.get("raw_content", ""),
                     "search_query": query,
                     "is_relevant": None,  # Will be set during analysis
                     "relevance_reasoning": None,
@@ -720,6 +749,7 @@ async def _execute_search_step(
 
     except Exception as e:
         logger.exception(f"Search step failed for query: {query}")
+        otel_trace.get_current_span().set_status(OtelStatusCode.ERROR, str(e))
         step = DeepResearchStep(
             type=StepType.SEARCH,
             title=f"Search failed: '{query}'",
@@ -854,6 +884,24 @@ async def _analyze_search_results(
         raise
 
 
+async def _split_into_chunks(
+    text: str, chunk_size: int, chunk_overlap: float
+) -> list[str]:
+    """Split text into chunks using kreuzberg's markdown-aware chunker."""
+    if len(text) <= chunk_size:
+        return [text]
+
+    overlap = int(chunk_size * chunk_overlap)
+    config = ExtractionConfig(
+        chunking=ChunkingConfig(
+            max_chars=chunk_size,
+            max_overlap=overlap,
+        ),
+    )
+    result = await extract_bytes(text.encode("utf-8"), "text/markdown", config=config)
+    return [chunk.content for chunk in result.chunks] or [text]
+
+
 @observe(name="Process search result")
 async def _process_search_result(
     run: DeepResearchRun,
@@ -865,6 +913,7 @@ async def _process_search_result(
     """
     Process individual search result page content.
     Uses the process_search_result_prompt to extract relevant information.
+    Content is split into chunks and each chunk is processed independently.
     """
     url = result.get("url", "")
     title = result.get("title", "Unknown")
@@ -896,35 +945,75 @@ async def _process_search_result(
                 ),
             )
 
-        # Limit content length
-        page_content = page_content
-
         # Get relevance reasoning from analysis step
         relevance_reasoning = result.get("relevance_reasoning", "")
 
         # Flatten input with 'input.' prefix for namespaced access (e.g., {input.task})
         flattened_input = {f"input.{key}": value for key, value in run.input.items()}
 
-        context = {
-            **flattened_input,  # Namespaced input (e.g., {input.task})
-            "query": query,
-            "page_title": title,
-            "page_url": url,
-            "page_content": page_content,
-            "relevance_reasoning": relevance_reasoning,
-            "extracted_info": "\n".join(f"- {info}" for info in memory.extracted_info),
-        }
+        # Split content into chunks
+        cp = config.content_processing
+        chunks = (
+            await _split_into_chunks(page_content, cp.chunk_size, cp.chunk_overlap)
+        )[: cp.max_chunks]
 
-        # Execute process search result prompt
-        result_data = await execute_prompt_template(
-            system_name_or_config=config.process_search_result_prompt,
-            template_values=context,
+        chunk_details_list: list[ChunkDetail] = []
+
+        for i, chunk in enumerate(chunks):
+            try:
+                context = {
+                    **flattened_input,
+                    "query": query,
+                    "page_title": title,
+                    "page_url": url,
+                    "page_content": chunk,
+                    "relevance_reasoning": relevance_reasoning,
+                    "chunk_number": str(i + 1),
+                    "total_chunks": str(len(chunks)),
+                }
+
+                result_data = await execute_prompt_template(
+                    system_name_or_config=config.process_search_result_prompt,
+                    template_values=context,
+                )
+
+                _track_usage(run, result_data)
+
+                chunk_details_list.append(
+                    ChunkDetail(
+                        chunk_number=i + 1,
+                        findings=result_data.content,
+                        cost=result_data.cost if hasattr(result_data, "cost") else None,
+                        latency=result_data.latency
+                        if hasattr(result_data, "latency")
+                        else None,
+                        usage=result_data.usage
+                        if hasattr(result_data, "usage")
+                        else None,
+                    )
+                )
+            except Exception as chunk_exc:
+                logger.exception(
+                    f"Chunk {i + 1}/{len(chunks)} failed for {url}, "
+                    f"preserving {len(chunk_details_list)} successful chunks"
+                )
+                chunk_details_list.append(
+                    ChunkDetail(
+                        chunk_number=i + 1,
+                        findings="",
+                        error=str(chunk_exc),
+                    )
+                )
+                break
+
+        chunk_findings = [
+            cd.findings for cd in chunk_details_list if cd.findings.strip()
+        ]
+        summary = (
+            "\n\n".join(chunk_findings)
+            if chunk_findings
+            else "No relevant findings from this source."
         )
-
-        # Track usage and latency
-        _track_usage(run, result_data)
-
-        summary = result_data.content
 
         # Update url_analysis in memory
         if url in memory.url_analysis:
@@ -936,6 +1025,8 @@ async def _process_search_result(
             output={
                 "Summary": summary[:300] + "..." if len(summary) > 300 else summary,
                 "Summary length": len(summary),
+                "Chunks total": len(chunks),
+                "Chunks processed": len(chunk_details_list),
             }
         )
 
@@ -945,15 +1036,16 @@ async def _process_search_result(
             details=ProcessPageStepDetails(
                 url=url,
                 page_title=title,
-                summary=summary if len(summary) > 500 else summary,  # Limit for display
+                summary=summary,
+                chunks_total=len(chunks),
+                chunks_processed=len(chunk_details_list),
+                chunk_details=chunk_details_list if len(chunks) > 1 else None,
             ),
-            cost=result_data.cost if hasattr(result_data, "cost") else None,
-            latency=result_data.latency if hasattr(result_data, "latency") else None,
-            usage=result_data.usage if hasattr(result_data, "usage") else None,
         )
 
     except Exception as e:
         logger.exception(f"Process search result failed for {url}")
+        otel_trace.get_current_span().set_status(OtelStatusCode.ERROR, str(e))
         return DeepResearchStep(
             type=StepType.PROCESS_PAGE,
             title=f"Failed: {title}",
@@ -1021,6 +1113,7 @@ def _resolve_webhook_template(
     return resolve_path(template)
 
 
+@observe(name="Call webhook")
 async def _call_webhook(run: DeepResearchRun, config: DeepResearchConfig) -> None:
     """Call webhook API tool to notify completion and store call details."""
     webhook_details = WebhookCallDetails(
@@ -1171,17 +1264,22 @@ def _map_db_run_to_service(db_run: "DeepResearchRunDB") -> DeepResearchRun:
     )
 
 
-async def _persist_run_state(
-    run_service: DeepResearchRunService,
-    run_state: DeepResearchRun,
-) -> None:
-    """Persist current run status and details to the database."""
+async def _persist_run_state(run_state: DeepResearchRun) -> None:
+    """Persist current run status and details to the database.
+
+    Opens and closes its own short-lived DB session so that connections
+    are never held open during slow LLM / API calls.
+    """
     details = _serialize_run_details(run_state)
     update = DeepResearchRunUpdateSchema(
         status=run_state.status.value,
         details=details,
     )
-    await run_service.update(update, item_id=UUID(run_state.run_id), auto_commit=True)
+    async with alchemy.get_session() as session:
+        run_service = DeepResearchRunService(session=session)
+        await run_service.update(
+            update, item_id=UUID(run_state.run_id), auto_commit=True
+        )
 
 
 @observe(
@@ -1197,28 +1295,27 @@ async def run_deep_research_workflow(run_id: str | UUID) -> None:
     run_model: DeepResearchRun | None = None
 
     try:
+        # Load initial run state, then immediately release the DB connection
         async with alchemy.get_session() as session:
             run_service = DeepResearchRunService(session=session)
             db_run = await run_service.get(run_uuid)
             run_model = _map_db_run_to_service(db_run)
 
-            # Import here to avoid circular dependency
-            from services.observability import observability_context
+        # Import here to avoid circular dependency
+        from services.observability import observability_context
 
-            # Update trace with deep research context
-            observability_context.update_current_trace(
-                name="Deep Research", type="deep_research"
-            )
+        # Update trace with deep research context
+        observability_context.update_current_trace(
+            name="Deep Research", type="deep_research"
+        )
 
-            async def persist(run_state: DeepResearchRun) -> None:
-                await _persist_run_state(run_service, run_state)
+        await execute_deep_research(run_model)
 
-            await execute_deep_research(run_model, persist_callback=persist)
-
-            # Ensure final state is flushed even if last persist failed
-            await _persist_run_state(run_service, run_model)
-    except Exception:
+        # Ensure final state is flushed even if last persist failed
+        await _persist_run_state(run_model)
+    except Exception as e:
         logger.exception("Failed to execute deep research workflow for run %s", run_id)
+        otel_trace.get_current_span().set_status(OtelStatusCode.ERROR, str(e))
         # Safety net: if the run was not already brought to a terminal state
         # (e.g. workflow setup failed before execute_deep_research ran, or the
         # final persist above threw), mark it as FAILED so it never hangs in RUNNING.
@@ -1227,12 +1324,10 @@ async def run_deep_research_workflow(run_id: str | UUID) -> None:
             DeepResearchStatus.FAILED,
         ):
             try:
-                async with alchemy.get_session() as session:
-                    run_service = DeepResearchRunService(session=session)
-                    run_model.status = DeepResearchStatus.FAILED
-                    run_model.error = "Workflow execution failed unexpectedly"
-                    run_model.updated_at = datetime.utcnow()
-                    await _persist_run_state(run_service, run_model)
+                run_model.status = DeepResearchStatus.FAILED
+                run_model.error = f"Workflow execution failed: {e}"
+                run_model.updated_at = datetime.utcnow()
+                await _persist_run_state(run_model)
             except Exception:
                 logger.exception(
                     "Failed to persist FAILED status for deep research run %s", run_id

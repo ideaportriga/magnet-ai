@@ -116,14 +116,34 @@
           <div class="doc-header-right">
             <q-btn
               flat
-              round
+              no-caps
               dense
               icon="info"
-              :color="metadataPanelOpen ? 'primary' : 'grey-7'"
-              class="metadata-toggle-btn"
-              @click="metadataPanelOpen = !metadataPanelOpen"
+              label="Info"
+              :class="['panel-trigger-btn', { 'panel-trigger-btn--active': metadataPanelOpen }]"
+              @click="togglePanel('info')"
             >
-              <q-tooltip>Document Info</q-tooltip>
+              <q-tooltip>Document info &amp; metadata</q-tooltip>
+            </q-btn>
+            <q-btn
+              flat
+              no-caps
+              dense
+              icon="hub"
+              :class="['panel-trigger-btn', { 'panel-trigger-btn--active': entitiesPanelOpen }]"
+              @click="togglePanel('entities')"
+            >
+              <span class="panel-trigger-label">Entities</span>
+              <q-badge
+                v-if="documentEntities.length > 0"
+                rounded
+                :color="entitiesPanelOpen ? 'white' : 'primary'"
+                :text-color="entitiesPanelOpen ? 'primary' : 'white'"
+                class="panel-trigger-badge"
+              >
+                {{ documentEntities.length }}
+              </q-badge>
+              <q-tooltip>Extracted entities in this document</q-tooltip>
             </q-btn>
           </div>
         </div>
@@ -192,15 +212,29 @@
       </div>
     </div>
 
-    <!-- Right Metadata Panel -->
-    <MetadataPanel
-      :open="metadataPanelOpen"
-      :summary="document?.summary ?? null"
-      :file-metadata="fileMetadata"
-      :source-metadata="sourceMetadata"
-      :llm-metadata="llmMetadata"
-      @close="metadataPanelOpen = false"
-    />
+    <!-- Right Side Panel (Info / Entities) -->
+    <transition name="meta-slide">
+      <div v-if="rightPanelMode !== 'none'" class="right-panel-host">
+        <MetadataPanel
+          v-if="metadataPanelOpen"
+          :summary="document?.summary ?? null"
+          :pipeline-state="document?.pipeline_state ?? null"
+          :source-document-id="document?.source_document_id ?? null"
+          :source-name="document?.source_name ?? null"
+          :external-link="document?.external_link ?? null"
+          :file-metadata="fileMetadata"
+          :source-metadata="sourceMetadata"
+          :llm-metadata="llmMetadata"
+          @close="rightPanelMode = 'none'"
+        />
+        <EntitiesPanel
+          v-else-if="entitiesPanelOpen"
+          :entities="documentEntities"
+          :loading="entitiesLoading"
+          @close="rightPanelMode = 'none'"
+        />
+      </div>
+    </transition>
   </div>
 </template>
 
@@ -218,8 +252,9 @@ import MarkdownItTOC from 'markdown-it-toc-done-right'
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useStore } from 'vuex'
+import EntitiesPanel from './EntitiesPanel.vue'
 import MetadataPanel from './MetadataPanel.vue'
-import { Chunk, Document, TocNode, TreeNode } from './models'
+import { Chunk, Document, EntityRecord, TocNode, TreeNode } from './models'
 
 type MetadataOrigin = 'file' | 'source' | 'llm'
 type MetadataValueKind = 'string' | 'number' | 'boolean' | 'date' | 'json' | 'list'
@@ -243,7 +278,12 @@ const chunks = ref<Chunk[]>([])
 const contentProfiles = ref<Record<string, any>[]>([])
 const loading = ref(true)
 const selectedChunk = ref<Chunk | null>(null)
-const metadataPanelOpen = ref(false)
+type RightPanelMode = 'info' | 'entities' | 'none'
+const rightPanelMode = ref<RightPanelMode>('none')
+const metadataPanelOpen = computed(() => rightPanelMode.value === 'info')
+const entitiesPanelOpen = computed(() => rightPanelMode.value === 'entities')
+const documentEntities = ref<EntityRecord[]>([])
+const entitiesLoading = ref(false)
 const activeNavTab = ref<'toc' | 'chunks'>('toc')
 
 // Tree state
@@ -420,6 +460,10 @@ const metadataByOrigin = computed<Record<MetadataOrigin, MetadataItem[]>>(() => 
 const fileMetadata = computed(() => metadataByOrigin.value.file)
 const sourceMetadata = computed(() => metadataByOrigin.value.source)
 const llmMetadata = computed(() => metadataByOrigin.value.llm)
+
+const togglePanel = (target: 'info' | 'entities') => {
+  rightPanelMode.value = rightPanelMode.value === target ? 'none' : target
+}
 
 function toMetadataItems(meta: unknown, origin: MetadataOrigin): MetadataItem[] {
   if (!meta || typeof meta !== 'object' || Array.isArray(meta)) return []
@@ -634,6 +678,31 @@ const fetchDocument = async () => {
     }
   } catch (error) {
     console.error('Error fetching document:', error)
+  }
+}
+
+const fetchDocumentEntities = async () => {
+  if (!graphId.value || !documentId.value) return
+  entitiesLoading.value = true
+  try {
+    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const response = await fetchData({
+      endpoint,
+      service: `knowledge_graphs/${graphId.value}/documents/${documentId.value}/entities`,
+      method: 'GET',
+      credentials: 'include',
+    })
+    if (response.ok) {
+      const data = await response.json()
+      documentEntities.value = (data.records || []) as EntityRecord[]
+    } else {
+      documentEntities.value = []
+    }
+  } catch (error) {
+    console.error('Error fetching document entities:', error)
+    documentEntities.value = []
+  } finally {
+    entitiesLoading.value = false
   }
 }
 
@@ -979,7 +1048,7 @@ watch(
   { immediate: true }
 )
 
-watch(metadataPanelOpen, () => {
+watch(rightPanelMode, () => {
   scheduleRecomputeChunkScrollPositions()
   nextTick(() => {
     hScrollBarRefs.forEach((_, id) => updateHScrollBarTrack(id))
@@ -995,6 +1064,7 @@ watch(documentChunkContentType, () => {
 onMounted(async () => {
   await fetchContentProfiles()
   await fetchDocument()
+  fetchDocumentEntities()
   await fetchAllChunks()
   if (hasToc.value) {
     activeNavTab.value = 'toc'
@@ -1046,6 +1116,29 @@ onBeforeUnmount(() => {
   .doc-details {
     position: relative;
   }
+}
+
+.right-panel-host {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.right-panel-host > * {
+  flex: 1 1 auto;
+}
+
+/* Slide transition shared by Info / Entities panels */
+.meta-slide-enter-active,
+.meta-slide-leave-active {
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+.meta-slide-enter-from,
+.meta-slide-leave-to {
+  opacity: 0;
+  transform: translateX(12px);
 }
 
 /* ============================================
@@ -1288,12 +1381,49 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
 }
 
-.metadata-toggle-btn {
+.panel-trigger-btn {
   font-size: 13px;
   font-weight: 500;
-  padding: 6px 14px;
+  padding: 6px 12px;
+  min-height: 34px;
   border-radius: 8px;
+  color: #475569;
+  background: transparent;
+  border: 1px solid transparent;
   transition: all 0.15s ease;
+}
+
+.panel-trigger-btn :deep(.q-icon) {
+  font-size: 16px;
+}
+
+.panel-trigger-btn:hover {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+.panel-trigger-btn--active {
+  background: var(--q-primary);
+  color: #ffffff;
+  border-color: var(--q-primary);
+}
+
+.panel-trigger-btn--active:hover {
+  background: var(--q-primary);
+  color: #ffffff;
+  opacity: 0.92;
+}
+
+.panel-trigger-label {
+  margin-left: 2px;
+}
+
+.panel-trigger-badge {
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  min-width: 18px;
 }
 
 /* Scroll Area */

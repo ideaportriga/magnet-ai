@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import fnmatch
 import logging
 from datetime import datetime
 from pathlib import PurePath
@@ -132,8 +133,25 @@ class SharePointSyncPipeline(
                     )
 
                 # Fetch metadata for all files in this folder for intelligent sync
+                file_patterns = self._sharepoint_config.file_patterns
                 for f in files:
                     await ctx.inc("total_found")
+
+                    if file_patterns:
+                        name_lower = (f.name or "").lower()
+                        if not any(
+                            fnmatch.fnmatch(name_lower, p) for p in file_patterns
+                        ):
+                            logger.debug(
+                                "Skipping SharePoint file (file_patterns mismatch)",
+                                extra=self._log_extra(
+                                    worker_id=worker_id,
+                                    file=f.name,
+                                    patterns=",".join(file_patterns),
+                                ),
+                            )
+                            await ctx.inc("skipped")
+                            continue
 
                     if f.unique_id:
                         await self.track_source_document_id(f.unique_id)
@@ -210,8 +228,8 @@ class SharePointSyncPipeline(
 
         sp_ctx = await create_sharepoint_context(self._sharepoint_config)
 
-        async with async_session_maker() as session:
-            async for task in ctx.iter_content_fetch_tasks():
+        async for task in ctx.iter_content_fetch_tasks():
+            async with async_session_maker() as session:
                 filename = ""
                 try:
                     file_ref = task.file
@@ -441,8 +459,8 @@ class SharePointSyncPipeline(
             extra=self._log_extra(worker_id=worker_id),
         )
 
-        async with async_session_maker() as session:
-            async for task in ctx.iter_document_processing_tasks():
+        async for task in ctx.iter_document_processing_tasks():
+            async with async_session_maker() as session:
                 doc_name = str(task.document.get("name") or "").strip()
                 try:
                     await self._source.process_document(

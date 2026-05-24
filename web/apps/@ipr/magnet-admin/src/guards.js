@@ -5,7 +5,6 @@ const mapRoutesChildrenParent = {
   AIAppDetail: 'AIApp',
   ConfigurationItems: 'Configuration',
   RetrievalItems: 'Retrieval',
-  ModelItems: 'Model',
   CollectionDetail: 'Collections',
   AssistantItems: 'Assistant',
 }

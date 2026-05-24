@@ -15,6 +15,7 @@ class WebRuntimeConfig:
     max_pages: int = 100
     css_selector: str | None = None
     allowed_domain: str = ""
+    user_agent: str | None = None
 
 
 @dataclass(frozen=True)

@@ -407,16 +407,29 @@ const runExtraction = async () => {
     }
 
     const data: any = await res.json().catch(() => ({}))
-    const approach = String(data?.approach || extractionApproach.value)
-    const docs = Number(data?.processed_documents || 0)
-    const chunks = Number(data?.processed_chunks || 0)
-    const errors = Number(data?.errors || 0)
-    const message =
-      approach === 'chunks'
-        ? `Extraction completed: ${docs} documents updated, ${chunks} chunks processed${errors ? ` (${errors} errors)` : ''}.`
-        : `Extraction completed: ${docs} documents processed${errors ? ` (${errors} errors)` : ''}.`
 
-    $q.notify({ type: 'positive', message, position: 'top', textColor: 'black', timeout: 2500 })
+    // Bulk extraction now runs in the background and returns {"status": "started"}.
+    // Per-document extraction (not reachable from this UI flow) still returns full stats.
+    if (data?.status === 'started') {
+      $q.notify({
+        type: 'positive',
+        message: 'Extraction started. Progress will be reflected on the graph state.',
+        position: 'top',
+        textColor: 'black',
+        timeout: 2500,
+      })
+    } else {
+      const approach = String(data?.approach || extractionApproach.value)
+      const docs = Number(data?.processed_documents || 0)
+      const chunks = Number(data?.processed_chunks || 0)
+      const errors = Number(data?.errors || 0)
+      const message =
+        approach === 'chunks'
+          ? `Extraction completed: ${docs} documents updated, ${chunks} chunks processed${errors ? ` (${errors} errors)` : ''}.`
+          : `Extraction completed: ${docs} documents processed${errors ? ` (${errors} errors)` : ''}.`
+
+      $q.notify({ type: 'positive', message, position: 'top', textColor: 'black', timeout: 2500 })
+    }
     await fetchMetadataValues()
   } catch (error) {
     console.error('Error running extraction:', error)

@@ -17,6 +17,7 @@ from core.db.models.knowledge_graph import (
     edges_table_name,
     entities_index_prefix,
     entities_table_name,
+    knowledge_graph_edge_table,
     knowledge_graph_entity_table,
 )
 from core.domain.knowledge_graph.services.knowledge_graph_edge_service import (
@@ -398,6 +399,76 @@ class KnowledgeGraphEntityService:
         await self._hydrate_entity_edges(db_session, graph_id=graph_id, records=records)
         return records
 
+    async def list_records_for_document(
+        self,
+        db_session: AsyncSession,
+        *,
+        graph_id: UUID | str,
+        document_id: UUID | str,
+        limit: int = 1000,
+        offset: int = 0,
+    ) -> list[KnowledgeGraphEntityRecord]:
+        """List entity records linked to a specific document via the edges table."""
+
+        entities_tbl = knowledge_graph_entity_table(
+            MetaData(), entities_table_name(graph_id)
+        )
+        edges_tbl = knowledge_graph_edge_table(MetaData(), edges_table_name(graph_id))
+
+        document_uuid = (
+            document_id if isinstance(document_id, UUID) else UUID(str(document_id))
+        )
+
+        stmt = (
+            select(entities_tbl)
+            .distinct()
+            .join(edges_tbl, edges_tbl.c.source_node_id == entities_tbl.c.id)
+            .where(edges_tbl.c.source_node_type == "entity")
+            .where(edges_tbl.c.target_node_type == "document")
+            .where(edges_tbl.c.target_node_id == document_uuid)
+            .order_by(entities_tbl.c.entity, entities_tbl.c.record_identifier)
+            .limit(max(int(limit), 1))
+            .offset(max(int(offset), 0))
+        )
+
+        rows = (await db_session.execute(stmt)).mappings().all()
+        records = [KnowledgeGraphEntityRecord.from_mapping(row) for row in rows]
+        await self._hydrate_entity_edges(db_session, graph_id=graph_id, records=records)
+        return records
+
+    async def count_records_for_document(
+        self,
+        db_session: AsyncSession,
+        *,
+        graph_id: UUID | str,
+        document_id: UUID | str,
+    ) -> int:
+        """Count distinct entity records linked to a specific document."""
+
+        entities_tbl = knowledge_graph_entity_table(
+            MetaData(), entities_table_name(graph_id)
+        )
+        edges_tbl = knowledge_graph_edge_table(MetaData(), edges_table_name(graph_id))
+
+        document_uuid = (
+            document_id if isinstance(document_id, UUID) else UUID(str(document_id))
+        )
+
+        stmt = (
+            select(func.count(func.distinct(entities_tbl.c.id)))
+            .select_from(
+                entities_tbl.join(
+                    edges_tbl, edges_tbl.c.source_node_id == entities_tbl.c.id
+                )
+            )
+            .where(edges_tbl.c.source_node_type == "entity")
+            .where(edges_tbl.c.target_node_type == "document")
+            .where(edges_tbl.c.target_node_id == document_uuid)
+        )
+
+        result = await db_session.execute(stmt)
+        return result.scalar_one()
+
     async def query_records(
         self,
         db_session: AsyncSession,
@@ -469,14 +540,11 @@ class KnowledgeGraphEntityService:
             raise ValueError("entity is required")
 
         record_identifier_value = str(record_identifier or "").strip()
-        if not record_identifier_value:
-            raise ValueError("record_identifier is required")
-
-        normalized_record_identifier = normalize_record_identifier(
-            record_identifier_value
+        normalized_record_identifier = (
+            normalize_record_identifier(record_identifier_value)
+            if record_identifier_value
+            else ""
         )
-        if not normalized_record_identifier:
-            raise ValueError("normalized_record_identifier is required")
 
         normalized_column_values = normalize_metadata_value(dict(column_values or {}))
         source_document_id_value = (
@@ -490,21 +558,25 @@ class KnowledgeGraphEntityService:
         md = MetaData()
         entities_tbl = knowledge_graph_entity_table(md, table_name)
 
-        existing_row = (
-            (
-                await db_session.execute(
-                    select(entities_tbl)
-                    .where(entities_tbl.c.entity == entity_value)
-                    .where(
-                        entities_tbl.c.normalized_record_identifier
-                        == normalized_record_identifier
+        # When the entity has no primary identifier, every candidate becomes a
+        # new row — skip the dedup lookup and merge path entirely.
+        existing_row = None
+        if normalized_record_identifier:
+            existing_row = (
+                (
+                    await db_session.execute(
+                        select(entities_tbl)
+                        .where(entities_tbl.c.entity == entity_value)
+                        .where(
+                            entities_tbl.c.normalized_record_identifier
+                            == normalized_record_identifier
+                        )
+                        .limit(1)
                     )
-                    .limit(1)
                 )
+                .mappings()
+                .one_or_none()
             )
-            .mappings()
-            .one_or_none()
-        )
 
         edge_svc = KnowledgeGraphEdgeService()
 
@@ -513,10 +585,12 @@ class KnowledgeGraphEntityService:
                 entities_tbl.insert()
                 .values(
                     entity=entity_value,
-                    record_identifier=record_identifier_value,
-                    normalized_record_identifier=normalized_record_identifier,
+                    record_identifier=record_identifier_value or None,
+                    normalized_record_identifier=normalized_record_identifier or None,
                     column_values=normalized_column_values,
-                    identifier_aliases=[record_identifier_value],
+                    identifier_aliases=(
+                        [record_identifier_value] if record_identifier_value else []
+                    ),
                 )
                 .returning(*entities_tbl.c)
             )

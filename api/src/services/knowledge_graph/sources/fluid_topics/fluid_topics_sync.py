@@ -366,8 +366,8 @@ class FluidTopicsSyncPipeline(
                     out[key] = v
             return out
 
-        async with async_session_maker() as session:
-            async for task in ctx.iter_content_fetch_tasks():
+        async for task in ctx.iter_content_fetch_tasks():
+            async with async_session_maker() as session:
                 try:
                     if isinstance(task, FluidTopicsMapFetchTask):
                         map_id = task.id
@@ -552,9 +552,17 @@ class FluidTopicsSyncPipeline(
                         )
                         if not result.document:
                             await ctx.inc("metadata_only_updated")
+                            await self.publish_progress(
+                                phase="downloading",
+                                current_document=doc_name,
+                            )
                             continue
 
                         await ctx.inc("content_changed")
+                        await self.publish_progress(
+                            phase="downloading",
+                            current_document=doc_name,
+                        )
 
                         await ctx.document_processing_queue.put(
                             ProcessDocumentTask(
@@ -589,6 +597,10 @@ class FluidTopicsSyncPipeline(
                                 ),
                             )
                             await ctx.inc("skipped")
+                            await self.publish_progress(
+                                phase="downloading",
+                                current_document=filename,
+                            )
                             continue
 
                         # Best-effort: persist discovered metadata fields for this graph/source.
@@ -640,9 +652,17 @@ class FluidTopicsSyncPipeline(
                         )
                         if not result.document:
                             await ctx.inc("metadata_only_updated")
+                            await self.publish_progress(
+                                phase="downloading",
+                                current_document=filename,
+                            )
                             continue
 
                         await ctx.inc("content_changed")
+                        await self.publish_progress(
+                            phase="downloading",
+                            current_document=filename,
+                        )
 
                         await ctx.document_processing_queue.put(
                             ProcessDocumentTask(
@@ -678,13 +698,17 @@ class FluidTopicsSyncPipeline(
                         ),
                     )
                     await ctx.inc("failed")
+                    task_name = (
+                        getattr(task, "filename", None)
+                        or getattr(task, "title", None)
+                        or getattr(task, "id", None)
+                    )
+                    await self.publish_progress(
+                        phase="downloading",
+                        current_document=str(task_name) if task_name else None,
+                    )
                     try:
                         # Best-effort error marker; failure should not crash the worker.
-                        task_name = (
-                            getattr(task, "filename", None)
-                            or getattr(task, "map_title", None)
-                            or getattr(task, "map_id", None)
-                        )
                         if task_name:
                             await self._source._mark_document_error(
                                 session, str(task_name), exc
@@ -713,6 +737,15 @@ class FluidTopicsSyncPipeline(
                         )
 
                 await ctx.inc("skipped")
+                task_name = (
+                    getattr(task, "filename", None)
+                    or getattr(task, "title", None)
+                    or getattr(task, "id", None)
+                )
+                await self.publish_progress(
+                    phase="downloading",
+                    current_document=str(task_name) if task_name else None,
+                )
 
     async def _document_processing_worker(
         self, ctx: FluidTopicsPipelineContext, worker_id: int
@@ -724,8 +757,8 @@ class FluidTopicsSyncPipeline(
             extra=self._log_extra(worker_id=worker_id),
         )
 
-        async with async_session_maker() as session:
-            async for task in ctx.iter_document_processing_tasks():
+        async for task in ctx.iter_document_processing_tasks():
+            async with async_session_maker() as session:
                 doc_name = str(task.document.get("name") or "").strip()
                 filename_fallback_title = (
                     PurePath(doc_name).stem if doc_name else doc_name
@@ -748,6 +781,10 @@ class FluidTopicsSyncPipeline(
                         embedding_model=self._embedding_model,
                     )
                     await ctx.inc("synced")
+                    await self.publish_progress(
+                        phase="processing",
+                        current_document=doc_name or resolved_document_title,
+                    )
 
                 except Exception as exc:  # noqa: BLE001
                     logger.exception(
@@ -761,6 +798,10 @@ class FluidTopicsSyncPipeline(
                         ),
                     )
                     await ctx.inc("failed")
+                    await self.publish_progress(
+                        phase="processing",
+                        current_document=doc_name or resolved_document_title,
+                    )
                     try:
                         if doc_name:
                             await self._source._mark_document_error(

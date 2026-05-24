@@ -42,7 +42,7 @@
       <template #body-cell="slotScope">
         <q-td :props="slotScope">
           <span v-if="slotScope.value == null" class="text-grey-5">—</span>
-          <span v-else>
+          <span v-else class="entity-record-cell">
             {{ slotScope.col.format ? slotScope.col.format(slotScope.value, slotScope.row) : formatEntityCellValue(slotScope.value) }}
           </span>
         </q-td>
@@ -109,6 +109,8 @@ const emit = defineEmits<{
   'update:entityRecordsPagination': [pagination: EntityRecordsPagination]
 }>()
 
+const ENTITY_VALUE_COLUMN_WIDTH = 260
+
 const entityTypesColumns: QTableColumn<EntityTypeSummary>[] = [
   {
     name: 'entity',
@@ -139,15 +141,19 @@ const entityRecordsColumns = computed<QTableColumn<EntityRecord>[]>(() => {
   const identifierColumn = definition?.columns.find((column) => column.is_identifier)
   const identifierLabel = identifierColumn?.name || 'Identifier'
 
-  const columns: QTableColumn<EntityRecord>[] = [
-    {
+  const columns: QTableColumn<EntityRecord>[] = []
+
+  // Render the identifier column only when the entity definition has one,
+  // or as a fallback when no definition is available at all.
+  if (!definition || identifierColumn) {
+    columns.push({
       name: 'record_identifier',
       label: identifierLabel,
       field: 'record_identifier',
       align: 'left',
       sortable: true,
-    },
-  ]
+    })
+  }
 
   if (definition) {
     for (const column of definition.columns) {
@@ -161,6 +167,8 @@ const entityRecordsColumns = computed<QTableColumn<EntityRecord>[]>(() => {
         field: (row: EntityRecord) => row.column_values?.[column.name] ?? null,
         align: 'left',
         format: formatEntityCellValue,
+        style: `width: ${ENTITY_VALUE_COLUMN_WIDTH}px; max-width: ${ENTITY_VALUE_COLUMN_WIDTH}px`,
+        headerStyle: `width: ${ENTITY_VALUE_COLUMN_WIDTH}px; max-width: ${ENTITY_VALUE_COLUMN_WIDTH}px`,
       })
     }
   } else {
@@ -182,6 +190,8 @@ const entityRecordsColumns = computed<QTableColumn<EntityRecord>[]>(() => {
         field: (row: EntityRecord) => row.column_values?.[key] ?? null,
         align: 'left',
         format: formatEntityCellValue,
+        style: `width: ${ENTITY_VALUE_COLUMN_WIDTH}px; max-width: ${ENTITY_VALUE_COLUMN_WIDTH}px`,
+        headerStyle: `width: ${ENTITY_VALUE_COLUMN_WIDTH}px; max-width: ${ENTITY_VALUE_COLUMN_WIDTH}px`,
       })
     }
   }
@@ -246,6 +256,17 @@ const handleEntityRecordsRequest = (request: EntityRecordsRequest) => {
 :deep(.q-table tbody td) {
   height: 40px;
   padding: 2px 16px;
+}
+
+.entity-record-cell {
+  display: -webkit-box;
+  max-width: 100%;
+  overflow: hidden;
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
 
 :deep(.sticky-col) {

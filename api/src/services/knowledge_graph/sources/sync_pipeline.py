@@ -1,6 +1,8 @@
 import asyncio
 import hashlib
+import json
 import logging
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -10,10 +12,13 @@ from uuid import UUID
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.config.app import alchemy
 from core.db.models.knowledge_graph import KnowledgeGraphSource, docs_table_name
 from core.db.session import async_session_maker
 from core.domain.knowledge_graph.services import KnowledgeGraphDocumentService
-from services.observability import observe
+from services.observability import observability_context, observe
+from services.observability.models import SpanExportMethod
+from utils.datetime_utils import utc_now_isoformat
 
 from ..content_load_services import (
     load_content_from_bytes_async,
@@ -29,6 +34,11 @@ from ..models import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Emit an INFO-level heartbeat log every N seconds during the long-running
+# processing stage. Converts a "silent death" into a visible "last heartbeat
+# at time T" in the logs — the operator can see exactly where the sync stalled.
+_SYNC_HEARTBEAT_INTERVAL_SEC = 30.0
 
 ListTaskT = TypeVar("ListTaskT")
 ContentTaskT = TypeVar("ContentTaskT")
@@ -134,6 +144,85 @@ class SyncPipeline(Generic[ListTaskT, ContentTaskT, ProcessTaskT], ABC):
         self.counters = SyncCounters()
         self._seen_source_document_ids: set[str] = set()
         self._seen_ids_lock = asyncio.Lock()
+        # Throttle live progress writes — at most once per ~1s per source.
+        self._last_progress_write_at: float = 0.0
+        self._progress_lock = asyncio.Lock()
+        # When set, store_document bypasses the content-hash short-circuit and
+        # re-processes every document (used by "Resync from scratch").
+        self.from_scratch: bool = False
+
+    def _progress_source_id(self) -> str | None:
+        """Return the source id used for progress writes, if any.
+
+        Concrete pipelines that want live progress set `self._source_id` in
+        their __init__ (the existing convention used by SharePoint, etc.).
+        """
+        sid = getattr(self, "_source_id", None)
+        return str(sid) if sid else None
+
+    def _progress_processed_count(self) -> int:
+        """Return the number of source items that reached a terminal sync decision."""
+
+        processed = (
+            int(self.counters.synced)
+            + int(self.counters.failed)
+            + int(self.counters.skipped)
+            + int(self.counters.metadata_only_updated)
+        )
+        total = int(self.counters.total_found)
+        if total > 0:
+            return max(0, min(processed, total))
+        return max(0, processed)
+
+    async def publish_progress(
+        self,
+        *,
+        phase: Literal["starting", "listing", "downloading", "processing", "cleanup"],
+        current_document: str | None = None,
+        force: bool = False,
+    ) -> None:
+        """Write the current pipeline progress to ``knowledge_graph_sources.sync_progress``.
+
+        Throttled to ~1 write/second per source to avoid hammering Postgres
+        during heavy ingestion. Set ``force=True`` for stage-transition writes
+        that must land.
+        """
+        source_id = self._progress_source_id()
+        if not source_id:
+            return
+
+        async with self._progress_lock:
+            now = time.monotonic()
+            if not force and (now - self._last_progress_write_at) < 1.0:
+                return
+            self._last_progress_write_at = now
+
+        processed = self._progress_processed_count()
+        total = int(self.counters.total_found)
+        patch = {
+            "phase": phase,
+            "processed": processed,
+            "total": total,
+            "current_document": current_document,
+            "updated_at": utc_now_isoformat(),
+        }
+        try:
+            async with alchemy.get_session() as fresh:
+                await fresh.execute(
+                    text(
+                        """
+                        UPDATE knowledge_graph_sources
+                        SET sync_progress = COALESCE(sync_progress, '{}'::jsonb)
+                                            || CAST(:patch AS jsonb)
+                        WHERE id = :sid
+                        """
+                    ),
+                    {"sid": source_id, "patch": json.dumps(patch)},
+                )
+                await fresh.commit()
+        except Exception as exc:  # noqa: BLE001
+            # Progress writes are best-effort; never fail the sync because of them.
+            logger.debug("Failed to publish sync progress: %s", exc)
 
     async def bootstrap(
         self, ctx: SyncPipelineContext[ListTaskT, ContentTaskT, ProcessTaskT]
@@ -187,6 +276,13 @@ class SyncPipeline(Generic[ListTaskT, ContentTaskT, ProcessTaskT], ABC):
             self.config.semaphores,
         )
 
+        loop_start = time.monotonic()
+        last_heartbeat_at = loop_start
+
+        observability_context.update_current_config(
+            span_export_method=SpanExportMethod.IGNORE_BUT_USE_FOR_TOTALS
+        )
+
         listing_queue: asyncio.Queue[Any] = asyncio.Queue(
             maxsize=self.config.listing_queue_max
         )
@@ -233,6 +329,10 @@ class SyncPipeline(Generic[ListTaskT, ContentTaskT, ProcessTaskT], ABC):
             # Bootstrap/kickoff hook (enqueue initial tasks, etc.)
             await self.bootstrap(ctx)
 
+            # Surface "we've started looking at the remote source" even before
+            # the first listing API call returns.
+            await self.publish_progress(phase="listing", force=True)
+
             # Stage drain + shutdown ordering:
             # - let listing workers finish scheduling work
             # - then let content-fetch workers finish producing processing tasks
@@ -245,6 +345,8 @@ class SyncPipeline(Generic[ListTaskT, ContentTaskT, ProcessTaskT], ABC):
                 *listing_tasks, return_exceptions=True
             )
 
+            await self.publish_progress(phase="downloading", force=True)
+
             await content_fetch_queue.join()
             logger.info(
                 "Stage complete: %s content_fetch queue drained", self.config.name
@@ -255,7 +357,42 @@ class SyncPipeline(Generic[ListTaskT, ContentTaskT, ProcessTaskT], ABC):
                 *content_tasks, return_exceptions=True
             )
 
-            await document_processing_queue.join()
+            await self.publish_progress(phase="processing", force=True)
+
+            # Drain the processing stage while emitting periodic progress so
+            # the UI's count reflects real ingestion — not just stage starts.
+            processing_done = asyncio.create_task(document_processing_queue.join())
+            try:
+                while not processing_done.done():
+                    try:
+                        await asyncio.wait_for(
+                            asyncio.shield(processing_done), timeout=2.0
+                        )
+                    except asyncio.TimeoutError:
+                        await self.publish_progress(phase="processing")
+                        now = time.monotonic()
+                        if (now - last_heartbeat_at) >= _SYNC_HEARTBEAT_INTERVAL_SEC:
+                            last_heartbeat_at = now
+                            logger.info(
+                                "Sync heartbeat name=%s source=%s phase=processing "
+                                "processed=%d total=%d synced=%d failed=%d skipped=%d "
+                                "elapsed=%.0fs",
+                                self.config.name,
+                                self._progress_source_id(),
+                                int(self.counters.synced) + int(self.counters.failed),
+                                int(self.counters.total_found),
+                                int(self.counters.synced),
+                                int(self.counters.failed),
+                                int(self.counters.skipped),
+                                now - loop_start,
+                            )
+            finally:
+                if not processing_done.done():
+                    processing_done.cancel()
+                    try:
+                        await processing_done
+                    except (asyncio.CancelledError, Exception):  # noqa: BLE001
+                        pass
             logger.info(
                 "Stage complete: %s document_processing queue drained", self.config.name
             )
@@ -264,6 +401,8 @@ class SyncPipeline(Generic[ListTaskT, ContentTaskT, ProcessTaskT], ABC):
             processing_results = await asyncio.gather(
                 *processing_tasks, return_exceptions=True
             )
+
+            await self.publish_progress(phase="cleanup", force=True)
         finally:
             # Ensure we never leak background workers if bootstrap fails or the caller cancels.
             for t in all_tasks:
@@ -351,7 +490,7 @@ class SyncPipeline(Generic[ListTaskT, ContentTaskT, ProcessTaskT], ABC):
         else:
             content_hash = hashlib.sha256(content).hexdigest()
 
-        if source_document_id and content_hash:
+        if source_document_id and content_hash and not self.from_scratch:
             rows = await self.document_service.query_documents(
                 session,
                 graph_id=graph_id,

@@ -42,7 +42,9 @@ class WebDataSource(AbstractDataSource):
 
     @override
     @observe(name="Sync Web source")
-    async def sync_source(self, db_session: AsyncSession) -> dict[str, Any]:
+    async def sync_source(
+        self, db_session: AsyncSession, *, from_scratch: bool = False
+    ) -> dict[str, Any]:
         """Scrape web pages and ingest them into the Knowledge Graph."""
 
         logger.info(
@@ -84,6 +86,7 @@ class WebDataSource(AbstractDataSource):
             web_config=cfg,
             embedding_model=embedding_model,
         )
+        pipeline.from_scratch = from_scratch
 
         try:
             counters = await pipeline.run()
@@ -137,6 +140,7 @@ class WebDataSource(AbstractDataSource):
         max_depth = int(cfg.get("max_depth", 2))
         max_pages = int(cfg.get("max_pages", 100))
         css_selector = cfg.get("css_selector") or None
+        user_agent = (cfg.get("user_agent") or "").strip() or None
 
         # Clamp values
         max_depth = max(1, min(max_depth, 10))
@@ -149,4 +153,5 @@ class WebDataSource(AbstractDataSource):
             max_pages=max_pages,
             css_selector=css_selector,
             allowed_domain=parsed.netloc,
+            user_agent=user_agent,
         )
