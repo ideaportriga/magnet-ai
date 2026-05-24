@@ -434,6 +434,7 @@ class KnowledgeGraphDocumentDetailSchema(BaseModel):
     external_link: Optional[str] = None
     metadata: Optional[KnowledgeGraphDocumentMetadataExternalSchema] = None
     source_id: Optional[str] = None
+    source_document_id: Optional[str] = None
     chunks_count: int = 0
     created_at: Optional[str] = None
     updated_at: Optional[str] = None

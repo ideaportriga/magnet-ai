@@ -204,6 +204,10 @@
         <MetadataPanel
           v-if="metadataPanelOpen"
           :summary="document?.summary ?? null"
+          :pipeline-state="document?.pipeline_state ?? null"
+          :source-document-id="document?.source_document_id ?? null"
+          :source-name="document?.source_name ?? null"
+          :external-link="document?.external_link ?? null"
           :file-metadata="fileMetadata"
           :source-metadata="sourceMetadata"
           :llm-metadata="llmMetadata"

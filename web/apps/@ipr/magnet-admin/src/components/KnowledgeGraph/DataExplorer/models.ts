@@ -29,6 +29,7 @@ export interface Document {
   updated_at?: string
   source_id?: string | null
   source_name?: string
+  source_document_id?: string | null
   toc?: TocNode[]
   summary?: string
   total_pages?: number

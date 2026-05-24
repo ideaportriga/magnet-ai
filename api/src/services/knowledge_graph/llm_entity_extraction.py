@@ -2245,27 +2245,39 @@ async def run_graph_llm_entity_extraction(
                 exc,
             )
 
+    # Track per-document run start so that the completed/failed JSONB merge
+    # preserves ``started_at`` (JSONB ``||`` is a shallow merge and would
+    # otherwise drop fields not present in the patch).
+    doc_started_at_by_id: dict[str, str] = {}
+
     async def _mark_document_running(doc_id: str) -> None:
+        started_at = utc_now_isoformat()
+        doc_started_at_by_id[doc_id] = started_at
         await _write_entity_extraction_state(
-            doc_id, {"status": "running", "started_at": utc_now_isoformat()}
+            doc_id, {"status": "running", "started_at": started_at}
         )
 
     async def _mark_document_extracted(doc_id: str) -> None:
         """Mark a document's entity_extraction pipeline state as completed."""
-        await _write_entity_extraction_state(
-            doc_id,
-            {"status": "completed", "completed_at": utc_now_isoformat()},
-        )
+        patch: dict[str, Any] = {
+            "status": "completed",
+            "completed_at": utc_now_isoformat(),
+        }
+        started_at = doc_started_at_by_id.pop(doc_id, None)
+        if started_at:
+            patch["started_at"] = started_at
+        await _write_entity_extraction_state(doc_id, patch)
 
     async def _mark_document_failed(doc_id: str, error_message: str) -> None:
-        await _write_entity_extraction_state(
-            doc_id,
-            {
-                "status": "failed",
-                "failed_at": utc_now_isoformat(),
-                "error_message": error_message,
-            },
-        )
+        patch: dict[str, Any] = {
+            "status": "failed",
+            "failed_at": utc_now_isoformat(),
+            "error_message": error_message,
+        }
+        started_at = doc_started_at_by_id.pop(doc_id, None)
+        if started_at:
+            patch["started_at"] = started_at
+        await _write_entity_extraction_state(doc_id, patch)
 
     if not entity_definitions:
         raise ValueError("entity_definitions is required and cannot be empty")
