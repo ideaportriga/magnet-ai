@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.33](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.32...v0.7.0-dev.33) (2026-05-24)
+
+### ✨ Features
+
+* **kg:** added sync status and source details sections to the document details ([41b05dc](https://github.com/ideaportriga/magnet-ai/commit/41b05dcb6c9c8731cf2f6267eeec99e7a5040db0))
+
 ## [0.7.0-dev.32](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.31...v0.7.0-dev.32) (2026-05-23)
 
 ### ✨ Features
