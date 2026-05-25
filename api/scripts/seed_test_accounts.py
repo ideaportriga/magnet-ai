@@ -16,10 +16,10 @@ exercise cross-tenant flows without polluting the existing dev fixtures:
 
 All four users share the same password (env override `QA_SEED_PASSWORD`,
 default `magnet-qa-12345`). Companion file with the rendered credentials:
-    docs/qa/test-accounts_ai-claude.md
+    docs/qa/test-accounts.md
 
 Usage:
-    cd api && uv run python scripts/seed_test_accounts_ai-claude.py
+    cd api && uv run python scripts/seed_test_accounts.py
 """
 
 from __future__ import annotations

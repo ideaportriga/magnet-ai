@@ -2,7 +2,7 @@
 """Tenant-isolation RLS — Phase 1: 5 already-tenant-scoped tables.
 
 Phase 1 of the tenant-isolation rollout (see
-`docs/tenant-isolation-plan_ai-claude.md`).
+`docs/tenant-isolation-plan.md`).
 
 These tables already carry `tenant_id` but were missing RLS policies, so
 isolation was relying purely on application-level WHERE clauses. This

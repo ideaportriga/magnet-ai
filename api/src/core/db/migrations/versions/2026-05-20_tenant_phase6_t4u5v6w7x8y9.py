@@ -2,7 +2,7 @@
 """Tenant-isolation Phase 6 — architectural decisions.
 
 Implements the four architectural choices made on Q-1, Q-2, Q-3, Q-6 in
-`docs/tenant-isolation-plan_ai-claude.md`:
+`docs/tenant-isolation-plan.md`:
 
   providers      — per-tenant (Q-1). FK refactor: unique constraint on
                    `system_name` becomes composite `(tenant_id, system_name)`,
@@ -101,18 +101,35 @@ def _attach_policy(table: str, using_expr: str) -> None:
 
 def _upgrade_providers_and_ai_models() -> None:
     # 1. Drop child FKs that point at providers.system_name (single col).
-    op.execute(
-        "ALTER TABLE ai_models DROP CONSTRAINT IF EXISTS "
-        "fk_ai_models_provider_system_name_providers"
-    )
-    op.execute(
-        "ALTER TABLE collections DROP CONSTRAINT IF EXISTS "
-        "fk_collections_provider_system_name_providers"
-    )
-    op.execute(
-        "ALTER TABLE note_taker_settings DROP CONSTRAINT IF EXISTS "
-        "fk_note_taker_settings_provider_system_name_providers"
-    )
+    #    Use a catalog lookup rather than canonical names — older DBs may
+    #    carry auto-generated names like `<table>_<col>_fkey`.
+    for child_table in ("ai_models", "collections", "note_taker_settings"):
+        op.execute(
+            f"""
+            DO $$
+            DECLARE
+                fk_name text;
+            BEGIN
+                FOR fk_name IN
+                    SELECT c.conname
+                    FROM pg_constraint c
+                    WHERE c.conrelid = '{child_table}'::regclass
+                      AND c.confrelid = 'providers'::regclass
+                      AND c.contype = 'f'
+                      AND EXISTS (
+                          SELECT 1
+                          FROM unnest(c.conkey) AS col
+                          JOIN pg_attribute a
+                            ON a.attrelid = c.conrelid AND a.attnum = col
+                          WHERE a.attname = 'provider_system_name'
+                      )
+                LOOP
+                    EXECUTE 'ALTER TABLE {child_table} DROP CONSTRAINT '
+                            || quote_ident(fk_name);
+                END LOOP;
+            END $$;
+            """
+        )
 
     # 2. Drop the global unique on providers.system_name (we'll replace it
     #    with a composite one per tenant).

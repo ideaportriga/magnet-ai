@@ -15,7 +15,7 @@ scoping:
                         with no resolvable agent are deleted (cannot
                         be tenant-attributed).
 
-See `docs/tenant-isolation-plan_ai-claude.md` for the full plan.
+See `docs/tenant-isolation-plan.md` for the full plan.
 
 Revision ID: q1r2s3t4u5v6
 Revises: p0q1r2s3t4u5

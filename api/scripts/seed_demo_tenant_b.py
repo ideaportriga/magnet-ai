@@ -19,7 +19,7 @@ The point of this fixture is to prove tenant isolation:
   - Only super@local.dev (cross-tenant superuser) sees both.
 
 Usage:
-    cd api && uv run python scripts/seed_demo_tenant_b_ai-claude.py
+    cd api && uv run python scripts/seed_demo_tenant_b.py
 
 Override password with DEV_SEED_PASSWORD env var (same convention as the
 main seed_dev_fixtures.py).

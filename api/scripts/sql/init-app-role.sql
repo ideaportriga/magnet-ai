@@ -10,7 +10,7 @@
 -- Run via:
 --     docker exec -i magnet-postgres \
 --         psql -U postgres -d magnet_dev \
---         < api/scripts/sql/init-app-role_ai-claude.sql
+--         < api/scripts/sql/init-app-role.sql
 
 DO $$
 DECLARE
