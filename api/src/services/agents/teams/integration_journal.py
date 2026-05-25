@@ -29,6 +29,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from core.db.models.teams.note_taker_integration_attempt import (
     NoteTakerIntegrationAttempt,
 )
+from core.db.models.teams.note_taker_job import NoteTakerJob
 from core.db.session import async_session_maker
 
 logger = getLogger(__name__)
@@ -123,10 +124,30 @@ async def integration_attempt(
         yield False
         return
 
+    # Resolve tenant_id from the parent note_taker_jobs row — the journal
+    # column is NOT NULL and inherited from the parent (see Phase 4
+    # tenant-isolation migration).
+    async with async_session_maker() as session:
+        tenant_id = (
+            await session.execute(
+                select(NoteTakerJob.tenant_id).where(NoteTakerJob.id == job_id)
+            )
+        ).scalar_one_or_none()
+
+    if tenant_id is None:
+        logger.warning(
+            "integration_attempt: no note_taker_jobs row for job_id=%s — "
+            "skipping journal; publish will still run without retry tracking",
+            job_id,
+        )
+        yield True
+        return
+
     # UPSERT a pending row, incrementing attempt_count on conflict
     # (so re-runs of failed integrations don't reset the counter).
     async with async_session_maker() as session:
         insert_values: dict[str, Any] = {
+            "tenant_id": tenant_id,
             "job_id": job_id,
             "integration_kind": integration_kind,
             "status": "pending",
