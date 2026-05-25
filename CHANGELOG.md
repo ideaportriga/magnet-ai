@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-alpha.35](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.34...v0.7.0-alpha.35) (2026-05-25)
+
+### 🐛 Bug Fixes
+
+* notetaker tennant_id ([514152a](https://github.com/ideaportriga/magnet-ai/commit/514152a2ef68032eb795b24ad5c173edae69e5e3))
+
 ## [0.7.0-alpha.34](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.33...v0.7.0-alpha.34) (2026-05-25)
 
 ### 🐛 Bug Fixes
