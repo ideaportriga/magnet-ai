@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-alpha.34](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.33...v0.7.0-alpha.34) (2026-05-25)
+
+### 🐛 Bug Fixes
+
+* alembic migration fix ([b126256](https://github.com/ideaportriga/magnet-ai/commit/b126256593fcb75dbabb3ba7e9cf049afb249be4))
+
 ## [0.7.0-alpha.33](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.32...v0.7.0-alpha.33) (2026-05-22)
 
 ### 🐛 Bug Fixes
