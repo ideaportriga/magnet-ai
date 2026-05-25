@@ -90,9 +90,9 @@
             </div>
           </div>
 
-          <!-- Processing & Chunking -->
+          <!-- Processing Settings -->
           <div class="q-mb-lg">
-            <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Processing & Chunking</div>
+            <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Processing Settings</div>
             <div class="km-description text-secondary-text q-mt-xs q-mb-sm">Configure how content is split into chunks.</div>
             <div class="content-matching-sentence q-mt-md">
               <template v-if="isReadonlyProfile">
@@ -200,18 +200,12 @@
               </div>
             </div>
 
-            <!-- Advanced settings -->
+            <!-- Advanced processing settings -->
             <div class="advanced-settings q-mt-md" :class="{ 'advanced-settings--expanded': isAdvancedExpanded }">
-              <q-expansion-item
-                v-model="isAdvancedExpanded"
-                class="advanced-settings__expansion"
-                header-class="advanced-settings__header"
-                expand-icon-class="advanced-settings__caret"
-                dense
-              >
+              <q-expansion-item v-model="isAdvancedExpanded" class="advanced-settings__expansion" header-class="advanced-settings__header" dense>
                 <template #header>
                   <q-item-section>
-                    <div class="advanced-settings__title">Advanced settings</div>
+                    <div class="advanced-settings__title">Advanced Processing Settings</div>
                     <div class="advanced-settings__subtitle">Customize titles and chunking behavior</div>
                   </q-item-section>
                 </template>
@@ -302,8 +296,8 @@
                   <!-- Recursive: Splitters -->
                   <div v-if="!isLockedNativeProfile && isRecursiveStrategy" class="q-mt-md">
                     <div class="km-input-label q-pb-xs">Chunk Splitters</div>
-                    <div class="splitters-container q-py-xs">
-                      <div class="row items-center q-gutter-xs">
+                    <div class="splitters-container">
+                      <div class="row items-center">
                         <q-chip
                           v-for="(splitter, index) in form.chunker.options.splitters"
                           :key="index"
@@ -405,7 +399,7 @@
 
           <!-- Chunk Indexing -->
           <div class="q-mb-lg">
-            <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Indexing</div>
+            <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Indexing Settings</div>
             <div class="km-description text-secondary-text q-mt-xs q-mb-sm">Configure how chunk content is indexed for vector search.</div>
             <div class="content-matching-sentence q-mt-md">
               <span>
@@ -414,22 +408,24 @@
               </span>
             </div>
 
-            <div v-if="!isReadonlyProfile && !isLockedNativeProfile" class="row q-col-gutter-lg q-mt-md">
-              <div class="col-6">
-                <div class="km-input-label q-pb-xs">Embedding Max Size (characters)</div>
-                <km-input v-model.number="form.chunker.options.embedding_max_size" type="number" :min="100" placeholder="18000" />
-              </div>
-              <div class="col-6">
-                <div class="km-input-label q-pb-xs">Indexing Part Overlap (%)</div>
-                <div class="row items-center" style="height: 36px">
-                  <q-slider
-                    v-model="form.chunker.options.indexing_part_overlap"
-                    :min="0"
-                    :max="0.9"
-                    :step="0.02"
-                    label
-                    :label-value="`${Math.round((form.chunker.options.indexing_part_overlap || 0) * 100)}%`"
-                  />
+            <div v-if="!isReadonlyProfile && !isLockedNativeProfile" class="q-mt-md">
+              <div class="row q-col-gutter-lg">
+                <div class="col-6">
+                  <div class="km-input-label q-pb-xs">Embedding Max Size (characters)</div>
+                  <km-input v-model.number="form.chunker.options.embedding_max_size" type="number" :min="100" placeholder="18000" />
+                </div>
+                <div class="col-6">
+                  <div class="km-input-label q-pb-xs">Indexing Part Overlap (%)</div>
+                  <div class="row items-center" style="height: 36px">
+                    <q-slider
+                      v-model="form.chunker.options.indexing_part_overlap"
+                      :min="0"
+                      :max="0.9"
+                      :step="0.02"
+                      label
+                      :label-value="`${Math.round((form.chunker.options.indexing_part_overlap || 0) * 100)}%`"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -717,9 +713,7 @@ const selectedReaderDescription = computed(() => {
   const option = readerOptions.find((o) => o.value === form.value.reader.name)
   return option?.description || ''
 })
-const visibleChunkingStrategyOptions = computed(() =>
-  chunkingStrategyOptions.filter((o) => o.value !== 'page' || isPagedReader.value)
-)
+const visibleChunkingStrategyOptions = computed(() => chunkingStrategyOptions.filter((o) => o.value !== 'page' || isPagedReader.value))
 const selectedStrategyLabel = computed(() => {
   const option = chunkingStrategyOptions.find((o) => o.value === form.value.chunker.strategy)
   return option?.label ?? form.value.chunker.strategy
@@ -967,12 +961,7 @@ const save = async () => {
 watch(
   () => form.value.reader.name,
   (readerName, previousReaderName) => {
-    if (
-      isHydratingForm.value ||
-      isLockedNativeProfile.value ||
-      isReadonlyProfile.value ||
-      readerName === previousReaderName
-    ) {
+    if (isHydratingForm.value || isLockedNativeProfile.value || isReadonlyProfile.value || readerName === previousReaderName) {
       return
     }
 
@@ -1056,18 +1045,13 @@ watch(
 }
 
 .advanced-settings {
-  border: 1px solid rgba(var(--q-primary-rgb, 25, 118, 210), 0.2);
-  border-radius: 6px;
-  background: rgba(var(--q-primary-rgb, 25, 118, 210), 0.04);
+  border: 1px solid var(--q-control-border);
+  border-radius: 4px;
   overflow: hidden;
   transition:
     border-color 0.2s ease,
     background 0.2s ease,
     box-shadow 0.2s ease;
-}
-
-.advanced-settings:hover {
-  border-color: rgba(var(--q-primary-rgb, 25, 118, 210), 0.35);
 }
 
 .advanced-settings--expanded {
@@ -1091,19 +1075,14 @@ watch(
   transition: background 0.2s ease;
 }
 
-.advanced-settings__expansion :deep(.advanced-settings__header:hover) {
-  background: rgba(var(--q-primary-rgb, 25, 118, 210), 0.06);
-}
-
 .advanced-settings__expansion :deep(.q-focus-helper) {
   display: none;
 }
 
 .advanced-settings__title {
   font-size: 13px;
-  font-weight: 600;
-  color: #24292f;
-  letter-spacing: 0.01em;
+  font-weight: 500;
+  font-family: var(--font-default);
 }
 
 .advanced-settings__subtitle {
@@ -1111,10 +1090,6 @@ watch(
   color: var(--q-secondary-text);
   margin-top: 2px;
   line-height: 1.4;
-}
-
-.advanced-settings__expansion :deep(.advanced-settings__caret) {
-  color: var(--q-primary);
 }
 
 .advanced-settings__expansion :deep(.q-expansion-item__content) {
@@ -1130,7 +1105,6 @@ watch(
 .advanced-settings .splitters-container {
   border: 1px solid var(--q-control-border, #d0d7de);
   border-radius: 4px;
-  padding: 4px 8px;
-  background: #fafbfc;
+  padding: 2px 4px;
 }
 </style>
