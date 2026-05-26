@@ -18,15 +18,11 @@
     <!-- Search Settings Section -->
     <kg-dialog-section
       title="Search Settings"
-      description="Tune tool settings to control the scope and precision of the search. Choose whether the agent can override the search method or must follow this configuration."
+      description="Tune tool settings to control the scope and precision of the search."
       icon="tune"
       icon-color="teal-7"
     >
-      <template #header-actions>
-        <kg-section-control v-model="localTool.searchControl" />
-      </template>
-
-      <div class="column q-gap-16" :class="{ 'section-fields-disabled': localTool.searchControl === 'agent' }">
+      <div class="column q-gap-16">
         <kg-field-row :cols="2">
           <div :class="{ 'col-span-2': localTool.searchMethod === 'vector' }">
             <div class="km-input-label q-pb-sm">Method</div>
@@ -60,7 +56,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { KgDialogBase, KgDialogSection, KgDropdownField, KgFieldRow, KgPromptSection, KgSectionControl } from '../../common'
+import { KgDialogBase, KgDialogSection, KgDropdownField, KgFieldRow, KgPromptSection } from '../../common'
 import { searchMethodOptions } from '../models'
 
 const props = defineProps<{
@@ -90,11 +86,3 @@ const save = () => {
   emit('update:modelValue', false)
 }
 </script>
-
-<style scoped>
-.section-fields-disabled {
-  opacity: 0.5;
-  pointer-events: none;
-  transition: opacity 0.2s ease;
-}
-</style>

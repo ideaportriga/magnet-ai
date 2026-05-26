@@ -16,7 +16,6 @@ def get_default_retrieval_settings() -> dict[str, Any]:
             "findDocumentsBySummarySimilarity": {
                 "description": "Find documents by summary similarity",
                 "enabled": True,
-                "searchControl": "configuration",
                 "searchMethod": "hybrid",
                 "scoreThreshold": 0.7,
                 "limit": 5,
@@ -25,7 +24,6 @@ def get_default_retrieval_settings() -> dict[str, Any]:
             "findChunksBySimilarity": {
                 "description": "Find chunks by similarity",
                 "enabled": True,
-                "searchControl": "configuration",
                 "searchMethod": "hybrid",
                 "scoreThreshold": 0.7,
                 "limit": 5,

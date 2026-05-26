@@ -66,8 +66,7 @@ def get_available_tools(
     The graph config controls:
     - which tools are enabled
     - optional per-tool description overrides
-    - whether the model is allowed to control knobs like `limit` / `scoreThreshold`
-      (searchControl == "agent")
+    - metadata filter control mode (searchControl: agent / collaborative / external)
 
     We deep-copy tool specs before editing them so tool modules keep canonical templates.
     """
@@ -113,66 +112,6 @@ def get_available_tools(
         # Allow overriding the description (helpful for customizing the agent's UX per graph).
         if description := tool_cfg_d.get("description"):
             tool_spec["function"]["description"] = description
-
-        # If searchControl is "agent", give the model control over limit / threshold knobs
-        # for similarity-based tools. Otherwise those values are taken from graph settings.
-        # If searchControl is "agent", allow the model to specify `limit` and `scoreThreshold`.
-        # This is handled explicitly per-tool (no grouping of tools).
-        if (
-            tool_cfg_d.get("searchControl") == "agent"
-            and tool_name == "findDocumentsBySummarySimilarity"
-        ):
-            parameters = tool_spec["function"]["parameters"]
-            properties = parameters.get("properties") or {}
-            required = parameters.get("required") or []
-            if not isinstance(properties, dict):
-                properties = {}
-            if not isinstance(required, list):
-                required = []
-
-            properties["limit"] = {
-                "type": "integer",
-                "description": "The maximum number of results to return.",
-            }
-            properties["scoreThreshold"] = {
-                "type": "number",
-                "description": "The minimum similarity score (0.0 to 1.0) for the results.",
-            }
-
-            for r in ("limit", "scoreThreshold"):
-                if r not in required:
-                    required.append(r)
-
-            parameters["properties"] = properties
-            parameters["required"] = required
-
-        if (
-            tool_cfg_d.get("searchControl") == "agent"
-            and tool_name == "findChunksBySimilarity"
-        ):
-            parameters = tool_spec["function"]["parameters"]
-            properties = parameters.get("properties") or {}
-            required = parameters.get("required") or []
-            if not isinstance(properties, dict):
-                properties = {}
-            if not isinstance(required, list):
-                required = []
-
-            properties["limit"] = {
-                "type": "integer",
-                "description": "The maximum number of results to return.",
-            }
-            properties["scoreThreshold"] = {
-                "type": "number",
-                "description": "The minimum similarity score (0.0 to 1.0) for the results.",
-            }
-
-            for r in ("limit", "scoreThreshold"):
-                if r not in required:
-                    required.append(r)
-
-            parameters["properties"] = properties
-            parameters["required"] = required
 
         # Metadata filter tool special casing:
         # - external: agent cannot provide `details` (only reasoning)

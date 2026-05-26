@@ -596,11 +596,6 @@ async def run_agentic_retrieval(
                 elif tool_name == "findChunksBySimilarity":
                     limit_arg = chunk_limit
                     min_score_arg = chunk_score_threshold
-                    if chunks_tool_cfg.get("searchControl") == "agent":
-                        limit_arg = int(args.get("limit", chunk_limit))
-                        min_score_arg = float(
-                            args.get("scoreThreshold", chunk_score_threshold)
-                        )
 
                     chunks = await findChunksBySimilarity(
                         db_session=db_session,

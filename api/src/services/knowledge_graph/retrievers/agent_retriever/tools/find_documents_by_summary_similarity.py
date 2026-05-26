@@ -97,20 +97,11 @@ async def findDocumentsBySummarySimilarity(
     2) Loop state updates (document IDs for later chunk retrieval filtering)
     3) Workflow step for the API response
 
-    The effective search knobs are determined by graph config:
-    - searchControl: "agent" lets the model control limit/scoreThreshold
-    - otherwise, limit/scoreThreshold come from the graph settings (tool_cfg)
+    The effective search knobs (limit/scoreThreshold) come from the graph settings (tool_cfg).
     """
 
-    configured_limit = int(tool_cfg["limit"])
-    configured_threshold = float(tool_cfg["scoreThreshold"])
-
-    if tool_cfg.get("searchControl") == "agent":
-        limit = int(args.get("limit", configured_limit))
-        min_score = float(args.get("scoreThreshold", configured_threshold))
-    else:
-        limit = configured_limit
-        min_score = configured_threshold
+    limit = int(tool_cfg["limit"])
+    min_score = float(tool_cfg["scoreThreshold"])
 
     search_method = tool_cfg["searchMethod"]
     rrf_k = int(tool_cfg["rrfK"])
