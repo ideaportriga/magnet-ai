@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-alpha.36](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.35...v0.7.0-alpha.36) (2026-05-26)
+
+### ✨ Features
+
+* add account link flow for note taker ([49ccbab](https://github.com/ideaportriga/magnet-ai/commit/49ccbab068d9fcce002d172302d678f5b963e6fa))
+
 ## [0.7.0-alpha.35](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.34...v0.7.0-alpha.35) (2026-05-25)
 
 ### 🐛 Bug Fixes
