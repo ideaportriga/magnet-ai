@@ -77,6 +77,8 @@ async def _execute_find_chunks(
 
     limit = int(arguments.get("limit", DEFAULT_LIMIT))
     min_score = float(arguments.get("min_score", DEFAULT_MIN_SCORE))
+    search_method = arguments.get("search_method", "hybrid")
+    rrf_k = int(arguments.get("rrf_k", 60))
 
     chunks = await findChunksBySimilarity(
         db_session=db_session,
@@ -86,6 +88,7 @@ async def _execute_find_chunks(
         limit=limit,
         min_score=min_score,
         doc_filter_ids=[],
+        tool_cfg={"searchMethod": search_method, "rrfK": rrf_k},
     )
 
     if not chunks:
@@ -141,12 +144,21 @@ async def _execute_find_documents_by_summary(
 
     limit = int(arguments.get("limit", DEFAULT_LIMIT))
     min_score = float(arguments.get("min_score", DEFAULT_MIN_SCORE))
+    search_method = arguments.get("search_method", "hybrid")
+    rrf_k = int(arguments.get("rrf_k", 60))
 
-    vec = await get_embeddings(query, embedding_model)
+    vec: list[float] | None = (
+        None
+        if search_method == "keyword"
+        else await get_embeddings(query, embedding_model)
+    )
     docs = await KnowledgeGraphDocumentService().search_documents(
         db_session,
         graph_id=graph_id,
+        search_method=search_method,
         query_vector=vec,
+        query_text=query,
+        rrf_k=rrf_k,
         limit=limit,
     )
     filtered_docs = [d for d in docs if d.get("score", 0.0) >= min_score]

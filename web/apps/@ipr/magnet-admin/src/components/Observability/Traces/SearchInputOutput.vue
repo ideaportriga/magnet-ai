@@ -1,6 +1,8 @@
 <template>
   <div class="column q-gap-12">
-    <div class="km-button-text bb-border q-pb-4 q-pl-sm">Search parameters</div>
+    <header class="section-header">
+      <span class="section-title">Search parameters</span>
+    </header>
     <div class="column q-gap-12 q-pl-sm">
       <div class="column q-gap-6">
         <div class="km-input-label text-text-grey">Query</div>
@@ -27,7 +29,9 @@
         <div class="km-heading-2">{{ span?.input.score_threshold }}</div>
       </div>
     </div>
-    <div class="km-button-text bb-border q-pb-4 q-pl-sm q-mt-lg">Search results</div>
+    <header class="section-header q-mt-lg">
+      <span class="section-title">Search results</span>
+    </header>
     <template v-if="Array.isArray(span?.output)">
       <div v-for="(document, index) in span?.output" :key="index" class="col-auto ba-border border-radius-8" style="max-width: 463px">
         <div class="row q-gap-12 q-pa-sm bg-light no-wrap cursor-pointer" style="border-radius: 8px 8px 0 0" @click="toggleCollapse(index)">
@@ -78,3 +82,20 @@ const toggleCollapse = (index: string | number) => {
   collapsed.value[index] = !collapsed.value[index]
 }
 </script>
+
+<style scoped>
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e1e4e8;
+}
+.section-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #6e7681;
+}
+</style>

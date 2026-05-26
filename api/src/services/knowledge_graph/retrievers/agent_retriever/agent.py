@@ -612,6 +612,7 @@ async def run_agentic_retrieval(
                         doc_filter_ids=relevant_document_ids,
                         doc_filter_where_sql=last_metadata_doc_where_sql,
                         doc_filter_where_params=last_metadata_doc_where_params,
+                        tool_cfg=chunks_tool_cfg,
                         **observability_overrides(description=args.get("reasoning")),
                     )
                     collected_chunks.extend(chunks)

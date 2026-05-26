@@ -459,7 +459,7 @@ function serializeToolSettings() {
         searchControl: tool.searchControl,
         scoreThreshold: tool.scoreThreshold,
         limit: tool.limit,
-        hybridWeight: tool.hybridWeight,
+        rrfK: tool.rrfK,
         searchMethod: tool.searchMethod,
         description: tool.description,
         enabled: tool.enabled,
@@ -500,7 +500,7 @@ function applyGraphSettings(settings: any) {
         'searchControl',
         'scoreThreshold',
         'limit',
-        'hybridWeight',
+        'rrfK',
         'searchMethod',
         'description',
         'enabled',
@@ -874,7 +874,7 @@ const onSaveTool = (updatedTool: Tool) => {
       oldTool.searchControl !== updatedTool.searchControl ||
       oldTool.scoreThreshold !== updatedTool.scoreThreshold ||
       oldTool.limit !== updatedTool.limit ||
-      oldTool.hybridWeight !== updatedTool.hybridWeight ||
+      oldTool.rrfK !== updatedTool.rrfK ||
       oldTool.searchMethod !== updatedTool.searchMethod ||
       oldTool.strategy !== updatedTool.strategy ||
       oldTool.maxIterations !== updatedTool.maxIterations ||

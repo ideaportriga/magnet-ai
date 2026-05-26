@@ -28,22 +28,15 @@
 
       <div class="column q-gap-16" :class="{ 'section-fields-disabled': localTool.searchControl === 'agent' }">
         <kg-field-row :cols="2">
-          <div :class="{ 'col-span-2': localTool.searchMethod !== 'hybrid' }">
-            <div class="row items-center q-gutter-x-sm q-pb-sm">
-              <div class="km-input-label">Method</div>
-              <q-badge color="orange-1" text-color="orange-9" label="Coming Soon" class="text-weight-medium" />
-            </div>
-            <km-select v-model="localTool.searchMethod" :options="searchMethodOptions" emit-value map-options disable />
+          <div :class="{ 'col-span-2': localTool.searchMethod === 'vector' }">
+            <div class="km-input-label q-pb-sm">Method</div>
+            <kg-dropdown-field v-model="localTool.searchMethod" :options="searchMethodOptions" dense />
           </div>
-          <div v-if="localTool.searchMethod === 'hybrid'">
-            <div class="km-input-label q-pb-12">
-              <span>Hybrid Score Distribution</span>
+          <div v-if="localTool.searchMethod !== 'vector'">
+            <div class="km-input-label q-pb-sm" title="Constant in 1/(k+rank). Higher k = less aggressive rank discrimination. Typical: 60.">
+              RRF k
             </div>
-            <div class="row items-center q-gutter-x-md">
-              <span class="km-input-label text-primary text-weight-bold">Keyword {{ ((1 - localTool.hybridWeight) * 100).toFixed(0) }}%</span>
-              <q-slider v-model="localTool.hybridWeight" :min="0" :max="1" :step="0.05" color="primary" class="col" />
-              <span class="km-input-label text-primary text-weight-bold">{{ (localTool.hybridWeight * 100).toFixed(0) }}% Vector</span>
-            </div>
+            <km-input v-model.number="localTool.rrfK" type="number" :min="1" :max="200" />
           </div>
         </kg-field-row>
 
@@ -99,7 +92,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { KgDialogBase, KgDialogSection, KgFieldRow, KgPromptSection, KgSectionControl, KgToggleField } from '../../common'
+import { KgDialogBase, KgDialogSection, KgDropdownField, KgFieldRow, KgPromptSection, KgSectionControl, KgToggleField } from '../../common'
 import { searchMethodOptions } from '../models'
 
 const props = defineProps<{

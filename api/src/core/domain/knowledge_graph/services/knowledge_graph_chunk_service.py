@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import asyncio
+import logging
+import time
 from typing import Any
 from uuid import UUID
 
@@ -28,12 +31,26 @@ from core.db.models.knowledge_graph import (
     knowledge_graph_chunk_table,
     knowledge_graph_document_table,
 )
+from core.db.session import async_session_maker
 from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphChunkExternalSchema,
     KnowledgeGraphChunkListResponse,
 )
+from services.knowledge_graph.rrf import (
+    fusion_diagnostics,
+    hybrid_full_text_search,
+    hybrid_trigram_search,
+    hybrid_vector_search,
+    normalized_rrf_score,
+    reciprocal_rank_fusion,
+    vector_literal,
+)
+from services.observability import observability_context, observe
+from services.observability.models import SpanType
 
 from ..schemas import ChunkSearchResult
+
+logger = logging.getLogger(__name__)
 
 
 class KnowledgeGraphChunkService:
@@ -62,6 +79,25 @@ class KnowledgeGraphChunkService:
             Index(f"{index_prefix}_document_id", chunks_tbl.c.document_id).create(
                 sync_conn, checkfirst=True
             )
+            # Hybrid retrieval: GIN over the tsvector generated column (full-text)
+            # and GIN over trigrams of content + title (fuzzy/lexical).
+            Index(
+                f"{index_prefix}search_tsv",
+                chunks_tbl.c.search_tsv,
+                postgresql_using="gin",
+            ).create(sync_conn, checkfirst=True)
+            Index(
+                f"{index_prefix}content_trgm",
+                chunks_tbl.c.content,
+                postgresql_using="gin",
+                postgresql_ops={"content": "gin_trgm_ops"},
+            ).create(sync_conn, checkfirst=True)
+            Index(
+                f"{index_prefix}title_trgm",
+                chunks_tbl.c.title,
+                postgresql_using="gin",
+                postgresql_ops={"title": "gin_trgm_ops"},
+            ).create(sync_conn, checkfirst=True)
 
         await conn.run_sync(_create)
 
@@ -193,14 +229,72 @@ class KnowledgeGraphChunkService:
         db_session: AsyncSession,
         *,
         graph_id: UUID | str,
-        query_vector: list[float],
+        search_method: str,
+        query_vector: list[float] | None,
+        query_text: str,
+        rrf_k: int,
         limit: int,
         only_doc_ids: list[str] | None = None,
         doc_filter_where_sql: str | None = None,
         doc_filter_where_params: dict[str, Any] | None = None,
     ) -> list[ChunkSearchResult]:
-        """Similarity search over per-graph chunks."""
+        """Similarity search over per-graph chunks.
 
+        ``search_method`` selects the retrieval strategy:
+
+        - ``"vector"``: pgvector cosine similarity on ``content_embedding``.
+          ``query_vector`` is required.
+        - ``"keyword"``: parallel tsvector + pg_trgm search fused via RRF.
+          ``query_text`` is required.
+        - ``"hybrid"``: parallel pgvector + tsvector + pg_trgm fused via RRF.
+          Both ``query_vector`` and ``query_text`` are required.
+
+        ``ChunkSearchResult.score`` carries cosine similarity for vector mode
+        and a normalized RRF score in [0, 1] for keyword / hybrid modes.
+        """
+
+        if search_method == "vector":
+            return await self._search_chunks_vector(
+                db_session,
+                graph_id=graph_id,
+                query_text=query_text,
+                query_vector=query_vector or [],
+                limit=limit,
+                only_doc_ids=only_doc_ids,
+                doc_filter_where_sql=doc_filter_where_sql,
+                doc_filter_where_params=doc_filter_where_params,
+            )
+
+        return await self._search_chunks_fused(
+            db_session,
+            graph_id=graph_id,
+            query_vector=query_vector,
+            query_text=query_text,
+            limit=limit,
+            only_doc_ids=only_doc_ids,
+            doc_filter_where_sql=doc_filter_where_sql,
+            doc_filter_where_params=doc_filter_where_params,
+            include_vector=(search_method == "hybrid"),
+            rrf_k=rrf_k,
+        )
+
+    @observe(
+        name="Vector search",
+        type=SpanType.SEARCH,
+        description="pgvector cosine-similarity search over content/summary embeddings.",
+    )
+    async def _search_chunks_vector(
+        self,
+        db_session: AsyncSession,
+        *,
+        graph_id: UUID | str,
+        query_text: str,
+        query_vector: list[float],
+        limit: int,
+        only_doc_ids: list[str] | None,
+        doc_filter_where_sql: str | None,
+        doc_filter_where_params: dict[str, Any] | None,
+    ) -> list[ChunkSearchResult]:
         docs_table = docs_table_name(graph_id)
         chunks_table = chunks_table_name(graph_id)
 
@@ -257,6 +351,9 @@ class KnowledgeGraphChunkService:
             exec_params.update(doc_filter_where_params)
 
         rows = (await db_session.execute(stmt, exec_params)).mappings().all()
+        observability_context.update_current_span(
+            input={"query": query_text}, output={"count": len(rows)}
+        )
         return [
             ChunkSearchResult(
                 chunk=KnowledgeGraphChunk(
@@ -277,6 +374,226 @@ class KnowledgeGraphChunkService:
             )
             for r in rows
         ]
+
+    async def _search_chunks_fused(
+        self,
+        db_session: AsyncSession,
+        *,
+        graph_id: UUID | str,
+        query_vector: list[float] | None,
+        query_text: str,
+        limit: int,
+        only_doc_ids: list[str] | None,
+        doc_filter_where_sql: str | None,
+        doc_filter_where_params: dict[str, Any] | None,
+        include_vector: bool,
+        rrf_k: int,
+    ) -> list[ChunkSearchResult]:
+        """Run candidate sub-queries in parallel and fuse with RRF.
+
+        Each sub-query returns chunk IDs ranked by the corresponding signal.
+        Sub-queries each use their own AsyncSession so they can execute
+        concurrently against the connection pool. A single hydration query
+        then loads full rows on the caller's session.
+        """
+
+        docs_table = docs_table_name(graph_id)
+        chunks_table = chunks_table_name(graph_id)
+        candidates = max(int(limit) * 4, 30)
+
+        common_filter_sql = doc_filter_where_sql or None
+        common_params: dict[str, Any] = {}
+        if isinstance(doc_filter_where_params, dict) and doc_filter_where_params:
+            common_params.update(doc_filter_where_params)
+
+        only_doc_clause = ""
+        if only_doc_ids:
+            common_params["only_doc_ids"] = [UUID(str(x)) for x in only_doc_ids]
+            # asyncpg expands lists when bound with CAST as uuid[]
+            only_doc_clause = " AND c.document_id = ANY(CAST(:only_doc_ids AS uuid[]))"
+
+        filter_suffix = (
+            f" AND {common_filter_sql}" if common_filter_sql else ""
+        ) + only_doc_clause
+
+        join_clause = (
+            f"FROM {chunks_table} AS c JOIN {docs_table} AS d ON d.id = c.document_id "
+        )
+
+        vector_sql = (
+            f"SELECT c.id {join_clause}"
+            f"WHERE c.content_embedding IS NOT NULL{filter_suffix} "
+            f"ORDER BY c.content_embedding <=> CAST(:qvec AS vector) "
+            f"LIMIT :cand"
+        )
+        tsv_sql = (
+            f"SELECT c.id {join_clause}"
+            f"WHERE c.search_tsv @@ plainto_tsquery('english', :qtext){filter_suffix} "
+            f"ORDER BY ts_rank_cd(c.search_tsv, plainto_tsquery('english', :qtext)) DESC "
+            f"LIMIT :cand"
+        )
+        trgm_sql = (
+            f"SELECT c.id {join_clause}"
+            f"WHERE (c.content % :qtext OR c.title % :qtext){filter_suffix} "
+            f"ORDER BY GREATEST("
+            f"COALESCE(similarity(c.content, :qtext), 0), "
+            f"COALESCE(similarity(c.title, :qtext), 0)"
+            f") DESC "
+            f"LIMIT :cand"
+        )
+
+        search_mode = "hybrid" if include_vector else "keyword"
+        method_labels: list[str] = []
+        coros: list[Any] = []
+        if include_vector and query_vector:
+            method_labels.append("vector")
+            coros.append(
+                hybrid_vector_search(
+                    query_text,
+                    vector_sql,
+                    {
+                        **common_params,
+                        "qvec": vector_literal(query_vector),
+                        "cand": candidates,
+                    },
+                    session_maker=async_session_maker,
+                )
+            )
+        if query_text:
+            method_labels.append("full_text")
+            coros.append(
+                hybrid_full_text_search(
+                    query_text,
+                    tsv_sql,
+                    {**common_params, "qtext": query_text, "cand": candidates},
+                    session_maker=async_session_maker,
+                )
+            )
+            method_labels.append("trigram")
+            coros.append(
+                hybrid_trigram_search(
+                    query_text,
+                    trgm_sql,
+                    {**common_params, "qtext": query_text, "cand": candidates},
+                    session_maker=async_session_maker,
+                )
+            )
+
+        if not coros:
+            logger.info(
+                "hybrid chunks search short-circuit: no contributing sub-queries graph_id=%s",
+                graph_id,
+            )
+            return []
+
+        contributing = len(method_labels)
+        fan_out_started = time.perf_counter()
+        logger.info(
+            "hybrid chunks search start mode=%s methods=%s candidates=%d limit=%d rrf_k=%d "
+            "only_doc_ids=%d graph_id=%s",
+            search_mode,
+            method_labels,
+            candidates,
+            limit,
+            rrf_k,
+            len(only_doc_ids) if only_doc_ids else 0,
+            graph_id,
+        )
+
+        rank_lists = await asyncio.gather(*coros)
+        fan_out_ms = round((time.perf_counter() - fan_out_started) * 1000, 2)
+
+        method_results = dict(zip(method_labels, rank_lists))
+        fused = reciprocal_rank_fusion(rank_lists, k=rrf_k)
+        diag = fusion_diagnostics(
+            method_results=method_results,
+            fused=fused,
+            num_methods=contributing,
+            k=rrf_k,
+        )
+
+        logger.info(
+            "hybrid chunks fusion mode=%s methods=%s per_method=%s unique=%d overlap=%d fused=%d "
+            "fan_out_ms=%.2f top_score=%.4f",
+            search_mode,
+            method_labels,
+            diag["per_method_result_count"],
+            diag["unique_candidates"],
+            diag["multi_method_overlap"],
+            diag["fused_total"],
+            fan_out_ms,
+            diag["top_rrf_score_normalized"],
+        )
+
+        if not fused:
+            return []
+
+        top = fused[: int(limit)]
+        ids_in_order = [item_id for item_id, _ in top]
+        score_by_id = {
+            item_id: normalized_rrf_score(raw, num_methods=contributing, k=rrf_k)
+            for item_id, raw in top
+        }
+
+        # Hydrate full rows in the caller's session, preserving order and filters.
+        md = MetaData()
+        docs_tbl = knowledge_graph_document_table(md, docs_table, vector_size=None)
+        chunks_tbl = knowledge_graph_chunk_table(
+            md, chunks_table, docs_table=docs_table, vector_size=None
+        )
+        docs_alias = docs_tbl.alias("d")
+        stmt = (
+            select(
+                chunks_tbl.c.id.label("id"),
+                chunks_tbl.c.title.label("title"),
+                chunks_tbl.c.content.label("content"),
+                chunks_tbl.c.document_id.label("document_id"),
+                docs_alias.c.name.label("document_name"),
+                docs_alias.c.title.label("document_title"),
+                docs_alias.c.external_link.label("document_external_link"),
+                chunks_tbl.c.page.label("page"),
+                chunks_tbl.c.index.label("index"),
+            )
+            .select_from(
+                chunks_tbl.join(docs_alias, docs_alias.c.id == chunks_tbl.c.document_id)
+            )
+            .where(chunks_tbl.c.id.in_([UUID(i) for i in ids_in_order]))
+        )
+        if only_doc_ids:
+            stmt = stmt.where(
+                chunks_tbl.c.document_id.in_([UUID(str(x)) for x in only_doc_ids])
+            )
+        if common_filter_sql:
+            stmt = stmt.where(text(str(common_filter_sql)))
+
+        rows = (await db_session.execute(stmt, common_params)).mappings().all()
+        by_id = {str(r.get("id")): r for r in rows}
+
+        out: list[ChunkSearchResult] = []
+        for cid in ids_in_order:
+            r = by_id.get(cid)
+            if r is None:
+                continue
+            out.append(
+                ChunkSearchResult(
+                    chunk=KnowledgeGraphChunk(
+                        id=r["id"],
+                        title=r.get("title"),
+                        content=r.get("content"),
+                        document_id=r.get("document_id"),
+                        document=KnowledgeGraphDocument(
+                            id=r.get("document_id"),
+                            name=r.get("document_name"),
+                            title=r.get("document_title"),
+                            external_link=r.get("document_external_link"),
+                        ),
+                        page=r.get("page"),
+                        index=r.get("index"),
+                    ),
+                    score=float(score_by_id[cid]),
+                )
+            )
+        return out
 
     async def list_chunks(
         self,

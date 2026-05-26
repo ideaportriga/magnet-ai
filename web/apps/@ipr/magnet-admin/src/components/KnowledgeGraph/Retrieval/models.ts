@@ -16,7 +16,7 @@ export interface Tool {
   searchControl?: string
   scopeControl?: string
   searchMethod?: string
-  hybridWeight?: number
+  rrfK?: number
   scoreThreshold?: number
   limit?: number
   metadataMergeStrategy?: 'merge_and' | 'merge_or' | 'agent_priority' | 'caller_priority'
@@ -52,8 +52,8 @@ export const tools: Tool[] = [
     category: 'filter',
     searchControl: 'configuration',
     scopeControl: 'configuration',
-    searchMethod: 'vector',
-    hybridWeight: 0.5,
+    searchMethod: 'hybrid',
+    rrfK: 60,
     scoreThreshold: 0.7,
     limit: 5,
     enabled: true,
@@ -69,8 +69,8 @@ export const tools: Tool[] = [
     category: 'filter',
     searchControl: 'configuration',
     scopeControl: 'configuration',
-    searchMethod: 'vector',
-    hybridWeight: 0.5,
+    searchMethod: 'hybrid',
+    rrfK: 60,
     scoreThreshold: 0.7,
     limit: 5,
     enabled: false,
@@ -87,8 +87,8 @@ export const tools: Tool[] = [
     category: 'retrieval',
     searchControl: 'configuration',
     scopeControl: 'configuration',
-    searchMethod: 'vector',
-    hybridWeight: 0.5,
+    searchMethod: 'hybrid',
+    rrfK: 60,
     scoreThreshold: 0.7,
     limit: 5,
     enabled: true,
