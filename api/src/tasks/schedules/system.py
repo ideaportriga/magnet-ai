@@ -77,6 +77,19 @@ async def cleanup_expired_refresh_tokens_cron() -> None:
     await cleanup_expired_refresh_tokens_task()
 
 
+# -- 4a. account_link_code cleanup: daily at 03:05 UTC --------------------
+@broker.task(
+    task_name="cleanup_expired_account_link_codes_cron",
+    schedule=[{"cron": "5 3 * * *"}],
+)
+async def cleanup_expired_account_link_codes_cron() -> None:
+    from tasks.definitions.housekeeping import (
+        cleanup_expired_account_link_codes_task,
+    )
+
+    await cleanup_expired_account_link_codes_task()
+
+
 # -- 4b. recover stuck transcription jobs: every 15 min --------------------
 @broker.task(
     task_name="recover_stuck_transcription_jobs_cron",

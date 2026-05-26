@@ -11,6 +11,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db.models.teams import TeamsUser
+from core.db.rls_context import current_tenant_id
 
 logger = getLogger(__name__)
 
@@ -117,6 +118,12 @@ async def upsert_teams_user(session: AsyncSession, context: TurnContext) -> None
     user_principal_name = None
     email, user_principal_name = await _fetch_member_profile(context, teams_user_id)
 
+    # Raw pg_insert bypasses the `_populate_tenant_id` SQLAlchemy listener, so
+    # stamp tenant_id explicitly from the RLS contextvar. NULL is left alone
+    # for unlinked users (the identity middleware writes them before any RLS
+    # scope is established).
+    resolved_tenant_id = current_tenant_id.get()
+
     insert_stmt = pg_insert(TeamsUser).values(
         aad_object_id=aad_object_id,
         teams_user_id=teams_user_id,
@@ -129,6 +136,7 @@ async def upsert_teams_user(session: AsyncSession, context: TurnContext) -> None
         bot_id=bot_id,
         conversation_reference=conversation_reference,
         last_seen_at=now,
+        tenant_id=resolved_tenant_id,
     )
 
     update_values: dict[str, Any] = {
@@ -146,6 +154,10 @@ async def upsert_teams_user(session: AsyncSession, context: TurnContext) -> None
         update_values["email"] = email
     if user_principal_name:
         update_values["user_principal_name"] = user_principal_name
+    # Promote NULL → resolved tenant once the user is bound, but never
+    # downgrade a known tenant back to NULL.
+    if resolved_tenant_id:
+        update_values["tenant_id"] = resolved_tenant_id
 
     if aad_object_id:
         stmt = insert_stmt.on_conflict_do_update(

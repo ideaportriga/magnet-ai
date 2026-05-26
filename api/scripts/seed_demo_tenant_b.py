@@ -113,7 +113,9 @@ async def _get_or_create_user(session, *, email, name, tenant_id) -> tuple[User,
     return user, True
 
 
-async def _ensure_role_assigned(session, *, user_id: UUID, role_id: UUID) -> bool:
+async def _ensure_role_assigned(
+    session, *, tenant_id: UUID, user_id: UUID, role_id: UUID
+) -> bool:
     existing = (
         await session.execute(
             select(UserRole).where(
@@ -123,7 +125,7 @@ async def _ensure_role_assigned(session, *, user_id: UUID, role_id: UUID) -> boo
     ).scalar_one_or_none()
     if existing is not None:
         return False
-    session.add(UserRole(user_id=user_id, role_id=role_id))
+    session.add(UserRole(tenant_id=tenant_id, user_id=user_id, role_id=role_id))
     await session.flush()
     return True
 
@@ -247,7 +249,7 @@ async def main() -> None:
             users_by_email[user.email] = user
             role = roles_by_slug[spec["role_slug"]]
             assigned = await _ensure_role_assigned(
-                session, user_id=user.id, role_id=role.id
+                session, tenant_id=tenant.id, user_id=user.id, role_id=role.id
             )
             await _ensure_membership(
                 session,

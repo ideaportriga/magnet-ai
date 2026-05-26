@@ -112,6 +112,14 @@ async def cleanup_expired_refresh_tokens_task() -> None:
         await result
 
 
+@broker.task(task_name="cleanup_expired_account_link_codes", timeout=600)
+async def cleanup_expired_account_link_codes_task() -> None:
+    """Drop ``account_link_code`` rows past their expiry by >24h."""
+    from services.account_link import cleanup_expired_link_codes
+
+    await cleanup_expired_link_codes()
+
+
 @broker.task(task_name="recover_stuck_syncing_kg_sources", timeout=600)
 async def recover_stuck_syncing_kg_sources_task() -> None:
     """Re-set KG sources stuck in 'syncing' state after a worker crash."""

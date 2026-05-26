@@ -417,6 +417,8 @@ class NoteTakerSettingsController(Controller):
                 client_secret=client_secret,
                 azure_tenant_id=azure_tenant_id,
                 auth_handler_id=auth_handler_id,
+                provider_system_name=settings.provider_system_name or "",
+                tenant_id=str(settings.tenant_id) if settings.tenant_id else None,
             )
             runtime = build_note_taker_runtime(settings_obj)
         except Exception as exc:

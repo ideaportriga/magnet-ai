@@ -460,6 +460,28 @@ const routes = [
     },
   },
   {
+    // Self-service page for binding external identities (Teams bot, etc.)
+    // to the current user_account. No permission gate — operates only on
+    // the caller's own /api/me/account-link surface.
+    path: '/link',
+    name: 'AccountLink',
+    component: () => import('@/components/AccountLink/Page.vue'),
+    meta: {
+      pageLabel: () => m.accountLink_pageTitle(),
+    },
+  },
+  {
+    // Admin view: every binding in the tenant + force-revoke.
+    // Gated by read:users via routePermissions config.
+    path: '/admin/account-link',
+    name: 'AccountLinkAdmin',
+    component: () => import('@/components/AccountLinkAdmin/Page.vue'),
+    meta: {
+      pageLabel: () => m.accountLinkAdmin_pageTitle(),
+      permission: 'read:users',
+    },
+  },
+  {
     path: '/api-keys/:id',
     name: 'ApiKeysDetail',
     component: () => import('@/components/ApiKeys/Details.vue'),

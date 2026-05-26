@@ -380,6 +380,10 @@ class NoteTakerSettings:
     azure_tenant_id: str
     auth_handler_id: str
     provider_system_name: str = ""
+    # Internal tenant UUID (our `tenant.id`), resolved from the Provider row.
+    # None for the env-bootstrap path — middleware then falls back to a
+    # superuser-bypass RLS scope so dev setups keep working.
+    tenant_id: str | None = None
 
     @classmethod
     def from_env(cls) -> "NoteTakerSettings | None":
@@ -474,6 +478,214 @@ class _NormalizeMessageTextMiddleware:
         ):
             activity.text = ""
         await call_next()
+
+
+class _IdentityContextMiddleware:
+    """Resolve the Teams sender's AAD oid → internal (user_id, tenant_id)
+    and apply RLS for the rest of the turn.
+
+    Policy:
+      - No `aad_object_id` on the activity → refuse the turn (system events
+        and bootstrap activities don't carry an identity we can trust).
+      - AAD oid not linked to any `user_account` → upsert a placeholder
+        `teams_user` row (so an admin can bind it later) and refuse with a
+        clear message; do NOT auto-provision a user_account.
+      - User exists but in a different internal tenant than the bot's
+        Provider → refuse (cross-tenant access not allowed).
+      - Otherwise → run `call_next` under
+        `rls_context_scope(tenant_id=user.tenant_id, user_id=user.id)`.
+
+    `bot_tenant_id` is the Provider's internal tenant UUID. When None
+    (env-bootstrap dev path), the cross-tenant check is skipped — a single-
+    tenant dev setup has no other tenant to leak to.
+    """
+
+    _UNLINKED_HINT_MESSAGE = (
+        "Your Teams account isn't linked to a user yet. "
+        "Type `/link` to get a pairing code you can enter in the admin UI."
+    )
+    _CROSS_TENANT_MESSAGE = (
+        "This bot belongs to a different organization than your account. "
+        "You don't have access."
+    )
+    _NO_IDENTITY_MESSAGE = (
+        "I couldn't identify you on this activity. "
+        "Try again from a personal chat after signing in."
+    )
+
+    def __init__(self, *, bot_tenant_id: str | None) -> None:
+        self._bot_tenant_id = bot_tenant_id
+
+    @staticmethod
+    async def _try_send(context: TurnContext, text: str) -> None:
+        try:
+            activity = getattr(context, "activity", None)
+            if activity is None or getattr(activity, "type", None) != "message":
+                # Don't try to reply to invoke / conversation-update — Bot
+                # Framework would just drop or error on the response.
+                return
+            await context.send_activity(text)
+        except Exception as err:
+            logger.debug("Identity middleware: send_activity failed: %s", err)
+
+    @staticmethod
+    def _activity_text(context: TurnContext) -> str:
+        activity = getattr(context, "activity", None)
+        if activity is None:
+            return ""
+        return (getattr(activity, "text", "") or "").strip()
+
+    async def on_turn(self, context: TurnContext, call_next):
+        from .teams_identity_resolver import (
+            extract_aad_object_id,
+            resolve_teams_user_identity,
+        )
+
+        aad_oid = extract_aad_object_id(context)
+        if not aad_oid:
+            logger.info("[teams-identity] refusing turn: no aad_object_id")
+            await self._try_send(context, self._NO_IDENTITY_MESSAGE)
+            return
+
+        identity = await resolve_teams_user_identity(context)
+
+        if identity is None:
+            await self._handle_unlinked_turn(context, aad_oid)
+            return
+
+        if self._bot_tenant_id and identity.tenant_id != self._bot_tenant_id:
+            logger.info(
+                "[teams-identity] refusing turn: cross-tenant "
+                "(user.tenant=%s, bot.tenant=%s)",
+                identity.tenant_id,
+                self._bot_tenant_id,
+            )
+            await self._try_send(context, self._CROSS_TENANT_MESSAGE)
+            return
+
+        from core.db.rls_context import rls_context_scope
+
+        with rls_context_scope(tenant_id=identity.tenant_id, user_id=identity.user_id):
+            await call_next()
+
+    async def _handle_unlinked_turn(self, context: TurnContext, aad_oid: str) -> None:
+        """Either hand out a pairing code (on `/link`) or nudge the user."""
+        from .teams_user_store import upsert_teams_user
+
+        # Upsert the placeholder teams_user so an admin (or the link confirm
+        # flow's backfill) can find it later. `teams_user` has _NULLABLE_USING
+        # RLS, so a tenant_id=NULL insert is allowed without any RLS scope.
+        try:
+            async with async_session_maker() as session:
+                await upsert_teams_user(session, context)
+                await session.commit()
+        except Exception:
+            logger.exception(
+                "[teams-identity] failed to upsert pending teams_user for aad_oid=%s",
+                aad_oid,
+            )
+
+        text = self._activity_text(context).lower()
+        if text == "/link" or text.startswith("/link "):
+            await self._issue_and_reply_with_code(context, aad_oid=aad_oid)
+            return
+
+        logger.info("[teams-identity] refusing turn: aad_oid=%s not linked", aad_oid)
+        await self._try_send(context, self._UNLINKED_HINT_MESSAGE)
+
+    async def _issue_and_reply_with_code(
+        self, context: TurnContext, *, aad_oid: str
+    ) -> None:
+        from services.account_link import LINK_CODE_TTL, issue_link_code
+
+        from .teams_identity_resolver import MICROSOFT_OAUTH_NAME
+
+        # `services.agents.teams.__init__` already registered the Teams
+        # post-consume hook on package import — no extra wiring needed here.
+
+        activity = getattr(context, "activity", None)
+        recipient = getattr(activity, "recipient", None)
+        bot_id_raw = getattr(recipient, "id", None)
+        bot_id = (
+            bot_id_raw[3:]
+            if bot_id_raw and bot_id_raw.startswith("28:")
+            else bot_id_raw
+        )
+        if not bot_id:
+            logger.warning("[teams-identity] /link: missing recipient id")
+            return
+
+        from_user = getattr(activity, "from_property", None) or getattr(
+            activity, "from", None
+        )
+        display_name = getattr(from_user, "name", None) or getattr(
+            from_user, "display_name", None
+        )
+        channel_data = getattr(activity, "channel_data", None) or {}
+        aad_tenant_id = (channel_data.get("tenant") or {}).get("id")
+
+        # Best-effort email/UPN from the Teams roster — shown in the confirm
+        # UI so the user can verify which identity they're binding.
+        email = None
+        user_principal_name = None
+        try:
+            teams_user_id_raw = getattr(from_user, "id", None)
+            if teams_user_id_raw:
+                from microsoft_agents.hosting.teams import TeamsInfo
+
+                member = await TeamsInfo.get_member(context, teams_user_id_raw)
+                email = getattr(member, "email", None)
+                user_principal_name = getattr(member, "user_principal_name", None)
+        except Exception as err:
+            logger.debug("[teams-identity] /link: roster lookup failed: %s", err)
+
+        extra: dict[str, object] = {}
+        if user_principal_name:
+            extra["user_principal_name"] = user_principal_name
+        if aad_tenant_id:
+            extra["aad_tenant_id"] = aad_tenant_id
+
+        try:
+            issued = await issue_link_code(
+                provider=MICROSOFT_OAUTH_NAME,
+                subject_id=aad_oid,
+                channel_kind="teams",
+                channel_id=bot_id,
+                display_name=display_name,
+                email=email,
+                extra=extra or None,
+            )
+        except Exception:
+            logger.exception("[teams-identity] /link: failed to issue code")
+            await self._try_send(
+                context,
+                "Sorry — I couldn't issue a pairing code right now. Try again in a moment.",
+            )
+            return
+
+        # Where to send the user. Preference order:
+        #   1. `ACCOUNT_LINK_URL` — explicit full URL, lets ops point to a
+        #      different deployment / path / hash route without code changes.
+        #   2. `{PUBLIC_BASE_URL}/admin/#/link` — admin UI uses a hash router
+        #      (createWebHashHistory) and is mounted under `/admin/`.
+        #   3. Generic hint when neither is set.
+        explicit_url = (os.getenv("ACCOUNT_LINK_URL") or "").strip()
+        base_url = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
+        if explicit_url:
+            url = explicit_url
+        elif base_url:
+            url = f"{base_url}/admin/#/link"
+        else:
+            url = "the '/link' page in the admin UI"
+        ttl_minutes = int(LINK_CODE_TTL.total_seconds() // 60)
+        await self._try_send(
+            context,
+            (
+                f"Open **{url}**, sign in, and enter this code to bind your "
+                f"Teams account:\n\n**{issued.code}**\n\n"
+                f"Valid for {ttl_minutes} minutes."
+            ),
+        )
 
 
 class _SignInInvokeMiddleware:
@@ -627,6 +839,7 @@ def _register_note_taker_handlers(
     bot_app_id: str,
     bot_azure_tenant_id: str,
     provider_system_name: str = "",
+    tenant_id: str | None = None,
 ) -> None:
     from .note_taker_handlers import (
         register_conversation_updates,
@@ -643,6 +856,7 @@ def _register_note_taker_handlers(
         bot_app_id=bot_app_id,
         bot_azure_tenant_id=bot_azure_tenant_id,
         provider_system_name=provider_system_name,
+        tenant_id=tenant_id,
         is_meeting_conversation=_is_meeting_conversation,
         is_personal_conversation=_is_personal_teams_conversation,
         resolve_meeting_details=_resolve_meeting_details,
@@ -687,6 +901,9 @@ def build_note_taker_runtime(settings: NoteTakerSettings) -> NoteTakerRuntime:
         channel_service_client_factory=RestChannelServiceClientFactory(connections)
     )
     adapter.use(_NormalizeMessageTextMiddleware())
+    # Identity + RLS context must wrap the rest of the chain so handler
+    # queries see a valid (tenant_id, user_id) GUC.
+    adapter.use(_IdentityContextMiddleware(bot_tenant_id=settings.tenant_id))
     adapter.use(_SignInInvokeMiddleware())
 
     async def _on_turn_error(context: TurnContext, error: Exception) -> None:
@@ -743,6 +960,7 @@ def build_note_taker_runtime(settings: NoteTakerSettings) -> NoteTakerRuntime:
         bot_app_id=settings.client_id,
         bot_azure_tenant_id=settings.azure_tenant_id,
         provider_system_name=settings.provider_system_name,
+        tenant_id=settings.tenant_id,
     )
 
     return NoteTakerRuntime(
@@ -1234,26 +1452,42 @@ class NoteTakerRegistry:
         """
         from core.db.models.teams.note_taker_settings import NoteTakerSettings as _Model
         from core.db.models.provider.provider import Provider as _Provider
+        from core.db.rls_context import rls_context_scope
 
         loaded = 0
+        # Startup-time bootstrap reads every tenant's configs in one pass.
+        # Bypass RLS — there is no per-request tenant yet.
         try:
-            async with async_session_maker() as session:
-                result = await session.execute(select(_Model))
-                records = result.scalars().all()
+            with rls_context_scope(tenant_id=None, is_superuser=True):
+                async with async_session_maker() as session:
+                    result = await session.execute(select(_Model))
+                    records = result.scalars().all()
 
-                # Pre-fetch referenced providers so secrets are decrypted in-session.
-                provider_names = [
-                    r.provider_system_name for r in records if r.provider_system_name
-                ]
-                providers_map: dict[str, _Provider] = {}
-                if provider_names:
-                    prov_result = await session.execute(
-                        select(_Provider).where(
-                            _Provider.system_name.in_(provider_names)
+                    # Pre-fetch referenced providers so secrets are decrypted in-session.
+                    # Match providers by composite (tenant_id, system_name) — system_name
+                    # alone is not unique across tenants after the phase-6 refactor.
+                    provider_keys = [
+                        (r.tenant_id, r.provider_system_name)
+                        for r in records
+                        if r.provider_system_name
+                    ]
+                    providers_map: dict[tuple, _Provider] = {}
+                    if provider_keys:
+                        prov_result = await session.execute(
+                            select(_Provider).where(
+                                or_(
+                                    *[
+                                        and_(
+                                            _Provider.tenant_id == t,
+                                            _Provider.system_name == sn,
+                                        )
+                                        for (t, sn) in provider_keys
+                                    ]
+                                )
+                            )
                         )
-                    )
-                    for p in prov_result.scalars().all():
-                        providers_map[p.system_name] = p
+                        for p in prov_result.scalars().all():
+                            providers_map[(p.tenant_id, p.system_name)] = p
         except Exception:
             logger.exception("[NoteTakerRegistry] Failed to load settings from DB.")
             return 0
@@ -1280,6 +1514,7 @@ class NoteTakerRegistry:
                 auth_handler_id = str(
                     creds.get("auth_handler_id") or f"note_taker_{provider_sn}"
                 ).strip()
+                internal_tenant_id = str(record.tenant_id) if record.tenant_id else None
 
                 if not (client_id and client_secret and azure_tenant_id):
                     logger.warning(
@@ -1295,6 +1530,7 @@ class NoteTakerRegistry:
                         azure_tenant_id=azure_tenant_id,
                         auth_handler_id=auth_handler_id,
                         provider_system_name=provider_sn,
+                        tenant_id=internal_tenant_id,
                     )
                     runtime = build_note_taker_runtime(settings_obj)
                     self._runtimes[normalize_bot_id(client_id) or client_id] = runtime
@@ -1320,7 +1556,7 @@ class NoteTakerRegistry:
         if not record.provider_system_name:
             return None
 
-        provider = providers_map.get(record.provider_system_name)
+        provider = providers_map.get((record.tenant_id, record.provider_system_name))
         if provider is None:
             logger.warning(
                 "[NoteTakerRegistry] Provider %r not found for %s.",

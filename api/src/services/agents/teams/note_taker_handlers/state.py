@@ -65,6 +65,11 @@ class NoteTakerHandlerDeps:
     upsert_teams_user_record: Callable[[TurnContext], Awaitable[None]]
 
     provider_system_name: str = ""
+    # Internal tenant UUID (our `tenant.id`) the bot's Provider belongs to.
+    # The active RLS context is set by `_IdentityContextMiddleware` from the
+    # *user's* tenant — this field exposes the bot's owning tenant for code
+    # that needs to compare against it.
+    tenant_id: str | None = None
 
 
 class NoteTakerHandlerState(

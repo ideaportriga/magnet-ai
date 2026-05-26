@@ -173,6 +173,19 @@ export default {
         path: 'api-keys',
         permission: 'read:api_keys',
       },
+      {
+        // Self-service link page — no permission gate (operates on /api/me).
+        label: m.nav_accountLink(),
+        icon: 'link',
+        path: 'link',
+      },
+      {
+        // Admin-side view of every binding in the tenant.
+        label: m.nav_accountLinkAdmin(),
+        icon: 'users',
+        path: 'admin/account-link',
+        permission: 'read:users',
+      },
     ]
 
     const observabilityItems = [

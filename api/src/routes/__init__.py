@@ -36,6 +36,7 @@ from routes.admin.tenants import TenantsController
 from routes.admin.users import UsersController
 from routes.user.telemetry import TelemetryController
 
+from .admin.account_link import AdminAccountLinkController
 from .admin.agents import AgentsController
 from .admin.files import FilesController
 from .admin.deep_research import DeepResearchConfigController, DeepResearchRunController
@@ -61,6 +62,7 @@ from .user.agents import UserAgentsController
 from .user.ai_apps import UserAiAppsController
 from .user.ask_magnet import AskMagnetController
 from .user.execute import UserExecuteController
+from .me.account_link import AccountLinkController
 from .user.knowledge_graph import UserKnowledgeGraphController
 from .user.utils import UserUtilsController
 
@@ -179,6 +181,7 @@ def get_route_handlers(
 
     route_handlers_admin: list[ControllerRouterHandler] = [
         # Admin routes (alphabetically sorted)
+        AdminAccountLinkController,  # Admin / Account Link (manage user bindings)
         AgentsController,  # Admin / Agents
         AiAppsController,  # Admin / AI Apps
         CatalogController,  # Admin / Catalog (global search)
@@ -254,6 +257,10 @@ def get_route_handlers(
         UserUtilsController,  # User / Utils
     ]
 
+    route_handlers_me: list[ControllerRouterHandler] = [
+        AccountLinkController,  # /api/me/account-link — self-service pairing
+    ]
+
     route_handlers_public: list[ControllerRouterHandler] = [
         health_route_handler,
         db_health_route_handler,
@@ -285,6 +292,11 @@ def get_route_handlers(
         route_handlers=route_handlers_user,
     )
 
+    router_api_me = Router(
+        path="/me",
+        route_handlers=route_handlers_me,
+    )
+
     router_api_public = Router(
         path="/",
         route_handlers=route_handlers_public,
@@ -301,6 +313,7 @@ def get_route_handlers(
         route_handlers=[
             router_api_admin,
             router_api_user,
+            router_api_me,
             router_api_v2,
         ],
     )
