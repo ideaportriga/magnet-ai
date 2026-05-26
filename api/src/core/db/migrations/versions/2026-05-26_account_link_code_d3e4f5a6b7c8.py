@@ -69,9 +69,19 @@ def schema_upgrades() -> None:
             extra JSONB,
 
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            -- `updated_at` mirrors the rest of the `UUIDAuditBase` tables
+            -- so the ORM mapping doesn't try to write a column the DB
+            -- doesn't have.
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             expires_at TIMESTAMPTZ NOT NULL,
             consumed_at TIMESTAMPTZ NULL,
             consumed_by_user_id UUID NULL REFERENCES user_account (id) ON DELETE SET NULL,
+
+            -- Service column injected by advanced_alchemy's SentinelMixin —
+            -- used for ORM bulk-insert optimisations. Always nullable, never
+            -- written by us, but the column must exist or every SELECT that
+            -- maps to AccountLinkCode fails.
+            sa_orm_sentinel INTEGER NULL,
 
             CONSTRAINT uq_account_link_code_code UNIQUE (code)
         )

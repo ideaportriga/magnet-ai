@@ -512,6 +512,10 @@ class _IdentityContextMiddleware:
         "I couldn't identify you on this activity. "
         "Try again from a personal chat after signing in."
     )
+    _ALREADY_LINKED_MESSAGE = (
+        "Your Teams account is already linked. "
+        "Open the admin UI's account-bindings page to manage or revoke it."
+    )
 
     def __init__(self, *, bot_tenant_id: str | None) -> None:
         self._bot_tenant_id = bot_tenant_id
@@ -561,6 +565,13 @@ class _IdentityContextMiddleware:
                 self._bot_tenant_id,
             )
             await self._try_send(context, self._CROSS_TENANT_MESSAGE)
+            return
+
+        # `/link` is only meaningful for unlinked users — short-circuit it
+        # here so the downstream handlers don't see it as an unknown command.
+        text = self._activity_text(context).lower()
+        if text == "/link" or text.startswith("/link "):
+            await self._try_send(context, self._ALREADY_LINKED_MESSAGE)
             return
 
         from core.db.rls_context import rls_context_scope
@@ -666,15 +677,23 @@ class _IdentityContextMiddleware:
         # Where to send the user. Preference order:
         #   1. `ACCOUNT_LINK_URL` — explicit full URL, lets ops point to a
         #      different deployment / path / hash route without code changes.
-        #   2. `{PUBLIC_BASE_URL}/admin/#/link` — admin UI uses a hash router
-        #      (createWebHashHistory) and is mounted under `/admin/`.
-        #   3. Generic hint when neither is set.
+        #   2. `{FRONTEND_URL}link` — canonical admin-UI base (typically
+        #      something like `http://host/admin/#/`), so we just append
+        #      `link` after stripping any trailing slash.
+        #   3. `{PUBLIC_BASE_URL}/admin/#/link` — backend public URL fallback
+        #      for setups where FRONTEND_URL isn't configured. Note this is
+        #      the *bot/API* domain, not the UI, so it only works if both
+        #      live on the same host.
+        #   4. Generic hint when nothing is set.
         explicit_url = (os.getenv("ACCOUNT_LINK_URL") or "").strip()
-        base_url = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
+        frontend_url = (os.getenv("FRONTEND_URL") or "").strip().rstrip("/")
+        public_base_url = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
         if explicit_url:
             url = explicit_url
-        elif base_url:
-            url = f"{base_url}/admin/#/link"
+        elif frontend_url:
+            url = f"{frontend_url}/link"
+        elif public_base_url:
+            url = f"{public_base_url}/admin/#/link"
         else:
             url = "the '/link' page in the admin UI"
         ttl_minutes = int(LINK_CODE_TTL.total_seconds() // 60)
