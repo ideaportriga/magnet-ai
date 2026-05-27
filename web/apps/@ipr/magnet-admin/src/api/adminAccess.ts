@@ -124,6 +124,18 @@ export async function getUser(id: string): Promise<AdminUser> {
   return client.get<AdminUser>(`users/${id}`)
 }
 
+export interface UserCreatePayload {
+  email: string
+  password: string
+  name?: string | null
+}
+
+/** Create a regular (non-superuser) user in the caller's tenant. */
+export async function createUser(payload: UserCreatePayload): Promise<AdminUser> {
+  const client = getApiClient()
+  return client.post<AdminUser>('users', payload)
+}
+
 export interface UserRolesPatchPayload {
   add?: string[]
   remove?: string[]

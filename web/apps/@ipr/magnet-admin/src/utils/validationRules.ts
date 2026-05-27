@@ -11,6 +11,7 @@ import {
   noInvisibleChars as _noInvisibleChars,
   validSystemName as _validSystemName,
   validSlug as _validSlug,
+  validEmail as _validEmail,
 } from '@shared/utils/validationRules'
 import { m } from '@/paraglide/messages'
 
@@ -34,3 +35,5 @@ export const validSystemName = () =>
   })
 
 export const validSlug = () => _validSlug(m.validation_invalidSlug())
+
+export const validEmail = () => _validEmail(m.validation_invalidEmail())

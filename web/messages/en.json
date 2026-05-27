@@ -201,6 +201,7 @@
   "validation_invalidJson": "Incorrect json format",
   "validation_invalidSystemName": "System name can only contain letters, numbers, underscores and hyphens, and must not start with a number",
   "validation_invalidSlug": "Slug can only contain lowercase letters, numbers and hyphens",
+  "validation_invalidEmail": "Enter a valid email address",
   "validation_invisibleChars": "Field contains invisible or whitespace characters that are not allowed",
   "validation_noLeadingTrailingSpaces": "Field must not have leading or trailing spaces",
   "validation_systemNameSpaces": "System name must not have leading or trailing spaces",

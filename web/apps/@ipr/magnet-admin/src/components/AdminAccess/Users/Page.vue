@@ -9,6 +9,14 @@
         clearable
         @input="onSearchInput"
       />
+      <div class="km-space" />
+      <km-btn
+        v-if="canManage"
+        data-test="new-user-btn"
+        icon="add-square"
+        label="New user"
+        @click="openCreate()"
+      />
     </template>
 
     <km-data-table
@@ -20,20 +28,70 @@
       :no-records-label="globalFilter ? 'No users match the search.' : 'No users in this tenant.'"
       @row-click="openUser"
     />
+
+    <template #overlays>
+      <km-dialog v-if="showCreate" v-model="showCreate" title="New user">
+        <div class="stack p-md" data-gap="md">
+          <div class="stack" data-gap="xs">
+            <label class="km-description">Email</label>
+            <km-input
+              ref="emailRef"
+              v-model="newEmail"
+              type="email"
+              placeholder="user@example.com"
+              :max-length="320"
+              :rules="[required(), validEmail()]"
+            />
+          </div>
+          <div class="stack" data-gap="xs">
+            <label class="km-description">Password</label>
+            <km-input
+              ref="passwordRef"
+              v-model="newPassword"
+              type="password"
+              autocomplete="new-password"
+              :max-length="128"
+              :rules="[required(), minLength(8)]"
+            />
+            <div class="km-description text-grey">At least 8 characters. The user can change it after signing in.</div>
+          </div>
+          <div class="stack" data-gap="xs">
+            <label class="km-description">Name (optional)</label>
+            <km-input ref="nameRef" v-model="newName" placeholder="Jane Doe" :max-length="255" />
+          </div>
+          <div class="cluster" data-justify="end" data-gap="sm" data-wrap="no">
+            <km-btn label="Cancel" flat @click="showCreate = false" />
+            <km-btn
+              label="Create"
+              data-test="create-user-confirm"
+              :disabled="!newEmail || !newPassword || createMutation.isLoading.value"
+              @click="submitCreate"
+            />
+          </div>
+        </div>
+      </km-dialog>
+    </template>
   </km-list-page>
 </template>
 
 <script setup lang="ts">
-import { computed, h } from 'vue'
+import { computed, h, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useQuery } from '@tanstack/vue-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import type { ColumnDef } from '@tanstack/vue-table'
 import { formatDateTime } from '@shared/utils'
+import { usePermissions } from '@shared'
 import { useLocalDataTable } from '@/composables/useLocalDataTable'
-import { listUsers, type AdminUser } from '@/api/adminAccess'
+import { useSafeMutation } from '@/composables/useSafeMutation'
+import { required, validEmail, minLength } from '@/utils/validationRules'
+import { validateRef } from '@/utils/validateRef'
+import { listUsers, createUser, type AdminUser, type UserCreatePayload } from '@/api/adminAccess'
 import KmChip from '@ds/components/domain/KmChip.vue'
 
 const router = useRouter()
+const queryClient = useQueryClient()
+const { can } = usePermissions()
+const canManage = computed(() => can('manage:users'))
 
 const usersQuery = useQuery({
   queryKey: ['admin', 'users'],
@@ -124,5 +182,49 @@ function onSearchInput(val: string) {
 
 function openUser(row: AdminUser) {
   router.push(`/admin/users/${row.id}`)
+}
+
+// ── Create dialog ──
+const showCreate = ref(false)
+const newEmail = ref('')
+const newPassword = ref('')
+const newName = ref('')
+const emailRef = ref<{ validate?: () => boolean } | null>(null)
+const passwordRef = ref<{ validate?: () => boolean } | null>(null)
+const nameRef = ref<{ validate?: () => boolean } | null>(null)
+
+const createMutation = useSafeMutation(
+  useMutation({
+    mutationFn: (payload: UserCreatePayload) => createUser(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] })
+    },
+  }),
+  { successMessage: 'User created.' },
+)
+
+function openCreate() {
+  newEmail.value = ''
+  newPassword.value = ''
+  newName.value = ''
+  showCreate.value = true
+}
+
+async function submitCreate() {
+  const validStates = [
+    validateRef(emailRef.value),
+    validateRef(passwordRef.value),
+    validateRef(nameRef.value),
+  ]
+  if (validStates.includes(false)) return
+  const { success, data } = await createMutation.run({
+    email: newEmail.value.trim(),
+    password: newPassword.value,
+    name: newName.value.trim() || null,
+  })
+  if (success && data) {
+    showCreate.value = false
+    await router.push(`/admin/users/${data.id}`)
+  }
 }
 </script>

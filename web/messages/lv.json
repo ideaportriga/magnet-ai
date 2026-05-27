@@ -201,6 +201,7 @@
   "validation_invalidJson": "Nepareizs JSON formāts",
   "validation_invalidSystemName": "Sistēmas nosaukums var saturēt tikai burtus, ciparus, pasvītrojumus un defises, un nedrīkst sākties ar ciparu",
   "validation_invalidSlug": "Identifikators var saturēt tikai mazos burtus, ciparus un defises",
+  "validation_invalidEmail": "Ievadiet derīgu e-pasta adresi",
   "validation_invisibleChars": "Lauks satur neredzamas vai atstarpes rakstzīmes, kas nav atļautas",
   "validation_noLeadingTrailingSpaces": "Laukam nedrīkst būt atstarpes sākumā vai beigās",
   "validation_systemNameSpaces": "Sistēmas nosaukumam nedrīkst būt atstarpes sākumā vai beigās",

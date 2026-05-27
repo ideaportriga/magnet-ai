@@ -201,6 +201,7 @@
   "validation_invalidJson": "Ungültiges JSON-Format",
   "validation_invalidSystemName": "Der Systemname darf nur Buchstaben, Zahlen, Unterstriche und Bindestriche enthalten und darf nicht mit einer Zahl beginnen",
   "validation_invalidSlug": "Der Slug darf nur Kleinbuchstaben, Zahlen und Bindestriche enthalten",
+  "validation_invalidEmail": "Geben Sie eine gültige E-Mail-Adresse ein",
   "validation_invisibleChars": "Feld enthält unsichtbare oder Leerzeichen, die nicht erlaubt sind",
   "validation_noLeadingTrailingSpaces": "Feld darf keine führenden oder abschließenden Leerzeichen haben",
   "validation_systemNameSpaces": "Systemname darf keine führenden oder abschließenden Leerzeichen haben",

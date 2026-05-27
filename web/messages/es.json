@@ -201,6 +201,7 @@
   "validation_invalidJson": "Formato JSON incorrecto",
   "validation_invalidSystemName": "El nombre del sistema solo puede contener letras, números, guiones bajos y guiones, y no debe comenzar con un número",
   "validation_invalidSlug": "El identificador solo puede contener letras minúsculas, números y guiones",
+  "validation_invalidEmail": "Introduce una dirección de correo electrónico válida",
   "validation_invisibleChars": "El campo contiene caracteres invisibles o espacios en blanco no permitidos",
   "validation_noLeadingTrailingSpaces": "El campo no debe tener espacios al inicio ni al final",
   "validation_systemNameSpaces": "El nombre del sistema no debe tener espacios al inicio ni al final",

@@ -201,6 +201,7 @@
   "validation_invalidJson": "Некоректний формат JSON",
   "validation_invalidSystemName": "Системне ім'я може містити лише літери, цифри, підкреслення та дефіси і не повинно починатися з цифри",
   "validation_invalidSlug": "Ідентифікатор може містити лише малі літери, цифри та дефіси",
+  "validation_invalidEmail": "Введіть дійсну адресу електронної пошти",
   "validation_invisibleChars": "Поле містить невидимі або пробільні символи, які не дозволені",
   "validation_noLeadingTrailingSpaces": "Поле не повинно мати початкових або кінцевих пробілів",
   "validation_systemNameSpaces": "Системне ім'я не повинно мати початкових або кінцевих пробілів",

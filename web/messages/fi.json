@@ -201,6 +201,7 @@
   "validation_invalidJson": "Virheellinen JSON-muoto",
   "validation_invalidSystemName": "Järjestelmänimi voi sisältää vain kirjaimia, numeroita, alaviivoja ja väliviivoja, eikä saa alkaa numerolla",
   "validation_invalidSlug": "Tunniste voi sisältää vain pieniä kirjaimia, numeroita ja yhdysviivoja",
+  "validation_invalidEmail": "Anna kelvollinen sähköpostiosoite",
   "validation_invisibleChars": "Kenttä sisältää näkymättömiä tai välilyöntimerkkejä, jotka eivät ole sallittuja",
   "validation_noLeadingTrailingSpaces": "Kentässä ei saa olla alku- tai loppuvälilyöntejä",
   "validation_systemNameSpaces": "Järjestelmänimessä ei saa olla alku- tai loppuvälilyöntejä",
