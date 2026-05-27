@@ -66,9 +66,12 @@
           <div class="stack flex-1 min-w-200" data-gap="xs">
             <label class="km-description">Name</label>
             <km-input
+              ref="nameRef"
               v-model="editName"
               :disabled="!canEdit"
               placeholder="Reviewer"
+              :max-length="100"
+              :rules="[required(), noInvisibleChars()]"
             />
           </div>
           <div class="stack flex-1 min-w-200" data-gap="xs">
@@ -118,6 +121,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { usePermissions } from '@shared'
 import { useSafeMutation } from '@/composables/useSafeMutation'
+import { required, validSlug, noInvisibleChars } from '@/utils/validationRules'
+import { validateRef } from '@/utils/validateRef'
 import {
   getRole,
   updateRole,
@@ -125,6 +130,7 @@ import {
   deleteRole,
   listPermissions,
   createRole,
+  RESERVED_ROLE_SLUGS,
   type RoleSummary,
   type PermissionEntry,
   type RoleUpdatePayload,
@@ -168,6 +174,7 @@ const permissionCodes = ref<string[]>([])
 const initialName = ref('')
 const initialDescription = ref('')
 const initialPermissions = ref<string[]>([])
+const nameRef = ref<{ validate?: () => boolean } | null>(null)
 
 watch(
   role,
@@ -261,6 +268,7 @@ const duplicateMutation = useSafeMutation(
 
 async function save() {
   if (!role.value || !isDirty.value) return
+  if (!validateRef(nameRef.value)) return
   errorMessage.value = null
   const metaChanged =
     editName.value !== initialName.value ||
@@ -294,7 +302,12 @@ async function duplicateAsCustom() {
   const suggestedSlug = `${base.slug}-copy`
   const slug = window.prompt('Slug for the new custom role:', suggestedSlug)?.trim()
   if (!slug) return
-  if (['admin', 'user', 'viewer'].includes(slug)) {
+  const slugCheck = validSlug()(slug)
+  if (slugCheck !== true) {
+    errorMessage.value = typeof slugCheck === 'string' ? slugCheck : 'Invalid slug.'
+    return
+  }
+  if (RESERVED_ROLE_SLUGS.includes(slug as (typeof RESERVED_ROLE_SLUGS)[number])) {
     errorMessage.value = `Slug '${slug}' is reserved for system roles.`
     return
   }

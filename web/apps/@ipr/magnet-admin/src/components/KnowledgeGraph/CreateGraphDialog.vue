@@ -11,7 +11,7 @@
   >
     <div class="km-field text-secondary-text pb-xs pl-sm mb-md">
       {{ m.knowledgeGraph_graphNameLabel() }}
-      <km-input v-model="graphName" height="36px" :placeholder="m.knowledgeGraph_graphNamePlaceholder()" border-radius="8px" @keyup.enter="createGraph" />
+      <km-input ref="nameRef" v-model="graphName" height="36px" :placeholder="m.knowledgeGraph_graphNamePlaceholder()" border-radius="8px" :rules="[required()]" @keyup.enter="createGraph" />
       <div class="km-description text-secondary-text py-sm">{{ m.knowledgeGraph_graphNameHint() }}</div>
     </div>
 
@@ -31,6 +31,8 @@
 import { fetchData } from '@shared'
 import { m } from '@/paraglide/messages'
 import { ref } from 'vue'
+import { required } from '@/utils/validationRules'
+import { validateRef } from '@/utils/validateRef'
 import { useAppStore } from '@/stores/appStore'
 
 defineProps<{
@@ -45,16 +47,14 @@ const emit = defineEmits<{
 const appStore = useAppStore()
 const graphName = ref('')
 const description = ref('')
+const nameRef = ref<{ validate?: () => boolean } | null>(null)
 const visibility = ref<string>('tenant')
 const departmentId = ref<string | null>(null)
 const loading = ref(false)
 const error = ref('')
 
 const createGraph = async () => {
-  if (!graphName.value.trim()) {
-    error.value = m.knowledgeGraph_graphNameRequired()
-    return
-  }
+  if (!validateRef(nameRef.value)) return
 
   loading.value = true
   error.value = ''

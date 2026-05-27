@@ -20,11 +20,11 @@
           <div class="stack" data-gap="md">
             <div>
               <div class="km-field text-secondary-text pb-xs pl-sm">Display name</div>
-              <km-input v-model="name" placeholder="Claude" autofocus />
+              <km-input ref="nameRef" v-model="name" placeholder="Claude" autofocus :rules="[required()]" />
             </div>
             <div>
               <div class="km-field text-secondary-text pb-xs pl-sm">Client ID</div>
-              <km-input v-model="clientId" placeholder="claude" />
+              <km-input ref="clientIdRef" v-model="clientId" placeholder="claude" :rules="[required()]" />
             </div>
             <km-checkbox
               :model-value="isPublic"
@@ -33,16 +33,18 @@
             />
             <div v-if="!isPublic">
               <div class="km-field text-secondary-text pb-xs pl-sm">Client secret</div>
-              <km-input v-model="clientSecret" type="password" placeholder="Will be encrypted at rest" />
+              <km-input ref="clientSecretRef" v-model="clientSecret" type="password" placeholder="Will be encrypted at rest" :rules="[required()]" />
             </div>
             <div>
               <div class="km-field text-secondary-text pb-xs pl-sm">Redirect URIs (one per line)</div>
               <km-input
+                ref="redirectUrisRef"
                 v-model="redirectUrisText"
                 type="textarea"
                 autogrow
                 placeholder="https://claude.ai/api/mcp/auth_callback
 https://oauth.pstmn.io/v1/callback"
+                :rules="[required()]"
               />
             </div>
           </div>
@@ -62,6 +64,8 @@ https://oauth.pstmn.io/v1/callback"
 import { ref, computed } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
 import { useSafeMutation } from '@/composables/useSafeMutation'
+import { required } from '@/utils/validationRules'
+import { validateRef } from '@/utils/validateRef'
 import { notify } from '@shared/utils/notify'
 
 defineProps<{ modelValue: boolean }>()
@@ -79,6 +83,11 @@ const clientSecret = ref('')
 const redirectUrisText = ref('')
 const loading = ref(false)
 
+const nameRef = ref<{ validate?: () => boolean } | null>(null)
+const clientIdRef = ref<{ validate?: () => boolean } | null>(null)
+const clientSecretRef = ref<{ validate?: () => boolean } | null>(null)
+const redirectUrisRef = ref<{ validate?: () => boolean } | null>(null)
+
 const canSubmit = computed(
   () =>
     !!name.value &&
@@ -88,7 +97,14 @@ const canSubmit = computed(
 )
 
 const create = async () => {
-  if (loading.value || !canSubmit.value) return
+  if (loading.value) return
+  const validStates = [
+    validateRef(nameRef.value),
+    validateRef(clientIdRef.value),
+    validateRef(clientSecretRef.value),
+    validateRef(redirectUrisRef.value),
+  ]
+  if (validStates.includes(false)) return
   loading.value = true
   const redirectUris = redirectUrisText.value
     .split('\n')

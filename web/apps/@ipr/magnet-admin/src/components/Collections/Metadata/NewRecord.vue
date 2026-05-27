@@ -20,11 +20,11 @@
         </div>
         <div class="km-field text-secondary-text pb-xs pl-sm mt-md">{{ m.common_name() }}</div>
         <div class="full-width">
-          <km-input v-model="newRecord.name" height="30px" />
+          <km-input ref="nameRef" v-model="newRecord.name" height="30px" :rules="[required()]" />
         </div>
         <div class="km-field text-secondary-text pb-xs pl-sm mt-md">{{ m.common_mapping() }}</div>
         <div class="full-width">
-          <km-input v-model="newRecord.mapping" height="30px" type="textarea" autogrow />
+          <km-input ref="mappingRef" v-model="newRecord.mapping" height="30px" type="textarea" autogrow :rules="[required()]" />
         </div>
         <div class="km-field text-secondary-text pb-xs pl-sm mt-md">{{ m.common_description() }}</div>
         <div class="full-width">
@@ -49,6 +49,8 @@ import { onUnmounted, ref } from 'vue'
 import { m } from '@/paraglide/messages'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useNotify } from '@/composables/useNotify'
+import { required } from '@/utils/validationRules'
+import { validateRef } from '@/utils/validateRef'
 
 // States & Stores
 const { draft, updateField } = useEntityDetail('collections')
@@ -68,11 +70,16 @@ const newRecord = ref({
   description: '',
 })
 
+const nameRef = ref<{ validate?: () => boolean } | null>(null)
+const mappingRef = ref<{ validate?: () => boolean } | null>(null)
+
 onUnmounted(() => {
   emit('cancel')
 })
 
 const create = () => {
+  const validStates = [validateRef(nameRef.value), validateRef(mappingRef.value)]
+  if (validStates.includes(false)) return
   const metadataConfig = [...(draft.value?.metadata_config || [])]
   const newName = (newRecord.value?.name || '').trim()
   const isDuplicate = metadataConfig.some((item) => (item?.name || '').trim() === newName)

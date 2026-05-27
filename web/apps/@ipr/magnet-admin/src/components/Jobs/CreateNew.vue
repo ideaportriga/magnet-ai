@@ -10,7 +10,7 @@
       <div class="km-card-section card-section-style mb-md">
         <div class="km-field text-secondary-text pb-xs pl-sm">Name</div>
         <div class="full-width">
-          <km-input ref="nameRef" v-model="form.name" height="30px" />
+          <km-input ref="nameRef" v-model="form.name" height="30px" :rules="[required()]" />
         </div>
         <div class="km-field text-secondary-text pb-xs pl-sm pt-md">Job execution type</div>
         <div class="full-width">
@@ -29,7 +29,7 @@
           <template v-if="form.jobType === &quot;sync_collection&quot;">
             <div class="km-field text-secondary-text pb-xs pl-sm pt-md">System name</div>
             <div class="full-width">
-              <km-input v-model="form.system_name" height="30px" :placeholder="m.jobs_enterSystemName()" :disabled="isFormDefault" />
+              <km-input ref="systemNameRef" v-model="form.system_name" height="30px" :placeholder="m.jobs_enterSystemName()" :disabled="isFormDefault" :rules="[required(), validSystemName()]" />
             </div>
           </template>
           <template v-if="form.jobType === &quot;post_processing_conversations&quot;">
@@ -65,7 +65,7 @@
         </div>
         <div v-if="form.interval === &quot;custom&quot; &amp;&amp; form.executionType === &quot;recurring&quot;" class="mt-md pl-sm">
           <div class="km-field text-secondary-text pb-xs">Cron expression</div>
-          <km-input v-model="form.customCron" height="30px" :placeholder="m.common_cronExpression()" />
+          <km-input ref="cronRef" v-model="form.customCron" height="30px" :placeholder="m.common_cronExpression()" :rules="[required()]" />
           <div class="km-tiny text-secondary-text mt-xs">Format: minute hour day month day_of_week (e.g., */10 * * * * for every 10 minutes)</div>
         </div>
         <div class="cluster mt-md">
@@ -95,6 +95,8 @@ import { fetchData } from '@shared'
 import { m } from '@/paraglide/messages'
 import { useAppStore } from '@/stores/appStore'
 import { useCatalogOptions } from '@/queries/useCatalogOptions'
+import { required, validSystemName } from '@/utils/validationRules'
+import { validateRef } from '@/utils/validateRef'
 
 const intervals = [
   { label: 'Every 5 minutes', value: 'every_5_minutes' },
@@ -208,6 +210,8 @@ export default {
       times,
       agents,
       appStore,
+      required,
+      validSystemName,
     }
   },
   computed: {
@@ -299,7 +303,16 @@ export default {
       this.$emit('finish', job)
     },
 
+    validateFields() {
+      const validStates = [
+        validateRef(this.$refs.nameRef),
+        validateRef(this.$refs.systemNameRef),
+        validateRef(this.$refs.cronRef),
+      ]
+      return !validStates.includes(false)
+    },
     finish() {
+      if (!this.validateFields()) return
       this.createJob()
       this.$emit('cancel')
     },

@@ -200,6 +200,7 @@
   "validation_minLength": "Veld moet uit meer dan {min} tekens bestaan",
   "validation_invalidJson": "Onjuist JSON-formaat",
   "validation_invalidSystemName": "Systeemnaam mag alleen letters, cijfers, underscores en koppeltekens bevatten en mag niet met een cijfer beginnen",
+  "validation_invalidSlug": "Slug mag alleen kleine letters, cijfers en koppeltekens bevatten",
   "validation_invisibleChars": "Veld bevat onzichtbare of witruimtetekens die niet zijn toegestaan",
   "validation_noLeadingTrailingSpaces": "Veld mag geen spaties aan het begin of einde bevatten",
   "validation_systemNameSpaces": "Systeemnaam mag geen spaties aan het begin of einde bevatten",

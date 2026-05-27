@@ -34,6 +34,13 @@ export async function reloadPermissionsCache(): Promise<{ status: string }> {
 
 // ── Roles ───────────────────────────────────────────────────────────────
 
+/**
+ * Slugs reserved for built-in system roles. The backend rejects these on
+ * create (`api/src/routes/admin/roles.py`); mirrored here for instant
+ * client-side feedback in the create + duplicate flows.
+ */
+export const RESERVED_ROLE_SLUGS = ['admin', 'user', 'viewer'] as const
+
 export interface RoleSummary {
   id: string
   slug: string

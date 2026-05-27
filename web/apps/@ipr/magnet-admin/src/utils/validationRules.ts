@@ -10,6 +10,7 @@ import {
   notLessThan as _notLessThan,
   noInvisibleChars as _noInvisibleChars,
   validSystemName as _validSystemName,
+  validSlug as _validSlug,
 } from '@shared/utils/validationRules'
 import { m } from '@/paraglide/messages'
 
@@ -31,3 +32,5 @@ export const validSystemName = () =>
     spacesMessage: m.validation_systemNameSpaces(),
     invisibleCharsMessage: m.validation_systemNameInvisibleChars(),
   })
+
+export const validSlug = () => _validSlug(m.validation_invalidSlug())

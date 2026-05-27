@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from typing import Optional
 from uuid import UUID
 
-from litestar import Controller, Request, get, patch
+from litestar import Controller, Request, get, patch, post
 from litestar.exceptions import (
     HTTPException,
     NotFoundException,
@@ -19,8 +19,10 @@ from litestar.exceptions import (
 from litestar.status_codes import HTTP_409_CONFLICT
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 
 from core.config.app import alchemy
+from core.exceptions import ConflictError
 from core.db.models.department.department import Department
 from core.db.models.department.user_department import UserDepartment
 from core.db.models.tenant.tenant import Tenant
@@ -71,6 +73,19 @@ class UserTenantPatch(BaseModel):
     tenant_id: UUID
 
 
+class UserCreateRequest(BaseModel):
+    """Payload for admin-driven creation of a regular (non-superuser) user.
+
+    `is_superuser` is intentionally absent — created users are always regular
+    users. Promotion to platform superuser is only possible via the bootstrap
+    script (`scripts/bootstrap_superuser.py`).
+    """
+
+    email: str = Field(..., max_length=320)
+    password: str = Field(..., min_length=8, max_length=128)
+    name: Optional[str] = Field(None, max_length=255)
+
+
 def _require_auth(request: Request) -> Auth:
     auth: Auth | None = request.scope.get("auth")
     if auth is None:
@@ -118,6 +133,64 @@ class UsersController(Controller):
                 .all()
             )
             return [_serialize_admin_user(service, u) for u in users]
+
+    @post(
+        summary="Create a regular user in the caller's tenant",
+        guards=[require_permission(Permission.USERS_MANAGE)],
+        status_code=201,
+    )
+    async def create_user(
+        self, request: Request, data: UserCreateRequest
+    ) -> AdminUserResponse:
+        from services.users.password import hash_password_async
+        from services.users.service import _assign_default_role
+
+        auth = _require_auth(request)
+        tenant_id = _require_tenant_id(auth)
+
+        async with alchemy.get_session() as session:
+            service = UsersService(session=session)
+
+            # Friendly pre-check within RLS-visible scope. The unique
+            # constraint on `email` is the authoritative guard for the
+            # cross-tenant case (invisible to a tenant admin under RLS).
+            if await service.get_one_or_none(email=data.email) is not None:
+                raise ConflictError("A user with this email already exists")
+
+            user = User(
+                email=data.email,
+                name=data.name,
+                hashed_password=await hash_password_async(data.password),
+                is_active=True,
+                is_superuser=False,
+                is_verified=True,
+                tenant_id=tenant_id,
+            )
+            try:
+                user = await service.create(user, auto_commit=False)
+                await _assign_default_role(session, user.id)
+
+                await write_audit_log(
+                    session,
+                    tenant_id=tenant_id,
+                    actor_id=_get_actor_id(auth),
+                    action="user.create",
+                    target_type="user",
+                    target_id=user.id,
+                    payload={"email": user.email, "name": user.name},
+                )
+                await session.commit()
+            except IntegrityError as exc:
+                await session.rollback()
+                raise ConflictError("A user with this email already exists") from exc
+
+            # `_assign_default_role` inserts the `user_role` row directly (not
+            # through `user.roles`), and the session keeps instances alive past
+            # commit, so the in-memory `roles` collection is stale (empty).
+            # Force a fresh load within the async context before serializing —
+            # otherwise the response would report an empty `roles` list.
+            await session.refresh(user, attribute_names=["roles"])
+            return _serialize_admin_user(service, user)
 
     @get(
         "/{id:uuid}",

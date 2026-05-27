@@ -34,12 +34,24 @@
         <div class="stack p-md" data-gap="md">
           <div class="stack" data-gap="xs">
             <label class="km-description">Slug</label>
-            <km-input v-model="newSlug" placeholder="engineering" />
+            <km-input
+              ref="slugRef"
+              v-model="newSlug"
+              placeholder="engineering"
+              :max-length="100"
+              :rules="[required(), validSlug()]"
+            />
             <div class="km-description text-grey">URL-safe identifier. Unique inside this tenant.</div>
           </div>
           <div class="stack" data-gap="xs">
             <label class="km-description">Name</label>
-            <km-input v-model="newName" placeholder="Engineering" />
+            <km-input
+              ref="nameRef"
+              v-model="newName"
+              placeholder="Engineering"
+              :max-length="255"
+              :rules="[required(), noInvisibleChars()]"
+            />
           </div>
           <div class="stack" data-gap="xs">
             <label class="km-description">Parent department (optional)</label>
@@ -73,6 +85,8 @@ import type { ColumnDef } from '@tanstack/vue-table'
 import { usePermissions } from '@shared'
 import { useLocalDataTable } from '@/composables/useLocalDataTable'
 import { useSafeMutation } from '@/composables/useSafeMutation'
+import { required, validSlug, noInvisibleChars } from '@/utils/validationRules'
+import { validateRef } from '@/utils/validateRef'
 import {
   listDepartments,
   createDepartment,
@@ -153,6 +167,8 @@ const showCreate = ref(false)
 const newSlug = ref('')
 const newName = ref('')
 const newParentId = ref('')
+const slugRef = ref<{ validate?: () => boolean } | null>(null)
+const nameRef = ref<{ validate?: () => boolean } | null>(null)
 
 const createMutation = useSafeMutation(
   useMutation({
@@ -173,6 +189,9 @@ function openCreate() {
 }
 
 async function submitCreate() {
+  const slugValid = validateRef(slugRef.value)
+  const nameValid = validateRef(nameRef.value)
+  if (!slugValid || !nameValid) return
   const { success, data } = await createMutation.run({
     slug: newSlug.value.trim(),
     name: newName.value.trim(),

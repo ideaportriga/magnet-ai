@@ -119,6 +119,11 @@ class ResetPasswordRequest(BaseModel):
     new_password: str = Field(..., min_length=8, max_length=128)
 
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(..., max_length=128)
+    new_password: str = Field(..., min_length=8, max_length=128)
+
+
 class ProviderInfo(BaseModel):
     name: str
     type: str  # 'local', 'oidc', 'oauth2'
@@ -821,6 +826,66 @@ class AuthV2Controller(Controller):
         return {"message": "MFA disabled"}
 
     # ── Password Management ────────────────────────────────────────────
+
+    @post("/password/change", summary="Change own password (authenticated)")
+    async def change_password(
+        self, request: Request, data: ChangePasswordRequest
+    ) -> dict:
+        """Change the current user's password without email confirmation.
+
+        Requires the current password. On success, all OTHER sessions are
+        revoked; the calling session stays valid.
+        """
+        if not is_local_enabled():
+            raise ClientException("Password change is disabled")
+
+        auth: Auth | None = request.scope.get("auth")
+        if auth is None or not getattr(auth, "user", None):
+            raise NotAuthorizedException("Authentication required")
+
+        from services.users.password import (
+            hash_password_async,
+            verify_password_async,
+        )
+
+        async with alchemy.get_session() as session:
+            from core.domain.users.service import UsersService
+
+            service = UsersService(session=session)
+            user = await service.get(auth.user.id)
+            await session.refresh(user, attribute_names=["hashed_password"])
+
+            if not user.hashed_password:
+                raise ClientException("No local password is set for this account")
+
+            if not await verify_password_async(
+                data.current_password, user.hashed_password
+            ):
+                raise NotAuthorizedException("Invalid current password")
+
+            if data.current_password == data.new_password:
+                raise ClientException(
+                    "New password must differ from the current password"
+                )
+
+            user.hashed_password = await hash_password_async(data.new_password)
+
+            # Revoke all OTHER sessions; keep the current session alive.
+            current_refresh = request.cookies.get("refresh_token")
+            current_hash = (
+                refresh_token_service.hash_token(current_refresh)
+                if current_refresh
+                else None
+            )
+            await refresh_token_service.revoke_all_user_sessions(
+                session=session,
+                user_id=user.id,
+                except_token_hash=current_hash,
+            )
+
+            await session.commit()
+
+        return {"message": "Password changed successfully"}
 
     @post("/password/forgot", exclude_from_auth=True, summary="Request password reset")
     async def forgot_password(self, data: ForgotPasswordRequest) -> dict:

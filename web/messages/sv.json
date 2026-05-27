@@ -200,6 +200,7 @@
   "validation_minLength": "Fältet måste bestå av mer än {min} tecken",
   "validation_invalidJson": "Felaktigt JSON-format",
   "validation_invalidSystemName": "Systemnamn kan bara innehålla bokstäver, siffror, understreck och bindestreck, och får inte börja med en siffra",
+  "validation_invalidSlug": "Slug kan bara innehålla små bokstäver, siffror och bindestreck",
   "validation_invisibleChars": "Fältet innehåller osynliga tecken eller blanksteg som inte är tillåtna",
   "validation_noLeadingTrailingSpaces": "Fältet får inte ha inledande eller avslutande mellanslag",
   "validation_systemNameSpaces": "Systemnamn får inte ha inledande eller avslutande mellanslag",

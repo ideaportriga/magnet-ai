@@ -9,6 +9,7 @@ const REQUIRED_DEFAULT_MESSAGE = 'Field can not be empty'
 const MINLEGTH_DEFAULT_MESSAGE = (min) => `Field must consist of more than ${min} characters`
 const INVALID_JSON_MESSAGE = 'Incorrect json format'
 const INVALID_SYSTEM_NAME_MESSAGE = 'System name can only contain letters, numbers, underscores and hyphens, and must not start with a number'
+const INVALID_SLUG_MESSAGE = 'Slug can only contain lowercase letters, numbers and hyphens'
 const INVISIBLE_CHARS_MESSAGE = 'Field contains invisible or whitespace characters that are not allowed'
 const LEADING_TRAILING_SPACES_MESSAGE = 'Field must not have leading or trailing spaces'
 const SYSTEM_NAME_SPACES_MESSAGE = 'System name must not have leading or trailing spaces'
@@ -20,6 +21,11 @@ const INVISIBLE_CHARS_REGEX = /[\u0000-\u001F\u007F-\u009F\u00A0\u1680\u180E\u20
 
 // Regex for valid system_name: starts with letter or underscore, followed by letters, numbers, underscores, hyphens
 const VALID_SYSTEM_NAME_REGEX = /^[a-zA-Z_][a-zA-Z0-9_-]*$/
+
+// Regex for a URL-safe slug: lowercase letters and digits in hyphen-separated
+// segments. Rejects uppercase, underscores, spaces, symbols, and leading,
+// trailing or repeated hyphens.
+const VALID_SLUG_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
 export const required = (message) => {
   return (value) => {
@@ -112,5 +118,19 @@ export const validSystemName = (message, { spacesMessage, invisibleCharsMessage 
     }
 
     return true
+  }
+}
+
+/**
+ * Validates a URL-safe slug:
+ * - lowercase letters, digits and single hyphens only
+ * - no leading, trailing or repeated hyphens
+ * - no spaces, uppercase or other symbols
+ * Empty values pass — pair with required() to enforce presence.
+ */
+export const validSlug = (message) => {
+  return (value) => {
+    if (!isString(value) || !value) return true // Let required() handle empty values
+    return VALID_SLUG_REGEX.test(value) || (message ?? INVALID_SLUG_MESSAGE)
   }
 }

@@ -62,6 +62,7 @@ import { computed, h } from 'vue'
 import type { ColumnDef, HeaderContext, CellContext } from '@tanstack/vue-table'
 import { usePermissions } from '@shared'
 import { useLocalDataTable } from '@/composables/useLocalDataTable'
+import { resourceLabel } from '@/config/resourceLabels'
 import type { PermissionEntry } from '@/api/adminAccess'
 import KmCheckbox from '@ds/components/domain/KmCheckbox.vue'
 import KmChip from '@ds/components/domain/KmChip.vue'
@@ -240,10 +241,6 @@ function columnState(action: string): ColumnHeaderState {
 
 // ── Helpers ───────────────────────────────────────────────────────────
 
-function formatResource(resource: string): string {
-  return resource.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-}
-
 function rowSelectedCount(row: MatrixRow): number {
   let n = 0
   for (const e of row.entries.values()) {
@@ -258,7 +255,7 @@ const columns = computed<ColumnDef<MatrixRow, unknown>[]>(() => {
   const cols: ColumnDef<MatrixRow, unknown>[] = [
     {
       id: 'resource',
-      accessorKey: 'resource',
+      accessorFn: (r) => resourceLabel(r.resource),
       header: 'Resource',
       cell: ({ row }: CellContext<MatrixRow, unknown>) => {
         const r = row.original
@@ -276,7 +273,7 @@ const columns = computed<ColumnDef<MatrixRow, unknown>[]>(() => {
             },
           },
           [
-            h('span', { class: 'km-title' }, formatResource(r.resource)),
+            h('span', { class: 'km-title' }, resourceLabel(r.resource)),
             h(KmChip, {
               size: 'sm',
               tone: granted === total && total > 0 ? 'brand' : 'muted',

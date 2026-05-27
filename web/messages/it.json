@@ -200,6 +200,7 @@
   "validation_minLength": "Il campo deve contenere più di {min} caratteri",
   "validation_invalidJson": "Formato JSON non corretto",
   "validation_invalidSystemName": "Il nome di sistema può contenere solo lettere, numeri, trattini bassi e trattini e non deve iniziare con un numero",
+  "validation_invalidSlug": "Lo slug può contenere solo lettere minuscole, numeri e trattini",
   "validation_invisibleChars": "Il campo contiene caratteri invisibili o spazi bianchi non consentiti",
   "validation_noLeadingTrailingSpaces": "Il campo non deve avere spazi iniziali o finali",
   "validation_systemNameSpaces": "Il nome di sistema non deve avere spazi iniziali o finali",

@@ -34,12 +34,24 @@
         <div class="stack p-md" data-gap="md">
           <div class="stack" data-gap="xs">
             <label class="km-description">Slug</label>
-            <km-input v-model="newSlug" placeholder="reviewer" />
+            <km-input
+              ref="slugRef"
+              v-model="newSlug"
+              placeholder="reviewer"
+              :max-length="100"
+              :rules="slugRules"
+            />
             <div class="km-description text-grey">URL-safe identifier. Cannot be a system slug.</div>
           </div>
           <div class="stack" data-gap="xs">
             <label class="km-description">Name</label>
-            <km-input v-model="newName" placeholder="Reviewer" />
+            <km-input
+              ref="nameRef"
+              v-model="newName"
+              placeholder="Reviewer"
+              :max-length="100"
+              :rules="[required(), noInvisibleChars()]"
+            />
           </div>
           <div class="stack" data-gap="xs">
             <label class="km-description">Description (optional)</label>
@@ -68,9 +80,12 @@ import type { ColumnDef } from '@tanstack/vue-table'
 import { usePermissions } from '@shared'
 import { useLocalDataTable } from '@/composables/useLocalDataTable'
 import { useSafeMutation } from '@/composables/useSafeMutation'
+import { required, validSlug, noInvisibleChars } from '@/utils/validationRules'
+import { validateRef } from '@/utils/validateRef'
 import {
   listRoles,
   createRole,
+  RESERVED_ROLE_SLUGS,
   type RoleSummary,
 } from '@/api/adminAccess'
 import KmChip from '@ds/components/domain/KmChip.vue'
@@ -163,6 +178,17 @@ const newName = ref('')
 const newDescription = ref('')
 /** When duplicating a role we pre-fill permissions from that role. */
 const seedPermissions = ref<string[]>([])
+const slugRef = ref<{ validate?: () => boolean } | null>(null)
+const nameRef = ref<{ validate?: () => boolean } | null>(null)
+
+/** Format + reserved-slug guard; the backend rejects reserved slugs too. */
+const slugRules = [
+  required(),
+  validSlug(),
+  (value: string) =>
+    !RESERVED_ROLE_SLUGS.includes(value.trim() as (typeof RESERVED_ROLE_SLUGS)[number]) ||
+    'This slug is reserved for system roles',
+]
 
 const createMutation = useSafeMutation(
   useMutation({
@@ -188,6 +214,9 @@ function openCreateDialog(seed?: { name: string; permissions: string[] }) {
 }
 
 async function submitCreate() {
+  const slugValid = validateRef(slugRef.value)
+  const nameValid = validateRef(nameRef.value)
+  if (!slugValid || !nameValid) return
   const { success, data } = await createMutation.run({
     slug: newSlug.value.trim(),
     name: newName.value.trim(),

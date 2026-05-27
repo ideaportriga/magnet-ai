@@ -44,12 +44,24 @@
         <div class="stack p-md" data-gap="md">
           <div class="stack" data-gap="xs">
             <label class="km-description">Slug</label>
-            <km-input v-model="newSlug" placeholder="acme" />
+            <km-input
+              ref="slugRef"
+              v-model="newSlug"
+              placeholder="acme"
+              :max-length="100"
+              :rules="[required(), validSlug()]"
+            />
             <div class="km-description text-grey">URL-safe tenant identifier. Lowercase, no spaces.</div>
           </div>
           <div class="stack" data-gap="xs">
             <label class="km-description">Display name</label>
-            <km-input v-model="newName" placeholder="Acme Corp" />
+            <km-input
+              ref="nameRef"
+              v-model="newName"
+              placeholder="Acme Corp"
+              :max-length="255"
+              :rules="[required(), noInvisibleChars()]"
+            />
           </div>
           <div class="cluster" data-gap="sm" data-align="center" data-wrap="no">
             <km-checkbox v-model="newActive" />
@@ -79,6 +91,8 @@ import { formatDateTime } from '@shared/utils'
 import { useSharedAuthStore } from '@shared/stores/authStore'
 import { useLocalDataTable } from '@/composables/useLocalDataTable'
 import { useSafeMutation } from '@/composables/useSafeMutation'
+import { required, validSlug, noInvisibleChars } from '@/utils/validationRules'
+import { validateRef } from '@/utils/validateRef'
 import { listTenants, createTenant, type AdminTenant } from '@/api/tenants'
 import KmChip from '@ds/components/domain/KmChip.vue'
 
@@ -168,6 +182,8 @@ const showCreate = ref(false)
 const newSlug = ref('')
 const newName = ref('')
 const newActive = ref(true)
+const slugRef = ref<{ validate?: () => boolean } | null>(null)
+const nameRef = ref<{ validate?: () => boolean } | null>(null)
 
 const createMutation = useSafeMutation(
   useMutation({
@@ -188,6 +204,9 @@ function openCreate() {
 }
 
 async function submitCreate() {
+  const slugValid = validateRef(slugRef.value)
+  const nameValid = validateRef(nameRef.value)
+  if (!slugValid || !nameValid) return
   const { success, data } = await createMutation.run({
     slug: newSlug.value.trim(),
     name: newName.value.trim(),

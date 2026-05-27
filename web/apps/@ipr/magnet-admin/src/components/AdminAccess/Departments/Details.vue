@@ -48,11 +48,25 @@
         <div class="cluster" data-gap="md" data-wrap="yes">
           <div class="stack flex-1 min-w-200" data-gap="xs">
             <label class="km-description">Slug</label>
-            <km-input v-model="editSlug" :disabled="!canManage" placeholder="engineering" />
+            <km-input
+              ref="slugRef"
+              v-model="editSlug"
+              :disabled="!canManage"
+              placeholder="engineering"
+              :max-length="100"
+              :rules="[required(), validSlug()]"
+            />
           </div>
           <div class="stack flex-1 min-w-200" data-gap="xs">
             <label class="km-description">Name</label>
-            <km-input v-model="editName" :disabled="!canManage" placeholder="Engineering" />
+            <km-input
+              ref="nameRef"
+              v-model="editName"
+              :disabled="!canManage"
+              placeholder="Engineering"
+              :max-length="255"
+              :rules="[required(), noInvisibleChars()]"
+            />
           </div>
           <div class="stack flex-1 min-w-200" data-gap="xs">
             <label class="km-description">Parent department</label>
@@ -163,6 +177,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { usePermissions } from '@shared'
 import { useSafeMutation } from '@/composables/useSafeMutation'
+import { required, validSlug, noInvisibleChars } from '@/utils/validationRules'
+import { validateRef } from '@/utils/validateRef'
 import {
   getDepartment,
   updateDepartment,
@@ -214,6 +230,8 @@ const editSlug = ref('')
 const editName = ref('')
 const editParentId = ref('')
 const initial = ref({ slug: '', name: '', parent_id: '' })
+const slugRef = ref<{ validate?: () => boolean } | null>(null)
+const nameRef = ref<{ validate?: () => boolean } | null>(null)
 
 watch(
   department,
@@ -260,6 +278,9 @@ const saveMutation = useSafeMutation(
 
 async function save() {
   if (!department.value || !isDirty.value) return
+  const slugValid = validateRef(slugRef.value)
+  const nameValid = validateRef(nameRef.value)
+  if (!slugValid || !nameValid) return
   errorMessage.value = null
   await saveMutation.run({
     id: department.value.id,

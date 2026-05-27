@@ -165,5 +165,12 @@ async def _ensure_admin_role(session: Any, user_id: UUID) -> bool:
     if existing is not None:
         return False
 
-    session.add(UserRole(user_id=user_id, role_id=admin_role.id))
+    # `user_role.tenant_id` is NOT NULL. The system admin role itself has
+    # tenant_id IS NULL, but the membership row is tenant-scoped — resolve the
+    # user's tenant explicitly, mirroring `_assign_default_role`.
+    tenant_id = (
+        await session.execute(select(User.tenant_id).where(User.id == user_id))
+    ).scalar_one_or_none()
+
+    session.add(UserRole(user_id=user_id, role_id=admin_role.id, tenant_id=tenant_id))
     return True
