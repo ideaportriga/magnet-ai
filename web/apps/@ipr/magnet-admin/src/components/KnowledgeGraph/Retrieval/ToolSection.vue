@@ -13,7 +13,13 @@
             <div class="km-heading-8 text-weight-medium">{{ label }}</div>
             <q-badge v-if="badge" :color="badgeColor" :text-color="badgeTextColor" :label="badge" class="text-weight-medium" />
           </div>
-          <div class="q-mt-2 text-secondary-text" style="font-size: 0.8rem">{{ description || 'No description configured' }}</div>
+          <div
+            class="q-mt-2 text-secondary-text tool-description"
+            style="font-size: 0.8rem"
+            :title="description || 'No description configured'"
+          >
+            {{ description || 'No description configured' }}
+          </div>
 
           <!-- Stats Slot -->
           <div v-if="$slots.stats" class="row q-gutter-x-md q-mt-xs">
@@ -72,6 +78,18 @@ const variantClass = computed(() => `tool-card--${props.variant}`)
 .tool-card {
   border-radius: 6px;
   transition: all 0.2s ease;
+}
+
+/* Show only the first line of the description; the rest is clamped with an ellipsis.
+   Using line-clamp (instead of white-space: nowrap) keeps the text wrapping, so its
+   intrinsic minimum width stays small and it never stretches the card/layout wide. */
+.tool-description {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
 }
 
 /* Search Tool Cards (Filter & Retrieval) */

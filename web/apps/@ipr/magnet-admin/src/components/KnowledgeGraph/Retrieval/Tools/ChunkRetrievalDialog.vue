@@ -18,35 +18,42 @@
     <!-- Search Settings Section -->
     <kg-dialog-section
       title="Search Settings"
-      description="Tune tool settings to control the scope and precision of the search."
+      description="Choose how the tool searches the graph and, for hybrid search, how many candidates are pooled and how aggressively their rankings are fused."
       icon="tune"
       icon-color="teal-7"
     >
       <div class="column q-gap-16">
-        <kg-field-row :cols="2">
-          <div :class="{ 'col-span-2': localTool.searchMethod === 'vector' }">
+        <kg-field-row :cols="1">
+          <div>
             <div class="km-input-label q-pb-sm">Method</div>
             <kg-dropdown-field v-model="localTool.searchMethod" :options="searchMethodOptions" dense />
           </div>
-          <div v-if="localTool.searchMethod !== 'vector'">
+        </kg-field-row>
+
+        <kg-field-row v-if="localTool.searchMethod !== 'vector'" :cols="2">
+          <div :class="{ 'col-span-2': localTool.searchMethod === 'keyword' }">
             <div class="km-input-label q-pb-sm" title="Constant in 1/(k+rank). Higher k = less aggressive rank discrimination. Typical: 60.">
               RRF k
             </div>
-            <km-input v-model.number="localTool.rrfK" type="number" :min="1" :max="200" />
+            <km-input
+              :model-value="localTool.rrfK"
+              type="number"
+              :min="1"
+              :max="200"
+              @update:model-value="localTool.rrfK = clampInt($event, 1, 200)"
+            />
           </div>
-        </kg-field-row>
-
-        <kg-field-row :cols="2">
-          <div>
-            <div class="km-input-label row justify-between q-pb-12">
-              <span>Score Threshold</span>
-              <span class="text-primary text-weight-bold">{{ localTool.scoreThreshold }}</span>
+          <div v-if="localTool.searchMethod === 'hybrid'">
+            <div class="km-input-label q-pb-sm" title="Rows each sub-query (vector + keyword) fetches before RRF fusion. Higher = wider recall, slower.">
+              Candidate Pool
             </div>
-            <q-slider v-model="localTool.scoreThreshold" :min="0" :max="1" :step="0.01" color="primary" />
-          </div>
-          <div>
-            <div class="km-input-label q-pb-sm">Result Limit</div>
-            <km-input v-model.number="localTool.limit" type="number" :min="1" :max="20" />
+            <km-input
+              :model-value="localTool.candidatePoolSize"
+              type="number"
+              :min="1"
+              :max="200"
+              @update:model-value="localTool.candidatePoolSize = clampInt($event, 1, 200)"
+            />
           </div>
         </kg-field-row>
       </div>
@@ -55,23 +62,70 @@
     <!-- Query Reformulation Section -->
     <kg-dialog-section
       title="Query Reformulation"
-      description="Select the prompt template used to turn the agent's intent and context into a keyword-friendly term and a vector-friendly phrase before searching. Leave empty to search the intent directly."
+      description="Select the prompt template used to turn the agent's intent and context into keyword-friendly terms and vector-friendly phrases before searching, and how many search queries to generate per search type. Leave the template empty to search the intent directly."
       icon="auto_fix_high"
       icon-color="indigo-7"
     >
-      <div>
-        <div class="km-input-label q-pb-sm">Prompt Template</div>
-        <kg-dropdown-field
-          v-model="localTool.promptTemplateName"
-          :options="promptTemplateOptions"
-          :loading="loadingPromptTemplates"
-          placeholder="No reformulation"
-          option-meta="value"
-          searchable
-          clearable
-          dense
-        />
+      <div class="column q-gap-16">
+        <div>
+          <div class="km-input-label q-pb-sm">Prompt Template</div>
+          <kg-dropdown-field
+            v-model="localTool.promptTemplateName"
+            :options="promptTemplateOptions"
+            :loading="loadingPromptTemplates"
+            placeholder="No reformulation"
+            option-meta="value"
+            searchable
+            clearable
+            dense
+          />
+        </div>
+
+        <kg-field-row :cols="2">
+          <div v-if="localTool.searchMethod !== 'vector'" :class="{ 'col-span-2': localTool.searchMethod === 'keyword' }">
+            <div class="km-input-label row justify-between q-pb-12">
+              <span title="How many distinct keyword queries to generate from the intent. Each adds a full-text + fuzzy search.">Keyword Queries to Generate</span>
+              <span class="text-primary text-weight-bold">{{ localTool.keywordVariants }}</span>
+            </div>
+            <q-slider v-model="localTool.keywordVariants" :min="1" :max="5" :step="1" snap markers color="primary" />
+          </div>
+          <div v-if="localTool.searchMethod !== 'keyword'" :class="{ 'col-span-2': localTool.searchMethod === 'vector' }">
+            <div class="km-input-label row justify-between q-pb-12">
+              <span title="How many distinct semantic queries to generate from the intent. Each adds a vector search.">Vector Queries to Generate</span>
+              <span class="text-primary text-weight-bold">{{ localTool.vectorVariants }}</span>
+            </div>
+            <q-slider v-model="localTool.vectorVariants" :min="1" :max="5" :step="1" snap markers color="primary" />
+          </div>
+        </kg-field-row>
       </div>
+    </kg-dialog-section>
+
+    <!-- Result Filtering Section -->
+    <kg-dialog-section
+      title="Result Filtering"
+      description="Set the minimum score and cap how many results are returned to the agent."
+      icon="filter_alt"
+      icon-color="blue-7"
+    >
+      <kg-field-row :cols="2">
+        <div>
+          <div class="km-input-label row justify-between q-pb-12">
+            <span>Score Threshold</span>
+            <span class="text-primary text-weight-bold">{{ localTool.scoreThreshold }}</span>
+          </div>
+          <q-slider v-model="localTool.scoreThreshold" :min="0" :max="1" :step="0.01" color="primary" />
+        </div>
+        <div>
+          <div class="km-input-label q-pb-sm">Result Limit</div>
+          <km-input
+            :model-value="localTool.limit"
+            type="number"
+            :min="1"
+            :max="20"
+            @update:model-value="localTool.limit = clampInt($event, 1, 20)"
+          />
+        </div>
+      </kg-field-row>
     </kg-dialog-section>
 
     <!-- Context Expansion Section -->
@@ -125,6 +179,12 @@ const emit = defineEmits<{
 }>()
 
 const localTool = ref<any>(null)
+
+const clampInt = (val: unknown, min: number, max: number): number => {
+  const n = Math.round(Number(val))
+  if (!Number.isFinite(n)) return min
+  return Math.min(max, Math.max(min, n))
+}
 
 const { items: promptTemplateItems, get: fetchPromptTemplates } = useChroma('promptTemplates')
 const loadingPromptTemplates = ref(false)

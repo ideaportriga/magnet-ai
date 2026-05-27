@@ -19,6 +19,9 @@ export interface Tool {
   rrfK?: number
   scoreThreshold?: number
   limit?: number
+  candidatePoolSize?: number
+  keywordVariants?: number
+  vectorVariants?: number
   promptTemplateName?: string
   metadataMergeStrategy?: 'merge_and' | 'merge_or' | 'agent_priority' | 'caller_priority'
 
@@ -90,6 +93,9 @@ export const tools: Tool[] = [
     rrfK: 60,
     scoreThreshold: 0.7,
     limit: 5,
+    candidatePoolSize: 30,
+    keywordVariants: 1,
+    vectorVariants: 1,
     promptTemplateName: 'KG_CHUNK_QUERY_REFORMULATION',
     enabled: true,
     ui: {

@@ -28,6 +28,11 @@ def get_default_retrieval_settings() -> dict[str, Any]:
                 "scoreThreshold": 0.7,
                 "limit": 5,
                 "rrfK": 60,
+                # Candidates each sub-query fetches before RRF fusion (hybrid/keyword).
+                "candidatePoolSize": 30,
+                # Number of query variants reformulation produces per search type.
+                "keywordVariants": 1,
+                "vectorVariants": 1,
                 "promptTemplateName": "KG_CHUNK_QUERY_REFORMULATION",
             },
             "exit": {

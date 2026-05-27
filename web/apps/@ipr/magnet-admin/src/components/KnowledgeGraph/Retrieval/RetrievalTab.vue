@@ -460,6 +460,9 @@ function serializeToolSettings() {
         scoreThreshold: tool.scoreThreshold,
         limit: tool.limit,
         rrfK: tool.rrfK,
+        candidatePoolSize: tool.candidatePoolSize,
+        keywordVariants: tool.keywordVariants,
+        vectorVariants: tool.vectorVariants,
         searchMethod: tool.searchMethod,
         promptTemplateName: tool.promptTemplateName,
         description: tool.description,
@@ -502,6 +505,9 @@ function applyGraphSettings(settings: any) {
         'scoreThreshold',
         'limit',
         'rrfK',
+        'candidatePoolSize',
+        'keywordVariants',
+        'vectorVariants',
         'searchMethod',
         'promptTemplateName',
         'description',
@@ -877,7 +883,11 @@ const onSaveTool = (updatedTool: Tool) => {
       oldTool.scoreThreshold !== updatedTool.scoreThreshold ||
       oldTool.limit !== updatedTool.limit ||
       oldTool.rrfK !== updatedTool.rrfK ||
+      oldTool.candidatePoolSize !== updatedTool.candidatePoolSize ||
+      oldTool.keywordVariants !== updatedTool.keywordVariants ||
+      oldTool.vectorVariants !== updatedTool.vectorVariants ||
       oldTool.searchMethod !== updatedTool.searchMethod ||
+      oldTool.promptTemplateName !== updatedTool.promptTemplateName ||
       oldTool.strategy !== updatedTool.strategy ||
       oldTool.maxIterations !== updatedTool.maxIterations ||
       oldTool.answerMode !== updatedTool.answerMode ||

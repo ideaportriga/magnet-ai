@@ -230,10 +230,11 @@ class KnowledgeGraphChunkService:
         *,
         graph_id: UUID | str,
         search_method: str,
-        query_vector: list[float] | None,
-        query_text: str,
+        query_vectors: list[list[float]] | None,
+        query_texts: list[str],
         rrf_k: int,
         limit: int,
+        candidate_pool: int,
         only_doc_ids: list[str] | None = None,
         doc_filter_where_sql: str | None = None,
         doc_filter_where_params: dict[str, Any] | None = None,
@@ -243,11 +244,17 @@ class KnowledgeGraphChunkService:
         ``search_method`` selects the retrieval strategy:
 
         - ``"vector"``: pgvector cosine similarity on ``content_embedding``.
-          ``query_vector`` is required.
+          One cosine search per vector in ``query_vectors``, merged by max
+          similarity per chunk.
         - ``"keyword"``: parallel tsvector + pg_trgm search fused via RRF.
-          ``query_text`` is required.
+          One sub-query pair per text in ``query_texts``.
         - ``"hybrid"``: parallel pgvector + tsvector + pg_trgm fused via RRF.
-          Both ``query_vector`` and ``query_text`` are required.
+          One vector sub-query per vector plus one tsvector + pg_trgm pair per
+          text.
+
+        ``candidate_pool`` is how many rows each fused sub-query fetches before
+        RRF fusion (ignored in pure vector mode, which fetches ``limit`` per
+        vector).
 
         ``ChunkSearchResult.score`` carries cosine similarity for vector mode
         and a normalized RRF score in [0, 1] for keyword / hybrid modes.
@@ -257,8 +264,7 @@ class KnowledgeGraphChunkService:
             return await self._search_chunks_vector(
                 db_session,
                 graph_id=graph_id,
-                query_text=query_text,
-                query_vector=query_vector or [],
+                query_vectors=query_vectors or [],
                 limit=limit,
                 only_doc_ids=only_doc_ids,
                 doc_filter_where_sql=doc_filter_where_sql,
@@ -268,9 +274,10 @@ class KnowledgeGraphChunkService:
         return await self._search_chunks_fused(
             db_session,
             graph_id=graph_id,
-            query_vector=query_vector,
-            query_text=query_text,
+            query_vectors=query_vectors,
+            query_texts=query_texts,
             limit=limit,
+            candidate_pool=candidate_pool,
             only_doc_ids=only_doc_ids,
             doc_filter_where_sql=doc_filter_where_sql,
             doc_filter_where_params=doc_filter_where_params,
@@ -288,8 +295,7 @@ class KnowledgeGraphChunkService:
         db_session: AsyncSession,
         *,
         graph_id: UUID | str,
-        query_text: str,
-        query_vector: list[float],
+        query_vectors: list[list[float]],
         limit: int,
         only_doc_ids: list[str] | None,
         doc_filter_where_sql: str | None,
@@ -346,43 +352,73 @@ class KnowledgeGraphChunkService:
         if doc_filter_where_sql:
             stmt = stmt.where(text(str(doc_filter_where_sql)))
 
-        exec_params: dict[str, Any] = {"qvec": query_vector}
+        base_params: dict[str, Any] = {}
         if isinstance(doc_filter_where_params, dict) and doc_filter_where_params:
-            exec_params.update(doc_filter_where_params)
+            base_params.update(doc_filter_where_params)
 
-        rows = (await db_session.execute(stmt, exec_params)).mappings().all()
-        observability_context.update_current_span(
-            input={"query": query_text}, output={"count": len(rows)}
-        )
-        return [
-            ChunkSearchResult(
-                chunk=KnowledgeGraphChunk(
-                    id=r["id"],
-                    title=r.get("title"),
-                    content=r.get("content"),
-                    document_id=r.get("document_id"),
-                    document=KnowledgeGraphDocument(
-                        id=r.get("document_id"),
-                        name=r.get("document_name"),
-                        title=r.get("document_title"),
-                        external_link=r.get("document_external_link"),
-                    ),
-                    page=r.get("page"),
-                    index=r.get("index"),
-                ),
-                score=float(r["score"]) if r.get("score") is not None else None,
+        # Run one cosine search per query variant, then keep the best similarity
+        # per chunk. A single variant reduces to the original top-`limit` query.
+        best_by_id: dict[Any, Any] = {}
+        for vector in query_vectors:
+            if not vector:
+                continue
+            rows = (
+                (await db_session.execute(stmt, {**base_params, "qvec": vector}))
+                .mappings()
+                .all()
             )
-            for r in rows
-        ]
+            for r in rows:
+                cid = r["id"]
+                score = float(r["score"]) if r.get("score") is not None else None
+                existing = best_by_id.get(cid)
+                if existing is None or (
+                    score is not None
+                    and (existing["score"] is None or score > existing["score"])
+                ):
+                    best_by_id[cid] = {"row": r, "score": score}
+
+        merged = sorted(
+            best_by_id.values(),
+            key=lambda e: e["score"] if e["score"] is not None else -1.0,
+            reverse=True,
+        )[: int(limit)]
+
+        observability_context.update_current_span(
+            input={"variants": len(query_vectors)}, output={"count": len(merged)}
+        )
+        results: list[ChunkSearchResult] = []
+        for entry in merged:
+            r = entry["row"]
+            results.append(
+                ChunkSearchResult(
+                    chunk=KnowledgeGraphChunk(
+                        id=r["id"],
+                        title=r.get("title"),
+                        content=r.get("content"),
+                        document_id=r.get("document_id"),
+                        document=KnowledgeGraphDocument(
+                            id=r.get("document_id"),
+                            name=r.get("document_name"),
+                            title=r.get("document_title"),
+                            external_link=r.get("document_external_link"),
+                        ),
+                        page=r.get("page"),
+                        index=r.get("index"),
+                    ),
+                    score=entry["score"],
+                )
+            )
+        return results
 
     async def _search_chunks_fused(
         self,
         db_session: AsyncSession,
         *,
         graph_id: UUID | str,
-        query_vector: list[float] | None,
-        query_text: str,
+        query_vectors: list[list[float]] | None,
+        query_texts: list[str],
         limit: int,
+        candidate_pool: int,
         only_doc_ids: list[str] | None,
         doc_filter_where_sql: str | None,
         doc_filter_where_params: dict[str, Any] | None,
@@ -391,15 +427,16 @@ class KnowledgeGraphChunkService:
     ) -> list[ChunkSearchResult]:
         """Run candidate sub-queries in parallel and fuse with RRF.
 
-        Each sub-query returns chunk IDs ranked by the corresponding signal.
-        Sub-queries each use their own AsyncSession so they can execute
-        concurrently against the connection pool. A single hydration query
-        then loads full rows on the caller's session.
+        Each query variant contributes its own sub-query (one vector sub-query
+        per vector, one tsvector + pg_trgm pair per text). Sub-queries each use
+        their own AsyncSession so they can execute concurrently against the
+        connection pool. A single hydration query then loads full rows on the
+        caller's session.
         """
 
         docs_table = docs_table_name(graph_id)
         chunks_table = chunks_table_name(graph_id)
-        candidates = max(int(limit) * 4, 30)
+        candidates = max(int(candidate_pool), 1)
 
         common_filter_sql = doc_filter_where_sql or None
         common_params: dict[str, Any] = {}
@@ -445,22 +482,27 @@ class KnowledgeGraphChunkService:
         search_mode = "hybrid" if include_vector else "keyword"
         method_labels: list[str] = []
         coros: list[Any] = []
-        if include_vector and query_vector:
-            method_labels.append("vector")
-            coros.append(
-                hybrid_vector_search(
-                    query_text,
-                    vector_sql,
-                    {
-                        **common_params,
-                        "qvec": vector_literal(query_vector),
-                        "cand": candidates,
-                    },
-                    session_maker=async_session_maker,
+        if include_vector and query_vectors:
+            for idx, vector in enumerate(query_vectors, start=1):
+                if not vector:
+                    continue
+                method_labels.append(f"vector_{idx}")
+                coros.append(
+                    hybrid_vector_search(
+                        "",
+                        vector_sql,
+                        {
+                            **common_params,
+                            "qvec": vector_literal(vector),
+                            "cand": candidates,
+                        },
+                        session_maker=async_session_maker,
+                    )
                 )
-            )
-        if query_text:
-            method_labels.append("full_text")
+        for idx, query_text in enumerate(query_texts or [], start=1):
+            if not query_text:
+                continue
+            method_labels.append(f"full_text_{idx}")
             coros.append(
                 hybrid_full_text_search(
                     query_text,
@@ -469,7 +511,7 @@ class KnowledgeGraphChunkService:
                     session_maker=async_session_maker,
                 )
             )
-            method_labels.append("trigram")
+            method_labels.append(f"trigram_{idx}")
             coros.append(
                 hybrid_trigram_search(
                     query_text,
