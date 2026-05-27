@@ -36,9 +36,9 @@ from .image_utils import restore_images
 from .tool_payload_formatter import format_tool_payload
 from .tools import get_available_tools
 from .tools.exit_tool import exit_tool
-from .tools.retrieve_chunks import retrieveChunks
 from .tools.find_documents_by_metadata import findDocumentsByMetadata
 from .tools.find_documents_by_summary_similarity import findDocumentsBySummarySimilarity
+from .tools.retrieve_chunks import retrieveChunks
 
 logger = logging.getLogger(__name__)
 
@@ -345,7 +345,7 @@ async def run_agentic_retrieval(
     strategy = exit_tool_cfg.get("strategy") or "confidence"
 
     chunk_limit = int(chunks_tool_cfg.get("limit", 5))
-    chunk_score_threshold = float(chunks_tool_cfg.get("scoreThreshold", 0.7))
+    chunk_score_threshold = float(chunks_tool_cfg.get("scoreThreshold", 0))
     max_iterations = int(exit_tool_cfg.get("maxIterations", 4))
 
     metadata_field_definitions: list[dict[str, Any]] = []

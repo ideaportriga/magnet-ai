@@ -57,7 +57,7 @@ export const tools: Tool[] = [
     scopeControl: 'configuration',
     searchMethod: 'hybrid',
     rrfK: 60,
-    scoreThreshold: 0.7,
+    scoreThreshold: 0,
     limit: 5,
     enabled: true,
     ui: {
@@ -74,7 +74,7 @@ export const tools: Tool[] = [
     scopeControl: 'configuration',
     searchMethod: 'hybrid',
     rrfK: 60,
-    scoreThreshold: 0.7,
+    scoreThreshold: 0,
     limit: 5,
     enabled: false,
     isStub: true, // Coming Soon
@@ -86,12 +86,13 @@ export const tools: Tool[] = [
     id: 'retrieveChunks',
     name: 'retrieveChunks',
     label: 'Chunk Retrieval',
-    description: 'Retrieve chunks',
+    description:
+      "Searches the document corpus for passages relevant to an information need. You don't need to think about retrieval mechanics - just describe what you're looking for.",
     category: 'retrieval',
     scopeControl: 'configuration',
     searchMethod: 'hybrid',
     rrfK: 60,
-    scoreThreshold: 0.7,
+    scoreThreshold: 0,
     limit: 5,
     candidatePoolSize: 30,
     keywordVariants: 1,
@@ -122,10 +123,26 @@ export const tools: Tool[] = [
 ]
 
 export const searchMethodOptions = [
-  { label: 'Vector', value: 'vector', description: 'Semantic similarity search using embeddings. Best for meaning-based queries where exact wording may differ.' },
-  { label: 'Full Text', value: 'full_text', description: 'Full-text search using tsvector indexing. Fast exact and stemmed word matching with language-aware tokenization.' },
-  { label: 'Full Text + Fuzzy', value: 'keyword', description: 'Combines full-text search with trigram fuzzy matching to catch typos and partial words. Uses RRF to merge results.' },
-  { label: 'Hybrid (Vector + Full Text + Fuzzy)', value: 'hybrid', description: 'Runs vector, full-text, and fuzzy searches in parallel and fuses rankings with RRF. Broadest recall at a higher compute cost.' },
+  {
+    label: 'Vector',
+    value: 'vector',
+    description: 'Semantic similarity search using embeddings. Best for meaning-based queries where exact wording may differ.',
+  },
+  {
+    label: 'Full Text',
+    value: 'full_text',
+    description: 'Full-text search using tsvector indexing. Fast exact and stemmed word matching with language-aware tokenization.',
+  },
+  {
+    label: 'Full Text + Fuzzy',
+    value: 'keyword',
+    description: 'Combines full-text search with trigram fuzzy matching to catch typos and partial words. Uses RRF to merge results.',
+  },
+  {
+    label: 'Hybrid (Vector + Full Text + Fuzzy)',
+    value: 'hybrid',
+    description: 'Runs vector, full-text, and fuzzy searches in parallel and fuses rankings with RRF. Broadest recall at a higher compute cost.',
+  },
 ]
 
 export interface ToolDefinition {
