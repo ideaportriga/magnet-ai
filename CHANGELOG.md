@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-alpha.38](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.37...v0.7.0-alpha.38) (2026-05-27)
+
+### 🐛 Bug Fixes
+
+* add UI for createing user ([3827607](https://github.com/ideaportriga/magnet-ai/commit/38276078393a3522938b484938c9eec1f01b3eae))
+
 ## [0.7.0-alpha.37](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.36...v0.7.0-alpha.37) (2026-05-27)
 
 ### ✨ Features
