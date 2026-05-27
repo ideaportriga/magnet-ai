@@ -236,6 +236,7 @@ class KnowledgeGraphChunkService:
         rrf_k: int,
         limit: int,
         candidate_pool: int,
+        query_vector_texts: list[str] | None = None,
         only_doc_ids: list[str] | None = None,
         doc_filter_where_sql: str | None = None,
         doc_filter_where_params: dict[str, Any] | None = None,
@@ -279,6 +280,7 @@ class KnowledgeGraphChunkService:
             graph_id=graph_id,
             query_vectors=query_vectors,
             query_texts=query_texts,
+            query_vector_texts=query_vector_texts,
             limit=limit,
             candidate_pool=candidate_pool,
             only_doc_ids=only_doc_ids,
@@ -422,6 +424,7 @@ class KnowledgeGraphChunkService:
         graph_id: UUID | str,
         query_vectors: list[list[float]] | None,
         query_texts: list[str],
+        query_vector_texts: list[str] | None,
         limit: int,
         candidate_pool: int,
         only_doc_ids: list[str] | None,
@@ -505,12 +508,17 @@ class KnowledgeGraphChunkService:
             "trigram": [],
         }
         if include_vector and query_vectors:
-            for vector in query_vectors:
+            for idx, vector in enumerate(query_vectors):
                 if not vector:
                     continue
+                vector_text = (
+                    query_vector_texts[idx]
+                    if query_vector_texts and idx < len(query_vector_texts)
+                    else ""
+                )
                 method_coros["vector"].append(
                     hybrid_vector_search(
-                        "",
+                        vector_text,
                         vector_sql,
                         {
                             **common_params,

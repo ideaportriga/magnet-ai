@@ -321,6 +321,7 @@ async def retrieveChunks(
         search_method=search_method,
         query_vectors=vectors,
         query_texts=keyword_queries,
+        query_vector_texts=semantic_queries,
         rrf_k=rrf_k,
         limit=limit,
         candidate_pool=candidate_pool,
