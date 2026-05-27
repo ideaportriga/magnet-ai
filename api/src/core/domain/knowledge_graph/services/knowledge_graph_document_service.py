@@ -499,13 +499,12 @@ class KnowledgeGraphDocumentService:
 
         - ``"vector"``: pgvector cosine similarity on ``summary_embedding``.
           ``query_vector`` is required.
-        - ``"keyword"``: parallel tsvector + pg_trgm search fused via RRF.
-          ``query_text`` is required.
+        - ``"full_text"``: tsvector full-text search only, fused via RRF.
+        - ``"keyword"``: parallel tsvector + pg_trgm (fuzzy) search fused via RRF.
         - ``"hybrid"``: parallel pgvector + tsvector + pg_trgm fused via RRF.
-          Both ``query_vector`` and ``query_text`` are required.
 
         ``score`` in the returned dicts is cosine similarity for vector mode
-        and a normalized RRF score in [0, 1] for keyword / hybrid modes.
+        and a normalized RRF score in [0, 1] for the fused modes.
         """
 
         if search_method == "vector":
@@ -530,6 +529,8 @@ class KnowledgeGraphDocumentService:
             doc_filter_where_sql=doc_filter_where_sql,
             doc_filter_where_params=doc_filter_where_params,
             include_vector=(search_method == "hybrid"),
+            include_full_text=search_method in ("full_text", "keyword", "hybrid"),
+            include_trigram=search_method in ("keyword", "hybrid"),
             rrf_k=rrf_k,
         )
 
@@ -615,21 +616,27 @@ class KnowledgeGraphDocumentService:
         doc_filter_where_sql: str | None,
         doc_filter_where_params: dict[str, Any] | None,
         include_vector: bool,
+        include_full_text: bool,
+        include_trigram: bool,
         rrf_k: int,
     ) -> list[dict[str, Any]]:
         """Run candidate sub-queries in parallel and fuse with RRF.
 
-        Each sub-query returns an ID-only ranked list. RRF picks the top
-        ``limit`` IDs; a single hydration query then loads the full rows.
-        Sub-queries each use their own AsyncSession so they can execute
-        concurrently against the connection pool.
+        Each sub-query returns a ranked ``(id, score)`` list; we keep the id
+        order. RRF picks the top ``limit`` IDs; a single hydration query then
+        loads the full rows. Sub-queries each use their own AsyncSession so they
+        can execute concurrently against the connection pool.
         """
 
         docs_table = docs_table_name(graph_id)
         # Candidate pool size per sub-query. Bigger than the final limit so RRF
         # has overlap to work with, but bounded so we don't scan the world.
         candidates = max(int(limit) * 4, 30)
-        search_mode = "hybrid" if include_vector else "keyword"
+        search_mode = (
+            "hybrid"
+            if include_vector
+            else ("keyword" if include_trigram else "full_text")
+        )
 
         common_filter_sql = doc_filter_where_sql or None
         common_params: dict[str, Any] = {}
@@ -638,7 +645,8 @@ class KnowledgeGraphDocumentService:
 
         # Vector sub-query (hybrid only).
         vector_sql = (
-            f"SELECT d.id FROM {docs_table} AS d "
+            f"SELECT d.id, 1 - (d.summary_embedding <=> CAST(:qvec AS vector)) AS score "
+            f"FROM {docs_table} AS d "
             f"WHERE d.summary_embedding IS NOT NULL"
             f"{(' AND ' + common_filter_sql) if common_filter_sql else ''} "
             f"ORDER BY d.summary_embedding <=> CAST(:qvec AS vector) "
@@ -646,21 +654,26 @@ class KnowledgeGraphDocumentService:
         )
         # tsvector sub-query.
         tsv_sql = (
-            f"SELECT d.id FROM {docs_table} AS d "
+            f"SELECT d.id, "
+            f"ts_rank_cd(d.search_tsv, plainto_tsquery('english', :qtext)) AS score "
+            f"FROM {docs_table} AS d "
             f"WHERE d.search_tsv @@ plainto_tsquery('english', :qtext)"
             f"{(' AND ' + common_filter_sql) if common_filter_sql else ''} "
-            f"ORDER BY ts_rank_cd(d.search_tsv, plainto_tsquery('english', :qtext)) DESC "
+            f"ORDER BY score DESC "
             f"LIMIT :cand"
         )
-        # pg_trgm sub-query: similarity over title + summary.
+        # pg_trgm sub-query: *word* similarity (``<%``) over title + summary, so a
+        # short query matches the best window of a long summary rather than the
+        # whole text (the symmetric ``%`` would score far below threshold).
         trgm_sql = (
-            f"SELECT d.id FROM {docs_table} AS d "
-            f"WHERE (d.summary % :qtext OR d.title % :qtext)"
+            f"SELECT d.id, GREATEST("
+            f"COALESCE(word_similarity(:qtext, d.summary), 0), "
+            f"COALESCE(word_similarity(:qtext, d.title), 0)"
+            f") AS score "
+            f"FROM {docs_table} AS d "
+            f"WHERE (:qtext <% d.summary OR :qtext <% d.title)"
             f"{(' AND ' + common_filter_sql) if common_filter_sql else ''} "
-            f"ORDER BY GREATEST("
-            f"COALESCE(similarity(d.summary, :qtext), 0), "
-            f"COALESCE(similarity(d.title, :qtext), 0)"
-            f") DESC "
+            f"ORDER BY score DESC "
             f"LIMIT :cand"
         )
 
@@ -681,24 +694,26 @@ class KnowledgeGraphDocumentService:
                 )
             )
         if query_text:
-            method_labels.append("full_text")
-            coros.append(
-                hybrid_full_text_search(
-                    query_text,
-                    tsv_sql,
-                    {**common_params, "qtext": query_text, "cand": candidates},
-                    session_maker=async_session_maker,
+            if include_full_text:
+                method_labels.append("full_text")
+                coros.append(
+                    hybrid_full_text_search(
+                        query_text,
+                        tsv_sql,
+                        {**common_params, "qtext": query_text, "cand": candidates},
+                        session_maker=async_session_maker,
+                    )
                 )
-            )
-            method_labels.append("trigram")
-            coros.append(
-                hybrid_trigram_search(
-                    query_text,
-                    trgm_sql,
-                    {**common_params, "qtext": query_text, "cand": candidates},
-                    session_maker=async_session_maker,
+            if include_trigram:
+                method_labels.append("trigram")
+                coros.append(
+                    hybrid_trigram_search(
+                        query_text,
+                        trgm_sql,
+                        {**common_params, "qtext": query_text, "cand": candidates},
+                        session_maker=async_session_maker,
+                    )
                 )
-            )
 
         if not coros:
             logger.info(
@@ -719,11 +734,15 @@ class KnowledgeGraphDocumentService:
             graph_id,
         )
 
-        rank_lists = await asyncio.gather(*coros)
+        attempt_results = await asyncio.gather(*coros)
         fan_out_ms = round((time.perf_counter() - fan_out_started) * 1000, 2)
 
-        method_results = dict(zip(method_labels, rank_lists))
-        fused = reciprocal_rank_fusion(rank_lists, k=rrf_k)
+        # Each sub-query returns (id, score) in rank order; keep the id order.
+        method_results = {
+            label: [item_id for item_id, _ in result]
+            for label, result in zip(method_labels, attempt_results)
+        }
+        fused = reciprocal_rank_fusion(method_results.values(), k=rrf_k)
         diag = fusion_diagnostics(
             method_results=method_results,
             fused=fused,

@@ -30,8 +30,8 @@
           </div>
         </kg-field-row>
 
-        <kg-field-row v-if="localTool.searchMethod !== 'vector'" :cols="2">
-          <div :class="{ 'col-span-2': localTool.searchMethod === 'keyword' }">
+        <kg-field-row :cols="2">
+          <div v-if="localTool.searchMethod === 'keyword' || localTool.searchMethod === 'hybrid'">
             <div class="km-input-label q-pb-sm" title="Constant in 1/(k+rank). Higher k = less aggressive rank discrimination. Typical: 60.">
               RRF k
             </div>
@@ -43,8 +43,8 @@
               @update:model-value="localTool.rrfK = clampInt($event, 1, 200)"
             />
           </div>
-          <div v-if="localTool.searchMethod === 'hybrid'">
-            <div class="km-input-label q-pb-sm" title="Rows each sub-query (vector + keyword) fetches before RRF fusion. Higher = wider recall, slower.">
+          <div :class="{ 'col-span-2': localTool.searchMethod === 'vector' || localTool.searchMethod === 'full_text' }">
+            <div class="km-input-label q-pb-sm" title="Maximum number of candidates considered. Each ranked sub-query fetches up to this many rows before they are merged and fused, and it is the upper bound for the Result Limit.">
               Candidate Pool
             </div>
             <km-input
@@ -82,14 +82,14 @@
         </div>
 
         <kg-field-row :cols="2">
-          <div v-if="localTool.searchMethod !== 'vector'" :class="{ 'col-span-2': localTool.searchMethod === 'keyword' }">
+          <div v-if="localTool.searchMethod !== 'vector'" :class="{ 'col-span-2': localTool.searchMethod === 'keyword' || localTool.searchMethod === 'full_text' }">
             <div class="km-input-label row justify-between q-pb-12">
-              <span title="How many distinct keyword queries to generate from the intent. Each adds a full-text + fuzzy search.">Keyword Queries to Generate</span>
+              <span title="How many distinct keyword queries to generate from the intent. Each adds a full-text (and fuzzy, if enabled) search.">Keyword Queries to Generate</span>
               <span class="text-primary text-weight-bold">{{ localTool.keywordVariants }}</span>
             </div>
             <q-slider v-model="localTool.keywordVariants" :min="1" :max="5" :step="1" snap markers color="primary" />
           </div>
-          <div v-if="localTool.searchMethod !== 'keyword'" :class="{ 'col-span-2': localTool.searchMethod === 'vector' }">
+          <div v-if="localTool.searchMethod === 'vector' || localTool.searchMethod === 'hybrid'" :class="{ 'col-span-2': localTool.searchMethod === 'vector' }">
             <div class="km-input-label row justify-between q-pb-12">
               <span title="How many distinct semantic queries to generate from the intent. Each adds a vector search.">Vector Queries to Generate</span>
               <span class="text-primary text-weight-bold">{{ localTool.vectorVariants }}</span>
@@ -116,14 +116,11 @@
           <q-slider v-model="localTool.scoreThreshold" :min="0" :max="1" :step="0.01" color="primary" />
         </div>
         <div>
-          <div class="km-input-label q-pb-sm">Result Limit</div>
-          <km-input
-            :model-value="localTool.limit"
-            type="number"
-            :min="1"
-            :max="20"
-            @update:model-value="localTool.limit = clampInt($event, 1, 20)"
-          />
+          <div class="km-input-label row justify-between q-pb-12">
+            <span title="Final number of results returned to the agent after fusion. Capped at the Candidate Pool.">Result Limit</span>
+            <span class="text-primary text-weight-bold">{{ localTool.limit }}</span>
+          </div>
+          <q-slider v-model="localTool.limit" :min="1" :max="limitMax" :step="1" snap color="primary" />
         </div>
       </kg-field-row>
     </kg-dialog-section>
@@ -186,6 +183,10 @@ const clampInt = (val: unknown, min: number, max: number): number => {
   return Math.min(max, Math.max(min, n))
 }
 
+// Result Limit is bounded by the Candidate Pool: you cannot return more results
+// than were pooled for fusion.
+const limitMax = computed(() => Math.max(1, Number(localTool.value?.candidatePoolSize) || 1))
+
 const { items: promptTemplateItems, get: fetchPromptTemplates } = useChroma('promptTemplates')
 const loadingPromptTemplates = ref(false)
 
@@ -212,6 +213,17 @@ watch(
     }
   },
   { immediate: true, deep: true }
+)
+
+// Keep Result Limit within the Candidate Pool when the pool is lowered.
+watch(
+  () => localTool.value?.candidatePoolSize,
+  (pool) => {
+    const max = Math.max(1, Number(pool) || 1)
+    if (localTool.value && Number(localTool.value.limit) > max) {
+      localTool.value.limit = max
+    }
+  }
 )
 
 onMounted(async () => {

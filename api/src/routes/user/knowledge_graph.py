@@ -236,7 +236,9 @@ class KnowledgeGraphSearchRequest(BaseModel):
     query: str = Field(..., min_length=1)
     limit: int = Field(default=10, ge=1, le=50)
     min_score: float = Field(default=0.5, ge=0.0, le=1.0)
-    search_method: Literal["vector", "keyword", "hybrid"] = Field(default="hybrid")
+    search_method: Literal["vector", "full_text", "keyword", "hybrid"] = Field(
+        default="hybrid"
+    )
     rrf_k: int = Field(default=60, ge=1, le=200)
     filter_documents_by_ids: list[UUID] | None = None
     filter_documents_by_metadata: str | dict[str, Any] | None = Field(
@@ -263,7 +265,9 @@ class KnowledgeGraphDocumentSearchRequest(BaseModel):
     query: str = Field(..., min_length=1)
     limit: int = Field(default=10, ge=1, le=50)
     min_score: float = Field(default=0.5, ge=0.0, le=1.0)
-    search_method: Literal["vector", "keyword", "hybrid"] = Field(default="hybrid")
+    search_method: Literal["vector", "full_text", "keyword", "hybrid"] = Field(
+        default="hybrid"
+    )
     rrf_k: int = Field(default=60, ge=1, le=200)
     filter_documents_by_metadata: str | dict[str, Any] | None = Field(
         default=None,
@@ -520,10 +524,10 @@ class UserKnowledgeGraphController(Controller):
         doc_filter_where_sql: str | None = None
         doc_filter_where_params: dict[str, Any] | None = None
 
-        # Generate query embedding (keyword mode skips this).
+        # Generate query embedding (lexical-only modes skip this).
         query_vector: list[float] | None = (
             None
-            if data.search_method == "keyword"
+            if data.search_method in ("keyword", "full_text")
             else await get_embeddings(data.query, embedding_model)
         )
 

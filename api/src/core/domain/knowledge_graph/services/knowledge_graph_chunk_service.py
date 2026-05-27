@@ -41,6 +41,7 @@ from services.knowledge_graph.rrf import (
     hybrid_full_text_search,
     hybrid_trigram_search,
     hybrid_vector_search,
+    merge_attempts_by_max_score,
     normalized_rrf_score,
     reciprocal_rank_fusion,
     vector_literal,
@@ -246,18 +247,20 @@ class KnowledgeGraphChunkService:
         - ``"vector"``: pgvector cosine similarity on ``content_embedding``.
           One cosine search per vector in ``query_vectors``, merged by max
           similarity per chunk.
-        - ``"keyword"``: parallel tsvector + pg_trgm search fused via RRF.
-          One sub-query pair per text in ``query_texts``.
+        - ``"full_text"``: tsvector full-text search only, fused via RRF.
+        - ``"keyword"``: parallel tsvector + pg_trgm (fuzzy) search fused via RRF.
         - ``"hybrid"``: parallel pgvector + tsvector + pg_trgm fused via RRF.
-          One vector sub-query per vector plus one tsvector + pg_trgm pair per
-          text.
+
+        For the fused methods, every query variant runs its own sub-query; the
+        attempts of each method are merged (dedup by max score) into a single
+        ranked list, and only those per-method lists are fused via RRF.
 
         ``candidate_pool`` is how many rows each fused sub-query fetches before
         RRF fusion (ignored in pure vector mode, which fetches ``limit`` per
         vector).
 
         ``ChunkSearchResult.score`` carries cosine similarity for vector mode
-        and a normalized RRF score in [0, 1] for keyword / hybrid modes.
+        and a normalized RRF score in [0, 1] for the fused modes.
         """
 
         if search_method == "vector":
@@ -282,6 +285,8 @@ class KnowledgeGraphChunkService:
             doc_filter_where_sql=doc_filter_where_sql,
             doc_filter_where_params=doc_filter_where_params,
             include_vector=(search_method == "hybrid"),
+            include_full_text=search_method in ("full_text", "keyword", "hybrid"),
+            include_trigram=search_method in ("keyword", "hybrid"),
             rrf_k=rrf_k,
         )
 
@@ -423,15 +428,20 @@ class KnowledgeGraphChunkService:
         doc_filter_where_sql: str | None,
         doc_filter_where_params: dict[str, Any] | None,
         include_vector: bool,
+        include_full_text: bool,
+        include_trigram: bool,
         rrf_k: int,
     ) -> list[ChunkSearchResult]:
         """Run candidate sub-queries in parallel and fuse with RRF.
 
-        Each query variant contributes its own sub-query (one vector sub-query
-        per vector, one tsvector + pg_trgm pair per text). Sub-queries each use
-        their own AsyncSession so they can execute concurrently against the
-        connection pool. A single hydration query then loads full rows on the
-        caller's session.
+        Every query variant contributes its own sub-query (one vector sub-query
+        per vector, one tsvector and/or one pg_trgm sub-query per text). The
+        attempts of each method are first merged into a single ranked list
+        (dedup by max relevance score), so multiple variants of one method count
+        as a single RRF voter rather than fusing independently. RRF then fuses
+        the per-method lists. Sub-queries each use their own AsyncSession so they
+        can execute concurrently; a single hydration query then loads full rows
+        on the caller's session.
         """
 
         docs_table = docs_table_name(graph_id)
@@ -458,36 +468,47 @@ class KnowledgeGraphChunkService:
         )
 
         vector_sql = (
-            f"SELECT c.id {join_clause}"
+            f"SELECT c.id, 1 - (c.content_embedding <=> CAST(:qvec AS vector)) AS score "
+            f"{join_clause}"
             f"WHERE c.content_embedding IS NOT NULL{filter_suffix} "
             f"ORDER BY c.content_embedding <=> CAST(:qvec AS vector) "
             f"LIMIT :cand"
         )
         tsv_sql = (
-            f"SELECT c.id {join_clause}"
+            f"SELECT c.id, "
+            f"ts_rank_cd(c.search_tsv, plainto_tsquery('english', :qtext)) AS score "
+            f"{join_clause}"
             f"WHERE c.search_tsv @@ plainto_tsquery('english', :qtext){filter_suffix} "
-            f"ORDER BY ts_rank_cd(c.search_tsv, plainto_tsquery('english', :qtext)) DESC "
+            f"ORDER BY score DESC "
             f"LIMIT :cand"
         )
+        # Fuzzy match uses pg_trgm *word* similarity (``<%``) rather than the
+        # symmetric ``%`` / ``similarity()``: a short keyword query is matched
+        # against the best window of a long body instead of the whole body,
+        # which otherwise yields a similarity far below threshold (≈ no rows).
         trgm_sql = (
-            f"SELECT c.id {join_clause}"
-            f"WHERE (c.content % :qtext OR c.title % :qtext){filter_suffix} "
-            f"ORDER BY GREATEST("
-            f"COALESCE(similarity(c.content, :qtext), 0), "
-            f"COALESCE(similarity(c.title, :qtext), 0)"
-            f") DESC "
+            f"SELECT c.id, GREATEST("
+            f"COALESCE(word_similarity(:qtext, c.content), 0), "
+            f"COALESCE(word_similarity(:qtext, c.title), 0)"
+            f") AS score "
+            f"{join_clause}"
+            f"WHERE (:qtext <% c.content OR :qtext <% c.title){filter_suffix} "
+            f"ORDER BY score DESC "
             f"LIMIT :cand"
         )
 
-        search_mode = "hybrid" if include_vector else "keyword"
-        method_labels: list[str] = []
-        coros: list[Any] = []
+        # Build sub-query coroutines grouped by method so the attempts of one
+        # method (one per query variant) can be merged before RRF.
+        method_coros: dict[str, list[Any]] = {
+            "vector": [],
+            "full_text": [],
+            "trigram": [],
+        }
         if include_vector and query_vectors:
-            for idx, vector in enumerate(query_vectors, start=1):
+            for vector in query_vectors:
                 if not vector:
                     continue
-                method_labels.append(f"vector_{idx}")
-                coros.append(
+                method_coros["vector"].append(
                     hybrid_vector_search(
                         "",
                         vector_sql,
@@ -499,42 +520,59 @@ class KnowledgeGraphChunkService:
                         session_maker=async_session_maker,
                     )
                 )
-        for idx, query_text in enumerate(query_texts or [], start=1):
+        for query_text in query_texts or []:
             if not query_text:
                 continue
-            method_labels.append(f"full_text_{idx}")
-            coros.append(
-                hybrid_full_text_search(
-                    query_text,
-                    tsv_sql,
-                    {**common_params, "qtext": query_text, "cand": candidates},
-                    session_maker=async_session_maker,
+            if include_full_text:
+                method_coros["full_text"].append(
+                    hybrid_full_text_search(
+                        query_text,
+                        tsv_sql,
+                        {**common_params, "qtext": query_text, "cand": candidates},
+                        session_maker=async_session_maker,
+                    )
                 )
-            )
-            method_labels.append(f"trigram_{idx}")
-            coros.append(
-                hybrid_trigram_search(
-                    query_text,
-                    trgm_sql,
-                    {**common_params, "qtext": query_text, "cand": candidates},
-                    session_maker=async_session_maker,
+            if include_trigram:
+                method_coros["trigram"].append(
+                    hybrid_trigram_search(
+                        query_text,
+                        trgm_sql,
+                        {**common_params, "qtext": query_text, "cand": candidates},
+                        session_maker=async_session_maker,
+                    )
                 )
-            )
 
-        if not coros:
+        ordered_methods = [
+            m for m in ("vector", "full_text", "trigram") if method_coros[m]
+        ]
+        if not ordered_methods:
             logger.info(
                 "hybrid chunks search short-circuit: no contributing sub-queries graph_id=%s",
                 graph_id,
             )
             return []
 
-        contributing = len(method_labels)
+        # Flatten for concurrent execution, remembering each coro's method.
+        flat_coros: list[Any] = []
+        flat_methods: list[str] = []
+        for method in ordered_methods:
+            for coro in method_coros[method]:
+                flat_coros.append(coro)
+                flat_methods.append(method)
+
+        search_mode = (
+            "hybrid"
+            if include_vector
+            else ("keyword" if include_trigram else "full_text")
+        )
+        contributing = len(ordered_methods)
         fan_out_started = time.perf_counter()
         logger.info(
-            "hybrid chunks search start mode=%s methods=%s candidates=%d limit=%d rrf_k=%d "
-            "only_doc_ids=%d graph_id=%s",
+            "hybrid chunks search start mode=%s methods=%s attempts=%d candidates=%d limit=%d "
+            "rrf_k=%d only_doc_ids=%d graph_id=%s",
             search_mode,
-            method_labels,
+            ordered_methods,
+            len(flat_coros),
             candidates,
             limit,
             rrf_k,
@@ -542,10 +580,22 @@ class KnowledgeGraphChunkService:
             graph_id,
         )
 
-        rank_lists = await asyncio.gather(*coros)
+        attempt_results = await asyncio.gather(*flat_coros)
         fan_out_ms = round((time.perf_counter() - fan_out_started) * 1000, 2)
 
-        method_results = dict(zip(method_labels, rank_lists))
+        # Merge the attempts of each method (dedup by max score) into one ranked
+        # id list per method, then fuse only those per-method lists with RRF.
+        per_method_attempts: dict[str, list[list[tuple[str, float]]]] = {
+            m: [] for m in ordered_methods
+        }
+        for method, result in zip(flat_methods, attempt_results):
+            per_method_attempts[method].append(result)
+
+        method_results: dict[str, list[str]] = {
+            method: merge_attempts_by_max_score(attempts)
+            for method, attempts in per_method_attempts.items()
+        }
+        rank_lists = [method_results[m] for m in ordered_methods]
         fused = reciprocal_rank_fusion(rank_lists, k=rrf_k)
         diag = fusion_diagnostics(
             method_results=method_results,
@@ -558,7 +608,7 @@ class KnowledgeGraphChunkService:
             "hybrid chunks fusion mode=%s methods=%s per_method=%s unique=%d overlap=%d fused=%d "
             "fan_out_ms=%.2f top_score=%.4f",
             search_mode,
-            method_labels,
+            ordered_methods,
             diag["per_method_result_count"],
             diag["unique_candidates"],
             diag["multi_method_overlap"],

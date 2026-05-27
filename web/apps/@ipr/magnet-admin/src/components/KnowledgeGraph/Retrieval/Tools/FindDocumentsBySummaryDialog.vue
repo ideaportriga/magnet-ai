@@ -24,11 +24,11 @@
     >
       <div class="column q-gap-16">
         <kg-field-row :cols="2">
-          <div :class="{ 'col-span-2': localTool.searchMethod === 'vector' }">
+          <div :class="{ 'col-span-2': localTool.searchMethod === 'vector' || localTool.searchMethod === 'full_text' }">
             <div class="km-input-label q-pb-sm">Method</div>
             <kg-dropdown-field v-model="localTool.searchMethod" :options="searchMethodOptions" dense />
           </div>
-          <div v-if="localTool.searchMethod !== 'vector'">
+          <div v-if="localTool.searchMethod === 'keyword' || localTool.searchMethod === 'hybrid'">
             <div class="km-input-label q-pb-sm" title="Constant in 1/(k+rank). Higher k = less aggressive rank discrimination. Typical: 60.">
               RRF k
             </div>

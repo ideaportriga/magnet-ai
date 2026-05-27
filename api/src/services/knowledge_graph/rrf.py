@@ -34,6 +34,12 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=Hashable)
 
+# Threshold for the pg_trgm word-similarity (``<%``) operator used by fuzzy
+# search. The Postgres default (0.6) is too strict for matching short keyword
+# queries against long bodies; 0.3 favours recall (RRF + score threshold filter
+# noise downstream).
+TRIGRAM_WORD_SIMILARITY_THRESHOLD = 0.3
+
 
 def reciprocal_rank_fusion(
     rank_lists: Iterable[Iterable[T]],
@@ -55,6 +61,29 @@ def reciprocal_rank_fusion(
             scores[item] += 1.0 / (k + rank)
 
     return sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
+
+
+def merge_attempts_by_max_score(
+    attempts: Iterable[Iterable[tuple[T, float]]],
+) -> list[T]:
+    """Collapse multiple ``(id, score)`` lists from one method into one ranking.
+
+    Each input list is the result of a single query-variant *attempt* of the
+    **same** search method (e.g. several reformulated keyword queries all run
+    through full-text search). Because they share a scoring scale, we keep the
+    best (max) score per id and return ids sorted by score descending. This is
+    the merge-and-dedup step that runs *before* cross-method RRF, so attempts of
+    one method count as a single voter rather than fusing independently.
+    """
+
+    best: dict[T, float] = {}
+    for attempt in attempts:
+        for item, score in attempt:
+            if item not in best or score > best[item]:
+                best[item] = score
+    return [
+        item for item, _ in sorted(best.items(), key=lambda kv: kv[1], reverse=True)
+    ]
 
 
 def normalized_rrf_score(raw_score: float, *, num_methods: int, k: int = 60) -> float:
@@ -79,10 +108,21 @@ async def _execute_hybrid_subquery(
     sql: str,
     params: dict[str, Any],
     session_maker: Any,
-) -> list[str]:
+    pre_statements: list[str] | None = None,
+) -> list[tuple[str, float]]:
+    """Run a candidate sub-query and return ``(id, score)`` rows in rank order.
+
+    The sub-query must ``SELECT id, score`` (score is the method's own relevance
+    measure: cosine similarity, ts_rank_cd, or word_similarity). ``pre_statements``
+    are executed in the same session/transaction before the main query (e.g. a
+    ``SET LOCAL`` to tune a pg_trgm threshold).
+    """
+
     started = time.perf_counter()
     try:
         async with session_maker() as session:
+            for stmt in pre_statements or []:
+                await session.execute(text(stmt))
             rows = (await session.execute(text(sql), params)).all()
     except Exception:
         elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
@@ -92,18 +132,22 @@ async def _execute_hybrid_subquery(
         )
         raise
 
-    ids = [str(r[0]) for r in rows if r[0] is not None]
+    results = [
+        (str(r[0]), float(r[1]) if r[1] is not None else 0.0)
+        for r in rows
+        if r[0] is not None
+    ]
     elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
     observability_context.update_current_span(
-        input={"query": query}, output={"count": len(ids)}
+        input={"query": query}, output={"count": len(results)}
     )
     logger.info(
         "hybrid sub-query method=%s results=%d elapsed_ms=%.2f",
         method,
-        len(ids),
+        len(results),
         elapsed_ms,
     )
-    return ids
+    return results
 
 
 @observe(
@@ -117,7 +161,7 @@ async def hybrid_vector_search(
     params: dict[str, Any],
     *,
     session_maker: Any,
-) -> list[str]:
+) -> list[tuple[str, float]]:
     """Parallel hybrid sub-query: pgvector cosine similarity over embeddings."""
     return await _execute_hybrid_subquery("vector", query, sql, params, session_maker)
 
@@ -133,7 +177,7 @@ async def hybrid_full_text_search(
     params: dict[str, Any],
     *,
     session_maker: Any,
-) -> list[str]:
+) -> list[tuple[str, float]]:
     """Parallel hybrid sub-query: Postgres full-text search via ``tsvector``."""
     return await _execute_hybrid_subquery(
         "full_text", query, sql, params, session_maker
@@ -151,9 +195,23 @@ async def hybrid_trigram_search(
     params: dict[str, Any],
     *,
     session_maker: Any,
-) -> list[str]:
-    """Parallel hybrid sub-query: fuzzy/lexical match via ``pg_trgm``."""
-    return await _execute_hybrid_subquery("trigram", query, sql, params, session_maker)
+) -> list[tuple[str, float]]:
+    """Parallel hybrid sub-query: fuzzy/lexical match via ``pg_trgm``.
+
+    Lowers ``pg_trgm.word_similarity_threshold`` for the ``<%`` operator so short
+    keyword queries match windows inside long bodies (the 0.6 default is too
+    strict for partial matches).
+    """
+    return await _execute_hybrid_subquery(
+        "trigram",
+        query,
+        sql,
+        params,
+        session_maker,
+        pre_statements=[
+            f"SET LOCAL pg_trgm.word_similarity_threshold = {TRIGRAM_WORD_SIMILARITY_THRESHOLD}"
+        ],
+    )
 
 
 def fusion_diagnostics(

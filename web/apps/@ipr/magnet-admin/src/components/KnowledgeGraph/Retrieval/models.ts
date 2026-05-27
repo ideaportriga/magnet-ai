@@ -123,8 +123,9 @@ export const tools: Tool[] = [
 
 export const searchMethodOptions = [
   { label: 'Vector', value: 'vector' },
-  { label: 'Keyword', value: 'keyword' },
-  { label: 'Hybrid (Vector + Keyword)', value: 'hybrid' },
+  { label: 'Full Text', value: 'full_text' },
+  { label: 'Full Text + Fuzzy', value: 'keyword' },
+  { label: 'Hybrid (Vector + Full Text + Fuzzy)', value: 'hybrid' },
 ]
 
 export interface ToolDefinition {

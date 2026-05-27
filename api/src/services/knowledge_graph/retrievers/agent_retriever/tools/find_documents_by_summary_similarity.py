@@ -133,7 +133,7 @@ async def findDocumentsBySummarySimilarity(
     # Embedding is only needed for vector and hybrid modes.
     started = time.perf_counter()
     embedding_ms: float | None = None
-    if search_method == "keyword":
+    if search_method in ("keyword", "full_text"):
         vec: list[float] | None = None
     else:
         embed_started = time.perf_counter()

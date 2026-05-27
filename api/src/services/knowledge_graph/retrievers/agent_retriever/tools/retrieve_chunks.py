@@ -251,9 +251,10 @@ async def retrieveChunks(
     vector_variants = max(1, int(tool_cfg.get("vectorVariants", 1)))
     doc_filter_count = len(doc_filter_ids) if doc_filter_ids else 0
 
-    # How many variants each search type needs for the active mode. Keyword mode
-    # never embeds; vector mode never runs lexical sub-queries.
-    if search_method == "keyword":
+    # How many variants each search type needs for the active mode. Lexical-only
+    # modes (full_text, keyword) never embed; vector mode runs no lexical
+    # sub-queries.
+    if search_method in ("keyword", "full_text"):
         keyword_count, semantic_count = keyword_variants, 0
     elif search_method == "vector":
         keyword_count, semantic_count = 0, vector_variants
