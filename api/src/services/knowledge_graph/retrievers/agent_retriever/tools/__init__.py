@@ -166,7 +166,7 @@ _FULL_SEARCH_SPEC: dict[str, Any] = {
     "description": (
         "Search the entire knowledge graph using an autonomous ReAct retrieval agent. "
         "The agent autonomously decides which retrieval strategies to use "
-        "(chunk similarity, document summary, metadata filtering) to best answer the query."
+        "(chunk retrieval, document summary, metadata filtering) to best answer the query."
     ),
     "parameters": {
         "type": "object",

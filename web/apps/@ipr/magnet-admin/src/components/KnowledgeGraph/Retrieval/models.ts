@@ -19,6 +19,7 @@ export interface Tool {
   rrfK?: number
   scoreThreshold?: number
   limit?: number
+  promptTemplateName?: string
   metadataMergeStrategy?: 'merge_and' | 'merge_or' | 'agent_priority' | 'caller_priority'
 
   // Exit specific
@@ -79,16 +80,17 @@ export const tools: Tool[] = [
     },
   },
   {
-    id: 'findChunksBySimilarity',
-    name: 'findChunksBySimilarity',
-    label: 'Chunk Similarity Search',
-    description: 'Find chunks by similarity',
+    id: 'retrieveChunks',
+    name: 'retrieveChunks',
+    label: 'Chunk Retrieval',
+    description: 'Retrieve chunks',
     category: 'retrieval',
     scopeControl: 'configuration',
     searchMethod: 'hybrid',
     rrfK: 60,
     scoreThreshold: 0.7,
     limit: 5,
+    promptTemplateName: 'KG_CHUNK_QUERY_REFORMULATION',
     enabled: true,
     ui: {
       previewExecutionFlowColor: 'indigo',

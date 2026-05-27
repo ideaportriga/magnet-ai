@@ -52,6 +52,28 @@
       </div>
     </kg-dialog-section>
 
+    <!-- Query Reformulation Section -->
+    <kg-dialog-section
+      title="Query Reformulation"
+      description="Select the prompt template used to turn the agent's intent and context into a keyword-friendly term and a vector-friendly phrase before searching. Leave empty to search the intent directly."
+      icon="auto_fix_high"
+      icon-color="indigo-7"
+    >
+      <div>
+        <div class="km-input-label q-pb-sm">Prompt Template</div>
+        <kg-dropdown-field
+          v-model="localTool.promptTemplateName"
+          :options="promptTemplateOptions"
+          :loading="loadingPromptTemplates"
+          placeholder="No reformulation"
+          option-meta="value"
+          searchable
+          clearable
+          dense
+        />
+      </div>
+    </kg-dialog-section>
+
     <!-- Context Expansion Section -->
     <kg-dialog-section
       title="Context Expansion"
@@ -87,7 +109,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { useChroma } from '@shared'
+import { computed, onMounted, ref, watch } from 'vue'
 import { KgDialogBase, KgDialogSection, KgDropdownField, KgFieldRow, KgPromptSection, KgSectionControl, KgToggleField } from '../../common'
 import { searchMethodOptions } from '../models'
 
@@ -103,6 +126,24 @@ const emit = defineEmits<{
 
 const localTool = ref<any>(null)
 
+const { items: promptTemplateItems, get: fetchPromptTemplates } = useChroma('promptTemplates')
+const loadingPromptTemplates = ref(false)
+
+const promptTemplateOptions = computed(() => {
+  const list = (promptTemplateItems.value || []) as any[]
+  const options = list
+    .filter((p) => p?.system_name)
+    .map((p) => ({ label: p.display_name || p.name || p.system_name, value: p.system_name }))
+    .sort((a, b) => a.label.localeCompare(b.label))
+
+  // Keep the currently configured template selectable even if not yet loaded.
+  const current = localTool.value?.promptTemplateName
+  if (current && !options.some((o) => o.value === current)) {
+    options.unshift({ label: current, value: current })
+  }
+  return options
+})
+
 watch(
   () => props.tool,
   (newVal) => {
@@ -112,6 +153,17 @@ watch(
   },
   { immediate: true, deep: true }
 )
+
+onMounted(async () => {
+  if ((promptTemplateItems.value || []).length === 0) {
+    loadingPromptTemplates.value = true
+    try {
+      await fetchPromptTemplates()
+    } finally {
+      loadingPromptTemplates.value = false
+    }
+  }
+})
 
 const save = () => {
   emit('save', localTool.value)

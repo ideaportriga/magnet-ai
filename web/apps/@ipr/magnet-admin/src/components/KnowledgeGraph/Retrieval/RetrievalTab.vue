@@ -245,7 +245,7 @@ import ToolSection from './ToolSection.vue'
 import ToolStat from './ToolStat.vue'
 import ComingSoonToolDialog from './Tools/ComingSoonToolDialog.vue'
 import ExitToolDialog from './Tools/ExitToolDialog.vue'
-import FindChunksBySimilarityDialog from './Tools/FindChunksBySimilarityDialog.vue'
+import ChunkRetrievalDialog from './Tools/ChunkRetrievalDialog.vue'
 import FindDocumentsByMetadataDialog from './Tools/FindDocumentsByMetadataDialog.vue'
 import FindDocumentsBySummaryDialog from './Tools/FindDocumentsBySummaryDialog.vue'
 import {
@@ -461,6 +461,7 @@ function serializeToolSettings() {
         limit: tool.limit,
         rrfK: tool.rrfK,
         searchMethod: tool.searchMethod,
+        promptTemplateName: tool.promptTemplateName,
         description: tool.description,
         enabled: tool.enabled,
         metadataMergeStrategy: tool.metadataMergeStrategy,
@@ -502,6 +503,7 @@ function applyGraphSettings(settings: any) {
         'limit',
         'rrfK',
         'searchMethod',
+        'promptTemplateName',
         'description',
         'enabled',
         'metadataMergeStrategy',
@@ -895,8 +897,8 @@ const getToolComponent = (toolId?: string) => {
       return FindDocumentsByMetadataDialog
     case 'findDocumentsBySummary':
       return FindDocumentsBySummaryDialog
-    case 'findChunksBySimilarity':
-      return FindChunksBySimilarityDialog
+    case 'retrieveChunks':
+      return ChunkRetrievalDialog
     case 'exit':
       return ExitToolDialog
     default:

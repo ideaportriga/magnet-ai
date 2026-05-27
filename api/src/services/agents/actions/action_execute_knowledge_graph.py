@@ -66,28 +66,30 @@ async def _execute_find_chunks(
     embedding_model: str,
     arguments: dict,
 ) -> AgentActionCallResponse:
-    """Execute findChunksBySimilarity and return formatted content."""
-    from services.knowledge_graph.retrievers.agent_retriever.tools.find_chunks_by_similarity import (
-        findChunksBySimilarity,
+    """Execute retrieveChunks and return formatted content."""
+    from services.knowledge_graph.retrievers.agent_retriever.tools.retrieve_chunks import (
+        retrieveChunks,
     )
 
-    query = arguments.get("query")
+    query = arguments.get("query") or arguments.get("intent")
     if not query:
-        raise ValueError("Cannot call findChunksBySimilarity - 'query' is missing")
+        raise ValueError("Cannot call retrieveChunks - 'query' is missing")
 
+    context_hint = arguments.get("context_hint")
     limit = int(arguments.get("limit", DEFAULT_LIMIT))
     min_score = float(arguments.get("min_score", DEFAULT_MIN_SCORE))
     search_method = arguments.get("search_method", "hybrid")
     rrf_k = int(arguments.get("rrf_k", 60))
 
-    chunks = await findChunksBySimilarity(
+    chunks = await retrieveChunks(
         db_session=db_session,
         graph_id=graph_id,
-        q=query,
+        query=query,
         embedding_model=embedding_model,
         limit=limit,
         min_score=min_score,
         doc_filter_ids=[],
+        context_hint=context_hint,
         tool_cfg={"searchMethod": search_method, "rrfK": rrf_k},
     )
 
@@ -115,7 +117,7 @@ async def _execute_find_chunks(
         verbose_details={
             "graph_system_name": graph_system_name,
             "graph_id": str(graph_id),
-            "tool": "findChunksBySimilarity",
+            "tool": "retrieveChunks",
             "query": query,
             "limit": limit,
             "min_score": min_score,
@@ -292,7 +294,7 @@ async def action_execute_knowledge_graph(
     tool_provider:
         The KG system_name (identifies which graph to query).
     tool_system_name:
-        The specific tool to run (e.g. ``findChunksBySimilarity``).
+        The specific tool to run (e.g. ``retrieveChunks``).
     arguments:
         Tool-specific arguments produced by the LLM.
     variables:
@@ -316,7 +318,7 @@ async def action_execute_knowledge_graph(
         )
 
         match tool_system_name:
-            case "findChunksBySimilarity":
+            case "retrieveChunks":
                 embedding_model = await get_graph_embedding_model(db_session, graph_id)
                 if not embedding_model:
                     raise RuntimeError(

@@ -21,13 +21,14 @@ def get_default_retrieval_settings() -> dict[str, Any]:
                 "limit": 5,
                 "rrfK": 60,
             },
-            "findChunksBySimilarity": {
-                "description": "Find chunks by similarity",
+            "retrieveChunks": {
+                "description": "Retrieve chunks",
                 "enabled": True,
                 "searchMethod": "hybrid",
                 "scoreThreshold": 0.7,
                 "limit": 5,
                 "rrfK": 60,
+                "promptTemplateName": "KG_CHUNK_QUERY_REFORMULATION",
             },
             "exit": {
                 "description": "Exit the tool call loop",

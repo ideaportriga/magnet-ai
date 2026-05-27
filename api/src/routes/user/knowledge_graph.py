@@ -40,8 +40,8 @@ from services.knowledge_graph.retrievers.agent_retriever.agent import (
     continue_conversation,
     start_conversation,
 )
-from services.knowledge_graph.retrievers.agent_retriever.tools.find_chunks_by_similarity import (
-    findChunksBySimilarity,
+from services.knowledge_graph.retrievers.agent_retriever.tools.retrieve_chunks import (
+    retrieveChunks,
 )
 from services.knowledge_graph.retrievers.agent_retriever.tools.find_documents_by_metadata import (
     findDocumentsByMetadata,
@@ -461,10 +461,10 @@ class UserKnowledgeGraphController(Controller):
 
         doc_filter_ids = [str(x) for x in (data.filter_documents_by_ids or [])]
 
-        chunks = await findChunksBySimilarity(
+        chunks = await retrieveChunks(
             db_session=db_session,
             graph_id=graph_id,
-            q=data.query,
+            query=data.query,
             embedding_model=embedding_model,
             limit=int(data.limit),
             min_score=float(data.min_score),

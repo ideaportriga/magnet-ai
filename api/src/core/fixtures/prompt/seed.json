@@ -516,5 +516,27 @@
     "description": "Default Prompt Template for RAG Tool call post processing",
     "system_name": "DEFAULT_RAG_POST_PROCESSING",
     "category": "rag"
+  },
+  {
+    "name": "KG Chunk Query Reformulation",
+    "description": "Reformulates a knowledge-graph chunk-retrieval intent into a keyword-friendly search term and a vector-friendly natural phrase. Receives the agent's information need via {query} and optional context via {context_hint}; returns JSON with keyword_query and semantic_query.",
+    "system_name": "KG_CHUNK_QUERY_REFORMULATION",
+    "category": "generic",
+    "active_variant": "base_variant",
+    "variants": [
+      {
+        "variant": "base_variant",
+        "topP": 1,
+        "temperature": 0,
+        "system_name_for_model": "AZURE_OPEN_AI_GPT-4.1-MINI",
+        "display_name": null,
+        "description": null,
+        "text": "You reformulate a knowledge-graph retrieval request into two complementary search inputs.\n\nThe agent's information need (what would make a useful result):\n\"\"\"\n{query}\n\"\"\"\n\nAdditional context about why it is needed (may be empty):\n\"\"\"\n{context_hint}\n\"\"\"\n\nReturn EXACTLY two lines and nothing else, in this order:\nKEYWORDS: ONE or at most TWO highly relevant keywords for full-text / lexical (BM25, trigram) search. Pick only the single most distinctive content word, named entity, or noun (two words only when they form one inseparable term, e.g. a product name). Bare keywords separated by a single space — never a phrase, clause, sentence, list, or punctuation, and no stop-words or filler.\nSEMANTIC: a clear, self-contained natural-language phrase for semantic (vector embedding) search that fully expresses the meaning of the information need.\n\nUse the context only to disambiguate and sharpen relevance; do not invent facts not implied by the information need. Keep both outputs in the same language as the information need. Output only the two labelled lines, with the literal labels \"KEYWORDS:\" and \"SEMANTIC:\".",
+        "sample_text": null,
+        "response_format": null,
+        "sample_test_set": null,
+        "observability_level": "full"
+      }
+    ]
   }
 ]
