@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-alpha.37](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.36...v0.7.0-alpha.37) (2026-05-27)
+
+### ✨ Features
+
+* add create new user and rbac form validation ([e36fc54](https://github.com/ideaportriga/magnet-ai/commit/e36fc542228131879f5c63e516b109947037dd52))
+
+### 🐛 Bug Fixes
+
+* db changes for acc link and link fix ([3a48cea](https://github.com/ideaportriga/magnet-ai/commit/3a48cea07dc9a724768ff96ccd74969684e7a7e6))
+
 ## [0.7.0-alpha.36](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.35...v0.7.0-alpha.36) (2026-05-26)
 
 ### ✨ Features
