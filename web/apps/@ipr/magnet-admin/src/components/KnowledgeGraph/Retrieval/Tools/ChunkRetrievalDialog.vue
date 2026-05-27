@@ -12,13 +12,13 @@
     <kg-prompt-section
       v-model="localTool.description"
       title="Tool Description"
-      description="Explain when the agent should use this tool. This description will be used to generate a prompt for the agent."
+      description="Defines when and why the agent should invoke this tool. The text is injected into the agent's system prompt, so clear, specific wording directly improves retrieval accuracy."
     />
 
     <!-- Search Settings Section -->
     <kg-dialog-section
       title="Search Settings"
-      description="Choose how the tool searches the graph and, for hybrid search, how many candidates are pooled and how aggressively their rankings are fused."
+      description="Select the retrieval algorithm and control how many candidates each sub-query fetches before results are merged and ranked."
       icon="tune"
       icon-color="teal-7"
     >
@@ -26,27 +26,16 @@
         <kg-field-row :cols="1">
           <div>
             <div class="km-input-label q-pb-sm">Method</div>
-            <kg-dropdown-field v-model="localTool.searchMethod" :options="searchMethodOptions" dense />
+            <kg-dropdown-field v-model="localTool.searchMethod" :options="searchMethodOptions" option-description="description" dense />
           </div>
         </kg-field-row>
 
         <kg-field-row :cols="2">
-          <div v-if="localTool.searchMethod === 'keyword' || localTool.searchMethod === 'hybrid'">
-            <div class="km-input-label q-pb-sm" title="Constant in 1/(k+rank). Higher k = less aggressive rank discrimination. Typical: 60.">
-              RRF k
-            </div>
-            <km-input
-              :model-value="localTool.rrfK"
-              type="number"
-              :min="1"
-              :max="200"
-              @update:model-value="localTool.rrfK = clampInt($event, 1, 200)"
-            />
-          </div>
-          <div :class="{ 'col-span-2': localTool.searchMethod === 'vector' || localTool.searchMethod === 'full_text' }">
-            <div class="km-input-label q-pb-sm" title="Maximum number of candidates considered. Each ranked sub-query fetches up to this many rows before they are merged and fused, and it is the upper bound for the Result Limit.">
-              Candidate Pool
-            </div>
+          <kg-field-row
+            :class="{ 'col-span-2': localTool.searchMethod === 'vector' || localTool.searchMethod === 'full_text' }"
+            label="Candidate Pool"
+            hint="Maximum number of candidate chunks each sub-query retrieves before results are merged and re-ranked. Increasing this value improves recall (fewer relevant chunks are missed) but adds latency and compute cost. This value also serves as the upper bound for Result Limit — you cannot return more results than were pooled. Typical range: 20–50 for focused searches, 50–100 when broad coverage matters."
+          >
             <km-input
               :model-value="localTool.candidatePoolSize"
               type="number"
@@ -54,7 +43,20 @@
               :max="200"
               @update:model-value="localTool.candidatePoolSize = clampInt($event, 1, 200)"
             />
-          </div>
+          </kg-field-row>
+          <kg-field-row
+            v-if="localTool.searchMethod === 'keyword' || localTool.searchMethod === 'hybrid'"
+            label="RRF k"
+            hint="Reciprocal Rank Fusion constant used in the formula 1 / (k + rank). A higher value flattens rank differences, giving lower-ranked results more influence. A lower value amplifies the gap between top and bottom ranks. The default of 60 is the standard RRF constant and works well for most cases. Lower it (e.g. 10–30) to favor top-ranked results more aggressively; raise it (e.g. 80–150) when you want broader, more balanced fusion across search methods."
+          >
+            <km-input
+              :model-value="localTool.rrfK"
+              type="number"
+              :min="1"
+              :max="200"
+              @update:model-value="localTool.rrfK = clampInt($event, 1, 200)"
+            />
+          </kg-field-row>
         </kg-field-row>
       </div>
     </kg-dialog-section>
@@ -62,13 +64,15 @@
     <!-- Query Reformulation Section -->
     <kg-dialog-section
       title="Query Reformulation"
-      description="Select the prompt template used to turn the agent's intent and context into keyword-friendly terms and vector-friendly phrases before searching, and how many search queries to generate per search type. Leave the template empty to search the intent directly."
+      description="Before searching, the agent's raw intent can be rewritten into optimized keyword and semantic queries using an LLM prompt template. This improves recall by generating diverse phrasings that match different indexing strategies. Leave the template empty to pass the agent's query directly to the search engine without reformulation."
       icon="auto_fix_high"
       icon-color="indigo-7"
     >
       <div class="column q-gap-16">
-        <div>
-          <div class="km-input-label q-pb-sm">Prompt Template</div>
+        <kg-field-row
+          label="Prompt Template"
+          hint="The LLM prompt used to rewrite the agent's intent into search-optimized queries. The template receives the original query and context, and outputs keyword-friendly terms (for full-text/fuzzy search) and semantically rephrased sentences (for vector search). Select 'No reformulation' to skip this step and search the raw intent directly — useful when queries are already well-formed or latency is critical."
+        >
           <kg-dropdown-field
             v-model="localTool.promptTemplateName"
             :options="promptTemplateOptions"
@@ -79,23 +83,25 @@
             clearable
             dense
           />
-        </div>
+        </kg-field-row>
 
         <kg-field-row :cols="2">
-          <div v-if="localTool.searchMethod !== 'vector'" :class="{ 'col-span-2': localTool.searchMethod === 'keyword' || localTool.searchMethod === 'full_text' }">
-            <div class="km-input-label row justify-between q-pb-12">
-              <span title="How many distinct keyword queries to generate from the intent. Each adds a full-text (and fuzzy, if enabled) search.">Keyword Queries to Generate</span>
-              <span class="text-primary text-weight-bold">{{ localTool.keywordVariants }}</span>
-            </div>
-            <q-slider v-model="localTool.keywordVariants" :min="1" :max="5" :step="1" snap markers color="primary" />
-          </div>
-          <div v-if="localTool.searchMethod === 'vector' || localTool.searchMethod === 'hybrid'" :class="{ 'col-span-2': localTool.searchMethod === 'vector' }">
-            <div class="km-input-label row justify-between q-pb-12">
-              <span title="How many distinct semantic queries to generate from the intent. Each adds a vector search.">Vector Queries to Generate</span>
-              <span class="text-primary text-weight-bold">{{ localTool.vectorVariants }}</span>
-            </div>
-            <q-slider v-model="localTool.vectorVariants" :min="1" :max="5" :step="1" snap markers color="primary" />
-          </div>
+          <kg-field-row
+            v-if="localTool.searchMethod !== 'vector'"
+            :class="{ 'col-span-2': localTool.searchMethod === 'keyword' || localTool.searchMethod === 'full_text' }"
+            label="Keyword Queries to Generate"
+            hint="Number of distinct keyword query variants the reformulation prompt should produce. Each variant runs a separate full-text search (and a fuzzy/trigram search when enabled). More variants improve recall by covering synonyms, abbreviations, and alternate phrasings, but increase latency proportionally. Start with 1–2 for focused lookups; use 3–5 for exploratory or ambiguous queries."
+          >
+            <q-slider v-model="localTool.keywordVariants" :min="1" :max="5" :step="1" label snap markers color="primary" />
+          </kg-field-row>
+          <kg-field-row
+            v-if="localTool.searchMethod === 'vector' || localTool.searchMethod === 'hybrid'"
+            :class="{ 'col-span-2': localTool.searchMethod === 'vector' }"
+            label="Vector Queries to Generate"
+            hint="Number of distinct semantic query variants the reformulation prompt should produce. Each variant is embedded and runs a separate vector similarity search. Multiple variants help capture different aspects of the intent — e.g. a question rephrased as a statement, or a concept expressed with domain-specific vs. general terminology. Start with 1–2; use 3–5 when the query is complex or multi-faceted."
+          >
+            <q-slider v-model="localTool.vectorVariants" :min="1" :max="5" :step="1" label snap markers color="primary" />
+          </kg-field-row>
         </kg-field-row>
       </div>
     </kg-dialog-section>
@@ -103,25 +109,23 @@
     <!-- Result Filtering Section -->
     <kg-dialog-section
       title="Result Filtering"
-      description="Set the minimum score and cap how many results are returned to the agent."
+      description="Control the quality and quantity of results returned to the agent. Chunks below the score threshold are discarded, and the remaining results are capped at the result limit."
       icon="filter_alt"
       icon-color="blue-7"
     >
       <kg-field-row :cols="2">
-        <div>
-          <div class="km-input-label row justify-between q-pb-12">
-            <span>Score Threshold</span>
-            <span class="text-primary text-weight-bold">{{ localTool.scoreThreshold }}</span>
-          </div>
-          <q-slider v-model="localTool.scoreThreshold" :min="0" :max="1" :step="0.01" color="primary" />
-        </div>
-        <div>
-          <div class="km-input-label row justify-between q-pb-12">
-            <span title="Final number of results returned to the agent after fusion. Capped at the Candidate Pool.">Result Limit</span>
-            <span class="text-primary text-weight-bold">{{ localTool.limit }}</span>
-          </div>
-          <q-slider v-model="localTool.limit" :min="1" :max="limitMax" :step="1" snap color="primary" />
-        </div>
+        <kg-field-row
+          label="Score Threshold"
+          hint="Minimum normalized relevance score (0–1) a chunk must reach to be included in the results. Chunks scoring below this value are discarded. A higher threshold returns fewer but more relevant results; a lower threshold increases recall at the risk of including noise. Typical values: 0.5–0.6 for broad searches, 0.7–0.8 for precise lookups. Set to 0 to disable filtering."
+        >
+          <q-slider v-model="localTool.scoreThreshold" :min="0" :max="1" :step="0.01" label color="primary" />
+        </kg-field-row>
+        <kg-field-row
+          label="Result Limit"
+          hint="Maximum number of chunks returned to the agent after scoring and filtering. Capped by the Candidate Pool size — you cannot return more results than were pooled. A smaller limit reduces token usage in the agent's context window; a larger limit gives the agent more material to reason over. Typical range: 3–5 for focused answers, 5–10 for comprehensive retrieval."
+        >
+          <q-slider v-model="localTool.limit" :min="1" :max="limitMax" :step="1" label snap color="primary" />
+        </kg-field-row>
       </kg-field-row>
     </kg-dialog-section>
 

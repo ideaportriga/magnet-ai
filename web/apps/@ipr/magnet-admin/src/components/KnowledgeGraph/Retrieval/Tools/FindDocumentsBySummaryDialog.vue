@@ -12,13 +12,13 @@
     <kg-prompt-section
       v-model="localTool.description"
       title="Tool Description"
-      description="Explain when the agent should use this tool. This description will be used to generate a prompt for the agent."
+      description="Defines when and why the agent should invoke this tool. The text is injected into the agent's system prompt, so clear, specific wording directly improves retrieval accuracy."
     />
 
     <!-- Search Settings Section -->
     <kg-dialog-section
       title="Search Settings"
-      description="Tune tool settings to control the scope and precision of the search."
+      description="Select the retrieval algorithm and configure scoring and result limits to control search precision and recall against document summaries."
       icon="tune"
       icon-color="teal-7"
     >
@@ -26,28 +26,30 @@
         <kg-field-row :cols="2">
           <div :class="{ 'col-span-2': localTool.searchMethod === 'vector' || localTool.searchMethod === 'full_text' }">
             <div class="km-input-label q-pb-sm">Method</div>
-            <kg-dropdown-field v-model="localTool.searchMethod" :options="searchMethodOptions" dense />
+            <kg-dropdown-field v-model="localTool.searchMethod" :options="searchMethodOptions" option-description="description" dense />
           </div>
-          <div v-if="localTool.searchMethod === 'keyword' || localTool.searchMethod === 'hybrid'">
-            <div class="km-input-label q-pb-sm" title="Constant in 1/(k+rank). Higher k = less aggressive rank discrimination. Typical: 60.">
-              RRF k
-            </div>
+          <kg-field-row
+            v-if="localTool.searchMethod === 'keyword' || localTool.searchMethod === 'hybrid'"
+            label="RRF k"
+            hint="Reciprocal Rank Fusion constant used in the formula 1 / (k + rank). A higher value flattens rank differences, giving lower-ranked results more influence. A lower value amplifies the gap between top and bottom ranks. The default of 60 is the standard RRF constant and works well for most cases. Lower it (e.g. 10–30) to favor top-ranked results more aggressively; raise it (e.g. 80–150) when you want broader, more balanced fusion across search methods."
+          >
             <km-input v-model.number="localTool.rrfK" type="number" :min="1" :max="200" />
-          </div>
+          </kg-field-row>
         </kg-field-row>
 
         <kg-field-row :cols="2">
-          <div>
-            <div class="km-input-label row justify-between q-pb-12">
-              <span>Score Threshold</span>
-              <span class="text-primary text-weight-bold">{{ localTool.scoreThreshold }}</span>
-            </div>
-            <q-slider v-model="localTool.scoreThreshold" :min="0" :max="1" :step="0.01" color="primary" />
-          </div>
-          <div>
-            <div class="km-input-label q-pb-sm">Result Limit</div>
+          <kg-field-row
+            label="Score Threshold"
+            hint="Minimum normalized relevance score (0–1) a document must reach to be included in the results. Documents scoring below this value are discarded. A higher threshold returns fewer but more relevant documents; a lower threshold increases recall at the risk of including noise. Typical values: 0.5–0.6 for broad searches, 0.7–0.8 for precise lookups. Set to 0 to disable filtering."
+          >
+            <q-slider v-model="localTool.scoreThreshold" :min="0" :max="1" :step="0.01" label color="primary" />
+          </kg-field-row>
+          <kg-field-row
+            label="Result Limit"
+            hint="Maximum number of documents returned to the agent after scoring and filtering. Matching documents are used to narrow the scope for subsequent chunk retrieval, so a smaller limit focuses the search while a larger limit gives broader coverage. Typical range: 3–5 for targeted lookups, 5–10 for exploratory searches."
+          >
             <km-input v-model.number="localTool.limit" type="number" :min="1" :max="20" />
-          </div>
+          </kg-field-row>
         </kg-field-row>
       </div>
     </kg-dialog-section>
