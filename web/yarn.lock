@@ -3118,7 +3118,7 @@ __metadata:
     prettier: "npm:^3.5.1"
     pug: "npm:^3.0.3"
     pug-plain-loader: "npm:^1.1.0"
-    quasar: "npm:^2.17.7"
+    quasar: "npm:^2.19.3"
     sass: "npm:1.62.1"
     sass-embedded: "npm:^1.85.0"
     socket.io-client: "npm:^4.8.1"
@@ -12843,10 +12843,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"quasar@npm:^2.17.7":
-  version: 2.18.5
-  resolution: "quasar@npm:2.18.5"
-  checksum: 10c0/a18372b0101746e38de973047d03bc3e60b4e65f28fafc6eae56ac5557148281a36828a69c4cff15fe9003749d126681dbf0dd2f18d581e17524a54cf74c4a4b
+"quasar@npm:^2.19.3":
+  version: 2.19.3
+  resolution: "quasar@npm:2.19.3"
+  checksum: 10c0/575a22741b329b77e1b5d819aa126c02ffe51bee9790627a38cf5dcce4aa4316e73aaf0768bdebbd34ddb21ee8cd11703b82932ae3dd5bf552fdcaa8c8649ec2
   languageName: node
   linkType: hard
 
