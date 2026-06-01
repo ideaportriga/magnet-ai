@@ -3138,7 +3138,7 @@ __metadata:
     vitest: "npm:^3.0.6"
     vue: "npm:^3.5.13"
     vue-codemirror: "npm:^6.1.1"
-    vue-draggable-plus: "npm:^0.6.0"
+    vue-draggable-plus: "npm:^0.6.1"
     vue-router: "npm:^4.5.0"
     vue-tsc: "npm:^2.2.2"
     vuedraggable: "npm:^2.24.3"
@@ -15391,9 +15391,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"vue-draggable-plus@npm:^0.6.0":
-  version: 0.6.0
-  resolution: "vue-draggable-plus@npm:0.6.0"
+"vue-draggable-plus@npm:^0.6.1":
+  version: 0.6.1
+  resolution: "vue-draggable-plus@npm:0.6.1"
   dependencies:
     "@types/sortablejs": "npm:^1.15.8"
   peerDependencies:
@@ -15401,7 +15401,7 @@ __metadata:
   peerDependenciesMeta:
     "@vue/composition-api":
       optional: true
-  checksum: 10c0/da6fb3ac591c373381d4607f060d58624fe6ed267fc31edee1247b726df1c8b9661b947a24ca31e7d096351428b8ad4915110e01d2981fe775b52a2329f4ae8f
+  checksum: 10c0/33d065aa6ea7890ff979391604100895269f71ebd035570a9b554148dbab067ede08ec6306de8d746f63fc281db4b754e09bcda21dd8aefa4a7da2e69af13ebf
   languageName: node
   linkType: hard
 
