@@ -15,7 +15,7 @@ contract without hunting through a central registry file.
 The agent describes *what it is looking for* (``query``) plus optional context
 (``context_hint``). When the tool is configured with ``promptTemplateName`` the
 intent is reformulated into two distinct search inputs: a keyword term used for
-full-text / trigram matching and a natural phrase used to build the embedding.
+full-text matching and a natural phrase used to build the embedding.
 """
 
 import asyncio
@@ -233,7 +233,7 @@ async def retrieveChunks(
 
     When ``promptTemplateName`` is configured, ``query``/``context_hint`` are
     reformulated into up to ``keywordVariants`` keyword terms (used for
-    full-text / trigram search) and up to ``vectorVariants`` semantic phrases
+    full-text search) and up to ``vectorVariants`` semantic phrases
     (each embedded for vector search). Otherwise ``query`` is used as the single
     variant. Each variant contributes its own sub-query to the RRF fusion (or,
     in pure vector mode, a cosine search merged by max similarity per chunk).
@@ -254,7 +254,7 @@ async def retrieveChunks(
     # How many variants each search type needs for the active mode. Lexical-only
     # modes (full_text, keyword) never embed; vector mode runs no lexical
     # sub-queries.
-    if search_method in ("keyword", "full_text"):
+    if search_method == "full_text":
         keyword_count, semantic_count = keyword_variants, 0
     elif search_method == "vector":
         keyword_count, semantic_count = 0, vector_variants

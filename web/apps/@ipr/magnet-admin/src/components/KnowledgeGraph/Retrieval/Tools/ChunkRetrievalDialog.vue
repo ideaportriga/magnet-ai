@@ -45,7 +45,7 @@
             />
           </kg-field-row>
           <kg-field-row
-            v-if="localTool.searchMethod === 'keyword' || localTool.searchMethod === 'hybrid'"
+            v-if="localTool.searchMethod === 'hybrid'"
             label="RRF k"
             hint="Reciprocal Rank Fusion constant used in the formula 1 / (k + rank). A higher value flattens rank differences, giving lower-ranked results more influence. A lower value amplifies the gap between top and bottom ranks. The default of 60 is the standard RRF constant and works well for most cases. Lower it (e.g. 10–30) to favor top-ranked results more aggressively; raise it (e.g. 80–150) when you want broader, more balanced fusion across search methods."
           >
@@ -71,7 +71,7 @@
       <div class="column q-gap-16">
         <kg-field-row
           label="Prompt Template"
-          hint="The LLM prompt used to rewrite the agent's intent into search-optimized queries. The template receives the original query and context, and outputs keyword-friendly terms (for full-text/fuzzy search) and semantically rephrased sentences (for vector search). Select 'No reformulation' to skip this step and search the raw intent directly — useful when queries are already well-formed or latency is critical."
+          hint="The LLM prompt used to rewrite the agent's intent into search-optimized queries. The template receives the original query and context, and outputs keyword-friendly terms (for full-text search) and semantically rephrased sentences (for vector search). Select 'No reformulation' to skip this step and search the raw intent directly — useful when queries are already well-formed or latency is critical."
         >
           <kg-dropdown-field
             v-model="localTool.promptTemplateName"
@@ -88,9 +88,9 @@
         <kg-field-row :cols="2">
           <kg-field-row
             v-if="localTool.searchMethod !== 'vector'"
-            :class="{ 'col-span-2': localTool.searchMethod === 'keyword' || localTool.searchMethod === 'full_text' }"
+            :class="{ 'col-span-2': localTool.searchMethod === 'full_text' }"
             label="Keyword Queries to Generate"
-            hint="Number of distinct keyword query variants the reformulation prompt should produce. Each variant runs a separate full-text search (and a fuzzy/trigram search when enabled). More variants improve recall by covering synonyms, abbreviations, and alternate phrasings, but increase latency proportionally. Start with 1–2 for focused lookups; use 3–5 for exploratory or ambiguous queries."
+            hint="Number of distinct keyword query variants the reformulation prompt should produce. Each variant runs a separate full-text search. More variants improve recall by covering synonyms, abbreviations, and alternate phrasings, but increase latency proportionally. Start with 1–2 for focused lookups; use 3–5 for exploratory or ambiguous queries."
           >
             <q-slider v-model="localTool.keywordVariants" :min="1" :max="5" :step="1" label snap markers color="primary" />
           </kg-field-row>

@@ -39,7 +39,6 @@ from core.domain.knowledge_graph.schemas import (
 from services.knowledge_graph.rrf import (
     fusion_diagnostics,
     hybrid_full_text_search,
-    hybrid_trigram_search,
     hybrid_vector_search,
     merge_attempts_by_max_score,
     normalized_rrf_score,
@@ -80,24 +79,11 @@ class KnowledgeGraphChunkService:
             Index(f"{index_prefix}_document_id", chunks_tbl.c.document_id).create(
                 sync_conn, checkfirst=True
             )
-            # Hybrid retrieval: GIN over the tsvector generated column (full-text)
-            # and GIN over trigrams of content + title (fuzzy/lexical).
+            # Hybrid retrieval: GIN over the tsvector generated column (full-text).
             Index(
                 f"{index_prefix}search_tsv",
                 chunks_tbl.c.search_tsv,
                 postgresql_using="gin",
-            ).create(sync_conn, checkfirst=True)
-            Index(
-                f"{index_prefix}content_trgm",
-                chunks_tbl.c.content,
-                postgresql_using="gin",
-                postgresql_ops={"content": "gin_trgm_ops"},
-            ).create(sync_conn, checkfirst=True)
-            Index(
-                f"{index_prefix}title_trgm",
-                chunks_tbl.c.title,
-                postgresql_using="gin",
-                postgresql_ops={"title": "gin_trgm_ops"},
             ).create(sync_conn, checkfirst=True)
 
         await conn.run_sync(_create)
@@ -249,8 +235,7 @@ class KnowledgeGraphChunkService:
           One cosine search per vector in ``query_vectors``, merged by max
           similarity per chunk.
         - ``"full_text"``: tsvector full-text search only, fused via RRF.
-        - ``"keyword"``: parallel tsvector + pg_trgm (fuzzy) search fused via RRF.
-        - ``"hybrid"``: parallel pgvector + tsvector + pg_trgm fused via RRF.
+        - ``"hybrid"``: parallel pgvector + tsvector full-text fused via RRF.
 
         For the fused methods, every query variant runs its own sub-query; the
         attempts of each method are merged (dedup by max score) into a single
@@ -287,8 +272,7 @@ class KnowledgeGraphChunkService:
             doc_filter_where_sql=doc_filter_where_sql,
             doc_filter_where_params=doc_filter_where_params,
             include_vector=(search_method == "hybrid"),
-            include_full_text=search_method in ("full_text", "keyword", "hybrid"),
-            include_trigram=search_method in ("keyword", "hybrid"),
+            include_full_text=search_method in ("full_text", "hybrid"),
             rrf_k=rrf_k,
         )
 
@@ -432,13 +416,12 @@ class KnowledgeGraphChunkService:
         doc_filter_where_params: dict[str, Any] | None,
         include_vector: bool,
         include_full_text: bool,
-        include_trigram: bool,
         rrf_k: int,
     ) -> list[ChunkSearchResult]:
         """Run candidate sub-queries in parallel and fuse with RRF.
 
         Every query variant contributes its own sub-query (one vector sub-query
-        per vector, one tsvector and/or one pg_trgm sub-query per text). The
+        per vector, one tsvector sub-query per text). The
         attempts of each method are first merged into a single ranked list
         (dedup by max relevance score), so multiple variants of one method count
         as a single RRF voter rather than fusing independently. RRF then fuses
@@ -485,27 +468,12 @@ class KnowledgeGraphChunkService:
             f"ORDER BY score DESC "
             f"LIMIT :cand"
         )
-        # Fuzzy match uses pg_trgm *word* similarity (``<%``) rather than the
-        # symmetric ``%`` / ``similarity()``: a short keyword query is matched
-        # against the best window of a long body instead of the whole body,
-        # which otherwise yields a similarity far below threshold (≈ no rows).
-        trgm_sql = (
-            f"SELECT c.id, GREATEST("
-            f"COALESCE(word_similarity(:qtext, c.content), 0), "
-            f"COALESCE(word_similarity(:qtext, c.title), 0)"
-            f") AS score "
-            f"{join_clause}"
-            f"WHERE (:qtext <% c.content OR :qtext <% c.title){filter_suffix} "
-            f"ORDER BY score DESC "
-            f"LIMIT :cand"
-        )
 
         # Build sub-query coroutines grouped by method so the attempts of one
         # method (one per query variant) can be merged before RRF.
         method_coros: dict[str, list[Any]] = {
             "vector": [],
             "full_text": [],
-            "trigram": [],
         }
         if include_vector and query_vectors:
             for idx, vector in enumerate(query_vectors):
@@ -540,19 +508,8 @@ class KnowledgeGraphChunkService:
                         session_maker=async_session_maker,
                     )
                 )
-            if include_trigram:
-                method_coros["trigram"].append(
-                    hybrid_trigram_search(
-                        query_text,
-                        trgm_sql,
-                        {**common_params, "qtext": query_text, "cand": candidates},
-                        session_maker=async_session_maker,
-                    )
-                )
 
-        ordered_methods = [
-            m for m in ("vector", "full_text", "trigram") if method_coros[m]
-        ]
+        ordered_methods = [m for m in ("vector", "full_text") if method_coros[m]]
         if not ordered_methods:
             logger.info(
                 "hybrid chunks search short-circuit: no contributing sub-queries graph_id=%s",
@@ -568,11 +525,7 @@ class KnowledgeGraphChunkService:
                 flat_coros.append(coro)
                 flat_methods.append(method)
 
-        search_mode = (
-            "hybrid"
-            if include_vector
-            else ("keyword" if include_trigram else "full_text")
-        )
+        search_mode = "hybrid" if include_vector else "full_text"
         contributing = len(ordered_methods)
         fan_out_started = time.perf_counter()
         logger.info(

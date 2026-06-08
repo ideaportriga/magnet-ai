@@ -10,7 +10,7 @@ contribution of lower-ranked items; the canonical default is 60.
 
 The module is domain-agnostic — it operates on lists of any hashable
 identifier — so it can fuse results from any combination of retrieval
-strategies (pgvector, tsvector, pg_trgm, BM25, external search APIs, …).
+strategies (pgvector, tsvector, BM25, external search APIs, …).
 
 Note: a domain-specific RRF implementation also lives in
 :mod:`utils.search_utils` for use by the Oracle vector store; that one is
@@ -33,12 +33,6 @@ from services.observability.models import SpanType
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=Hashable)
-
-# Threshold for the pg_trgm word-similarity (``<%``) operator used by fuzzy
-# search. The Postgres default (0.6) is too strict for matching short keyword
-# queries against long bodies; 0.3 favours recall (RRF + score threshold filter
-# noise downstream).
-TRIGRAM_WORD_SIMILARITY_THRESHOLD = 0.3
 
 
 def reciprocal_rank_fusion(
@@ -113,9 +107,9 @@ async def _execute_hybrid_subquery(
     """Run a candidate sub-query and return ``(id, score)`` rows in rank order.
 
     The sub-query must ``SELECT id, score`` (score is the method's own relevance
-    measure: cosine similarity, ts_rank_cd, or word_similarity). ``pre_statements``
-    are executed in the same session/transaction before the main query (e.g. a
-    ``SET LOCAL`` to tune a pg_trgm threshold).
+    measure: cosine similarity or ts_rank_cd). ``pre_statements`` are executed in
+    the same session/transaction before the main query (e.g. a ``SET LOCAL`` to
+    tune a session GUC).
     """
 
     started = time.perf_counter()
@@ -181,36 +175,6 @@ async def hybrid_full_text_search(
     """Parallel hybrid sub-query: Postgres full-text search via ``tsvector``."""
     return await _execute_hybrid_subquery(
         "full_text", query, sql, params, session_maker
-    )
-
-
-@observe(
-    name="Fuzzy search",
-    type=SpanType.SEARCH,
-    description="Fuzzy lexical match via pg_trgm similarity over title and content.",
-)
-async def hybrid_trigram_search(
-    query: str,
-    sql: str,
-    params: dict[str, Any],
-    *,
-    session_maker: Any,
-) -> list[tuple[str, float]]:
-    """Parallel hybrid sub-query: fuzzy/lexical match via ``pg_trgm``.
-
-    Lowers ``pg_trgm.word_similarity_threshold`` for the ``<%`` operator so short
-    keyword queries match windows inside long bodies (the 0.6 default is too
-    strict for partial matches).
-    """
-    return await _execute_hybrid_subquery(
-        "trigram",
-        query,
-        sql,
-        params,
-        session_maker,
-        pre_statements=[
-            f"SET LOCAL pg_trgm.word_similarity_threshold = {TRIGRAM_WORD_SIMILARITY_THRESHOLD}"
-        ],
     )
 
 

@@ -134,14 +134,9 @@ export const searchMethodOptions = [
     description: 'Full-text search using tsvector indexing. Fast exact and stemmed word matching with language-aware tokenization.',
   },
   {
-    label: 'Full Text + Fuzzy',
-    value: 'keyword',
-    description: 'Combines full-text search with trigram fuzzy matching to catch typos and partial words. Uses RRF to merge results.',
-  },
-  {
-    label: 'Hybrid (Vector + Full Text + Fuzzy)',
+    label: 'Hybrid (Vector + Full Text)',
     value: 'hybrid',
-    description: 'Runs vector, full-text, and fuzzy searches in parallel and fuses rankings with RRF. Broadest recall at a higher compute cost.',
+    description: 'Runs vector and full-text searches in parallel and fuses rankings with RRF. Broadest recall at a higher compute cost.',
   },
 ]
 

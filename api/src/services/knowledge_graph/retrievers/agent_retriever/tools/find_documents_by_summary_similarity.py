@@ -75,7 +75,7 @@ class FindDocumentsBySummarySimilarityToolResult(NamedTuple):
     type=SpanType.TOOL,
     description=(
         "Knowledge-graph retrieval tool: returns documents whose summary best matches "
-        "the query using the graph's configured search method (vector / keyword / hybrid)."
+        "the query using the graph's configured search method (vector / full_text / hybrid)."
     ),
 )
 async def findDocumentsBySummarySimilarity(
@@ -133,7 +133,7 @@ async def findDocumentsBySummarySimilarity(
     # Embedding is only needed for vector and hybrid modes.
     started = time.perf_counter()
     embedding_ms: float | None = None
-    if search_method in ("keyword", "full_text"):
+    if search_method == "full_text":
         vec: list[float] | None = None
     else:
         embed_started = time.perf_counter()

@@ -151,7 +151,7 @@ async def _execute_find_documents_by_summary(
 
     vec: list[float] | None = (
         None
-        if search_method in ("keyword", "full_text")
+        if search_method == "full_text"
         else await get_embeddings(query, embedding_model)
     )
     docs = await KnowledgeGraphDocumentService().search_documents(

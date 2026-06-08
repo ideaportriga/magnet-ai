@@ -44,7 +44,6 @@ from core.domain.knowledge_graph.schemas import (
 from services.knowledge_graph.rrf import (
     fusion_diagnostics,
     hybrid_full_text_search,
-    hybrid_trigram_search,
     hybrid_vector_search,
     normalized_rrf_score,
     reciprocal_rank_fusion,
@@ -160,24 +159,11 @@ class KnowledgeGraphDocumentService:
                 docs_tbl.c.source_id,
                 docs_tbl.c.source_document_id,
             ).create(sync_conn, checkfirst=True)
-            # Hybrid retrieval: GIN over the tsvector generated column (full-text)
-            # and GIN over trigrams of summary + title (fuzzy/lexical).
+            # Hybrid retrieval: GIN over the tsvector generated column (full-text).
             Index(
                 f"{index_prefix}search_tsv",
                 docs_tbl.c.search_tsv,
                 postgresql_using="gin",
-            ).create(sync_conn, checkfirst=True)
-            Index(
-                f"{index_prefix}summary_trgm",
-                docs_tbl.c.summary,
-                postgresql_using="gin",
-                postgresql_ops={"summary": "gin_trgm_ops"},
-            ).create(sync_conn, checkfirst=True)
-            Index(
-                f"{index_prefix}title_trgm",
-                docs_tbl.c.title,
-                postgresql_using="gin",
-                postgresql_ops={"title": "gin_trgm_ops"},
             ).create(sync_conn, checkfirst=True)
 
         await conn.run_sync(_create)
@@ -500,8 +486,7 @@ class KnowledgeGraphDocumentService:
         - ``"vector"``: pgvector cosine similarity on ``summary_embedding``.
           ``query_vector`` is required.
         - ``"full_text"``: tsvector full-text search only, fused via RRF.
-        - ``"keyword"``: parallel tsvector + pg_trgm (fuzzy) search fused via RRF.
-        - ``"hybrid"``: parallel pgvector + tsvector + pg_trgm fused via RRF.
+        - ``"hybrid"``: parallel pgvector + tsvector full-text fused via RRF.
 
         ``score`` in the returned dicts is cosine similarity for vector mode
         and a normalized RRF score in [0, 1] for the fused modes.
@@ -529,8 +514,7 @@ class KnowledgeGraphDocumentService:
             doc_filter_where_sql=doc_filter_where_sql,
             doc_filter_where_params=doc_filter_where_params,
             include_vector=(search_method == "hybrid"),
-            include_full_text=search_method in ("full_text", "keyword", "hybrid"),
-            include_trigram=search_method in ("keyword", "hybrid"),
+            include_full_text=search_method in ("full_text", "hybrid"),
             rrf_k=rrf_k,
         )
 
@@ -617,7 +601,6 @@ class KnowledgeGraphDocumentService:
         doc_filter_where_params: dict[str, Any] | None,
         include_vector: bool,
         include_full_text: bool,
-        include_trigram: bool,
         rrf_k: int,
     ) -> list[dict[str, Any]]:
         """Run candidate sub-queries in parallel and fuse with RRF.
@@ -632,11 +615,7 @@ class KnowledgeGraphDocumentService:
         # Candidate pool size per sub-query. Bigger than the final limit so RRF
         # has overlap to work with, but bounded so we don't scan the world.
         candidates = max(int(limit) * 4, 30)
-        search_mode = (
-            "hybrid"
-            if include_vector
-            else ("keyword" if include_trigram else "full_text")
-        )
+        search_mode = "hybrid" if include_vector else "full_text"
 
         common_filter_sql = doc_filter_where_sql or None
         common_params: dict[str, Any] = {}
@@ -658,20 +637,6 @@ class KnowledgeGraphDocumentService:
             f"ts_rank_cd(d.search_tsv, plainto_tsquery('english', :qtext)) AS score "
             f"FROM {docs_table} AS d "
             f"WHERE d.search_tsv @@ plainto_tsquery('english', :qtext)"
-            f"{(' AND ' + common_filter_sql) if common_filter_sql else ''} "
-            f"ORDER BY score DESC "
-            f"LIMIT :cand"
-        )
-        # pg_trgm sub-query: *word* similarity (``<%``) over title + summary, so a
-        # short query matches the best window of a long summary rather than the
-        # whole text (the symmetric ``%`` would score far below threshold).
-        trgm_sql = (
-            f"SELECT d.id, GREATEST("
-            f"COALESCE(word_similarity(:qtext, d.summary), 0), "
-            f"COALESCE(word_similarity(:qtext, d.title), 0)"
-            f") AS score "
-            f"FROM {docs_table} AS d "
-            f"WHERE (:qtext <% d.summary OR :qtext <% d.title)"
             f"{(' AND ' + common_filter_sql) if common_filter_sql else ''} "
             f"ORDER BY score DESC "
             f"LIMIT :cand"
@@ -700,16 +665,6 @@ class KnowledgeGraphDocumentService:
                     hybrid_full_text_search(
                         query_text,
                         tsv_sql,
-                        {**common_params, "qtext": query_text, "cand": candidates},
-                        session_maker=async_session_maker,
-                    )
-                )
-            if include_trigram:
-                method_labels.append("trigram")
-                coros.append(
-                    hybrid_trigram_search(
-                        query_text,
-                        trgm_sql,
                         {**common_params, "qtext": query_text, "cand": candidates},
                         session_maker=async_session_maker,
                     )

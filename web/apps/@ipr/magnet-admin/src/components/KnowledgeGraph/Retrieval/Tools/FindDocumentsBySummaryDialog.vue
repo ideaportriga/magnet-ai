@@ -29,7 +29,7 @@
             <kg-dropdown-field v-model="localTool.searchMethod" :options="searchMethodOptions" option-description="description" dense />
           </div>
           <kg-field-row
-            v-if="localTool.searchMethod === 'keyword' || localTool.searchMethod === 'hybrid'"
+            v-if="localTool.searchMethod === 'hybrid'"
             label="RRF k"
             hint="Reciprocal Rank Fusion constant used in the formula 1 / (k + rank). A higher value flattens rank differences, giving lower-ranked results more influence. A lower value amplifies the gap between top and bottom ranks. The default of 60 is the standard RRF constant and works well for most cases. Lower it (e.g. 10–30) to favor top-ranked results more aggressively; raise it (e.g. 80–150) when you want broader, more balanced fusion across search methods."
           >
