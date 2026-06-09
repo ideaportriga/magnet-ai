@@ -478,6 +478,7 @@ class KnowledgeGraphDocumentService:
         min_score: float = 0.0,
         doc_filter_where_sql: str | None = None,
         doc_filter_where_params: dict[str, Any] | None = None,
+        include_metadata: bool = False,
     ) -> list[dict[str, Any]]:
         """Similarity search over per-graph documents.
 
@@ -490,6 +491,9 @@ class KnowledgeGraphDocumentService:
 
         ``score`` in the returned dicts is cosine similarity for vector mode
         and a normalized RRF score in [0, 1] for the fused modes.
+
+        ``include_metadata`` adds the document ``metadata`` JSON (file/source/llm)
+        to each returned dict.
         """
 
         if search_method == "vector":
@@ -502,6 +506,7 @@ class KnowledgeGraphDocumentService:
                 min_score=min_score,
                 doc_filter_where_sql=doc_filter_where_sql,
                 doc_filter_where_params=doc_filter_where_params,
+                include_metadata=include_metadata,
             )
 
         return await self._search_documents_fused(
@@ -516,6 +521,7 @@ class KnowledgeGraphDocumentService:
             include_vector=(search_method == "hybrid"),
             include_full_text=search_method in ("full_text", "hybrid"),
             rrf_k=rrf_k,
+            include_metadata=include_metadata,
         )
 
     @observe(
@@ -534,6 +540,7 @@ class KnowledgeGraphDocumentService:
         min_score: float,
         doc_filter_where_sql: str | None,
         doc_filter_where_params: dict[str, Any] | None,
+        include_metadata: bool = False,
     ) -> list[dict[str, Any]]:
         docs_table = docs_table_name(graph_id)
         md = MetaData()
@@ -549,14 +556,18 @@ class KnowledgeGraphDocumentService:
             docs_alias.c.name,
         ).label("title")
 
+        select_columns = [
+            docs_alias.c.id.label("id"),
+            title_expr,
+            docs_alias.c.summary.label("summary"),
+            docs_alias.c.external_link.label("external_link"),
+            score_expr,
+        ]
+        if include_metadata:
+            select_columns.append(docs_alias.c.metadata.label("metadata"))
+
         stmt = (
-            select(
-                docs_alias.c.id.label("id"),
-                title_expr,
-                docs_alias.c.summary.label("summary"),
-                docs_alias.c.external_link.label("external_link"),
-                score_expr,
-            )
+            select(*select_columns)
             .select_from(docs_alias)
             .where(docs_alias.c.summary_embedding.is_not(None))
             .order_by(score_expr.desc())
@@ -579,6 +590,7 @@ class KnowledgeGraphDocumentService:
                 "content": r.get("summary"),
                 "external_link": r.get("external_link"),
                 "score": float(r["score"]) if r.get("score") is not None else 0.0,
+                **({"metadata": r.get("metadata")} if include_metadata else {}),
             }
             for r in rows
             if float(r.get("score") or 0.0) >= min_score
@@ -602,6 +614,7 @@ class KnowledgeGraphDocumentService:
         include_vector: bool,
         include_full_text: bool,
         rrf_k: int,
+        include_metadata: bool = False,
     ) -> list[dict[str, Any]]:
         """Run candidate sub-queries in parallel and fuse with RRF.
 
@@ -750,13 +763,16 @@ class KnowledgeGraphDocumentService:
             func.nullif(docs_alias.c.title, ""),
             docs_alias.c.name,
         ).label("title")
+        select_columns = [
+            docs_alias.c.id.label("id"),
+            title_expr,
+            docs_alias.c.summary.label("summary"),
+            docs_alias.c.external_link.label("external_link"),
+        ]
+        if include_metadata:
+            select_columns.append(docs_alias.c.metadata.label("metadata"))
         stmt = (
-            select(
-                docs_alias.c.id.label("id"),
-                title_expr,
-                docs_alias.c.summary.label("summary"),
-                docs_alias.c.external_link.label("external_link"),
-            )
+            select(*select_columns)
             .select_from(docs_alias)
             .where(docs_alias.c.id.in_([UUID(i) for i in kept_ids]))
         )
@@ -778,6 +794,7 @@ class KnowledgeGraphDocumentService:
                     "content": r.get("summary"),
                     "external_link": r.get("external_link"),
                     "score": float(score_by_id[doc_id]),
+                    **({"metadata": r.get("metadata")} if include_metadata else {}),
                 }
             )
         return out

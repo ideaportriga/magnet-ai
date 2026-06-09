@@ -88,12 +88,12 @@
           </div>
         </div>
 
-        <!-- AI Summary -->
+        <!-- Summary -->
         <div v-if="showSummary" class="metadata-group">
           <div class="group-header group-header--summary">
             <div class="row items-center q-gutter-x-sm">
-              <q-icon name="auto_awesome" size="16px" />
-              <span class="group-title">AI Summary</span>
+              <q-icon name="subject" size="16px" />
+              <span class="group-title">Summary</span>
             </div>
           </div>
           <div class="group-content">
@@ -386,7 +386,7 @@ const showSummary = computed(() => {
   if (!hasSummary.value) return false
   const q = normalizedQuery.value
   if (!q) return true
-  return 'ai summary'.includes(q) || summary.value.toLowerCase().includes(q)
+  return 'summary'.includes(q) || summary.value.toLowerCase().includes(q)
 })
 
 const hasAnyMatch = computed(

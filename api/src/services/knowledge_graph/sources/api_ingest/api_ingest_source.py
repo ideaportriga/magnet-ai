@@ -10,11 +10,12 @@ from litestar.status_codes import HTTP_415_UNSUPPORTED_MEDIA_TYPE
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db.models.knowledge_graph import KnowledgeGraphSource
+from core.db.models.knowledge_graph.knowledge_graph_chunk import KnowledgeGraphChunk
 from core.db.session import async_session_maker
 
-from ...content_config_services import get_content_config
+from ...content_config_services import get_content_config, get_content_config_by_name
 from ...content_load_services import load_content_from_bytes_async
-from ...models import SourceType, SyncCounters
+from ...models import ContentConfig, SourceType, SyncCounters
 from ..abstract_source import AbstractDataSource
 
 logger = logging.getLogger(__name__)
@@ -26,6 +27,10 @@ class _IngestItemLike(Protocol):
     text: str | None
     file_bytes: bytes | None
     source_metadata: dict[str, Any] | None
+    profile: str | None
+    title: str | None
+    summary: str | None
+    chunks: list[KnowledgeGraphChunk] | None
 
 
 class ApiIngestDataSource(AbstractDataSource):
@@ -67,6 +72,35 @@ class ApiIngestDataSource(AbstractDataSource):
         self.source.status = "syncing"
         await db_session.commit()
 
+    async def _resolve_config(
+        self,
+        db_session: AsyncSession,
+        graph_id: UUID,
+        *,
+        filename: str,
+        profile: str | None,
+        allow_structured: bool = False,
+    ) -> ContentConfig | None:
+        """Resolve the content config either by explicit profile name or by filename glob."""
+        if profile:
+            config = await get_content_config_by_name(
+                db_session, graph_id, profile, allow_structured=allow_structured
+            )
+            if not config:
+                raise ClientException(
+                    f"Knowledge Graph has no enabled profile named '{profile}'."
+                )
+            return config
+
+        existing_source_id = await self._find_existing_source_id(db_session, graph_id)
+        return await get_content_config(
+            db_session,
+            graph_id,
+            filename,
+            source_id=existing_source_id,
+            source_type=str(self.type),
+        )
+
     async def ingest_text(
         self,
         db_session: AsyncSession,
@@ -76,6 +110,9 @@ class ApiIngestDataSource(AbstractDataSource):
         text: str,
         file_metadata: dict[str, Any] | None = None,
         source_metadata: dict[str, Any] | None = None,
+        profile: str | None = None,
+        title: str | None = None,
+        summary: str | None = None,
     ) -> None:
         """Ingest plain text into a Knowledge Graph as a document."""
         if not isinstance(text, str) or not text.strip():
@@ -89,14 +126,8 @@ class ApiIngestDataSource(AbstractDataSource):
         if not resolved_filename:
             raise ClientException("filename is required for text ingestion.")
 
-        existing_source_id = await self._find_existing_source_id(db_session, graph_id)
-
-        config = await get_content_config(
-            db_session,
-            graph_id,
-            resolved_filename,
-            source_id=existing_source_id,
-            source_type=str(self.type),
+        config = await self._resolve_config(
+            db_session, graph_id, filename=resolved_filename, profile=profile
         )
         if not config:
             raise ClientException(
@@ -123,7 +154,8 @@ class ApiIngestDataSource(AbstractDataSource):
             document,
             extracted_text=text,
             config=config,
-            document_title=PurePath(doc_name).stem if doc_name else doc_name,
+            document_title=title or (PurePath(doc_name).stem if doc_name else doc_name),
+            document_summary=summary,
             embedding_model=embedding_model,
         )
 
@@ -135,6 +167,9 @@ class ApiIngestDataSource(AbstractDataSource):
         filename: str,
         file_bytes: bytes,
         source_metadata: dict[str, Any] | None = None,
+        profile: str | None = None,
+        title: str | None = None,
+        summary: str | None = None,
     ) -> None:
         """Ingest a file (bytes) into a Knowledge Graph as a document."""
         if not isinstance(file_bytes, (bytes, bytearray)) or len(file_bytes) == 0:
@@ -148,14 +183,8 @@ class ApiIngestDataSource(AbstractDataSource):
         if not resolved_filename:
             raise ClientException("filename is required for file ingestion.")
 
-        existing_source_id = await self._find_existing_source_id(db_session, graph_id)
-
-        config = await get_content_config(
-            db_session,
-            graph_id,
-            resolved_filename,
-            source_id=existing_source_id,
-            source_type=str(self.type),
+        config = await self._resolve_config(
+            db_session, graph_id, filename=resolved_filename, profile=profile
         )
         if not config:
             raise ClientException(
@@ -194,7 +223,71 @@ class ApiIngestDataSource(AbstractDataSource):
             extracted_text=content["text"],
             raw_text=content["raw_text"],
             config=config,
-            document_title=PurePath(doc_name).stem if doc_name else doc_name,
+            document_title=title or (PurePath(doc_name).stem if doc_name else doc_name),
+            document_summary=summary,
+            embedding_model=embedding_model,
+        )
+
+    async def ingest_chunks(
+        self,
+        db_session: AsyncSession,
+        graph_id: UUID,
+        *,
+        filename: str,
+        chunks: list[KnowledgeGraphChunk],
+        source_metadata: dict[str, Any] | None = None,
+        profile: str | None = None,
+        title: str | None = None,
+        summary: str | None = None,
+    ) -> None:
+        """Ingest pre-chunked content into a Knowledge Graph as a document.
+
+        The chunking/processing step is skipped — chunks are stored as provided
+        (same pre-chunked path used by Fluid Topics). When a profile is given,
+        its pre-chunked options (title patterns, truncation) still apply.
+        """
+        if not chunks:
+            raise ClientException("Chunks list is empty.")
+
+        embedding_model = await self._require_embedding_model(
+            db_session, graph_id=graph_id
+        )
+
+        resolved_filename = (filename or "").strip()
+        if not resolved_filename:
+            raise ClientException("filename is required for chunks ingestion.")
+
+        config: ContentConfig | None = None
+        if profile:
+            config = await self._resolve_config(
+                db_session,
+                graph_id,
+                filename=resolved_filename,
+                profile=profile,
+                allow_structured=True,
+            )
+
+        await self._ensure_source(db_session, graph_id)
+
+        document = await self.document_service.upsert_document(
+            db_session,
+            self.source,
+            filename=resolved_filename,
+            total_pages=None,
+            file_metadata=None,
+            source_metadata=source_metadata,
+            default_document_type="txt",
+            content_profile=config.name if config else None,
+        )
+
+        doc_name = str(document.get("name") or resolved_filename or "").strip()
+        await self.process_document(
+            db_session,
+            document,
+            chunks=chunks,
+            config=config,
+            document_title=title or (PurePath(doc_name).stem if doc_name else doc_name),
+            document_summary=summary,
             embedding_model=embedding_model,
         )
 
@@ -249,6 +342,9 @@ async def run_background_ingest(
                                 filename=item.filename,
                                 text=item.text or "",
                                 source_metadata=item.source_metadata,
+                                profile=item.profile,
+                                title=item.title,
+                                summary=item.summary,
                             )
                         elif item.kind == "file":
                             await data_source.ingest_file(
@@ -257,6 +353,20 @@ async def run_background_ingest(
                                 filename=item.filename,
                                 file_bytes=item.file_bytes or b"",
                                 source_metadata=item.source_metadata,
+                                profile=item.profile,
+                                title=item.title,
+                                summary=item.summary,
+                            )
+                        elif item.kind == "chunks":
+                            await data_source.ingest_chunks(
+                                session,
+                                graph_id,
+                                filename=item.filename,
+                                chunks=item.chunks or [],
+                                source_metadata=item.source_metadata,
+                                profile=item.profile,
+                                title=item.title,
+                                summary=item.summary,
                             )
                         else:
                             raise ValueError(f"Unknown ingest kind: {item.kind!r}")

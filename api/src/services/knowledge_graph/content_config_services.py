@@ -862,6 +862,40 @@ async def get_content_config(
     return build_virtual_last_resort_content_config()
 
 
+async def get_content_config_by_name(
+    db_session: AsyncSession,
+    graph_id: UUID,
+    name: str,
+    *,
+    allow_structured: bool = False,
+) -> ContentConfig | None:
+    """Get content config by its profile name (case-insensitive).
+
+    Only enabled configs are considered. Structured-content configs (e.g. Fluid
+    Topics native format) are skipped unless `allow_structured` is set — they are
+    only meaningful for pre-chunked ingestion, not for text/file processing.
+
+    Returns None when no profile matches (no virtual last-resort fallback).
+    """
+    normalized_name = (name or "").strip().lower()
+    if not normalized_name:
+        return None
+
+    configs = await _get_all_configs(db_session, graph_id)
+
+    for config in configs:
+        if not config.enabled:
+            continue
+
+        if not allow_structured and _is_structured_content_reader(config):
+            continue
+
+        if (config.name or "").strip().lower() == normalized_name:
+            return config
+
+    return None
+
+
 async def get_structured_content_config(
     db_session: AsyncSession,
     graph_id: UUID,

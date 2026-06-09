@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Annotated, Any, Literal
 from uuid import UUID, uuid4
 
-from litestar import Controller, Request, post
+from litestar import Controller, Request, get, post
 from litestar.datastructures import UploadFile
 from litestar.enums import RequestEncodingType
 from litestar.exceptions import ClientException
@@ -19,20 +19,25 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.tags import TagNames
 from core.db.models.knowledge_graph import KnowledgeGraph
+from core.db.models.knowledge_graph.knowledge_graph_chunk import KnowledgeGraphChunk
 from core.domain.agent_conversation.service import AgentConversationService
 from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphAgentResponse,
+    KnowledgeGraphChunkExternalSchema,
+    KnowledgeGraphDocumentDetailSchema,
     KnowledgeGraphEntityQueryRecordSchema,
     KnowledgeGraphEntityQueryRequest,
     KnowledgeGraphEntityQueryResponse,
 )
 from core.domain.knowledge_graph.services import (
+    KnowledgeGraphChunkService,
     KnowledgeGraphDocumentService,
     KnowledgeGraphEntityService,
 )
 from open_ai.utils_new import get_embeddings
 from services.agents.conversations import get_last_conversation_by_client_id
 from services.knowledge_graph.content_config_services import (
+    get_content_config_by_name,
     get_graph_embedding_model,
     get_graph_settings,
 )
@@ -100,16 +105,76 @@ async def _resolve_graph_id_or_name(
     return resolved if isinstance(resolved, UUID) else UUID(str(resolved))
 
 
+class KnowledgeGraphIngestChunk(BaseModel):
+    """A pre-chunked piece of content provided by the caller.
+
+    When chunks are supplied, the Knowledge Graph chunking/processing step is
+    skipped and the chunks are stored as provided.
+    """
+
+    content: str = Field(
+        ...,
+        min_length=1,
+        description="Chunk content to store (required, non-empty).",
+        examples=["Installation requires Windows 11 or later..."],
+    )
+    title: str | None = Field(
+        default=None,
+        max_length=500,
+        description="Optional chunk title.",
+        examples=["Installation requirements"],
+    )
+    page: int | None = Field(
+        default=None,
+        description="Optional page number the chunk originates from.",
+        examples=[3],
+    )
+    toc_reference: str | None = Field(
+        default=None,
+        max_length=500,
+        description="Optional table-of-contents reference for the chunk.",
+        examples=["2.1 Installation"],
+    )
+    chunk_type: str | None = Field(
+        default=None,
+        max_length=50,
+        description="Optional chunk type label (e.g. `TOPIC`).",
+        examples=["TOPIC"],
+    )
+    content_format: str | None = Field(
+        default=None,
+        description="Optional format of `content` (e.g. `html`, `markdown`).",
+        examples=["html"],
+    )
+    embedded_content: str | None = Field(
+        default=None,
+        description=(
+            "Optional plain text used for embedding generation. "
+            "Defaults to `content` when omitted."
+        ),
+    )
+
+    model_config = ConfigDict(extra="ignore")
+
+
 class KnowledgeGraphIngestJsonRequest(BaseModel):
-    """JSON payload for Knowledge Graph ingestion (plain text only)."""
+    """JSON payload for Knowledge Graph ingestion (plain text or pre-chunked content)."""
 
     content: str | None = Field(
         default=None,
         description=(
             "Plain text to ingest into the Knowledge Graph. "
-            "This field is required for `application/json` requests."
+            "Either `content` or `chunks` is required for `application/json` requests."
         ),
         examples=["Here is the content I want to ingest..."],
+    )
+    chunks: list[KnowledgeGraphIngestChunk] | None = Field(
+        default=None,
+        description=(
+            "Pre-chunked content to ingest as a single document. "
+            "When provided, the processing (chunking) step is skipped and chunks "
+            "are stored as-is. Cannot be combined with `content`."
+        ),
     )
     filename: str | None = Field(
         default=None,
@@ -126,6 +191,31 @@ class KnowledgeGraphIngestJsonRequest(BaseModel):
             "Defaults to `API Ingest` if omitted or blank."
         ),
         examples=["API Ingest", "Support Tickets"],
+    )
+    profile: str | None = Field(
+        default=None,
+        description=(
+            "Optional name of the content profile (graph content setting) to use for "
+            "processing instead of filename-based matching. For pre-chunked ingestion, "
+            "the profile's pre-chunked options (title patterns, truncation) still apply."
+        ),
+        examples=["Default", "Fluid Topics Native Format"],
+    )
+    title: str | None = Field(
+        default=None,
+        description=(
+            "Optional document title. If omitted, the title is derived from the "
+            "filename or generated during processing."
+        ),
+        examples=["Installation Guide"],
+    )
+    summary: str | None = Field(
+        default=None,
+        description=(
+            "Optional document summary. If omitted, a summary may be generated "
+            "during processing (depending on the profile)."
+        ),
+        examples=["Step-by-step installation instructions for the product."],
     )
     metadata: dict[str, Any] | None = Field(
         default=None,
@@ -166,6 +256,30 @@ class KnowledgeGraphIngestMultipartRequest(BaseModel):
         ),
         examples=["notes.txt", "meeting-notes"],
     )
+    profile: str | None = Field(
+        default=None,
+        description=(
+            "Optional name of the content profile (graph content setting) to use for "
+            "processing instead of filename-based matching."
+        ),
+        examples=["Default"],
+    )
+    title: str | None = Field(
+        default=None,
+        description=(
+            "Optional document title. If omitted, the title is derived from the "
+            "filename or generated during processing."
+        ),
+        examples=["Installation Guide"],
+    )
+    summary: str | None = Field(
+        default=None,
+        description=(
+            "Optional document summary. If omitted, a summary may be generated "
+            "during processing (depending on the profile)."
+        ),
+        examples=["Step-by-step installation instructions for the product."],
+    )
     metadata: str | None = Field(
         default=None,
         description=(
@@ -195,11 +309,15 @@ class KnowledgeGraphIngestAcceptedResponse(BaseModel):
 
 @dataclass(frozen=True, slots=True)
 class _IngestItem:
-    kind: str  # "text" | "file"
+    kind: str  # "text" | "file" | "chunks"
     filename: str
     text: str | None = None
     file_bytes: bytes | None = None
     source_metadata: dict[str, Any] | None = None
+    profile: str | None = None
+    title: str | None = None
+    summary: str | None = None
+    chunks: list[KnowledgeGraphChunk] | None = None
 
 
 class KnowledgeGraphAskRequest(BaseModel):
@@ -281,6 +399,13 @@ class KnowledgeGraphDocumentSearchResponse(BaseModel):
 
     documents: list[dict[str, Any]] = Field(default_factory=list)
     trace_id: str | None = None
+
+
+class KnowledgeGraphDocumentDetailResponse(BaseModel):
+    """A single Knowledge Graph document with its metadata and chunks."""
+
+    document: KnowledgeGraphDocumentDetailSchema
+    chunks: list[KnowledgeGraphChunkExternalSchema] = Field(default_factory=list)
 
 
 class UserKnowledgeGraphController(Controller):
@@ -490,7 +615,8 @@ class UserKnowledgeGraphController(Controller):
         summary="Search Knowledge Graph documents by summary",
         description=(
             "Performs vector similarity search over the graph's document summaries. "
-            "Optionally constrains results using a structured `filter_documents_by_metadata`."
+            "Optionally constrains results using a structured `filter_documents_by_metadata`. "
+            "Each result includes the document `metadata` (grouped by `file`, `source` and `llm` origin)."
         ),
         status_code=HTTP_200_OK,
     )
@@ -539,6 +665,7 @@ class UserKnowledgeGraphController(Controller):
             min_score=float(data.min_score),
             doc_filter_where_sql=doc_filter_where_sql,
             doc_filter_where_params=doc_filter_where_params,
+            include_metadata=True,
         )
 
         trace_id = observability_context.get_current_trace_id()[:8]
@@ -554,13 +681,22 @@ class UserKnowledgeGraphController(Controller):
     @post(
         "/{graph_id_or_name:str}/ingest",
         status_code=HTTP_202_ACCEPTED,
-        summary="Ingest text or a file into Knowledge Graph",
+        summary="Ingest text, a file or pre-chunked content into Knowledge Graph",
         description=(
             "Accepts ingestion payload quickly and processes it asynchronously in the background.\n\n"
             "Request body can be sent as either:\n"
-            "- `application/json` (plain text): `content`, optional `filename`, optional `source_name`\n"
-            "- `multipart/form-data` (plain text and/or file): optional `content`, optional `filename`, optional `source_name`, optional `file`\n\n"
-            "At least one of `content` or `file` must be provided.\n\n"
+            "- `application/json` (plain text or pre-chunked content): `content` or `chunks`, optional `filename`, "
+            "optional `source_name`, optional `profile`, optional `title`, optional `summary`\n"
+            "- `multipart/form-data` (plain text and/or file): optional `content`, optional `filename`, "
+            "optional `source_name`, optional `profile`, optional `title`, optional `summary`, optional `file`\n\n"
+            "At least one of `content`, `chunks` or `file` must be provided. "
+            "`content` and `chunks` cannot be combined. "
+            "`chunks` is only supported for `application/json` requests.\n\n"
+            "When `chunks` are provided, the processing (chunking) step is skipped and the chunks are stored "
+            "as-is in a single document (pre-chunked ingestion).\n\n"
+            "Provide `profile` to process the content with a specific content profile (by name) instead of "
+            "filename-based matching. For pre-chunked ingestion, the profile's pre-chunked options "
+            "(title patterns, truncation) still apply.\n\n"
             "If no source is specified, a default 'api_ingest' source is created (or reused). "
             "Provide `source_name` to create/use a separate source."
         ),
@@ -583,7 +719,7 @@ class UserKnowledgeGraphController(Controller):
             Body(
                 title="Ingest payload (application/json)",
                 description=(
-                    "Use `application/json` for plain text only ingestion. "
+                    "Use `application/json` for plain text or pre-chunked ingestion. "
                     "For file upload (and/or mixed text+file), use the multipart/form-data variant."
                 ),
             ),
@@ -594,7 +730,7 @@ class UserKnowledgeGraphController(Controller):
                 title="Ingest payload (multipart/form-data)",
                 description=(
                     "Use `multipart/form-data` to upload a file and/or provide plain text. "
-                    "Form fields: `source_name`, `content`, `filename`, `file`."
+                    "Form fields: `source_name`, `content`, `filename`, `profile`, `title`, `summary`, `file`."
                 ),
                 media_type=RequestEncodingType.MULTI_PART,
             ),
@@ -609,12 +745,19 @@ class UserKnowledgeGraphController(Controller):
         filename: str | None = None
         upload: UploadFile | None = None
         source_metadata: dict[str, Any] | None = None
+        profile: str | None = None
+        title: str | None = None
+        summary: str | None = None
+        chunks: list[KnowledgeGraphIngestChunk] | None = None
 
         if form_data is not None:
             source_name = form_data.source_name
             content = form_data.content
             filename = form_data.filename
             upload = form_data.file
+            profile = form_data.profile
+            title = form_data.title
+            summary = form_data.summary
             if form_data.metadata:
                 try:
                     source_metadata = json.loads(form_data.metadata)
@@ -628,6 +771,10 @@ class UserKnowledgeGraphController(Controller):
             source_name = json_data.source_name
             content = json_data.content
             filename = json_data.filename
+            profile = json_data.profile
+            title = json_data.title
+            summary = json_data.summary
+            chunks = json_data.chunks
             source_metadata = json_data.metadata or None
         else:
             # Fallback for clients that don't match the expected parsing path (keeps behavior stable).
@@ -637,6 +784,9 @@ class UserKnowledgeGraphController(Controller):
                 content = form.get("content")
                 filename = form.get("filename")
                 upload = form.get("file")
+                profile = form.get("profile")
+                title = form.get("title")
+                summary = form.get("summary")
                 raw_meta = form.get("metadata")
                 if raw_meta:
                     try:
@@ -653,6 +803,10 @@ class UserKnowledgeGraphController(Controller):
                 source_name = data.source_name
                 content = data.content
                 filename = data.filename
+                profile = data.profile
+                title = data.title
+                summary = data.summary
+                chunks = data.chunks
                 raw_meta = data.metadata
                 if isinstance(raw_meta, str):
                     try:
@@ -666,8 +820,28 @@ class UserKnowledgeGraphController(Controller):
                 source_metadata = raw_meta or None
 
         normalized_source_name = (source_name or "API Ingest").strip() or "API Ingest"
+        profile = (profile or "").strip() or None
+        title = (title or "").strip() or None
+        summary = (summary or "").strip() or None
+        if not chunks:
+            chunks = None
 
-        # Build ingest items (we accept text and/or a file)
+        has_content = isinstance(content, str) and bool(content.strip())
+        if has_content and chunks:
+            raise ClientException("Provide either 'content' or 'chunks', not both")
+
+        # Validate the profile upfront so callers get an immediate 400 instead of a
+        # silent background failure after the 202 response.
+        if profile:
+            config = await get_content_config_by_name(
+                db_session, graph_id, profile, allow_structured=bool(chunks)
+            )
+            if not config:
+                raise ClientException(
+                    f"Knowledge Graph has no enabled profile named '{profile}'."
+                )
+
+        # Build ingest items (we accept text, pre-chunked content and/or a file)
         items: list[_IngestItem] = []
         ingestion_id = str(uuid4())
 
@@ -680,27 +854,57 @@ class UserKnowledgeGraphController(Controller):
                     filename=upload_filename,
                     file_bytes=file_bytes,
                     source_metadata=source_metadata,
+                    profile=profile,
+                    title=title,
+                    summary=summary,
                 )
             )
 
-        if isinstance(content, str) and content.strip():
+        if has_content or chunks:
             text_filename = (filename or "").strip()
             if not text_filename:
                 text_filename = ingestion_id
             elif "." not in text_filename:
                 text_filename = f"{text_filename}.txt"
 
-            items.append(
-                _IngestItem(
-                    kind="text",
-                    filename=text_filename,
-                    text=content,
-                    source_metadata=source_metadata,
+            if chunks:
+                items.append(
+                    _IngestItem(
+                        kind="chunks",
+                        filename=text_filename,
+                        chunks=[
+                            KnowledgeGraphChunk(
+                                title=ch.title,
+                                toc_reference=ch.toc_reference,
+                                page=ch.page,
+                                chunk_type=ch.chunk_type,
+                                content=ch.content,
+                                content_format=ch.content_format,
+                                embedded_content=ch.embedded_content or ch.content,
+                            )
+                            for ch in chunks
+                        ],
+                        source_metadata=source_metadata,
+                        profile=profile,
+                        title=title,
+                        summary=summary,
+                    )
                 )
-            )
+            else:
+                items.append(
+                    _IngestItem(
+                        kind="text",
+                        filename=text_filename,
+                        text=content,
+                        source_metadata=source_metadata,
+                        profile=profile,
+                        title=title,
+                        summary=summary,
+                    )
+                )
 
         if not items:
-            raise ClientException("Provide 'content' and/or 'file' to ingest")
+            raise ClientException("Provide 'content', 'chunks' and/or 'file' to ingest")
 
         # Create or reuse the (graph_id, type=api_ingest, name=source_name) source
         source = await ApiIngestDataSource(
@@ -723,6 +927,58 @@ class UserKnowledgeGraphController(Controller):
             source_id=str(source.id),
             source_name=source.name,
             trace_id=trace_id,
+        )
+
+    @get(
+        "/{graph_id_or_name:str}/documents/{document_id:uuid}",
+        status_code=HTTP_200_OK,
+        summary="Get a Knowledge Graph document with its chunks",
+        description=(
+            "Returns a single Knowledge Graph document, including its metadata "
+            "(grouped by `file`, `source` and `llm` origin) and all of its chunks "
+            "ordered by chunk index."
+        ),
+    )
+    async def get_document(
+        self,
+        graph_id_or_name: Annotated[
+            str,
+            Parameter(
+                title="Knowledge Graph ID or System Name",
+                description=(
+                    "The UUID or System Name of the Knowledge Graph the document belongs to."
+                ),
+            ),
+        ],
+        document_id: Annotated[
+            UUID,
+            Parameter(
+                title="Document ID",
+                description="The UUID of the document to retrieve.",
+            ),
+        ],
+        db_session: AsyncSession,
+    ) -> KnowledgeGraphDocumentDetailResponse:
+        graph_id = await _resolve_graph_id_or_name(db_session, graph_id_or_name)
+
+        # Raises NotFoundException (404) when the document doesn't exist.
+        document = await KnowledgeGraphDocumentService().get_document(
+            db_session, graph_id, document_id
+        )
+
+        # Fetch all chunks; the document detail carries the exact chunk count.
+        chunks = await KnowledgeGraphChunkService().list_chunks(
+            db_session,
+            graph_id,
+            max(document.chunks_count, 1),
+            0,
+            None,
+            document_id,
+        )
+
+        return KnowledgeGraphDocumentDetailResponse(
+            document=document,
+            chunks=chunks.chunks,
         )
 
     @post(
