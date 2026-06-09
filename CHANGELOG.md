@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.35](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.34...v0.7.0-dev.35) (2026-06-09)
+
+### ✨ Features
+
+* **kg:** added new api for getting document and also extended some other kg apis with new fields ([6b1c450](https://github.com/ideaportriga/magnet-ai/commit/6b1c450849e63864c9bf3eb8a99ad9c4ff24dfeb))
+
 ## [0.7.0-dev.34](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.33...v0.7.0-dev.34) (2026-06-09)
 
 ### ✨ Features
