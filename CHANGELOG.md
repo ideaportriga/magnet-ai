@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.36](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.35...v0.7.0-dev.36) (2026-06-09)
+
+### 🐛 Bug Fixes
+
+* **kg:** fixed issue when knowledge graph is missing some dynamic tables ([cf5d328](https://github.com/ideaportriga/magnet-ai/commit/cf5d328d3b0fdce88da8949aefc07c86ba2d2e1a))
+
 ## [0.7.0-dev.35](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.34...v0.7.0-dev.35) (2026-06-09)
 
 ### ✨ Features
