@@ -245,7 +245,7 @@ import ToolSection from './ToolSection.vue'
 import ToolStat from './ToolStat.vue'
 import ComingSoonToolDialog from './Tools/ComingSoonToolDialog.vue'
 import ExitToolDialog from './Tools/ExitToolDialog.vue'
-import FindChunksBySimilarityDialog from './Tools/FindChunksBySimilarityDialog.vue'
+import ChunkRetrievalDialog from './Tools/ChunkRetrievalDialog.vue'
 import FindDocumentsByMetadataDialog from './Tools/FindDocumentsByMetadataDialog.vue'
 import FindDocumentsBySummaryDialog from './Tools/FindDocumentsBySummaryDialog.vue'
 import {
@@ -459,8 +459,12 @@ function serializeToolSettings() {
         searchControl: tool.searchControl,
         scoreThreshold: tool.scoreThreshold,
         limit: tool.limit,
-        hybridWeight: tool.hybridWeight,
+        rrfK: tool.rrfK,
+        candidatePoolSize: tool.candidatePoolSize,
+        keywordVariants: tool.keywordVariants,
+        vectorVariants: tool.vectorVariants,
         searchMethod: tool.searchMethod,
+        promptTemplateName: tool.promptTemplateName,
         description: tool.description,
         enabled: tool.enabled,
         metadataMergeStrategy: tool.metadataMergeStrategy,
@@ -500,8 +504,12 @@ function applyGraphSettings(settings: any) {
         'searchControl',
         'scoreThreshold',
         'limit',
-        'hybridWeight',
+        'rrfK',
+        'candidatePoolSize',
+        'keywordVariants',
+        'vectorVariants',
         'searchMethod',
+        'promptTemplateName',
         'description',
         'enabled',
         'metadataMergeStrategy',
@@ -874,8 +882,12 @@ const onSaveTool = (updatedTool: Tool) => {
       oldTool.searchControl !== updatedTool.searchControl ||
       oldTool.scoreThreshold !== updatedTool.scoreThreshold ||
       oldTool.limit !== updatedTool.limit ||
-      oldTool.hybridWeight !== updatedTool.hybridWeight ||
+      oldTool.rrfK !== updatedTool.rrfK ||
+      oldTool.candidatePoolSize !== updatedTool.candidatePoolSize ||
+      oldTool.keywordVariants !== updatedTool.keywordVariants ||
+      oldTool.vectorVariants !== updatedTool.vectorVariants ||
       oldTool.searchMethod !== updatedTool.searchMethod ||
+      oldTool.promptTemplateName !== updatedTool.promptTemplateName ||
       oldTool.strategy !== updatedTool.strategy ||
       oldTool.maxIterations !== updatedTool.maxIterations ||
       oldTool.answerMode !== updatedTool.answerMode ||
@@ -895,8 +907,8 @@ const getToolComponent = (toolId?: string) => {
       return FindDocumentsByMetadataDialog
     case 'findDocumentsBySummary':
       return FindDocumentsBySummaryDialog
-    case 'findChunksBySimilarity':
-      return FindChunksBySimilarityDialog
+    case 'retrieveChunks':
+      return ChunkRetrievalDialog
     case 'exit':
       return ExitToolDialog
     default:

@@ -8,6 +8,7 @@ from uuid import UUID
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     Column,
+    Computed,
     DateTime,
     ForeignKey,
     Integer,
@@ -17,6 +18,7 @@ from sqlalchemy import (
     Text,
     text,
 )
+from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 
 from .knowledge_graph_document import KnowledgeGraphDocument
@@ -138,6 +140,17 @@ def knowledge_graph_chunk_table(
         Column("content_format", String(100), nullable=True),
         Column("embedded_content", Text, nullable=True),
         Column("content_embedding", vector_type, nullable=True),
+        # Full-text search vector over (title, content). STORED generated column so
+        # writes don't need to populate it and reads/indexes always see fresh data.
+        Column(
+            "search_tsv",
+            TSVECTOR,
+            Computed(
+                "to_tsvector('english', coalesce(title, '') || ' ' || coalesce(content, ''))",
+                persisted=True,
+            ),
+            nullable=True,
+        ),
         Column("chunk_type", String(50), nullable=True),
         Column(
             "document_id",

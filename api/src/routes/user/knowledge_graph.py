@@ -4,7 +4,7 @@ import asyncio
 import json
 import logging
 from dataclasses import dataclass
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from uuid import UUID, uuid4
 
 from litestar import Controller, Request, post
@@ -40,8 +40,8 @@ from services.knowledge_graph.retrievers.agent_retriever.agent import (
     continue_conversation,
     start_conversation,
 )
-from services.knowledge_graph.retrievers.agent_retriever.tools.find_chunks_by_similarity import (
-    findChunksBySimilarity,
+from services.knowledge_graph.retrievers.agent_retriever.tools.retrieve_chunks import (
+    retrieveChunks,
 )
 from services.knowledge_graph.retrievers.agent_retriever.tools.find_documents_by_metadata import (
     findDocumentsByMetadata,
@@ -236,6 +236,8 @@ class KnowledgeGraphSearchRequest(BaseModel):
     query: str = Field(..., min_length=1)
     limit: int = Field(default=10, ge=1, le=50)
     min_score: float = Field(default=0.5, ge=0.0, le=1.0)
+    search_method: Literal["vector", "full_text", "hybrid"] = Field(default="hybrid")
+    rrf_k: int = Field(default=60, ge=1, le=200)
     filter_documents_by_ids: list[UUID] | None = None
     filter_documents_by_metadata: str | dict[str, Any] | None = Field(
         default=None,
@@ -261,6 +263,8 @@ class KnowledgeGraphDocumentSearchRequest(BaseModel):
     query: str = Field(..., min_length=1)
     limit: int = Field(default=10, ge=1, le=50)
     min_score: float = Field(default=0.5, ge=0.0, le=1.0)
+    search_method: Literal["vector", "full_text", "hybrid"] = Field(default="hybrid")
+    rrf_k: int = Field(default=60, ge=1, le=200)
     filter_documents_by_metadata: str | dict[str, Any] | None = Field(
         default=None,
         description=(
@@ -457,16 +461,20 @@ class UserKnowledgeGraphController(Controller):
 
         doc_filter_ids = [str(x) for x in (data.filter_documents_by_ids or [])]
 
-        chunks = await findChunksBySimilarity(
+        chunks = await retrieveChunks(
             db_session=db_session,
             graph_id=graph_id,
-            q=data.query,
+            query=data.query,
             embedding_model=embedding_model,
             limit=int(data.limit),
             min_score=float(data.min_score),
             doc_filter_ids=doc_filter_ids,
             doc_filter_where_sql=doc_filter_where_sql,
             doc_filter_where_params=doc_filter_where_params,
+            tool_cfg={
+                "searchMethod": data.search_method,
+                "rrfK": int(data.rrf_k),
+            },
         )
 
         trace_id = observability_context.get_current_trace_id()[:8]
@@ -512,14 +520,21 @@ class UserKnowledgeGraphController(Controller):
         doc_filter_where_sql: str | None = None
         doc_filter_where_params: dict[str, Any] | None = None
 
-        # Generate query embedding
-        query_vector = await get_embeddings(data.query, embedding_model)
+        # Generate query embedding (lexical-only modes skip this).
+        query_vector: list[float] | None = (
+            None
+            if data.search_method == "full_text"
+            else await get_embeddings(data.query, embedding_model)
+        )
 
         # Perform document search with metadata filtering
         documents = await KnowledgeGraphDocumentService().search_documents(
             db_session=db_session,
             graph_id=graph_id,
+            search_method=data.search_method,
             query_vector=query_vector,
+            query_text=data.query,
+            rrf_k=int(data.rrf_k),
             limit=int(data.limit),
             min_score=float(data.min_score),
             doc_filter_where_sql=doc_filter_where_sql,

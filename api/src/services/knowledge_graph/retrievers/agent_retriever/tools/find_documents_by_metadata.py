@@ -16,7 +16,7 @@ Important behavioral detail
 ---------------------------
 The agent (LLM) does *not* receive raw documents from this tool. The agent loop
 only returns the **count** to the model, while keeping the generated SQL predicate
-internally to constrain later chunk retrieval (`findChunksBySimilarity`).
+internally to constrain later chunk retrieval (`retrieveChunks`).
 """
 
 import json

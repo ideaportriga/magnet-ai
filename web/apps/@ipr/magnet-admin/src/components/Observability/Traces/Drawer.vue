@@ -38,6 +38,8 @@
       template(v-else-if='tab == "input_output"')
         template(v-if='span?.type == "search"')
           observability-traces-search-input-output(:span='span')
+        template(v-else-if='span?.type == "tool"')
+          observability-traces-tool-input-output(:span='span')
         template(v-else-if='span?.type == "embed"')
           observability-traces-embed-input-output(:span='span')
         template(v-else-if='span?.type == "chat"')
