@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.34](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.33...v0.7.0-dev.34) (2026-06-09)
+
+### ✨ Features
+
+* **kg:** implemented hybrid retrieval for the knowledge graphs ([#148](https://github.com/ideaportriga/magnet-ai/issues/148)) ([40cebd1](https://github.com/ideaportriga/magnet-ai/commit/40cebd11a8e999f2bfc9caea329da93f24404071))
+
 ## [0.7.0-dev.33](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.32...v0.7.0-dev.33) (2026-05-24)
 
 ### ✨ Features
