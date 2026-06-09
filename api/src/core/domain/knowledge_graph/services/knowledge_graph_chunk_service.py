@@ -114,17 +114,26 @@ class KnowledgeGraphChunkService:
 
         chunks_name = chunks_table_name(graph_id)
         docs_name = docs_table_name(graph_id)
+        exists = await db_session.execute(
+            text("SELECT to_regclass(:t)"), {"t": chunks_name}
+        )
+        if exists.scalar_one() is None:
+            return 0
         md = MetaData()
         chunks_tbl = knowledge_graph_chunk_table(
             md, chunks_name, docs_table=docs_name, vector_size=None
         )
         stmt = select(func.count()).select_from(chunks_tbl)
         try:
-            result = await db_session.execute(stmt)
+            # SAVEPOINT so a failure doesn't abort the caller's transaction
+            # or expire ORM objects loaded in the session (a session-level
+            # rollback would, and lazy re-loading from sync attribute access
+            # raises MissingGreenlet on async drivers).
+            async with db_session.begin_nested():
+                result = await db_session.execute(stmt)
+                return int(result.scalar() or 0)
         except ProgrammingError:
-            await db_session.rollback()
             return 0
-        return int(result.scalar() or 0)
 
     async def insert_chunks_bulk(
         self,

@@ -108,6 +108,18 @@ class KnowledgeGraphSourceService(
         )
         return result.scalar_one_or_none() is not None
 
+    @staticmethod
+    async def _docs_table_exists(db_session: AsyncSession, docs_table: str) -> bool:
+        """True if the per-graph docs table exists.
+
+        Uses ``to_regclass`` which returns NULL instead of raising for a
+        missing table, so the surrounding transaction is never aborted.
+        """
+        result = await db_session.execute(
+            text("SELECT to_regclass(:t)"), {"t": docs_table}
+        )
+        return result.scalar_one() is not None
+
     async def _counts_by_source(
         self, db_session: AsyncSession, graph_id: UUID
     ) -> dict[str, int]:
@@ -119,22 +131,23 @@ class KnowledgeGraphSourceService(
         empty dict if the docs table doesn't exist (e.g. graph has no
         embedding model configured yet).
         """
+        docs_table = docs_table_name(graph_id)
         try:
-            docs_table = docs_table_name(graph_id)
-            result = await db_session.execute(
-                text(
-                    f"SELECT source_id::text, COUNT(*) FROM {docs_table} "
-                    f"GROUP BY source_id"
+            if not await self._docs_table_exists(db_session, docs_table):
+                return {}
+            # SAVEPOINT so an unexpected failure aborts only the nested
+            # transaction: a session-level rollback would expire every ORM
+            # object loaded in the session, and lazy re-loading them from
+            # sync attribute access raises MissingGreenlet on async drivers.
+            async with db_session.begin_nested():
+                result = await db_session.execute(
+                    text(
+                        f"SELECT source_id::text, COUNT(*) FROM {docs_table} "
+                        f"GROUP BY source_id"
+                    )
                 )
-            )
-            return {row[0]: int(row[1]) for row in result.all()}
-        except Exception:
-            # Roll back so the session remains usable for subsequent ops
-            # (e.g. the framework's auto-commit on response).
-            try:
-                await db_session.rollback()
-            except Exception:  # noqa: BLE001
-                pass
+                return {row[0]: int(row[1]) for row in result.all()}
+        except Exception:  # noqa: BLE001
             return {}
 
     async def _stats_by_source(
@@ -144,14 +157,19 @@ class KnowledgeGraphSourceService(
 
         One scan over the per-graph docs table produces all the counts the
         UI needs to render the pipeline strip on each source row. Same
-        defensive rollback as ``_counts_by_source`` for graphs with no
-        docs table yet.
+        existence check and SAVEPOINT as ``_counts_by_source`` for graphs
+        with no docs table yet.
         """
+        docs_table = docs_table_name(graph_id)
         try:
-            docs_table = docs_table_name(graph_id)
-            result = await db_session.execute(
-                text(
-                    f"""
+            if not await self._docs_table_exists(db_session, docs_table):
+                return {}
+            # SAVEPOINT for the same reason as ``_counts_by_source``: a
+            # session-level rollback would expire already-loaded ORM objects.
+            async with db_session.begin_nested():
+                result = await db_session.execute(
+                    text(
+                        f"""
                     SELECT
                         source_id::text AS source_id,
                         COUNT(*) AS documents_count,
@@ -186,10 +204,11 @@ class KnowledgeGraphSourceService(
                     FROM {docs_table}
                     GROUP BY source_id
                     """
+                    )
                 )
-            )
+                rows = result.mappings().all()
             stats: dict[str, KnowledgeGraphSourceStatsSchema] = {}
-            for row in result.mappings().all():
+            for row in rows:
                 sid = str(row.get("source_id") or "")
                 if not sid:
                     continue
@@ -242,11 +261,7 @@ class KnowledgeGraphSourceService(
                     ),
                 )
             return stats
-        except Exception:
-            try:
-                await db_session.rollback()
-            except Exception:  # noqa: BLE001
-                pass
+        except Exception:  # noqa: BLE001
             return {}
 
     async def set_source_status(
