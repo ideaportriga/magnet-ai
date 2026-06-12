@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.37](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.36...v0.7.0-dev.37) (2026-06-12)
+
+### ✨ Features
+
+* implement utility service for running similiarity comparison ([ddd9c3e](https://github.com/ideaportriga/magnet-ai/commit/ddd9c3e8f64f014dc108f756313f6d3e832480bb))
+
 ## [0.7.0-dev.36](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.35...v0.7.0-dev.36) (2026-06-09)
 
 ### 🐛 Bug Fixes
