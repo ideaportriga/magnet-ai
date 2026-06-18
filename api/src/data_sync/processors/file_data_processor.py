@@ -19,12 +19,9 @@ from data_sync.utils import clean_text
 from models import DocumentData
 from services.knowledge_graph.readers.kreuzberg_reader import mime_type_from_filename
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    handlers=[logging.StreamHandler()],
-)
+# Logging is configured centrally (structlog) in core.config.app; do not call
+# logging.basicConfig here — it installs a plain-text root handler that bypasses
+# structlog and emits non-JSON lines that break downstream log shippers.
 logger = logging.getLogger(__name__)
 
 DEFAULT_CHUNK_SIZE = 12000

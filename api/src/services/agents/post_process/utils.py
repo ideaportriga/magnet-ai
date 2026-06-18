@@ -67,8 +67,9 @@ async def extract_analytics_from_conversation(
                     total_latency += (dt_last - dt_first).total_seconds() * 1000
                     latency_count += 1
                 except Exception as e:
-                    print(
-                        f"Error parsing datetime in extract_metrics_from_conversation: {e}",
+                    logger.warning(
+                        "Error parsing datetime in extract_metrics_from_conversation: %s",
+                        e,
                     )
             # topics
             for step in steps:

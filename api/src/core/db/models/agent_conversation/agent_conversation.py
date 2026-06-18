@@ -5,7 +5,7 @@ from typing import Any, Optional
 
 from advanced_alchemy.base import UUIDv7AuditBase
 from advanced_alchemy.types import DateTimeUTC, JsonB
-from sqlalchemy import String
+from sqlalchemy import Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 
@@ -61,4 +61,23 @@ class AgentConversation(UUIDv7AuditBase):
         String(50),
         nullable=True,
         comment="Message processing status: 'processing', 'completed', or 'failed'",
+    )
+
+    # Monotonic turn counter. Bumped on every new user message; a processing
+    # turn only persists its reply if this still equals the value it captured,
+    # so a superseded (stale) turn is discarded. Enables multi-worker-safe
+    # cancellation of rapid-fire messages.
+    processing_generation: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+        comment="Monotonic turn counter for superseding in-flight processing",
+    )
+
+    # Outbound webhook callback config for async (webhook-driven) invocation.
+    callback: Mapped[Optional[dict[str, Any]]] = mapped_column(
+        JsonB,
+        nullable=True,
+        comment="Outbound webhook callback config (url, optional headers)",
     )

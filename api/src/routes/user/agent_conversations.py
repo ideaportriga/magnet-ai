@@ -1,23 +1,25 @@
-import asyncio
 from logging import getLogger
 from typing import Annotated, Any
+from uuid import UUID
 
-from litestar import Controller, Request, get, post
+from litestar import Controller, Request, get, patch, post
 from litestar.exceptions import NotFoundException
 from litestar.params import Parameter
-from litestar.status_codes import HTTP_200_OK
+from litestar.status_codes import HTTP_200_OK, HTTP_202_ACCEPTED
 from sqlalchemy.ext.asyncio import AsyncSession
 from api.tags import TagNames
 from services.agents.conversations import (
     add_user_message,
     copy_message,
     create_conversation,
+    edit_message_content,
     get_conversation,
     get_missing_messages,
     get_last_conversation_by_client_id,
+    register_and_schedule_user_message,
+    schedule_initial_turn,
     set_message_feedback,
-    add_assistant_message,
-    update_message_processing_status,
+    start_webhook_conversation,
     update_conversation_status,
 )
 from services.agents.conversations.services import get_conversation_by_id
@@ -25,9 +27,12 @@ from services.agents.models import (
     AgentConversationAddUserMessageRequest,
     AgentConversationAddUserMessageResponse,
     AgentConversationCreateRequest,
+    AgentConversationEditMessageContentRequest,
     AgentConversationMessageFeedbackRequest,
     AgentConversationWithMessagesPublic,
     AgentConversationMessageProcessingStatus,
+    AgentConversationWebhookAck,
+    AgentConversationWebhookRequest,
 )
 from services.agents.services import get_agent_by_system_name
 from services.observability import (
@@ -334,11 +339,11 @@ class AgentConversationsController(Controller):
             db_session,
             is_async=True,
         )  ### is_async=True means that agent message wont be processed immediately
-        asyncio.create_task(
-            add_assistant_message(
-                str(conversation.id),
-                **observability_overrides(trace_id=conversation.trace_id),
-            )
+        # Schedule the first turn as a tracked, cancellable task so a follow-up
+        # message can supersede it.
+        schedule_initial_turn(
+            str(conversation.id),
+            **observability_overrides(trace_id=conversation.trace_id),
         )
         return conversation
 
@@ -378,17 +383,16 @@ class AgentConversationsController(Controller):
             logger.warning(
                 f"Cannot restore trace for conversation {conversation_id}, new trace will be created"
             )
-        message_processing_status = await update_message_processing_status(
-            str(conversation["id"]), AgentConversationMessageProcessingStatus.PROCESSING
-        )
 
-        asyncio.create_task(
-            self._add_message_route(
-                conversation,
-                data,
-                user_id,
-                **observability_overrides(trace_id=trace_id),
-            )
+        # Persist the new user message, supersede any in-flight turn (cancel it
+        # locally + bump generation so other workers discard it), and schedule a
+        # fresh turn that answers the latest message. Earlier un-answered
+        # messages stay in history and feed into this turn's context.
+        message_processing_status = await register_and_schedule_user_message(
+            conversation,
+            data.user_message_content,
+            data.action_call_confirmations,
+            **observability_overrides(trace_id=trace_id),
         )
         return message_processing_status
 
@@ -418,5 +422,81 @@ class AgentConversationsController(Controller):
                 conversation_id, message_count
             )
             return missing_messages
+        except RecordNotFoundError:
+            raise NotFoundException()
+
+    @post(
+        "/webhook",
+        status_code=HTTP_202_ACCEPTED,
+        summary="Invoke an agent asynchronously via webhook",
+        description=(
+            "Accepts a message and a callback descriptor, acknowledges immediately, "
+            "and processes the turn in the background. When the reply is ready it is "
+            "POSTed to the provided callback URL (HMAC-signed via X-Magnet-Signature). "
+            "Continues an existing conversation by conversation_id or client_id, or "
+            "starts a new one."
+        ),
+    )
+    async def webhook_invoke_route(
+        self,
+        data: AgentConversationWebhookRequest,
+        request: Request,
+    ) -> AgentConversationWebhookAck:
+        agent_config = await get_agent_by_system_name(data.agent)
+
+        observability_context.update_current_baggage(
+            source=request.headers.get("x-source") or "Webhook",
+            consumer_type=request.headers.get("x-consumer-type") or "agent",
+            consumer_name=(
+                request.headers.get("x-consumer-name") or agent_config.system_name
+            ),
+        )
+
+        conversation_id, status = await start_webhook_conversation(
+            agent_config,
+            data.user_message_content,
+            data.callback,
+            conversation_id=str(data.conversation_id) if data.conversation_id else None,
+            client_id=data.client_id,
+            variables=data.variables,
+        )
+
+        return AgentConversationWebhookAck(
+            conversation_id=UUID(conversation_id),
+            message_processing_status=status,
+        )
+
+    @patch(
+        "/{conversation_id:str}/messages/{message_id:str}/content",
+        status_code=HTTP_200_OK,
+        summary="Edit an assistant message's content",
+        description=(
+            "Overrides the content of a stored assistant message (operator/external "
+            "correction). The corrected text is used in subsequent turns' context."
+        ),
+    )
+    async def edit_message_content_route(
+        self,
+        conversation_id: Annotated[
+            str,
+            Parameter(
+                description="The unique identifier of the conversation containing the message.",
+            ),
+        ],
+        message_id: Annotated[
+            str,
+            Parameter(
+                description="The unique identifier of the message to edit.",
+            ),
+        ],
+        data: AgentConversationEditMessageContentRequest,
+    ) -> None:
+        try:
+            await edit_message_content(
+                conversation_id=conversation_id,
+                message_id=message_id,
+                content=data.content,
+                edited_by=data.edited_by,
+            )
         except RecordNotFoundError:
             raise NotFoundException()

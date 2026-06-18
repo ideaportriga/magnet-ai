@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any, BinaryIO
 
 import httpx
@@ -8,6 +9,8 @@ from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
 
 from services.ai_services.interface import AIProviderInterface
 from services.ai_services.models import TranscriptionResponse
+
+logger = logging.getLogger(__name__)
 
 
 def _to_dict(obj: Any) -> Any:
@@ -210,12 +213,12 @@ class AzureSpeechSTTProvider(AIProviderInterface):
                 duration = float(payload["durationMilliseconds"]) / 1000.0
             except Exception:
                 duration = None
-        print(
-            "definition sent:",
+        logger.debug(
+            "definition sent: %s",
             json.dumps(definition, ensure_ascii=True, separators=(",", ":")),
         )
-        print(
-            "first phrases:",
+        logger.debug(
+            "first phrases: %s",
             json.dumps((payload.get("phrases") or [])[:3], ensure_ascii=False),
         )
 

@@ -543,7 +543,6 @@ class CosmosDbStore(DocumentStore):
     ) -> list:
         if not collection_ids:
             logger.warning("No collections provided for similarity search.")
-            print("No collections provided for similarity search.")
             return []
 
         logger.debug(

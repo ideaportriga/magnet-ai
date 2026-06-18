@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
@@ -420,6 +421,11 @@ class LogSettings:
     )
     """Loki URL for sending logs (optional)."""
     LOKI_URL: str = field(default_factory=get_env("LOKI_URL", ""))
+    """Log rendering format: "json", "console", or "auto" (JSON unless stderr/stdout is a TTY).
+
+    Force "json" in any environment whose log shipper rejects non-JSON lines.
+    """
+    FORMAT: str = field(default_factory=get_env("LOG_FORMAT", "auto"))
 
 
 ### OBSERVABILITY SETTINGS ###
@@ -452,6 +458,38 @@ class ObservabilitySettings:
         default_factory=get_env("OBSERVABILITY_METRICS_EXPORT_INTERVAL_MS", 3000)
     )
     """Metrics export interval in milliseconds."""
+
+    PROMETHEUS_ENABLED: bool = field(
+        default_factory=get_env("OBSERVABILITY_PROMETHEUS_ENABLED", True)
+    )
+    """Expose a Prometheus scrape endpoint (HTTP request metrics + OTel GenAI metrics)."""
+    PROMETHEUS_PATH: str = field(
+        default_factory=get_env("OBSERVABILITY_PROMETHEUS_PATH", "/metrics")
+    )
+    """Path served by the Prometheus scrape endpoint."""
+
+
+### WEBHOOK SETTINGS ###
+
+
+@dataclass
+class WebhookSettings:
+    """Outbound webhook (agent reply callback) configuration."""
+
+    SIGNING_SECRET: str = field(
+        default_factory=get_env("AGENT_WEBHOOK_SIGNING_SECRET", "")
+    )
+    """Shared secret used to HMAC-sign outbound callback bodies (X-Magnet-Signature).
+
+    The receiving system verifies the signature with the same secret. When empty,
+    callbacks are still delivered but unsigned (signature header omitted).
+    """
+    TIMEOUT_SECONDS: float = field(
+        default_factory=get_env("AGENT_WEBHOOK_TIMEOUT_SECONDS", 15)
+    )
+    """Per-attempt HTTP timeout for callback delivery."""
+    MAX_ATTEMPTS: int = field(default_factory=get_env("AGENT_WEBHOOK_MAX_ATTEMPTS", 4))
+    """Total delivery attempts (including the first) before giving up."""
 
 
 @dataclass
@@ -681,6 +719,7 @@ class Settings:
     scheduler: SchedulerSettings = field(default_factory=SchedulerSettings)
     log: LogSettings = field(default_factory=LogSettings)
     observability: ObservabilitySettings = field(default_factory=ObservabilitySettings)
+    webhook: WebhookSettings = field(default_factory=WebhookSettings)
     azure: AzureSettings = field(default_factory=AzureSettings)
     knowledge_sources: KnowledgeSourceSettings = field(
         default_factory=KnowledgeSourceSettings
@@ -705,9 +744,13 @@ class Settings:
         if env_file and env_file.is_file():
             from dotenv import load_dotenv
 
-            console.print(
-                f"[yellow]Loading environment configuration from {env_file}[/]"
-            )
+            # Only emit the human-readable banner on an interactive terminal.
+            # In non-TTY (deployed) environments this plain-text line would be
+            # mixed into otherwise-JSON stdout and break log shippers.
+            if sys.stdout.isatty() and os.getenv("LOG_FORMAT", "auto") != "json":
+                console.print(
+                    f"[yellow]Loading environment configuration from {env_file}[/]"
+                )
 
             load_dotenv(env_file, override=True)
 
@@ -748,6 +791,11 @@ def get_log_settings() -> LogSettings:
 @lru_cache(maxsize=1, typed=True)
 def get_observability_settings() -> ObservabilitySettings:
     return get_settings().observability
+
+
+@lru_cache(maxsize=1, typed=True)
+def get_webhook_settings() -> WebhookSettings:
+    return get_settings().webhook
 
 
 @lru_cache(maxsize=1, typed=True)

@@ -19,8 +19,8 @@ from services.evaluation.services import append_evaluation_results
 from services.rag_tools import execute_rag_tool
 from services.utils.metadata_filtering import metadata_filter_to_filter_object
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
+# Logging is configured centrally (structlog) in core.config.app; calling
+# logging.basicConfig here would attach a plain-text root handler and bypass it.
 logger = logging.getLogger(__name__)
 
 

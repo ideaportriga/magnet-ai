@@ -71,6 +71,18 @@ def get_metrics_readers() -> list[MetricReader]:
                 except Exception as e:
                     logger.error(f"Failed to create Azure Monitor metrics reader: {e}")
 
+    # Prometheus is pull-based (scraped via the /metrics endpoint) rather than a
+    # push exporter, so it is driven by its own flag instead of METRICS_EXPORTERS.
+    # The reader registers a collector on prometheus_client's default registry,
+    # which is the same registry served by the Prometheus scrape endpoint.
+    if observability_settings.ENABLED and observability_settings.PROMETHEUS_ENABLED:
+        try:
+            from opentelemetry.exporter.prometheus import PrometheusMetricReader
+
+            readers.append(PrometheusMetricReader())
+        except Exception as e:
+            logger.error(f"Failed to create Prometheus metrics reader: {e}")
+
     return readers
 
 

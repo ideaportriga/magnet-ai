@@ -47,7 +47,22 @@ def _is_tty() -> bool:
     return bool(sys.stderr.isatty() or sys.stdout.isatty())
 
 
-_render_as_json = not _is_tty()
+def _resolve_render_as_json() -> bool:
+    """Decide whether logs render as JSON.
+
+    Controlled by ``LOG_FORMAT`` (``json`` | ``console`` | ``auto``). ``auto``
+    keeps the previous behaviour (JSON unless attached to a TTY); ``json``
+    guarantees machine-readable output for log shippers that reject plain text.
+    """
+    fmt = (settings.log.FORMAT or "auto").strip().lower()
+    if fmt == "json":
+        return True
+    if fmt == "console":
+        return False
+    return not _is_tty()
+
+
+_render_as_json = _resolve_render_as_json()
 
 # Console processors (human-readable or JSON based on TTY)
 _structlog_default_processors = default_structlog_processors(as_json=_render_as_json)

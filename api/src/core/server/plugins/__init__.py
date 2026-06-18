@@ -6,6 +6,7 @@ from .exception_handlers import ExceptionHandlersPlugin
 from .middleware import MiddlewarePlugin
 from .openapi import OpenAPIPlugin
 from .oracle_monitoring import OracleMonitoringPlugin
+from .prometheus import PrometheusPlugin
 from .shutdown import ShutdownPlugin
 from .startup import StartupPlugin
 
@@ -16,6 +17,7 @@ __all__ = [
     "MiddlewarePlugin",
     "OpenAPIPlugin",
     "OracleMonitoringPlugin",
+    "PrometheusPlugin",
     "ShutdownPlugin",
     "StartupPlugin",
 ]

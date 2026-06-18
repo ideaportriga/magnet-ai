@@ -11,6 +11,7 @@ from .plugins import (
     MiddlewarePlugin,
     OpenAPIPlugin,
     OracleMonitoringPlugin,
+    PrometheusPlugin,
     ShutdownPlugin,
     StartupPlugin,
 )
@@ -27,5 +28,6 @@ exception_handlers_plugin = ExceptionHandlersPlugin()
 middleware_plugin = MiddlewarePlugin()
 openapi_plugin = OpenAPIPlugin()
 oracle_monitoring_plugin = OracleMonitoringPlugin()
+prometheus_plugin = PrometheusPlugin()
 shutdown_plugin = ShutdownPlugin()
 startup_plugin = StartupPlugin()

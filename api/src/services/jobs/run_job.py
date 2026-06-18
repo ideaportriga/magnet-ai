@@ -8,8 +8,8 @@ from typing import Any
 from services.jobs.jobs_types.evaluate import evaluate
 from stores import get_db_client
 
-# Initialize logging
-logging.basicConfig(level=logging.INFO)
+# Logging is configured centrally (structlog) in core.config.app; calling
+# logging.basicConfig here would attach a plain-text root handler and bypass it.
 client = get_db_client()
 jobs_collection = client.get_collection("jobs")
 

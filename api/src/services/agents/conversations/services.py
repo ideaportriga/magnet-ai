@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from datetime import timedelta
 from logging import getLogger
@@ -26,9 +27,11 @@ from services.agents.models import (
     AgentConversationWithMessages,
     AgentConversationWithMessagesPublic,
     AgentConversationMessageProcessingStatus,
+    WebhookCallbackConfig,
 )
 from services.agents.post_process.utils import extract_analytics_from_conversation
 from services.agents.services import execute_agent, get_agent_by_system_name
+from services.webhooks import deliver_agent_reply
 from services.common.models import ConversationMessageFeedback
 from services.observability import (
     observability_context,
@@ -53,6 +56,7 @@ async def create_conversation(
     variables: dict[str, str] | None = None,
     db_session: AsyncSession | None = None,
     is_async: bool = False,
+    callback: WebhookCallbackConfig | None = None,
 ) -> AgentConversationWithMessagesPublic:
     # Get agent config
     if isinstance(agent_system_name_or_config, str):
@@ -106,6 +110,7 @@ async def create_conversation(
             analytics_id=instance_id,
             variables=variables,
             message_processing_status=message_processing_status,
+            callback=callback,
         )
 
         # Replace MongoDB insert with SQLAlchemy service
@@ -605,3 +610,236 @@ async def update_message_processing_status(
     if not updated:
         raise RecordNotFoundError()
     return message_processing_status
+
+
+# ---------------------------------------------------------------------------
+# Rapid-fire handling (2.1): cancel in-flight, answer only the latest message.
+#
+# Each new user message bumps ``processing_generation`` on the conversation and
+# is persisted immediately, so earlier (un-answered) user messages remain in the
+# stored history and are automatically folded into the next turn's context. A
+# background turn captures the generation it runs under and only persists its
+# reply if that is still current (multi-worker-safe guard). On THIS worker we
+# also cancel the previous task outright so its LLM call is interrupted.
+# ---------------------------------------------------------------------------
+
+# In-process registry of running turns (per worker). Cross-worker supersession
+# is enforced by the DB generation guard at persist time.
+_running_turns: dict[str, asyncio.Task] = {}
+
+
+def _register_turn(conversation_id: str, task: asyncio.Task) -> None:
+    _running_turns[conversation_id] = task
+
+    def _cleanup(finished: asyncio.Task, cid: str = conversation_id) -> None:
+        if _running_turns.get(cid) is finished:
+            _running_turns.pop(cid, None)
+
+    task.add_done_callback(_cleanup)
+
+
+def cancel_local_turn(conversation_id: str) -> None:
+    """Cancel any in-flight turn for this conversation on the current worker."""
+    task = _running_turns.get(conversation_id)
+    if task and not task.done():
+        logger.info(
+            "Cancelling superseded in-flight turn for conversation %s", conversation_id
+        )
+        task.cancel()
+
+
+@observe(
+    name="Agent reply (async)",
+    description="Background processing of a user message. Only the latest message's turn is persisted; superseded turns are discarded.",
+    channel="production",
+)
+async def run_agent_turn(conversation_id: str, generation: int) -> None:
+    """Execute one agent turn and persist its reply only if still current."""
+    try:
+        conversation_record = await get_conversation_by_id(conversation_id)
+        conversation = AgentConversationDataWithMessages(**conversation_record)
+        agent_config = await get_agent_by_system_name(conversation.agent)
+        observability_context.update_current_trace(name=agent_config.name, type="agent")
+        assistant_message = await execute_agent(
+            system_name_or_config=conversation.agent,
+            messages=conversation.messages,
+            variables=conversation.variables,
+        )
+    except asyncio.CancelledError:
+        logger.info(
+            "Turn cancelled (conversation %s, generation %s)",
+            conversation_id,
+            generation,
+        )
+        raise
+    except Exception:
+        logger.exception(
+            "Turn failed (conversation %s, generation %s)",
+            conversation_id,
+            generation,
+        )
+        async with alchemy.get_session() as session:
+            service = AgentConversationService(session=session)
+            await service.persist_turn_result_if_current(
+                session,
+                conversation_id,
+                generation,
+                status=AgentConversationMessageProcessingStatus.FAILED.value,
+            )
+        return
+
+    assistant_dict = assistant_message.model_dump(mode="json")
+    async with alchemy.get_session() as session:
+        service = AgentConversationService(session=session)
+        applied = await service.persist_turn_result_if_current(
+            session,
+            conversation_id,
+            generation,
+            append_message=assistant_dict,
+            status=AgentConversationMessageProcessingStatus.COMPLETED.value,
+        )
+
+    # Deliver the reply via outbound webhook only for the winning (current) turn.
+    if applied and conversation.callback:
+        await deliver_agent_reply(
+            url=conversation.callback.url,
+            payload={
+                "conversation_id": conversation_id,
+                "message": {
+                    "id": str(assistant_message.id),
+                    "role": "assistant",
+                    "content": assistant_message.content,
+                    "created_at": assistant_message.created_at.isoformat(),
+                },
+            },
+            headers=conversation.callback.headers,
+        )
+
+
+def schedule_turn(conversation_id: str, generation: int, **observability_kwargs):
+    """Cancel any local in-flight turn and schedule a fresh one."""
+    cancel_local_turn(conversation_id)
+    task = asyncio.create_task(
+        run_agent_turn(conversation_id, generation, **observability_kwargs)
+    )
+    _register_turn(conversation_id, task)
+    return task
+
+
+def schedule_initial_turn(
+    conversation_id: str, generation: int = 0, **observability_kwargs
+):
+    """Schedule the first turn of a freshly created async conversation."""
+    return schedule_turn(conversation_id, generation, **observability_kwargs)
+
+
+async def register_and_schedule_user_message(
+    conversation_record: dict[str, Any],
+    user_message_content: str | None,
+    action_call_confirmations: list[AgentActionCallConfirmation] | None = None,
+    *,
+    callback: WebhookCallbackConfig | None = None,
+    **observability_kwargs,
+) -> AgentConversationMessageProcessingStatus:
+    """Persist a new user message, supersede prior processing, and schedule a turn."""
+    conversation_id = str(conversation_record.get("id"))
+
+    user_message = AgentConversationMessageUser(
+        id=uuid.uuid4(),
+        content=user_message_content,
+        action_call_confirmations=action_call_confirmations,
+        created_at=utc_now(),
+    )
+
+    async with alchemy.get_session() as session:
+        service = AgentConversationService(session=session)
+        generation = await service.bump_processing_generation(
+            session,
+            conversation_id,
+            append_message=user_message.model_dump(mode="json"),
+            status=AgentConversationMessageProcessingStatus.PROCESSING.value,
+            callback=callback.model_dump(mode="json") if callback else None,
+        )
+
+    if generation is None:
+        raise RecordNotFoundError()
+
+    schedule_turn(conversation_id, generation, **observability_kwargs)
+    return AgentConversationMessageProcessingStatus.PROCESSING
+
+
+async def edit_message_content(
+    conversation_id: str,
+    message_id: str,
+    content: str,
+    edited_by: str | None = None,
+) -> None:
+    """Override an assistant message's content (operator/external edit, 2.3)."""
+    async with alchemy.get_session() as session:
+        service = AgentConversationService(session=session)
+        updated = await service.update_message_content(
+            db_session=session,
+            conversation_id=conversation_id,
+            message_id=message_id,
+            content=content,
+            edited_by=edited_by,
+        )
+    if not updated:
+        raise RecordNotFoundError()
+
+
+async def start_webhook_conversation(
+    agent_system_name_or_config: str | Agent,
+    user_message_content: str,
+    callback: WebhookCallbackConfig,
+    conversation_id: str | None = None,
+    client_id: str | None = None,
+    variables: dict[str, str] | None = None,
+) -> tuple[str, AgentConversationMessageProcessingStatus]:
+    """Webhook-driven (async) invocation entry point (2.2).
+
+    Continues an existing conversation (by id, else by client_id) or creates a
+    new one, schedules processing, and returns immediately. The reply is pushed
+    to ``callback`` once ready.
+    """
+    if isinstance(agent_system_name_or_config, str):
+        agent_config = await get_agent_by_system_name(agent_system_name_or_config)
+    else:
+        agent_config = agent_system_name_or_config
+
+    existing_record: dict[str, Any] | None = None
+    if conversation_id:
+        try:
+            existing_record = await get_conversation_by_id(str(conversation_id))
+        except RecordNotFoundError:
+            existing_record = None
+    elif client_id:
+        last = await get_last_conversation_by_client_id(client_id)
+        if last:
+            existing_record = await get_conversation_by_id(str(last.id))
+
+    if existing_record:
+        cid = str(existing_record["id"])
+        trace_id = existing_record.get("trace_id")
+        status = await register_and_schedule_user_message(
+            existing_record,
+            user_message_content,
+            None,
+            callback=callback,
+            **observability_overrides(trace_id=trace_id),
+        )
+        return cid, status
+
+    conversation = await create_conversation(
+        agent_config,
+        user_message_content,
+        client_id,
+        variables,
+        is_async=True,
+        callback=callback,
+    )
+    cid = str(conversation.id)
+    schedule_initial_turn(
+        cid, **observability_overrides(trace_id=conversation.trace_id)
+    )
+    return cid, conversation.message_processing_status

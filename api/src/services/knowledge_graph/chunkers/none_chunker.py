@@ -34,7 +34,7 @@ class NoneChunker(AbstractChunker):
 
         truncated = text[:chunk_max_size] if text is not None else ""
 
-        print(f"document_title: {document_title}")
+        logger.debug("document_title: %s", document_title)
 
         chunk = KnowledgeGraphChunk(
             chunk_type="TEXT",

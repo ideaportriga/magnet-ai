@@ -332,6 +332,13 @@ class AgentConversationMessageAssistant(AgentConversationMessageBase):
     topic: str | None = None
     copied: bool | None = False
     custom_feedback: ConversationMessageFeedback | None = None
+    # Operator-edit audit (set when content is overridden from an external system).
+    # These round-trip through the model so an edit survives subsequent turns and
+    # the corrected `content` is what gets fed back into the LLM context.
+    is_operator_edited: bool | None = False
+    original_content: str | None = None
+    edited_at: datetime | None = None
+    edited_by: str | None = None
 
 
 AgentConversationMessage = Union[
@@ -362,6 +369,20 @@ class AgentExecute(BaseModel):
     )
 
 
+class WebhookCallbackConfig(BaseModel):
+    """Where to push the agent's reply for webhook-driven (async) invocation."""
+
+    url: str = Field(
+        ...,
+        description="HTTPS URL the assistant reply is POSTed to once ready.",
+        examples=["https://chat.example.com/magnet/callback"],
+    )
+    headers: dict[str, str] | None = Field(
+        default=None,
+        description="Optional static headers to include on the callback request.",
+    )
+
+
 class AgentConversationData(BaseModel):
     id: UUID | None = None
     agent: str
@@ -372,6 +393,14 @@ class AgentConversationData(BaseModel):
     analytics_id: str | None = None
     variables: dict[str, str] | None = None
     message_processing_status: AgentConversationMessageProcessingStatus | None = None
+    processing_generation: int | None = Field(
+        default=0,
+        description="Monotonic turn counter used to supersede stale in-flight processing.",
+    )
+    callback: WebhookCallbackConfig | None = Field(
+        default=None,
+        description="Outbound webhook callback config for async invocation.",
+    )
 
 
 class AgentConversationDataWithMessages(AgentConversationData):
@@ -619,3 +648,55 @@ class AgentConversationAddUserMessageResponse(BaseModel):
     assistant_message: AgentConversationMessageAssistantPublic
     trace_id: str | None = None
     analytics_id: str | None = None
+
+
+class AgentConversationWebhookRequest(BaseModel):
+    """Webhook-driven invocation: send a message and receive the reply via callback.
+
+    If ``conversation_id`` is omitted, the most recent open conversation for
+    ``client_id`` is continued (or a new one is created when none exists).
+    """
+
+    agent: str = Field(..., description="The system name of the agent.")
+    user_message_content: str = Field(
+        ..., description="The user's message.", examples=["How to ...?"]
+    )
+    callback: WebhookCallbackConfig = Field(
+        ..., description="Where to POST the assistant reply once it is ready."
+    )
+    conversation_id: UUID | None = Field(
+        default=None,
+        description="Continue an existing conversation. Takes precedence over client_id.",
+    )
+    client_id: str | None = Field(
+        default=None,
+        description="Client-side identifier used to find/continue an open conversation.",
+        examples=["user123_tab456_agent_789"],
+    )
+    variables: dict[str, str] | None = Field(
+        default=None, description="Additional conversation variables."
+    )
+
+    class Config:
+        title = "AgentConversationWebhookRequest"
+
+
+class AgentConversationWebhookAck(BaseModel):
+    conversation_id: UUID
+    message_processing_status: AgentConversationMessageProcessingStatus
+    accepted: bool = True
+
+
+class AgentConversationEditMessageContentRequest(BaseModel):
+    content: str = Field(
+        ...,
+        description="The corrected assistant message content. Replaces the stored content "
+        "and is used in subsequent turns' context.",
+    )
+    edited_by: str | None = Field(
+        default=None,
+        description="Identifier of the operator/system performing the edit (for audit).",
+    )
+
+    class Config:
+        title = "AgentConversationEditMessageContentRequest"
