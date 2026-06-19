@@ -2,7 +2,7 @@
 """add dynamic per-graph chunk vector tables
 
 Revision ID: f3a7b2c1d4e5
-Revises: d0e9f8a7b6c5
+Revises: b4c5d6e7f8a9
 Create Date: 2026-04-11 12:00:00.000000+00:00
 
 """
@@ -44,7 +44,7 @@ sa.Text = Text
 
 # revision identifiers, used by Alembic.
 revision = "f3a7b2c1d4e5"
-down_revision = "d0e9f8a7b6c5"
+down_revision = "b4c5d6e7f8a9"
 branch_labels = None
 depends_on = None
 
