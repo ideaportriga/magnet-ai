@@ -8,6 +8,7 @@ from uuid import UUID
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     Column,
+    Computed,
     DateTime,
     Float,
     ForeignKey,
@@ -18,7 +19,7 @@ from sqlalchemy import (
     Text,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 
 from .knowledge_graph_source import KnowledgeGraphSource
@@ -234,6 +235,17 @@ def knowledge_graph_document_table(
         Column("toc", JSONB, nullable=True),
         Column("summary", Text, nullable=True),
         Column("summary_embedding", vector_type, nullable=True),
+        # Full-text search vector over (title, summary). STORED generated column so
+        # writes don't need to populate it and reads/indexes always see fresh data.
+        Column(
+            "search_tsv",
+            TSVECTOR,
+            Computed(
+                "to_tsvector('english', coalesce(title, '') || ' ' || coalesce(summary, ''))",
+                persisted=True,
+            ),
+            nullable=True,
+        ),
         Column("status", String(50), server_default=text("'pending'"), nullable=True),
         Column("status_message", Text, nullable=True),
         Column("processing_time", Float, nullable=True),

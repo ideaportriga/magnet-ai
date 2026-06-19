@@ -140,7 +140,7 @@ class KnowledgeGraphController(Controller):
 
         Each knowledge graph is returned as a 'server' whose ``tools``
         list contains the actual retriever tools (e.g.
-        findChunksBySimilarity, findDocumentsBySummarySimilarity,
+        retrieveChunks, findDocumentsBySummarySimilarity,
         findDocumentsByMetadata).  This lets the admin pick individual
         tools per graph, following the same pattern as MCP/API servers.
         """

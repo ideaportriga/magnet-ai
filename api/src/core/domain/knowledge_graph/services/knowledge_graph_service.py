@@ -59,19 +59,23 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
         Returns 0 when the per-graph docs table doesn't exist (e.g. graph has
         no embedding model configured yet, so the table was never created).
         """
+        docs_table = docs_table_name(graph_id)
         try:
-            docs_table = docs_table_name(graph_id)
-            result = await db_session.execute(
-                text(f"SELECT COUNT(*) FROM {docs_table}")
+            exists = await db_session.execute(
+                text("SELECT to_regclass(:t)"), {"t": docs_table}
             )
-            return int(result.scalar_one() or 0)
-        except Exception:
-            # Roll back so the session remains usable for subsequent ops
-            # (e.g. the framework's auto-commit on response).
-            try:
-                await db_session.rollback()
-            except Exception:  # noqa: BLE001
-                pass
+            if exists.scalar_one() is None:
+                return 0
+            # SAVEPOINT so an unexpected failure aborts only the nested
+            # transaction: a session-level rollback would expire every ORM
+            # object loaded in the session, and lazy re-loading them from
+            # sync attribute access raises MissingGreenlet on async drivers.
+            async with db_session.begin_nested():
+                result = await db_session.execute(
+                    text(f"SELECT COUNT(*) FROM {docs_table}")
+                )
+                return int(result.scalar_one() or 0)
+        except Exception:  # noqa: BLE001
             return 0
 
     async def _has_sources_of_type(

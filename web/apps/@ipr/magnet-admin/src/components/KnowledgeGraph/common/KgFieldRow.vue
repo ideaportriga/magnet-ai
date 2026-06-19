@@ -3,8 +3,15 @@
     <div v-if="label" class="kg-field-row-label">
       <span>{{ label }}</span>
       <span v-if="suffix" class="text-grey-6 text-weight-regular">{{ suffix }}</span>
-      <q-icon v-if="hint" name="o_info" size="14px" color="grey-6" class="cursor-pointer">
-        <q-tooltip self="top middle" :offset="[0, 8]">
+      <q-icon v-if="hint" name="o_info" size="14px" color="grey-6" class="cursor-pointer kg-hint-icon">
+        <q-tooltip
+          self="top middle"
+          :offset="[0, 8]"
+          max-width="280px"
+          transition-show="fade"
+          transition-hide="fade"
+          class="kg-hint-tooltip"
+        >
           {{ hint }}
         </q-tooltip>
       </q-icon>
@@ -64,17 +71,15 @@ const validatedCols = computed(() => {
   line-height: 1.4;
 }
 
-.kg-field-row-label-hint-icon {
-  opacity: 0.6;
-  cursor: help;
-  color: #6b7b8a;
-  transition: opacity 0.15s ease;
+.kg-hint-icon {
+  opacity: 0.55;
   flex-shrink: 0;
+  transition: opacity 0.15s ease, color 0.15s ease;
 }
 
-.kg-field-row-label-hint-icon:hover {
+.kg-hint-icon:hover {
   opacity: 1;
-  color: #4a5568;
+  color: #3b82f6 !important;
 }
 
 .kg-field-row {
@@ -138,6 +143,7 @@ const validatedCols = computed(() => {
   grid-column: span 6;
 }
 
+/* --- responsive --- */
 @media (max-width: 768px) {
   .kg-field-row--cols-1,
   .kg-field-row--cols-2,
@@ -147,5 +153,19 @@ const validatedCols = computed(() => {
   .kg-field-row--cols-6 {
     grid-template-columns: 1fr;
   }
+}
+</style>
+
+<style>
+.kg-hint-tooltip.q-tooltip {
+  background: #1e293b;
+  color: #e2e8f0;
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 8px 12px;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  white-space: normal;
+  word-break: break-word;
 }
 </style>

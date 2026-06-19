@@ -36,9 +36,9 @@ from .image_utils import restore_images
 from .tool_payload_formatter import format_tool_payload
 from .tools import get_available_tools
 from .tools.exit_tool import exit_tool
-from .tools.find_chunks_by_similarity import findChunksBySimilarity
 from .tools.find_documents_by_metadata import findDocumentsByMetadata
 from .tools.find_documents_by_summary_similarity import findDocumentsBySummarySimilarity
+from .tools.retrieve_chunks import retrieveChunks
 
 logger = logging.getLogger(__name__)
 
@@ -337,7 +337,7 @@ async def run_agentic_retrieval(
         retrieval_tools_cfg.get("findDocumentsBySummarySimilarity", {}) or {}
     )
     meta_tool_cfg = retrieval_tools_cfg.get("findDocumentsByMetadata", {}) or {}
-    chunks_tool_cfg = retrieval_tools_cfg.get("findChunksBySimilarity", {}) or {}
+    chunks_tool_cfg = retrieval_tools_cfg.get("retrieveChunks", {}) or {}
     exit_tool_cfg = retrieval_tools_cfg.get("exit", {}) or {}
 
     answer_mode = exit_tool_cfg.get("answerMode") or "answer_with_sources"
@@ -345,7 +345,7 @@ async def run_agentic_retrieval(
     strategy = exit_tool_cfg.get("strategy") or "confidence"
 
     chunk_limit = int(chunks_tool_cfg.get("limit", 5))
-    chunk_score_threshold = float(chunks_tool_cfg.get("scoreThreshold", 0.7))
+    chunk_score_threshold = float(chunks_tool_cfg.get("scoreThreshold", 0))
     max_iterations = int(exit_tool_cfg.get("maxIterations", 4))
 
     metadata_field_definitions: list[dict[str, Any]] = []
@@ -593,25 +593,23 @@ async def run_agentic_retrieval(
                     )
                     relevant_document_ids = loop_state.get("doc_filter_ids") or []
                     workflow_steps.append(step)
-                elif tool_name == "findChunksBySimilarity":
+                elif tool_name == "retrieveChunks":
                     limit_arg = chunk_limit
                     min_score_arg = chunk_score_threshold
-                    if chunks_tool_cfg.get("searchControl") == "agent":
-                        limit_arg = int(args.get("limit", chunk_limit))
-                        min_score_arg = float(
-                            args.get("scoreThreshold", chunk_score_threshold)
-                        )
+                    context_hint = args.get("context_hint")
 
-                    chunks = await findChunksBySimilarity(
+                    chunks = await retrieveChunks(
                         db_session=db_session,
                         graph_id=graph_id,
-                        q=query,
+                        query=query,
                         embedding_model=embedding_model,
                         limit=limit_arg,
                         min_score=min_score_arg,
                         doc_filter_ids=relevant_document_ids,
+                        context_hint=context_hint,
                         doc_filter_where_sql=last_metadata_doc_where_sql,
                         doc_filter_where_params=last_metadata_doc_where_params,
+                        tool_cfg=chunks_tool_cfg,
                         **observability_overrides(description=args.get("reasoning")),
                     )
                     collected_chunks.extend(chunks)
@@ -622,6 +620,7 @@ async def run_agentic_retrieval(
                             tool=tool_name,
                             arguments={
                                 "query": query,
+                                "context_hint": context_hint,
                                 "doc_filter_ids": relevant_document_ids,
                             },
                             call_summary={

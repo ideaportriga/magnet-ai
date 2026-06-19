@@ -35,7 +35,7 @@
         <!-- Merge Strategy - only shown for 'collaborative' mode -->
         <div v-if="localTool.searchControl === 'collaborative'" class="merge-strategy-section">
           <div class="km-input-label q-pb-sm">Conflict resolution (Agent vs External)</div>
-          <km-select v-model="localTool.filterMergeStrategy" :options="mergeStrategyOptions" emit-value map-options />
+          <kg-dropdown-field v-model="localTool.filterMergeStrategy" :options="mergeStrategyOptions" dense />
         </div>
       </div>
     </kg-dialog-section>
@@ -44,7 +44,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { KgDialogBase, KgDialogSection, KgPromptSection, KgSectionControl, type ControlOption } from '../../common'
+import { KgDialogBase, KgDialogSection, KgDropdownField, KgPromptSection, KgSectionControl, type ControlOption } from '../../common'
 
 const props = defineProps<{
   modelValue: boolean

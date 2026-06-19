@@ -9,6 +9,8 @@ As with other tools in this package:
 - **findDocumentsBySummarySimilarity(...)** is the implementation.
 """
 
+import logging
+import time
 from typing import Any, NamedTuple
 from uuid import UUID
 
@@ -20,6 +22,8 @@ from services.observability import observability_context, observe
 from services.observability.models import SpanType
 
 from ....models import KnowledgeGraphRetrievalWorkflowStep
+
+logger = logging.getLogger(__name__)
 
 # OpenAI tool schema (sent to the LLM).
 # `get_available_tools()` may augment this schema at runtime based on graph config.
@@ -66,7 +70,14 @@ class FindDocumentsBySummarySimilarityToolResult(NamedTuple):
     workflow_step: KnowledgeGraphRetrievalWorkflowStep
 
 
-@observe(name="Find documents by summary similarity", type=SpanType.SEARCH)
+@observe(
+    name="Find documents by summary similarity",
+    type=SpanType.TOOL,
+    description=(
+        "Knowledge-graph retrieval tool: returns documents whose summary best matches "
+        "the query using the graph's configured search method (vector / full_text / hybrid)."
+    ),
+)
 async def findDocumentsBySummarySimilarity(
     db_session: AsyncSession,
     graph_id: UUID,
@@ -75,8 +86,8 @@ async def findDocumentsBySummarySimilarity(
     embedding_model: str,
     args: dict[str, Any],
     iteration: int,
+    tool_cfg: dict[str, Any],
     tool_name: str = "findDocumentsBySummarySimilarity",
-    tool_cfg: dict[str, Any] | None = None,
 ) -> FindDocumentsBySummarySimilarityToolResult:
     """
     Agent tool execution for `findDocumentsBySummarySimilarity`.
@@ -86,54 +97,85 @@ async def findDocumentsBySummarySimilarity(
     2) Loop state updates (document IDs for later chunk retrieval filtering)
     3) Workflow step for the API response
 
-    The effective search knobs are determined by graph config:
-    - searchControl: "agent" lets the model control limit/scoreThreshold
-    - otherwise, limit/scoreThreshold come from the graph settings (tool_cfg)
+    The effective search knobs (limit/scoreThreshold) come from the graph settings (tool_cfg).
     """
 
-    args = args if isinstance(args, dict) else {}
-    tool_cfg_d = tool_cfg if isinstance(tool_cfg, dict) else {}
+    limit = int(tool_cfg["limit"])
+    min_score = float(tool_cfg["scoreThreshold"])
 
-    # Graph-configured defaults
-    configured_limit = int(tool_cfg_d.get("limit", 5))
-    configured_threshold = float(tool_cfg_d.get("scoreThreshold", 0.7))
+    search_method = tool_cfg["searchMethod"]
+    rrf_k = int(tool_cfg["rrfK"])
 
-    search_control = str(tool_cfg_d.get("searchControl") or "").strip().lower()
-    if search_control == "agent":
-        # Let the model control knobs (with sane fallbacks to config)
-        limit = int(args.get("limit", configured_limit))
-        min_score = float(args.get("scoreThreshold", configured_threshold))
-    else:
-        limit = configured_limit
-        min_score = configured_threshold
-
-    if limit <= 0:
-        limit = configured_limit if configured_limit > 0 else 1
+    logger.info(
+        "findDocumentsBySummarySimilarity start iteration=%d graph_id=%s method=%s "
+        "limit=%d threshold=%.3f rrf_k=%d query=%r",
+        iteration,
+        graph_id,
+        search_method,
+        limit,
+        min_score,
+        rrf_k,
+        query[:120],
+    )
 
     observability_context.update_current_span(
         input={
             "query": query,
             "num_results": limit,
             "score_threshold": min_score,
+            "search_method": search_method,
+            "rrf_k": rrf_k,
+            "iteration": iteration,
         },
+        extra_data={"tool_type": "search"},
     )
 
-    vec = await get_embeddings(query, embedding_model)
+    # Embedding is only needed for vector and hybrid modes.
+    started = time.perf_counter()
+    embedding_ms: float | None = None
+    if search_method == "full_text":
+        vec: list[float] | None = None
+    else:
+        embed_started = time.perf_counter()
+        vec = await get_embeddings(query, embedding_model)
+        embedding_ms = round((time.perf_counter() - embed_started) * 1000, 2)
+
     docs = await KnowledgeGraphDocumentService().search_documents(
         db_session,
         graph_id=graph_id,
+        search_method=search_method,
         query_vector=vec,
+        query_text=query,
+        rrf_k=rrf_k,
         limit=limit,
     )
     filtered_docs = [d for d in docs if d.get("score", 0.0) >= min_score]
     doc_ids = [str(d.get("id")) for d in filtered_docs if d.get("id")]
     count = len(doc_ids)
+    elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
+    top_scores = [round(float(d.get("score") or 0.0), 4) for d in filtered_docs[:5]]
+    dropped_by_threshold = len(docs) - count
 
+    # Keep the parent span's `output` minimal (matching the original shape)
+    # so the trace UI shows the same information it has always shown.
+    # Detailed hybrid statistics live in `extra_data`.
     observability_context.update_current_span(
         output={
             "count": count,
             "document_ids": doc_ids,
-        },
+        }
+    )
+    logger.info(
+        "findDocumentsBySummarySimilarity done iteration=%d method=%s raw=%d kept=%d "
+        "dropped=%d embedding_ms=%s total_ms=%.2f top_scores=%s",
+        iteration,
+        search_method,
+        len(docs),
+        count,
+        dropped_by_threshold,
+        embedding_ms,
+        elapsed_ms,
+        top_scores,
     )
 
     tool_payload = {"matched_documents": count}

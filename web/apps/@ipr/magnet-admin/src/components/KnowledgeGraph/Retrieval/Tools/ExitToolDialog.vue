@@ -45,23 +45,22 @@
         <kg-field-row :cols="3">
           <div>
             <div class="km-input-label q-pb-sm">Output Format</div>
-            <km-select v-model="localTool.outputFormat" :options="outputFormatOptions" emit-value map-options />
+            <kg-dropdown-field v-model="localTool.outputFormat" :options="outputFormatOptions" dense />
           </div>
           <div>
             <div class="km-input-label q-pb-sm">Answer Mode</div>
-            <km-select v-model="localTool.answerMode" :options="answerModeOptions" emit-value map-options />
+            <kg-dropdown-field v-model="localTool.answerMode" :options="answerModeOptions" dense />
           </div>
           <div>
             <div class="q-pb-sm row items-center q-gutter-x-sm">
               <span class="km-input-label text-grey-6">Source Attribution</span>
               <q-badge color="orange-1" text-color="orange-9" label="Coming Soon" class="text-weight-medium" />
             </div>
-            <km-select
+            <kg-dropdown-field
               :model-value="isAnswerOnly ? 'none' : localTool.sourceAttribution"
               :options="sourceAttributionOptions"
               :disable="isAnswerOnly || true"
-              emit-value
-              map-options
+              dense
             />
           </div>
         </kg-field-row>
@@ -82,7 +81,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { KgDialogBase, KgDialogSection, KgFieldRow, KgPromptSection, KgTileSelect, type TileOption } from '../../common'
+import { KgDialogBase, KgDialogSection, KgDropdownField, KgFieldRow, KgPromptSection, KgTileSelect, type TileOption } from '../../common'
 
 export interface ExitToolConfig {
   description: string

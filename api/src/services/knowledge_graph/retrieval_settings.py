@@ -16,20 +16,24 @@ def get_default_retrieval_settings() -> dict[str, Any]:
             "findDocumentsBySummarySimilarity": {
                 "description": "Find documents by summary similarity",
                 "enabled": True,
-                "searchControl": "configuration",
-                "searchMethod": "vector",
-                "scoreThreshold": 0.7,
+                "searchMethod": "hybrid",
+                "scoreThreshold": 0,
                 "limit": 5,
-                "hybridWeight": 0.5,
+                "rrfK": 60,
             },
-            "findChunksBySimilarity": {
-                "description": "Find chunks by similarity",
+            "retrieveChunks": {
+                "description": "Searches the document corpus for passages relevant to an information need. You don't need to think about retrieval mechanics - just describe what you're looking for.",
                 "enabled": True,
-                "searchControl": "configuration",
-                "searchMethod": "vector",
-                "scoreThreshold": 0.7,
+                "searchMethod": "hybrid",
+                "scoreThreshold": 0,
                 "limit": 5,
-                "hybridWeight": 0.5,
+                "rrfK": 60,
+                # Candidates each sub-query fetches before RRF fusion (hybrid/full_text).
+                "candidatePoolSize": 30,
+                # Number of query variants reformulation produces per search type.
+                "keywordVariants": 1,
+                "vectorVariants": 1,
+                "promptTemplateName": "KG_CHUNK_QUERY_REFORMULATION",
             },
             "exit": {
                 "description": "Exit the tool call loop",

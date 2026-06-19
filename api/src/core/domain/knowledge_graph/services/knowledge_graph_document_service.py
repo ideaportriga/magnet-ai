@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
+import time
 from datetime import datetime
 from pathlib import PurePath
 from typing import Any
@@ -31,6 +33,7 @@ from core.db.models.knowledge_graph import (
     knowledge_graph_chunk_table,
     knowledge_graph_document_table,
 )
+from core.db.session import async_session_maker
 from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphDocumentDetailSchema,
     KnowledgeGraphDocumentExternalSchema,
@@ -38,8 +41,17 @@ from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphDocumentPipelineStateSchema,
     KnowledgeGraphEntityDocumentReferenceSchema,
 )
+from services.knowledge_graph.rrf import (
+    fusion_diagnostics,
+    hybrid_full_text_search,
+    hybrid_vector_search,
+    normalized_rrf_score,
+    reciprocal_rank_fusion,
+    vector_literal,
+)
 from services.knowledge_graph.utils import normalize_metadata_value
-
+from services.observability import observability_context, observe
+from services.observability.models import SpanType
 
 _SYNC_STATUS_MAP: dict[str, str] = {
     "completed": "completed",
@@ -146,6 +158,12 @@ class KnowledgeGraphDocumentService:
                 f"{index_prefix}_source_doc_id",
                 docs_tbl.c.source_id,
                 docs_tbl.c.source_document_id,
+            ).create(sync_conn, checkfirst=True)
+            # Hybrid retrieval: GIN over the tsvector generated column (full-text).
+            Index(
+                f"{index_prefix}search_tsv",
+                docs_tbl.c.search_tsv,
+                postgresql_using="gin",
             ).create(sync_conn, checkfirst=True)
 
         await conn.run_sync(_create)
@@ -450,19 +468,81 @@ class KnowledgeGraphDocumentService:
         db_session: AsyncSession,
         *,
         graph_id: UUID | str,
-        query_vector: list[float],
+        search_method: str,
+        query_vector: list[float] | None,
+        query_text: str,
+        rrf_k: int,
         limit: int,
         min_score: float = 0.0,
         doc_filter_where_sql: str | None = None,
         doc_filter_where_params: dict[str, Any] | None = None,
+        include_metadata: bool = False,
     ) -> list[dict[str, Any]]:
-        """Similarity search over per-graph documents using summary embeddings."""
+        """Similarity search over per-graph documents.
 
+        ``search_method`` selects the retrieval strategy:
+
+        - ``"vector"``: pgvector cosine similarity on ``summary_embedding``.
+          ``query_vector`` is required.
+        - ``"full_text"``: tsvector full-text search only, fused via RRF.
+        - ``"hybrid"``: parallel pgvector + tsvector full-text fused via RRF.
+
+        ``score`` in the returned dicts is cosine similarity for vector mode
+        and a normalized RRF score in [0, 1] for the fused modes.
+
+        ``include_metadata`` adds the document ``metadata`` JSON (file/source/llm)
+        to each returned dict.
+        """
+
+        if search_method == "vector":
+            return await self._search_documents_vector(
+                db_session,
+                graph_id=graph_id,
+                query_text=query_text,
+                query_vector=query_vector or [],
+                limit=limit,
+                min_score=min_score,
+                doc_filter_where_sql=doc_filter_where_sql,
+                doc_filter_where_params=doc_filter_where_params,
+                include_metadata=include_metadata,
+            )
+
+        return await self._search_documents_fused(
+            db_session,
+            graph_id=graph_id,
+            query_vector=query_vector,
+            query_text=query_text,
+            limit=limit,
+            min_score=min_score,
+            doc_filter_where_sql=doc_filter_where_sql,
+            doc_filter_where_params=doc_filter_where_params,
+            include_vector=(search_method == "hybrid"),
+            include_full_text=search_method in ("full_text", "hybrid"),
+            rrf_k=rrf_k,
+            include_metadata=include_metadata,
+        )
+
+    @observe(
+        name="Vector search",
+        type=SpanType.SEARCH,
+        description="pgvector cosine-similarity search over content/summary embeddings.",
+    )
+    async def _search_documents_vector(
+        self,
+        db_session: AsyncSession,
+        *,
+        graph_id: UUID | str,
+        query_text: str,
+        query_vector: list[float],
+        limit: int,
+        min_score: float,
+        doc_filter_where_sql: str | None,
+        doc_filter_where_params: dict[str, Any] | None,
+        include_metadata: bool = False,
+    ) -> list[dict[str, Any]]:
         docs_table = docs_table_name(graph_id)
         md = MetaData()
         docs_tbl = knowledge_graph_document_table(md, docs_table, vector_size=None)
-
-        # Alias for metadata filtering consistency (similar to chunk search)
         docs_alias = docs_tbl.alias("d")
 
         qvec = bindparam("qvec", type_=docs_alias.c.summary_embedding.type)
@@ -474,14 +554,18 @@ class KnowledgeGraphDocumentService:
             docs_alias.c.name,
         ).label("title")
 
+        select_columns = [
+            docs_alias.c.id.label("id"),
+            title_expr,
+            docs_alias.c.summary.label("summary"),
+            docs_alias.c.external_link.label("external_link"),
+            score_expr,
+        ]
+        if include_metadata:
+            select_columns.append(docs_alias.c.metadata.label("metadata"))
+
         stmt = (
-            select(
-                docs_alias.c.id.label("id"),
-                title_expr,
-                docs_alias.c.summary.label("summary"),
-                docs_alias.c.external_link.label("external_link"),
-                score_expr,
-            )
+            select(*select_columns)
             .select_from(docs_alias)
             .where(docs_alias.c.summary_embedding.is_not(None))
             .order_by(score_expr.desc())
@@ -497,17 +581,221 @@ class KnowledgeGraphDocumentService:
 
         rows = (await db_session.execute(stmt, exec_params)).mappings().all()
 
-        return [
+        results = [
             {
                 "id": str(r.get("id") or ""),
                 "title": r.get("title"),
                 "content": r.get("summary"),
                 "external_link": r.get("external_link"),
                 "score": float(r["score"]) if r.get("score") is not None else 0.0,
+                **({"metadata": r.get("metadata")} if include_metadata else {}),
             }
             for r in rows
             if float(r.get("score") or 0.0) >= min_score
         ]
+        observability_context.update_current_span(
+            input={"query": query_text}, output={"count": len(results)}
+        )
+        return results
+
+    async def _search_documents_fused(
+        self,
+        db_session: AsyncSession,
+        *,
+        graph_id: UUID | str,
+        query_vector: list[float] | None,
+        query_text: str,
+        limit: int,
+        min_score: float,
+        doc_filter_where_sql: str | None,
+        doc_filter_where_params: dict[str, Any] | None,
+        include_vector: bool,
+        include_full_text: bool,
+        rrf_k: int,
+        include_metadata: bool = False,
+    ) -> list[dict[str, Any]]:
+        """Run candidate sub-queries in parallel and fuse with RRF.
+
+        Each sub-query returns a ranked ``(id, score)`` list; we keep the id
+        order. RRF picks the top ``limit`` IDs; a single hydration query then
+        loads the full rows. Sub-queries each use their own AsyncSession so they
+        can execute concurrently against the connection pool.
+        """
+
+        docs_table = docs_table_name(graph_id)
+        # Candidate pool size per sub-query. Bigger than the final limit so RRF
+        # has overlap to work with, but bounded so we don't scan the world.
+        candidates = max(int(limit) * 4, 30)
+        search_mode = "hybrid" if include_vector else "full_text"
+
+        common_filter_sql = doc_filter_where_sql or None
+        common_params: dict[str, Any] = {}
+        if isinstance(doc_filter_where_params, dict) and doc_filter_where_params:
+            common_params.update(doc_filter_where_params)
+
+        # Vector sub-query (hybrid only).
+        vector_sql = (
+            f"SELECT d.id, 1 - (d.summary_embedding <=> CAST(:qvec AS vector)) AS score "
+            f"FROM {docs_table} AS d "
+            f"WHERE d.summary_embedding IS NOT NULL"
+            f"{(' AND ' + common_filter_sql) if common_filter_sql else ''} "
+            f"ORDER BY d.summary_embedding <=> CAST(:qvec AS vector) "
+            f"LIMIT :cand"
+        )
+        # tsvector sub-query.
+        tsv_sql = (
+            f"SELECT d.id, "
+            f"ts_rank_cd(d.search_tsv, plainto_tsquery('english', :qtext)) AS score "
+            f"FROM {docs_table} AS d "
+            f"WHERE d.search_tsv @@ plainto_tsquery('english', :qtext)"
+            f"{(' AND ' + common_filter_sql) if common_filter_sql else ''} "
+            f"ORDER BY score DESC "
+            f"LIMIT :cand"
+        )
+
+        method_labels: list[str] = []
+        coros: list[Any] = []
+        if include_vector and query_vector:
+            method_labels.append("vector")
+            coros.append(
+                hybrid_vector_search(
+                    query_text,
+                    vector_sql,
+                    {
+                        **common_params,
+                        "qvec": vector_literal(query_vector),
+                        "cand": candidates,
+                    },
+                    session_maker=async_session_maker,
+                )
+            )
+        if query_text:
+            if include_full_text:
+                method_labels.append("full_text")
+                coros.append(
+                    hybrid_full_text_search(
+                        query_text,
+                        tsv_sql,
+                        {**common_params, "qtext": query_text, "cand": candidates},
+                        session_maker=async_session_maker,
+                    )
+                )
+
+        if not coros:
+            logger.info(
+                "hybrid docs search short-circuit: no contributing sub-queries graph_id=%s",
+                graph_id,
+            )
+            return []
+
+        contributing = len(method_labels)
+        fan_out_started = time.perf_counter()
+        logger.info(
+            "hybrid docs search start mode=%s methods=%s candidates=%d limit=%d rrf_k=%d graph_id=%s",
+            search_mode,
+            method_labels,
+            candidates,
+            limit,
+            rrf_k,
+            graph_id,
+        )
+
+        attempt_results = await asyncio.gather(*coros)
+        fan_out_ms = round((time.perf_counter() - fan_out_started) * 1000, 2)
+
+        # Each sub-query returns (id, score) in rank order; keep the id order.
+        method_results = {
+            label: [item_id for item_id, _ in result]
+            for label, result in zip(method_labels, attempt_results)
+        }
+        fused = reciprocal_rank_fusion(method_results.values(), k=rrf_k)
+        diag = fusion_diagnostics(
+            method_results=method_results,
+            fused=fused,
+            num_methods=contributing,
+            k=rrf_k,
+        )
+
+        logger.info(
+            "hybrid docs fusion mode=%s methods=%s per_method=%s unique=%d overlap=%d fused=%d "
+            "fan_out_ms=%.2f top_score=%.4f",
+            search_mode,
+            method_labels,
+            diag["per_method_result_count"],
+            diag["unique_candidates"],
+            diag["multi_method_overlap"],
+            diag["fused_total"],
+            fan_out_ms,
+            diag["top_rrf_score_normalized"],
+        )
+
+        if not fused:
+            return []
+
+        top = fused[: int(limit)]
+        ids_in_order = [item_id for item_id, _ in top]
+        score_by_id = {
+            item_id: normalized_rrf_score(raw, num_methods=contributing, k=rrf_k)
+            for item_id, raw in top
+        }
+
+        # Filter on the normalized RRF score before hydration.
+        kept_ids = [i for i in ids_in_order if score_by_id[i] >= float(min_score)]
+        dropped_by_threshold = len(ids_in_order) - len(kept_ids)
+        if dropped_by_threshold:
+            logger.info(
+                "hybrid docs threshold drop mode=%s min_score=%.4f dropped=%d kept=%d",
+                search_mode,
+                float(min_score),
+                dropped_by_threshold,
+                len(kept_ids),
+            )
+        if not kept_ids:
+            return []
+
+        # Hydrate full rows in the caller's session, preserving order and filters.
+        md = MetaData()
+        docs_tbl = knowledge_graph_document_table(md, docs_table, vector_size=None)
+        docs_alias = docs_tbl.alias("d")
+        title_expr = func.coalesce(
+            func.nullif(docs_alias.c.title, ""),
+            docs_alias.c.name,
+        ).label("title")
+        select_columns = [
+            docs_alias.c.id.label("id"),
+            title_expr,
+            docs_alias.c.summary.label("summary"),
+            docs_alias.c.external_link.label("external_link"),
+        ]
+        if include_metadata:
+            select_columns.append(docs_alias.c.metadata.label("metadata"))
+        stmt = (
+            select(*select_columns)
+            .select_from(docs_alias)
+            .where(docs_alias.c.id.in_([UUID(i) for i in kept_ids]))
+        )
+        if common_filter_sql:
+            stmt = stmt.where(text(str(common_filter_sql)))
+
+        rows = (await db_session.execute(stmt, common_params)).mappings().all()
+
+        by_id = {str(r.get("id")): r for r in rows}
+        out: list[dict[str, Any]] = []
+        for doc_id in kept_ids:
+            r = by_id.get(doc_id)
+            if r is None:
+                continue
+            out.append(
+                {
+                    "id": doc_id,
+                    "title": r.get("title"),
+                    "content": r.get("summary"),
+                    "external_link": r.get("external_link"),
+                    "score": float(score_by_id[doc_id]),
+                    **({"metadata": r.get("metadata")} if include_metadata else {}),
+                }
+            )
+        return out
 
     async def upsert_document(
         self,

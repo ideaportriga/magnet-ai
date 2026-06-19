@@ -9,7 +9,7 @@ template(v-else-if='computedType == "text"')
     .row.q-pa-sm(style='min-height: 30px; font-size: 13px; white-space: pre-wrap') {{ value }}
 template(v-else-if='computedType == "object"')
   .column
-    .km-button-text.bb-border.q-pb-4.q-pl-sm {{ label }}
+    .km-button-text.bb-border.q-pb-4.q-pl-sm(v-if='label && label !== "none"') {{ label }}
     .column.q-gap-12.q-pt-sm.q-ml-sm(v-if='valueAsKVArray.length > 0')
       .column.q-gap-6(v-for='[key, value] in valueAsKVArray')
         .km-input-label.text-text-grey {{ key }}

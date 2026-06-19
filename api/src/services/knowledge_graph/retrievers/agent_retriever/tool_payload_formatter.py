@@ -21,9 +21,9 @@ def format_tool_payload(
         The structured payload returned by the tool.
     image_registry:
         Optional dict to collect stripped image mappings (uuid -> original html).
-        Only used for ``findChunksBySimilarity``.
+        Only used for ``retrieveChunks``.
     """
-    if tool_name == "findChunksBySimilarity":
+    if tool_name == "retrieveChunks":
         return _format_chunks(payload, image_registry)
     if tool_name == "findDocumentsByMetadata":
         return _format_matched_documents(payload, "Metadata Filter Results")

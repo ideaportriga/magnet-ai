@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.37](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.36...v0.7.0-dev.37) (2026-06-12)
+
+### ✨ Features
+
+* implement utility service for running similiarity comparison ([ddd9c3e](https://github.com/ideaportriga/magnet-ai/commit/ddd9c3e8f64f014dc108f756313f6d3e832480bb))
+
+## [0.7.0-dev.36](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.35...v0.7.0-dev.36) (2026-06-09)
+
+### 🐛 Bug Fixes
+
+* **kg:** fixed issue when knowledge graph is missing some dynamic tables ([cf5d328](https://github.com/ideaportriga/magnet-ai/commit/cf5d328d3b0fdce88da8949aefc07c86ba2d2e1a))
+
+## [0.7.0-dev.35](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.34...v0.7.0-dev.35) (2026-06-09)
+
+### ✨ Features
+
+* **kg:** added new api for getting document and also extended some other kg apis with new fields ([6b1c450](https://github.com/ideaportriga/magnet-ai/commit/6b1c450849e63864c9bf3eb8a99ad9c4ff24dfeb))
+
+## [0.7.0-dev.34](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.33...v0.7.0-dev.34) (2026-06-09)
+
+### ✨ Features
+
+* **kg:** implemented hybrid retrieval for the knowledge graphs ([#148](https://github.com/ideaportriga/magnet-ai/issues/148)) ([40cebd1](https://github.com/ideaportriga/magnet-ai/commit/40cebd11a8e999f2bfc9caea329da93f24404071))
+
 ## [0.7.0-dev.33](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.32...v0.7.0-dev.33) (2026-05-24)
 
 ### ✨ Features

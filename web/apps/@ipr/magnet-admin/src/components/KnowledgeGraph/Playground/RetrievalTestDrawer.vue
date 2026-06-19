@@ -325,7 +325,7 @@ const handleEnter = (e: KeyboardEvent) => {
 // Workflow display helpers
 const getToolIcon = (tool: string): string => {
   const icons: Record<string, string> = {
-    findChunksBySimilarity: 'fas fa-search',
+    retrieveChunks: 'fas fa-search',
     findDocumentsBySummarySimilarity: 'filter_alt',
     findDocumentsByMetadata: 'fas fa-tags',
     findDocumentsByEntitySimilarity: 'fas fa-project-diagram',
