@@ -818,7 +818,7 @@ class ObservabilityContext:
                 OtelMetric.GEN_AI_USAGE,
                 llm_type,
                 model_details=model,
-                token_type=OtelTokenType.OUTPUT,
+                token_type=OtelTokenType.INPUT,
             ),
         )
         gen_ai_usage_histogram.record(
