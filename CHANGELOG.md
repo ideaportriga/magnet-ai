@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.38](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.37...v0.7.0-dev.38) (2026-06-25)
+
+### 🐛 Bug Fixes
+
+* **mcp:** fixed secrets section for mcp tools ([43f9665](https://github.com/ideaportriga/magnet-ai/commit/43f9665e2cae64496df5e3ca9c1fbb8ffbb8351b))
+
 ## [0.7.0-dev.37](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.36...v0.7.0-dev.37) (2026-06-12)
 
 ### ✨ Features
