@@ -1,5 +1,5 @@
-import _ from 'lodash'
 import { fetchData } from '@shared'
+import _ from 'lodash'
 
 const state = () => ({
   mcp_server: {},
@@ -20,6 +20,10 @@ const getters = {
   mcpSettingsEditMode: (state) => state.mcpSettingsEditMode,
   originalMcpSecrets: (state) => {
     const secrets = state.initialMcpServer.secrets_encrypted
+    if (!secrets) return []
+    if (secrets instanceof Map) {
+      return Array.from(secrets.keys())
+    }
     return Object.keys(secrets)
   },
 }

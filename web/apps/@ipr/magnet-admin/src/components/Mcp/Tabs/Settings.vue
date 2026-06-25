@@ -42,9 +42,9 @@
     km-secrets(v-model:secrets='secrets', :original-secrets='originalMcpSecrets', :remount-value='remountValue')
 </template>
 <script setup>
-import { ref, computed } from 'vue'
-import { useStore } from 'vuex'
 import { useQuasar } from 'quasar'
+import { computed } from 'vue'
+import { useStore } from 'vuex'
 
 const store = useStore()
 const $q = useQuasar()
@@ -68,7 +68,14 @@ const originalMcpSecrets = computed(() => store.getters.originalMcpSecrets)
 const remountValue = computed(() => store.getters.mcp_server.updated_at)
 const secrets = computed({
   get() {
-    return store.getters.mcp_server.secrets_encrypted
+    const encryptedSecrets = server.value?.secrets_encrypted
+    if (!encryptedSecrets) {
+      return {}
+    }
+    if (encryptedSecrets instanceof Map) {
+      return Object.fromEntries(encryptedSecrets)
+    }
+    return encryptedSecrets
   },
   set(value) {
     store.dispatch('updateMcpServerProperty', {
