@@ -10,8 +10,6 @@ from services.ai_services.cache import (
     invalidate_provider_cache,
 )
 from services.ai_services.interface import AIProviderInterface
-from services.ai_services.providers.oci import OCIProvider
-from services.ai_services.providers.oci_llama import OCILlamaProvider
 from services.ai_services.providers.litellm_provider import LiteLLMProvider
 from services.ai_services.providers.universal import (
     UniversalLiteLLMProvider,
@@ -141,12 +139,9 @@ async def get_ai_provider(provider_system_name: str) -> AIProviderInterface:
     # Map provider types to implementation classes
     # Most types go through UniversalLiteLLMProvider (100+ providers via litellm).
     # LiteLLMProvider is for explicit Router mode (model_list in metadata_info).
-    # OCI providers use native OCI SDK (not LiteLLM).
     # Native providers bypass LiteLLM for unsupported operations.
     provider_classes: dict[str, type] = {
         "litellm": LiteLLMProvider,  # Router mode with own model_list
-        "oci": OCIProvider,  # Native OCI SDK
-        "oci_llama": OCILlamaProvider,  # Native OCI SDK (Llama variant)
         "mistral_stt": NativeMistralSTTProvider,  # Mistral Voxtral STT (not in litellm)
         "elevenlabs": ElevenLabsSTTProvider,
         "elevenlabs_stt": ElevenLabsSTTProvider,  # ElevenLabs STT (not in litellm)

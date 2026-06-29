@@ -26,22 +26,42 @@ ENV WEB_HELP_PATH="help/"
 # Build docs only if BUILD_DOCS=true (can skip with --build-arg BUILD_DOCS=false)
 RUN yarn nx build magnet-docs;
 
-# Stage 2: Build API dependencies using Poetry
-FROM python:3.12-slim AS api-builder
+# Stage 2: Build API dependencies using Poetry (Ubuntu 24.04 LTS — ships Python 3.12 natively)
+FROM ubuntu:24.04 AS api-builder
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    POETRY_HOME=/opt/poetry
+ENV PATH="${POETRY_HOME}/bin:${PATH}"
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir poetry==1.8.3
+# Python 3.12 toolchain + build deps (this stage is discarded, so build tooling here is free)
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && apt-get install -y --no-install-recommends \
+        python3 python3-venv python3-dev \
+        build-essential ca-certificates \
+    && python3 -m venv "${POETRY_HOME}" \
+    && "${POETRY_HOME}/bin/pip" install --no-cache-dir poetry==1.8.3 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY api/poetry.lock api/poetry.toml api/pyproject.toml ./
 
-RUN poetry install --no-interaction --no-root --only main
+# Force the in-project .venv to use the system Python 3.12 (matches the final stage)
+RUN poetry env use /usr/bin/python3 \
+    && poetry install --no-interaction --no-root --only main
 
-# Stage 3: Create a smaller image with just the application
-FROM python:3.12-slim AS final
+# Stage 3: Runtime image on Ubuntu 24.04 LTS (Python 3.12 native; far fewer OS CVEs than debian-slim)
+FROM ubuntu:24.04 AS final
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        netcat-traditional \
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get upgrade -y \
+    && apt-get install -y --no-install-recommends \
+        python3 \
+        python-is-python3 \
+        netcat-openbsd \
         tesseract-ocr \
         tesseract-ocr-eng \
         tesseract-ocr-deu \
@@ -52,9 +72,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         gnupg \
     && curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
-    && npm i -g npm@latest \
     && npm i -g @llamaindex/liteparse \
     && npm cache clean --force \
+    # npm is only needed to install liteparse at build time; remove it (and its bundled undici) from the runtime image
+    && rm -rf /usr/lib/node_modules/npm /usr/bin/npm /usr/bin/npx \
     && apt-get purge -y curl gnupg \
     && apt-get autoremove -y \
     && apt-get clean \
@@ -76,8 +97,10 @@ COPY api/scripts ./scripts
 COPY api/static ./static
 COPY api/manage_fixtures.py ./manage_fixtures.py
 
-RUN groupadd --system --gid 1000 app \
-    && useradd --system --uid 1000 --gid app --home-dir /app --shell /sbin/nologin app \
+# Ubuntu 24.04 ships a default "ubuntu" user/group at uid/gid 1000 — remove it so we can reuse 1000 for app
+RUN userdel --remove ubuntu 2>/dev/null || true \
+    && groupadd --system --gid 1000 app \
+    && useradd --system --uid 1000 --gid app --home-dir /app --shell /usr/sbin/nologin app \
     && mkdir -p /app/files \
     && chmod +x ./docker-entrypoint.sh \
     && chown -R app:app /app \

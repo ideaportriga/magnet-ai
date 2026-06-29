@@ -1,0 +1,10 @@
+# Grype configuration — vulnerability suppressions
+# Reviewed: 2026-06-29 — re-review by: 2026-09-29
+# Mirror of .trivyignore. Only not-reachable AND no-feasible-fix findings belong here.
+ignore:
+  # ecdsa Minerva timing side-channel — no upstream fix; only RS256 is used (no EC path).
+  - vulnerability: CVE-2024-23342
+  - vulnerability: GHSA-wj6h-64fc-37mp
+  # langchain-core load_prompt path traversal — fix needs langchain 1.x; load_prompt unused.
+  - vulnerability: CVE-2026-34070
+  - vulnerability: GHSA-qh6h-p6c9-ff54

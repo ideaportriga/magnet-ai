@@ -1,0 +1,17 @@
+# Trivy vulnerability suppressions
+# Reviewed: 2026-06-29 — re-review by: 2026-09-29
+#
+# Only findings that are BOTH (a) not reachable in our usage AND (b) have no feasible
+# fix belong here. Everything fixable has been fixed (see docs/security-scan-2026-06-29.md).
+
+# ecdsa — CVE-2024-23342 (Minerva timing side-channel in python-ecdsa).
+# No upstream fix exists (python-ecdsa upstream declines to fix). Pulled transitively by
+# python-jose. We sign/verify tokens with RS256 only (api/src/config/auth.py:
+# SIGNING_ALGORITHM = "RS256"), so the EC (ecdsa) code path is never exercised.
+CVE-2024-23342
+
+# langchain-core — CVE-2026-34070 (path traversal in legacy load_prompt /
+# load_prompt_from_config). Fixed only in langchain-core 1.2.22 (langchain 1.x major
+# upgrade — tracked as a separate migration). We do not call load_prompt /
+# load_prompt_from_config anywhere, so the vulnerable path is unreachable.
+CVE-2026-34070
