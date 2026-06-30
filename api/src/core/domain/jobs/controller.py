@@ -8,7 +8,7 @@ from uuid import UUID
 from advanced_alchemy.extensions.litestar import filters, providers, service
 from advanced_alchemy.filters import BeforeAfter, CollectionFilter
 from litestar import Controller, delete, get, patch, post
-from litestar.params import Dependency, Parameter
+from litestar.params import Dependency, Parameter, PathParameter
 
 from core.config.constants import DEFAULT_PAGINATION_SIZE
 from core.domain.jobs.service import (
@@ -129,10 +129,13 @@ class JobsController(Controller):
     async def get_job(
         self,
         jobs_service: JobsService,
-        job_id: UUID = Parameter(
-            title="Job ID",
-            description="The job to retrieve.",
-        ),
+        job_id: Annotated[
+            UUID,
+            PathParameter(
+                title="Job ID",
+                description="The job to retrieve.",
+            ),
+        ],
     ) -> Job:
         """Get a job by its ID."""
         obj = await jobs_service.get(job_id)
@@ -143,10 +146,13 @@ class JobsController(Controller):
         self,
         jobs_service: JobsService,
         data: JobUpdate,
-        job_id: UUID = Parameter(
-            title="Job ID",
-            description="The job to update.",
-        ),
+        job_id: Annotated[
+            UUID,
+            PathParameter(
+                title="Job ID",
+                description="The job to update.",
+            ),
+        ],
     ) -> Job:
         """Update a job."""
         obj = await jobs_service.update(data, item_id=job_id, auto_commit=True)
@@ -156,10 +162,13 @@ class JobsController(Controller):
     async def delete_job(
         self,
         jobs_service: JobsService,
-        job_id: UUID = Parameter(
-            title="Job ID",
-            description="The job to delete.",
-        ),
+        job_id: Annotated[
+            UUID,
+            PathParameter(
+                title="Job ID",
+                description="The job to delete.",
+            ),
+        ],
     ) -> None:
         """Delete a job from the system."""
         _ = await jobs_service.delete(job_id)

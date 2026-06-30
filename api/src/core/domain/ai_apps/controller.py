@@ -5,7 +5,7 @@ from uuid import UUID
 
 from advanced_alchemy.extensions.litestar import filters, providers, service
 from litestar import Controller, delete, get, patch, post
-from litestar.params import Dependency, Parameter
+from litestar.params import Dependency, PathParameter
 
 from core.config.constants import DEFAULT_PAGINATION_SIZE
 from core.domain.ai_apps.service import (
@@ -73,10 +73,13 @@ class AiAppsController(Controller):
     async def get_ai_app(
         self,
         ai_apps_service: AiAppsService,
-        ai_app_id: UUID = Parameter(
-            title="AI App ID",
-            description="The AI app to retrieve.",
-        ),
+        ai_app_id: Annotated[
+            UUID,
+            PathParameter(
+                title="AI App ID",
+                description="The AI app to retrieve.",
+            ),
+        ],
     ) -> AiApp:
         """Get an AI app by its ID."""
         obj = await ai_apps_service.get(ai_app_id)
@@ -87,10 +90,13 @@ class AiAppsController(Controller):
         self,
         ai_apps_service: AiAppsService,
         data: AiAppUpdate,
-        ai_app_id: UUID = Parameter(
-            title="AI App ID",
-            description="The AI app to update.",
-        ),
+        ai_app_id: Annotated[
+            UUID,
+            PathParameter(
+                title="AI App ID",
+                description="The AI app to update.",
+            ),
+        ],
         audit_username: str | None = None,
     ) -> AiApp:
         """Update an AI app."""
@@ -105,10 +111,13 @@ class AiAppsController(Controller):
     async def delete_ai_app(
         self,
         ai_apps_service: AiAppsService,
-        ai_app_id: UUID = Parameter(
-            title="AI App ID",
-            description="The AI app to delete.",
-        ),
+        ai_app_id: Annotated[
+            UUID,
+            PathParameter(
+                title="AI App ID",
+                description="The AI app to delete.",
+            ),
+        ],
     ) -> None:
         """Delete an AI app."""
         await ai_apps_service.delete(ai_app_id)

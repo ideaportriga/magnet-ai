@@ -5,7 +5,7 @@ from uuid import UUID
 
 from advanced_alchemy.extensions.litestar import filters, providers, service
 from litestar import Controller, delete, get, patch, post
-from litestar.params import Dependency, Parameter
+from litestar.params import Dependency, PathParameter
 
 from core.config.constants import DEFAULT_PAGINATION_SIZE
 from core.domain.metrics.service import MetricsService
@@ -81,10 +81,13 @@ class MetricsController(Controller):
     async def get_metric(
         self,
         metrics_service: MetricsService,
-        metric_id: UUID = Parameter(
-            title="Metric ID",
-            description="The metric to retrieve.",
-        ),
+        metric_id: Annotated[
+            UUID,
+            PathParameter(
+                title="Metric ID",
+                description="The metric to retrieve.",
+            ),
+        ],
     ) -> Metric:
         """Get a metric by its ID."""
         obj = await metrics_service.get(metric_id)
@@ -95,10 +98,13 @@ class MetricsController(Controller):
         self,
         metrics_service: MetricsService,
         data: MetricUpdate,
-        metric_id: UUID = Parameter(
-            title="Metric ID",
-            description="The metric to update.",
-        ),
+        metric_id: Annotated[
+            UUID,
+            PathParameter(
+                title="Metric ID",
+                description="The metric to update.",
+            ),
+        ],
     ) -> Metric:
         """Update a metric."""
         obj = await metrics_service.update(data, item_id=metric_id, auto_commit=True)
@@ -108,10 +114,13 @@ class MetricsController(Controller):
     async def delete_metric(
         self,
         metrics_service: MetricsService,
-        metric_id: UUID = Parameter(
-            title="Metric ID",
-            description="The metric to delete.",
-        ),
+        metric_id: Annotated[
+            UUID,
+            PathParameter(
+                title="Metric ID",
+                description="The metric to delete.",
+            ),
+        ],
     ) -> None:
         """Delete a metric from the system."""
         _ = await metrics_service.delete(metric_id)

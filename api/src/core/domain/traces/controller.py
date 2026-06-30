@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Annotated
 from advanced_alchemy.extensions.litestar import filters, providers, service
 from advanced_alchemy.filters import BeforeAfter, CollectionFilter
 from litestar import Controller, delete, get, patch, post
-from litestar.params import Dependency, Parameter
+from litestar.params import Dependency, Parameter, PathParameter
 
 from core.domain.traces.service import TracesService
 
@@ -164,10 +164,13 @@ class TracesController(Controller):
     async def get_trace(
         self,
         traces_service: TracesService,
-        trace_id: str = Parameter(
-            title="Trace ID",
-            description="The trace to retrieve.",
-        ),
+        trace_id: Annotated[
+            str,
+            PathParameter(
+                title="Trace ID",
+                description="The trace to retrieve.",
+            ),
+        ],
     ) -> Trace:
         """Get a trace by its ID."""
         obj = await traces_service.get(trace_id)
@@ -178,10 +181,13 @@ class TracesController(Controller):
         self,
         traces_service: TracesService,
         data: TraceUpdate,
-        trace_id: str = Parameter(
-            title="Trace ID",
-            description="The trace to update.",
-        ),
+        trace_id: Annotated[
+            str,
+            PathParameter(
+                title="Trace ID",
+                description="The trace to update.",
+            ),
+        ],
     ) -> Trace:
         """Update a trace."""
         obj = await traces_service.update(data, item_id=trace_id, auto_commit=True)
@@ -191,10 +197,13 @@ class TracesController(Controller):
     async def delete_trace(
         self,
         traces_service: TracesService,
-        trace_id: str = Parameter(
-            title="Trace ID",
-            description="The trace to delete.",
-        ),
+        trace_id: Annotated[
+            str,
+            PathParameter(
+                title="Trace ID",
+                description="The trace to delete.",
+            ),
+        ],
     ) -> None:
         """Delete a trace from the system."""
         _ = await traces_service.delete(trace_id)

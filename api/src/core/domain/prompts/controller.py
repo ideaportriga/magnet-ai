@@ -5,7 +5,7 @@ from uuid import UUID
 
 from advanced_alchemy.extensions.litestar import filters, providers, service
 from litestar import Controller, delete, get, patch, post
-from litestar.params import Body, Dependency, Parameter
+from litestar.params import Body, Dependency, PathParameter
 from litestar.status_codes import HTTP_200_OK
 
 from core.config.constants import DEFAULT_PAGINATION_SIZE
@@ -86,10 +86,13 @@ class PromptsController(Controller):
     async def get_prompt(
         self,
         prompts_service: PromptsService,
-        prompt_id: UUID = Parameter(
-            title="Prompt ID",
-            description="The prompt to retrieve.",
-        ),
+        prompt_id: Annotated[
+            UUID,
+            PathParameter(
+                title="Prompt ID",
+                description="The prompt to retrieve.",
+            ),
+        ],
     ) -> Prompt:
         """Get a prompt by its ID."""
         obj = await prompts_service.get(prompt_id)
@@ -100,10 +103,13 @@ class PromptsController(Controller):
         self,
         prompts_service: PromptsService,
         data: PromptUpdate,
-        prompt_id: UUID = Parameter(
-            title="Prompt ID",
-            description="The prompt to update.",
-        ),
+        prompt_id: Annotated[
+            UUID,
+            PathParameter(
+                title="Prompt ID",
+                description="The prompt to update.",
+            ),
+        ],
         audit_username: str | None = None,
     ) -> Prompt:
         """Update a prompt."""
@@ -118,10 +124,13 @@ class PromptsController(Controller):
     async def delete_prompt(
         self,
         prompts_service: PromptsService,
-        prompt_id: UUID = Parameter(
-            title="Prompt ID",
-            description="The prompt to delete.",
-        ),
+        prompt_id: Annotated[
+            UUID,
+            PathParameter(
+                title="Prompt ID",
+                description="The prompt to delete.",
+            ),
+        ],
     ) -> None:
         """Delete a prompt from the system."""
         _ = await prompts_service.delete(prompt_id)

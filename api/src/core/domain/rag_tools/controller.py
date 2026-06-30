@@ -6,7 +6,7 @@ from uuid import UUID
 from advanced_alchemy.extensions.litestar import filters, providers, service
 from litestar import Controller, delete, get, patch, post
 from litestar.connection import Request
-from litestar.params import Dependency, Parameter
+from litestar.params import Dependency, PathParameter
 from litestar.status_codes import HTTP_200_OK
 
 from core.config.constants import DEFAULT_PAGINATION_SIZE
@@ -77,10 +77,13 @@ class RagToolsController(Controller):
     async def get_rag_tool(
         self,
         rag_tools_service: RagToolsService,
-        rag_tool_id: UUID = Parameter(
-            title="RAG Tool ID",
-            description="The RAG tool to retrieve.",
-        ),
+        rag_tool_id: Annotated[
+            UUID,
+            PathParameter(
+                title="RAG Tool ID",
+                description="The RAG tool to retrieve.",
+            ),
+        ],
     ) -> RagTool:
         """Get a RAG tool by its ID."""
         obj = await rag_tools_service.get(rag_tool_id)
@@ -91,10 +94,13 @@ class RagToolsController(Controller):
         self,
         rag_tools_service: RagToolsService,
         data: RagToolUpdate,
-        rag_tool_id: UUID = Parameter(
-            title="RAG Tool ID",
-            description="The RAG tool to update.",
-        ),
+        rag_tool_id: Annotated[
+            UUID,
+            PathParameter(
+                title="RAG Tool ID",
+                description="The RAG tool to update.",
+            ),
+        ],
         audit_username: str | None = None,
     ) -> RagTool:
         """Update a RAG tool."""
@@ -109,10 +115,13 @@ class RagToolsController(Controller):
     async def delete_rag_tool(
         self,
         rag_tools_service: RagToolsService,
-        rag_tool_id: UUID = Parameter(
-            title="RAG Tool ID",
-            description="The RAG tool to delete.",
-        ),
+        rag_tool_id: Annotated[
+            UUID,
+            PathParameter(
+                title="RAG Tool ID",
+                description="The RAG tool to delete.",
+            ),
+        ],
     ) -> None:
         """Delete a RAG tool from the system."""
         _ = await rag_tools_service.delete(rag_tool_id)

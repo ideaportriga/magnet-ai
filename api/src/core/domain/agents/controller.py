@@ -6,7 +6,7 @@ from uuid import UUID
 
 from advanced_alchemy.extensions.litestar import filters, providers, service
 from litestar import Controller, Request, delete, get, patch, post
-from litestar.params import Dependency, Parameter
+from litestar.params import Dependency, PathParameter
 
 from core.config.constants import DEFAULT_PAGINATION_SIZE
 from core.domain.agents.service import (
@@ -80,10 +80,13 @@ class AgentsController(Controller):
     async def get_agent(
         self,
         agents_service: AgentsService,
-        agent_id: UUID = Parameter(
-            title="Agent ID",
-            description="The agent to retrieve.",
-        ),
+        agent_id: Annotated[
+            UUID,
+            PathParameter(
+                title="Agent ID",
+                description="The agent to retrieve.",
+            ),
+        ],
     ) -> Agent:
         """Get an agent by its ID."""
         obj = await agents_service.get(agent_id)
@@ -95,10 +98,13 @@ class AgentsController(Controller):
         agents_service: AgentsService,
         data: AgentUpdate,
         request: Request,
-        agent_id: UUID = Parameter(
-            title="Agent ID",
-            description="The agent to update.",
-        ),
+        agent_id: Annotated[
+            UUID,
+            PathParameter(
+                title="Agent ID",
+                description="The agent to update.",
+            ),
+        ],
         audit_username: str | None = None,
     ) -> Agent:
         """Update an agent."""
@@ -120,10 +126,13 @@ class AgentsController(Controller):
     async def delete_agent(
         self,
         agents_service: AgentsService,
-        agent_id: UUID = Parameter(
-            title="Agent ID",
-            description="The agent to delete.",
-        ),
+        agent_id: Annotated[
+            UUID,
+            PathParameter(
+                title="Agent ID",
+                description="The agent to delete.",
+            ),
+        ],
     ) -> None:
         """Delete an agent from the system."""
         _ = await agents_service.delete(agent_id)

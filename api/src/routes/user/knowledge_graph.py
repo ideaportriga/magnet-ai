@@ -11,7 +11,7 @@ from litestar import Controller, Request, post
 from litestar.datastructures import UploadFile
 from litestar.enums import RequestEncodingType
 from litestar.exceptions import ClientException
-from litestar.params import Body, Parameter
+from litestar.params import Body, PathParameter
 from litestar.status_codes import HTTP_200_OK, HTTP_202_ACCEPTED
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, select
@@ -296,7 +296,7 @@ class UserKnowledgeGraphController(Controller):
         self,
         graph_id_or_name: Annotated[
             str,
-            Parameter(
+            PathParameter(
                 title="Knowledge Graph ID or System Name",
                 description="The UUID or System Name of the Knowledge Graph to query.",
             ),
@@ -398,7 +398,7 @@ class UserKnowledgeGraphController(Controller):
         self,
         graph_id_or_name: Annotated[
             str,
-            Parameter(
+            PathParameter(
                 title="Knowledge Graph ID or System Name",
                 description="The UUID or System Name of the Knowledge Graph to search.",
             ),
@@ -489,7 +489,7 @@ class UserKnowledgeGraphController(Controller):
         self,
         graph_id_or_name: Annotated[
             str,
-            Parameter(
+            PathParameter(
                 title="Knowledge Graph ID or System Name",
                 description="The UUID or System Name of the Knowledge Graph to search.",
             ),
@@ -553,7 +553,7 @@ class UserKnowledgeGraphController(Controller):
         self,
         graph_id_or_name: Annotated[
             str,
-            Parameter(
+            PathParameter(
                 title="Knowledge Graph ID or System Name",
                 description=(
                     "The UUID or System Name of the Knowledge Graph to ingest content into."
@@ -723,7 +723,7 @@ class UserKnowledgeGraphController(Controller):
         self,
         graph_id_or_name: Annotated[
             str,
-            Parameter(
+            PathParameter(
                 title="Knowledge Graph ID or System Name",
                 description="The UUID or System Name of the Knowledge Graph to query.",
             ),

@@ -6,7 +6,7 @@ from uuid import UUID
 from advanced_alchemy.extensions.litestar import filters, providers, service
 from litestar import Controller, delete, get, patch, post
 from litestar.connection import Request
-from litestar.params import Dependency, Parameter
+from litestar.params import Dependency, PathParameter
 from litestar.status_codes import HTTP_200_OK
 
 from core.config.constants import DEFAULT_PAGINATION_SIZE
@@ -85,10 +85,13 @@ class RetrievalToolsController(Controller):
     async def get_retrieval_tool(
         self,
         retrieval_tools_service: RetrievalToolsService,
-        retrieval_tool_id: UUID = Parameter(
-            title="Retrieval Tool ID",
-            description="The Retrieval tool to retrieve.",
-        ),
+        retrieval_tool_id: Annotated[
+            UUID,
+            PathParameter(
+                title="Retrieval Tool ID",
+                description="The Retrieval tool to retrieve.",
+            ),
+        ],
     ) -> RetrievalTool:
         """Get a Retrieval tool by its ID."""
         obj = await retrieval_tools_service.get(retrieval_tool_id)
@@ -99,10 +102,13 @@ class RetrievalToolsController(Controller):
         self,
         retrieval_tools_service: RetrievalToolsService,
         data: RetrievalToolUpdate,
-        retrieval_tool_id: UUID = Parameter(
-            title="Retrieval Tool ID",
-            description="The Retrieval tool to update.",
-        ),
+        retrieval_tool_id: Annotated[
+            UUID,
+            PathParameter(
+                title="Retrieval Tool ID",
+                description="The Retrieval tool to update.",
+            ),
+        ],
         audit_username: str | None = None,
     ) -> RetrievalTool:
         """Update a Retrieval tool."""
@@ -117,10 +123,13 @@ class RetrievalToolsController(Controller):
     async def delete_retrieval_tool(
         self,
         retrieval_tools_service: RetrievalToolsService,
-        retrieval_tool_id: UUID = Parameter(
-            title="Retrieval Tool ID",
-            description="The Retrieval tool to delete.",
-        ),
+        retrieval_tool_id: Annotated[
+            UUID,
+            PathParameter(
+                title="Retrieval Tool ID",
+                description="The Retrieval tool to delete.",
+            ),
+        ],
     ) -> None:
         """Delete a Retrieval tool from the system."""
         _ = await retrieval_tools_service.delete(retrieval_tool_id)

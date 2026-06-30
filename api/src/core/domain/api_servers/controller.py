@@ -10,7 +10,7 @@ from litestar import Controller, delete, get, patch, post
 from litestar.datastructures import UploadFile
 from litestar.enums import RequestEncodingType
 from litestar.exceptions import ClientException
-from litestar.params import Body, Dependency, Parameter
+from litestar.params import Body, Dependency, PathParameter
 from litestar.status_codes import HTTP_200_OK
 from pydantic import BaseModel, Field
 
@@ -103,10 +103,13 @@ class ApiServersController(Controller):
     async def get_api_server(
         self,
         api_servers_service: ApiServersService,
-        api_server_id: UUID = Parameter(
-            title="API Server ID",
-            description="The API server to retrieve.",
-        ),
+        api_server_id: Annotated[
+            UUID,
+            PathParameter(
+                title="API Server ID",
+                description="The API server to retrieve.",
+            ),
+        ],
     ) -> ApiServerResponse:
         """Get an API server by its ID."""
         obj = await api_servers_service.get(api_server_id)
@@ -117,10 +120,13 @@ class ApiServersController(Controller):
         self,
         api_servers_service: ApiServersService,
         data: ApiServerUpdate,
-        api_server_id: UUID = Parameter(
-            title="API Server ID",
-            description="The API server to update.",
-        ),
+        api_server_id: Annotated[
+            UUID,
+            PathParameter(
+                title="API Server ID",
+                description="The API server to update.",
+            ),
+        ],
         audit_username: str | None = None,
     ) -> ApiServerResponse:
         """Update an API server."""
@@ -136,10 +142,13 @@ class ApiServersController(Controller):
     async def delete_api_server(
         self,
         api_servers_service: ApiServersService,
-        api_server_id: UUID = Parameter(
-            title="API Server ID",
-            description="The API server to delete.",
-        ),
+        api_server_id: Annotated[
+            UUID,
+            PathParameter(
+                title="API Server ID",
+                description="The API server to delete.",
+            ),
+        ],
     ) -> None:
         """Delete an API server from the system."""
         _ = await api_servers_service.delete(api_server_id)

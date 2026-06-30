@@ -2,7 +2,7 @@ from typing import Annotated, Any
 
 from litestar import Request, get, post
 from litestar.exceptions import NotFoundException
-from litestar.params import Body, Parameter
+from litestar.params import Body, PathParameter
 from litestar.status_codes import HTTP_200_OK
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -121,7 +121,7 @@ class AgentsController(AgentsControllerBase):
         self,
         id: Annotated[
             str,
-            Parameter(
+            PathParameter(
                 description="The unique identifier of the conversation to retrieve."
             ),
         ],

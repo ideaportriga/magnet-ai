@@ -5,7 +5,7 @@ from uuid import UUID
 
 from advanced_alchemy.extensions.litestar import filters, providers, service
 from litestar import Controller, delete, get, patch, post
-from litestar.params import Dependency, Parameter
+from litestar.params import Dependency, PathParameter
 from litestar.status_codes import HTTP_200_OK
 from mcp import Tool
 from mcp.types import CallToolResult
@@ -90,10 +90,13 @@ class MCPServersController(Controller):
     async def get_mcp_server(
         self,
         mcp_servers_service: MCPServersService,
-        mcp_server_id: UUID = Parameter(
-            title="MCP Server ID",
-            description="The MCP server to retrieve.",
-        ),
+        mcp_server_id: Annotated[
+            UUID,
+            PathParameter(
+                title="MCP Server ID",
+                description="The MCP server to retrieve.",
+            ),
+        ],
     ) -> MCPServerResponse:
         """Get an MCP server by its ID."""
         obj = await mcp_servers_service.get(mcp_server_id)
@@ -104,10 +107,13 @@ class MCPServersController(Controller):
         self,
         mcp_servers_service: MCPServersService,
         data: MCPServerUpdate,
-        mcp_server_id: UUID = Parameter(
-            title="MCP Server ID",
-            description="The MCP server to update.",
-        ),
+        mcp_server_id: Annotated[
+            UUID,
+            PathParameter(
+                title="MCP Server ID",
+                description="The MCP server to update.",
+            ),
+        ],
         audit_username: str | None = None,
     ) -> MCPServerResponse:
         """Update an MCP server."""
@@ -123,10 +129,13 @@ class MCPServersController(Controller):
     async def delete_mcp_server(
         self,
         mcp_servers_service: MCPServersService,
-        mcp_server_id: UUID = Parameter(
-            title="MCP Server ID",
-            description="The MCP server to delete.",
-        ),
+        mcp_server_id: Annotated[
+            UUID,
+            PathParameter(
+                title="MCP Server ID",
+                description="The MCP server to delete.",
+            ),
+        ],
     ) -> None:
         """Delete an MCP server from the system."""
         _ = await mcp_servers_service.delete(mcp_server_id)

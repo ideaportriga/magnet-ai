@@ -5,7 +5,7 @@ from uuid import UUID
 
 from advanced_alchemy.extensions.litestar import filters, providers, service
 from litestar import Controller, delete, get, patch, post
-from litestar.params import Dependency, Parameter
+from litestar.params import Dependency, PathParameter
 from litestar.status_codes import HTTP_200_OK
 from pydantic import BaseModel, Field
 
@@ -146,10 +146,13 @@ class ProvidersController(Controller):
     async def get_provider(
         self,
         providers_service: ProvidersService,
-        provider_id: UUID = Parameter(
-            title="Provider ID",
-            description="The Provider to retrieve.",
-        ),
+        provider_id: Annotated[
+            UUID,
+            PathParameter(
+                title="Provider ID",
+                description="The Provider to retrieve.",
+            ),
+        ],
     ) -> ProviderResponse:
         """Get a Provider by its ID."""
         obj = await providers_service.get(provider_id)
@@ -160,10 +163,13 @@ class ProvidersController(Controller):
         self,
         providers_service: ProvidersService,
         data: ProviderUpdate,
-        provider_id: UUID = Parameter(
-            title="Provider ID",
-            description="The Provider to update.",
-        ),
+        provider_id: Annotated[
+            UUID,
+            PathParameter(
+                title="Provider ID",
+                description="The Provider to update.",
+            ),
+        ],
         audit_username: str | None = None,
     ) -> ProviderResponse:
         """Update a Provider."""
@@ -181,10 +187,13 @@ class ProvidersController(Controller):
     async def delete_provider(
         self,
         providers_service: ProvidersService,
-        provider_id: UUID = Parameter(
-            title="Provider ID",
-            description="The Provider to delete.",
-        ),
+        provider_id: Annotated[
+            UUID,
+            PathParameter(
+                title="Provider ID",
+                description="The Provider to delete.",
+            ),
+        ],
     ) -> None:
         """Delete a Provider from the system."""
         from services.ai_services.router import refresh_router
@@ -201,10 +210,13 @@ class ProvidersController(Controller):
         self,
         providers_service: ProvidersService,
         ai_models_service: AIModelsService,
-        provider_id: UUID = Parameter(
-            title="Provider ID",
-            description="The Provider to test.",
-        ),
+        provider_id: Annotated[
+            UUID,
+            PathParameter(
+                title="Provider ID",
+                description="The Provider to test.",
+            ),
+        ],
     ) -> ProviderTestResult:
         """
         Test connection to a provider by making a simple API call.
@@ -381,10 +393,13 @@ class ProvidersController(Controller):
     async def get_available_models(
         self,
         providers_service: ProvidersService,
-        provider_id: UUID = Parameter(
-            title="Provider ID",
-            description="The provider to get available models for.",
-        ),
+        provider_id: Annotated[
+            UUID,
+            PathParameter(
+                title="Provider ID",
+                description="The provider to get available models for.",
+            ),
+        ],
     ) -> ProviderAvailableModelsResponse:
         """
         Get available models from the provider.

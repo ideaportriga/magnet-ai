@@ -4,7 +4,7 @@ from uuid import UUID
 
 from litestar import Controller, Request, get, patch, post
 from litestar.exceptions import NotFoundException
-from litestar.params import Parameter
+from litestar.params import Parameter, PathParameter
 from litestar.status_codes import HTTP_200_OK, HTTP_202_ACCEPTED
 from sqlalchemy.ext.asyncio import AsyncSession
 from api.tags import TagNames
@@ -63,9 +63,10 @@ class AgentConversationsController(Controller):
     async def create_conversation_route(
         self,
         data: AgentConversationCreateRequest,
-        user_id: Annotated[
+        caller_user_id: Annotated[
             str | None,
             Parameter(
+                query="user_id",
                 description="The unique identifier of the user creating the conversation.",
             ),
         ],
@@ -80,11 +81,11 @@ class AgentConversationsController(Controller):
             consumer_name=(
                 request.headers.get("x-consumer-name") or agent_config.system_name
             ),
-            user_id=user_id,
+            user_id=caller_user_id,
         )
 
         observability_context.update_current_trace(
-            name=agent_config.name, type="agent", user_id=user_id
+            name=agent_config.name, type="agent", user_id=caller_user_id
         )
 
         return await create_conversation(
@@ -104,7 +105,7 @@ class AgentConversationsController(Controller):
         self,
         conversation_id: Annotated[
             str,
-            Parameter(
+            PathParameter(
                 description="The unique identifier of the conversation to retrieve.",
             ),
         ],
@@ -121,14 +122,15 @@ class AgentConversationsController(Controller):
         self,
         conversation_id: Annotated[
             str,
-            Parameter(
+            PathParameter(
                 description="The unique identifier of the conversation to which the message will be added.",
             ),
         ],
         data: AgentConversationAddUserMessageRequest,
-        user_id: Annotated[
+        caller_user_id: Annotated[
             str | None,
             Parameter(
+                query="user_id",
                 description="The unique identifier of the user adding the message.",
             ),
         ],
@@ -144,7 +146,10 @@ class AgentConversationsController(Controller):
             )
 
         return await self._add_message_route(
-            conversation, data, user_id, **observability_overrides(trace_id=trace_id)
+            conversation,
+            data,
+            caller_user_id,
+            **observability_overrides(trace_id=trace_id),
         )
 
     @observe(
@@ -184,13 +189,13 @@ class AgentConversationsController(Controller):
         self,
         conversation_id: Annotated[
             str,
-            Parameter(
+            PathParameter(
                 description="The unique identifier of the conversation containing the message.",
             ),
         ],
         message_id: Annotated[
             str,
-            Parameter(
+            PathParameter(
                 description="The unique identifier of the message for which feedback is being provided.",
             ),
         ],
@@ -212,13 +217,13 @@ class AgentConversationsController(Controller):
         self,
         conversation_id: Annotated[
             str,
-            Parameter(
+            PathParameter(
                 description="The unique identifier of the conversation containing the message that was copied.",
             ),
         ],
         message_id: Annotated[
             str,
-            Parameter(
+            PathParameter(
                 description="The unique identifier of the message that was copied.",
             ),
         ],
@@ -234,7 +239,7 @@ class AgentConversationsController(Controller):
         self,
         client_id: Annotated[
             str,
-            Parameter(
+            PathParameter(
                 description="The unique identifier of the client whose conversation is being retrieved.",
             ),
         ],
@@ -258,7 +263,7 @@ class AgentConversationsController(Controller):
         self,
         conversation_id: Annotated[
             str,
-            Parameter(
+            PathParameter(
                 description="The unique identifier of the conversation to close.",
             ),
         ],
@@ -282,7 +287,7 @@ class AgentConversationsController(Controller):
         self,
         client_id: Annotated[
             str,
-            Parameter(
+            PathParameter(
                 description="The client identifier whose active conversation should be closed.",
             ),
         ],
@@ -309,9 +314,10 @@ class AgentConversationsController(Controller):
         data: AgentConversationCreateRequest,
         db_session: AsyncSession,
         request: Request,
-        user_id: Annotated[
+        caller_user_id: Annotated[
             str | None,
             Parameter(
+                query="user_id",
                 description="The unique identifier of the user creating the conversation.",
             ),
         ],
@@ -324,11 +330,11 @@ class AgentConversationsController(Controller):
             consumer_name=(
                 request.headers.get("x-consumer-name") or agent_config.system_name
             ),
-            user_id=user_id,
+            user_id=caller_user_id,
         )
 
         observability_context.update_current_trace(
-            name=agent_config.name, type="agent", user_id=user_id
+            name=agent_config.name, type="agent", user_id=caller_user_id
         )
 
         conversation = await create_conversation(
@@ -361,14 +367,15 @@ class AgentConversationsController(Controller):
         self,
         conversation_id: Annotated[
             str,
-            Parameter(
+            PathParameter(
                 description="The unique identifier of the conversation to which the message will be added.",
             ),
         ],
         data: AgentConversationAddUserMessageRequest,
-        user_id: Annotated[
+        caller_user_id: Annotated[
             str | None,
             Parameter(
+                query="user_id",
                 description="The unique identifier of the user adding the message.",
             ),
         ],
@@ -405,7 +412,7 @@ class AgentConversationsController(Controller):
         self,
         conversation_id: Annotated[
             str,
-            Parameter(
+            PathParameter(
                 description="The unique identifier of the conversation.",
             ),
         ],
@@ -479,13 +486,13 @@ class AgentConversationsController(Controller):
         self,
         conversation_id: Annotated[
             str,
-            Parameter(
+            PathParameter(
                 description="The unique identifier of the conversation containing the message.",
             ),
         ],
         message_id: Annotated[
             str,
-            Parameter(
+            PathParameter(
                 description="The unique identifier of the message to edit.",
             ),
         ],

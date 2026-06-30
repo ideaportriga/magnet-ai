@@ -1,8 +1,8 @@
-from logging import getLogger
 from typing import Annotated
+from logging import getLogger
 
 from litestar import Controller, post, put
-from litestar.params import Parameter
+from litestar.params import PathParameter
 from litestar.response import File
 from litestar.status_codes import HTTP_200_OK
 from pydantic import BaseModel, Field
@@ -322,13 +322,13 @@ class MetricsController(Controller):
         self,
         conversation_id: Annotated[
             str,
-            Parameter(
+            PathParameter(
                 description="The unique identifier of the conversation containing the message."
             ),
         ],
         message_id: Annotated[
             str,
-            Parameter(
+            PathParameter(
                 description="The unique identifier of the message for which custom feedback is being provided."
             ),
         ],

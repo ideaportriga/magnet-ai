@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated, Any
+from typing import TYPE_CHECKING, Annotated
 from uuid import UUID
 
 from advanced_alchemy.extensions.litestar import filters, providers, service
 from litestar import Controller, delete, get, patch, post
-from litestar.params import Dependency, Parameter
+from litestar.params import Dependency, PathParameter
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -55,9 +55,9 @@ class EvaluationsController(Controller):
         self,
         evaluations_service: EvaluationsService,
         data: ResultScoreUpdateRequest,
-        evaluation_id: UUID = Parameter(title="Evaluation ID"),
-        result_id: str = Parameter(title="Result ID"),
-        db_session: Annotated[Any, Dependency] = None,
+        evaluation_id: Annotated[UUID, PathParameter(title="Evaluation ID")],
+        result_id: Annotated[str, PathParameter(title="Result ID")],
+        db_session: AsyncSession,
     ) -> dict:
         updated = await evaluations_service.update_result_score(
             db_session=db_session,
@@ -122,10 +122,13 @@ class EvaluationsController(Controller):
     async def get_evaluation(
         self,
         evaluations_service: EvaluationsService,
-        evaluation_id: UUID = Parameter(
-            title="Evaluation ID",
-            description="The evaluation to retrieve.",
-        ),
+        evaluation_id: Annotated[
+            UUID,
+            PathParameter(
+                title="Evaluation ID",
+                description="The evaluation to retrieve.",
+            ),
+        ],
     ) -> Evaluation:
         """Get an evaluation by its ID."""
         obj = await evaluations_service.get(evaluation_id)
@@ -136,10 +139,13 @@ class EvaluationsController(Controller):
         self,
         evaluations_service: EvaluationsService,
         data: EvaluationUpdate,
-        evaluation_id: UUID = Parameter(
-            title="Evaluation ID",
-            description="The evaluation to update.",
-        ),
+        evaluation_id: Annotated[
+            UUID,
+            PathParameter(
+                title="Evaluation ID",
+                description="The evaluation to update.",
+            ),
+        ],
     ) -> Evaluation:
         """Update an evaluation."""
         obj = await evaluations_service.update(
@@ -151,10 +157,13 @@ class EvaluationsController(Controller):
     async def delete_evaluation(
         self,
         evaluations_service: EvaluationsService,
-        evaluation_id: UUID = Parameter(
-            title="Evaluation ID",
-            description="The evaluation to delete.",
-        ),
+        evaluation_id: Annotated[
+            UUID,
+            PathParameter(
+                title="Evaluation ID",
+                description="The evaluation to delete.",
+            ),
+        ],
     ) -> None:
         """Delete an evaluation."""
         await evaluations_service.delete(evaluation_id)

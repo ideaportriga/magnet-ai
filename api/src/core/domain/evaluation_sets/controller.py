@@ -11,7 +11,7 @@ from advanced_alchemy.extensions.litestar import filters, providers, service
 from litestar import Controller, delete, get, patch, post
 from litestar.datastructures import UploadFile
 from litestar.enums import RequestEncodingType
-from litestar.params import Body, Dependency, Parameter
+from litestar.params import Body, Dependency, PathParameter
 
 from core.config.constants import DEFAULT_PAGINATION_SIZE
 from core.domain.evaluation_sets.service import (
@@ -123,10 +123,13 @@ class EvaluationSetsController(Controller):
     async def get_evaluation_set(
         self,
         evaluation_sets_service: EvaluationSetsService,
-        evaluation_set_id: UUID = Parameter(
-            title="Evaluation Set ID",
-            description="The evaluation set to retrieve.",
-        ),
+        evaluation_set_id: Annotated[
+            UUID,
+            PathParameter(
+                title="Evaluation Set ID",
+                description="The evaluation set to retrieve.",
+            ),
+        ],
     ) -> EvaluationSet:
         """Get an evaluation set by its ID."""
         obj = await evaluation_sets_service.get(evaluation_set_id)
@@ -137,10 +140,13 @@ class EvaluationSetsController(Controller):
         self,
         evaluation_sets_service: EvaluationSetsService,
         data: EvaluationSetUpdate,
-        evaluation_set_id: UUID = Parameter(
-            title="Evaluation Set ID",
-            description="The evaluation set to update.",
-        ),
+        evaluation_set_id: Annotated[
+            UUID,
+            PathParameter(
+                title="Evaluation Set ID",
+                description="The evaluation set to update.",
+            ),
+        ],
         audit_username: str | None = None,
     ) -> EvaluationSet:
         """Update an evaluation set."""
@@ -155,10 +161,13 @@ class EvaluationSetsController(Controller):
     async def delete_evaluation_set(
         self,
         evaluation_sets_service: EvaluationSetsService,
-        evaluation_set_id: UUID = Parameter(
-            title="Evaluation Set ID",
-            description="The evaluation set to delete.",
-        ),
+        evaluation_set_id: Annotated[
+            UUID,
+            PathParameter(
+                title="Evaluation Set ID",
+                description="The evaluation set to delete.",
+            ),
+        ],
     ) -> None:
         """Delete an evaluation set."""
         await evaluation_sets_service.delete(evaluation_set_id)

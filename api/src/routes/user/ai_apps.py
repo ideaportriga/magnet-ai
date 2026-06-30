@@ -2,8 +2,8 @@ import logging
 from typing import Annotated, Any
 
 from litestar import Controller, get
+from litestar.params import PathParameter
 from litestar.exceptions import InternalServerException, NotFoundException
-from litestar.params import Parameter
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.tags import TagNames
@@ -89,7 +89,7 @@ class UserAiAppsController(Controller):
         db_session: AsyncSession,
         system_name: Annotated[
             str,
-            Parameter(
+            PathParameter(
                 description="Unique AI app system name.",
             ),
         ],
@@ -130,7 +130,7 @@ class UserAiAppsController(Controller):
         db_session: AsyncSession,
         system_name: Annotated[
             str,
-            Parameter(
+            PathParameter(
                 description="Unique Agent system name.",
             ),
         ],

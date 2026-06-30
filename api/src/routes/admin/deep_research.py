@@ -9,7 +9,7 @@ from uuid import UUID
 from advanced_alchemy.extensions.litestar import filters, providers, service
 from litestar import Controller, delete, get, patch, post
 from litestar.exceptions import HTTPException
-from litestar.params import Body, Dependency, Parameter
+from litestar.params import Body, Dependency, PathParameter
 from litestar.status_codes import HTTP_201_CREATED, HTTP_204_NO_CONTENT
 
 from core.config.constants import DEFAULT_PAGINATION_SIZE
@@ -80,10 +80,13 @@ class DeepResearchConfigController(Controller):
     async def get_config(
         self,
         config_service: DeepResearchConfigService,
-        config_id: UUID = Parameter(
-            title="Config ID",
-            description="The config to retrieve.",
-        ),
+        config_id: Annotated[
+            UUID,
+            PathParameter(
+                title="Config ID",
+                description="The config to retrieve.",
+            ),
+        ],
     ) -> DeepResearchConfigSchema:
         """Get a deep research config by its ID."""
         obj = await config_service.get(config_id)
@@ -94,10 +97,13 @@ class DeepResearchConfigController(Controller):
         self,
         config_service: DeepResearchConfigService,
         data: DeepResearchConfigUpdateSchema,
-        config_id: UUID = Parameter(
-            title="Config ID",
-            description="The config to update.",
-        ),
+        config_id: Annotated[
+            UUID,
+            PathParameter(
+                title="Config ID",
+                description="The config to update.",
+            ),
+        ],
         audit_username: str | None = None,
     ) -> DeepResearchConfigSchema:
         """Update a deep research config."""
@@ -112,10 +118,13 @@ class DeepResearchConfigController(Controller):
     async def delete_config(
         self,
         config_service: DeepResearchConfigService,
-        config_id: UUID = Parameter(
-            title="Config ID",
-            description="The config to delete.",
-        ),
+        config_id: Annotated[
+            UUID,
+            PathParameter(
+                title="Config ID",
+                description="The config to delete.",
+            ),
+        ],
     ) -> None:
         """Delete a deep research config."""
         _ = await config_service.delete(config_id)
@@ -201,10 +210,13 @@ class DeepResearchRunController(Controller):
     async def get_run(
         self,
         run_service: DeepResearchRunService,
-        run_id: UUID = Parameter(
-            title="Run ID",
-            description="The run to retrieve.",
-        ),
+        run_id: Annotated[
+            UUID,
+            PathParameter(
+                title="Run ID",
+                description="The run to retrieve.",
+            ),
+        ],
     ) -> DeepResearchRunSchema:
         """Get a deep research run by its ID."""
         obj = await run_service.get(run_id)
@@ -214,10 +226,13 @@ class DeepResearchRunController(Controller):
     async def get_run_by_client_id(
         self,
         run_service: DeepResearchRunService,
-        client_id: str = Parameter(
-            title="Client ID",
-            description="The client_id of the run to retrieve.",
-        ),
+        client_id: Annotated[
+            str,
+            PathParameter(
+                title="Client ID",
+                description="The client_id of the run to retrieve.",
+            ),
+        ],
     ) -> DeepResearchRunSchema:
         """Get a deep research run by its client_id. Returns the first match if multiple exist."""
         # Use list with limit=1 instead of get_one to handle multiple matches
@@ -235,10 +250,13 @@ class DeepResearchRunController(Controller):
     async def delete_run(
         self,
         run_service: DeepResearchRunService,
-        run_id: UUID = Parameter(
-            title="Run ID",
-            description="The run to delete.",
-        ),
+        run_id: Annotated[
+            UUID,
+            PathParameter(
+                title="Run ID",
+                description="The run to delete.",
+            ),
+        ],
     ) -> None:
         """Delete a deep research run."""
         _ = await run_service.delete(run_id)
@@ -247,10 +265,13 @@ class DeepResearchRunController(Controller):
     async def delete_run_by_client_id(
         self,
         run_service: DeepResearchRunService,
-        client_id: str = Parameter(
-            title="Client ID",
-            description="The client_id of the run to delete.",
-        ),
+        client_id: Annotated[
+            str,
+            PathParameter(
+                title="Client ID",
+                description="The client_id of the run to delete.",
+            ),
+        ],
     ) -> None:
         """Delete a deep research run by its client_id. Deletes the first match if multiple exist."""
         # Use list with limit=1 instead of get_one to handle multiple matches

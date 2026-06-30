@@ -7,7 +7,7 @@ from uuid import UUID
 from advanced_alchemy.extensions.litestar import filters, providers, service
 from litestar import Controller, delete, get, patch, post
 from litestar.exceptions import ClientException, NotFoundException
-from litestar.params import Dependency, Parameter
+from litestar.params import Dependency, Parameter, PathParameter
 from litestar.status_codes import HTTP_200_OK, HTTP_204_NO_CONTENT
 from pydantic import BaseModel, Field
 
@@ -178,10 +178,13 @@ class AIModelsController(Controller):
     async def get_ai_model(
         self,
         ai_models_service: AIModelsService,
-        ai_model_id: UUID = Parameter(
-            title="AI Model ID",
-            description="The AI model to retrieve.",
-        ),
+        ai_model_id: Annotated[
+            UUID,
+            PathParameter(
+                title="AI Model ID",
+                description="The AI model to retrieve.",
+            ),
+        ],
     ) -> AIModel:
         """Get an AI model by its ID."""
         obj = await ai_models_service.get(ai_model_id)
@@ -192,10 +195,13 @@ class AIModelsController(Controller):
         self,
         ai_models_service: AIModelsService,
         data: AIModelUpdate,
-        ai_model_id: UUID = Parameter(
-            title="AI Model ID",
-            description="The AI model to update.",
-        ),
+        ai_model_id: Annotated[
+            UUID,
+            PathParameter(
+                title="AI Model ID",
+                description="The AI model to update.",
+            ),
+        ],
         audit_username: str | None = None,
     ) -> AIModel:
         """Update an AI model."""
@@ -214,10 +220,13 @@ class AIModelsController(Controller):
     async def delete_ai_model(
         self,
         ai_models_service: AIModelsService,
-        ai_model_id: UUID = Parameter(
-            title="AI Model ID",
-            description="The AI model to delete.",
-        ),
+        ai_model_id: Annotated[
+            UUID,
+            PathParameter(
+                title="AI Model ID",
+                description="The AI model to delete.",
+            ),
+        ],
     ) -> None:
         """Delete an AI model from the system."""
         from services.ai_services.router import refresh_router
@@ -254,10 +263,13 @@ class AIModelsController(Controller):
         self,
         ai_models_service: AIModelsService,
         providers_service: ProvidersService,
-        ai_model_id: UUID = Parameter(
-            title="AI Model ID",
-            description="The AI model to test.",
-        ),
+        ai_model_id: Annotated[
+            UUID,
+            PathParameter(
+                title="AI Model ID",
+                description="The AI model to test.",
+            ),
+        ],
     ) -> ModelTestResult:
         """
         Test an AI model by making a simple API call.
@@ -657,10 +669,13 @@ class AIModelsController(Controller):
         self,
         ai_models_service: AIModelsService,
         providers_service: ProvidersService,
-        ai_model_id: UUID = Parameter(
-            title="AI Model ID",
-            description="The AI model to get debug info for.",
-        ),
+        ai_model_id: Annotated[
+            UUID,
+            PathParameter(
+                title="AI Model ID",
+                description="The AI model to get debug info for.",
+            ),
+        ],
     ) -> ModelDebugInfo:
         """
         Get LiteLLM routing diagnostic information for a model without making an API call.
@@ -723,10 +738,13 @@ class AIModelsController(Controller):
     async def get_model_capabilities(
         self,
         ai_models_service: AIModelsService,
-        ai_model_id: UUID = Parameter(
-            title="AI Model ID",
-            description="The AI model to get capabilities for.",
-        ),
+        ai_model_id: Annotated[
+            UUID,
+            PathParameter(
+                title="AI Model ID",
+                description="The AI model to get capabilities for.",
+            ),
+        ],
     ) -> ModelCapabilities:
         """
         Get model capabilities and supported parameters from LiteLLM.

@@ -7,7 +7,7 @@ from uuid import UUID
 
 from advanced_alchemy.extensions.litestar import filters, providers, service
 from litestar import Controller, delete, get, patch, post
-from litestar.params import Body, Dependency, Parameter
+from litestar.params import Body, Dependency, PathParameter
 from litestar.status_codes import HTTP_200_OK, HTTP_201_CREATED, HTTP_204_NO_CONTENT
 
 from core.config.constants import DEFAULT_PAGINATION_SIZE
@@ -69,10 +69,13 @@ class PromptQueueConfigController(Controller):
     async def get_config(
         self,
         config_service: PromptQueueConfigService,
-        config_id: UUID = Parameter(
-            title="Config ID",
-            description="The config to retrieve.",
-        ),
+        config_id: Annotated[
+            UUID,
+            PathParameter(
+                title="Config ID",
+                description="The config to retrieve.",
+            ),
+        ],
     ) -> PromptQueueConfigSchema:
         """Get a prompt queue config by its ID."""
         obj = await config_service.get(config_id)
@@ -83,10 +86,13 @@ class PromptQueueConfigController(Controller):
         self,
         config_service: PromptQueueConfigService,
         data: Annotated[PromptQueueExecuteRequestSchema, Body()],
-        config_id: UUID = Parameter(
-            title="Config ID",
-            description="The config to execute.",
-        ),
+        config_id: Annotated[
+            UUID,
+            PathParameter(
+                title="Config ID",
+                description="The config to execute.",
+            ),
+        ],
     ) -> PromptQueueExecuteResponseSchema:
         """Execute a prompt queue config with the given input."""
         obj = await config_service.get(config_id)
@@ -102,10 +108,13 @@ class PromptQueueConfigController(Controller):
         self,
         config_service: PromptQueueConfigService,
         data: PromptQueueConfigUpdateSchema,
-        config_id: UUID = Parameter(
-            title="Config ID",
-            description="The config to update.",
-        ),
+        config_id: Annotated[
+            UUID,
+            PathParameter(
+                title="Config ID",
+                description="The config to update.",
+            ),
+        ],
         audit_username: str | None = None,
     ) -> PromptQueueConfigSchema:
         """Update a prompt queue config."""
@@ -120,10 +129,13 @@ class PromptQueueConfigController(Controller):
     async def delete_config(
         self,
         config_service: PromptQueueConfigService,
-        config_id: UUID = Parameter(
-            title="Config ID",
-            description="The config to delete.",
-        ),
+        config_id: Annotated[
+            UUID,
+            PathParameter(
+                title="Config ID",
+                description="The config to delete.",
+            ),
+        ],
     ) -> None:
         """Delete a prompt queue config."""
         _ = await config_service.delete(config_id)

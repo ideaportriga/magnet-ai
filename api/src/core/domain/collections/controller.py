@@ -5,7 +5,7 @@ from uuid import UUID
 
 from advanced_alchemy.extensions.litestar import filters, providers, service
 from litestar import Controller, delete, get, patch, post
-from litestar.params import Dependency, Parameter
+from litestar.params import Dependency, PathParameter
 
 from core.config.constants import DEFAULT_PAGINATION_SIZE
 from core.domain.collections.service import (
@@ -73,10 +73,13 @@ class CollectionsController(Controller):
     async def get_collection(
         self,
         collections_service: CollectionsService,
-        collection_id: UUID = Parameter(
-            title="Collection ID",
-            description="The Collection to retrieve.",
-        ),
+        collection_id: Annotated[
+            UUID,
+            PathParameter(
+                title="Collection ID",
+                description="The Collection to retrieve.",
+            ),
+        ],
     ) -> Collection:
         """Get a Collection by its ID."""
         obj = await collections_service.get(collection_id)
@@ -87,10 +90,13 @@ class CollectionsController(Controller):
         self,
         collections_service: CollectionsService,
         data: CollectionUpdate,
-        collection_id: UUID = Parameter(
-            title="Collection ID",
-            description="The Collection to update.",
-        ),
+        collection_id: Annotated[
+            UUID,
+            PathParameter(
+                title="Collection ID",
+                description="The Collection to update.",
+            ),
+        ],
         audit_username: str | None = None,
     ) -> Collection:
         """Update a Collection."""
@@ -106,10 +112,13 @@ class CollectionsController(Controller):
     async def delete_collection(
         self,
         collections_service: CollectionsService,
-        collection_id: UUID = Parameter(
-            title="Collection ID",
-            description="The Collection to delete.",
-        ),
+        collection_id: Annotated[
+            UUID,
+            PathParameter(
+                title="Collection ID",
+                description="The Collection to delete.",
+            ),
+        ],
     ) -> None:
         """Delete a Collection from the system."""
         _ = await collections_service.delete(collection_id)
