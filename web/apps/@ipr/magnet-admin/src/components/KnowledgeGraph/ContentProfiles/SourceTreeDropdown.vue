@@ -1,7 +1,13 @@
 <template>
-  <kg-inline-field interactive @click.stop>
-    <span class="source-dropdown-label">{{ displayLabel }}</span>
-    <q-icon name="arrow_drop_down" size="16px" />
+  <span class="source-dropdown" :class="`source-dropdown--${variant}`" @click.stop>
+    <kg-inline-field v-if="variant === 'inline'" interactive class="source-dropdown-inline">
+      <span class="source-dropdown-label">{{ displayLabel }}</span>
+      <q-icon name="arrow_drop_down" size="16px" />
+    </kg-inline-field>
+    <span v-else class="source-dropdown-field" tabindex="0">
+      <span class="source-dropdown-field-value">{{ displayLabel }}</span>
+      <q-icon name="arrow_drop_down" size="24px" class="source-dropdown-field-arrow" />
+    </span>
     <q-menu
       ref="menuRef"
       anchor="bottom left"
@@ -107,7 +113,7 @@
         </template>
       </div>
     </q-menu>
-  </kg-inline-field>
+  </span>
 </template>
 
 <script setup lang="ts">
@@ -129,10 +135,14 @@ const props = withDefaults(
   allowedGroupTypes?: string[]
   allowAllSources?: boolean
   allowIndividualSources?: boolean
+  // 'inline' renders as a dashed inline field (used inside content-profile
+  // sentences); 'field' renders as a normal outlined dropdown form field.
+  variant?: 'inline' | 'field'
 }>(),
   {
     allowAllSources: true,
     allowIndividualSources: true,
+    variant: 'inline',
   }
 )
 
@@ -159,7 +169,7 @@ const sourceGroups = computed<SourceGroup[]>(() => {
     groupMap.get(type)!.push(source)
   }
 
-  const typeOrder: SourceTypeKey[] = ['sharepoint', 'fluid_topics', 'confluence', 'api_ingest', 'upload']
+  const typeOrder: SourceTypeKey[] = ['sharepoint', 'web', 'fluid_topics', 'confluence', 'salesforce', 'api_ingest', 'upload']
 
   return typeOrder
     .filter((type) => !sourceRegistry[type].comingSoon)
@@ -180,16 +190,21 @@ const visibleSourceGroups = computed(() => {
 })
 
 const displayLabel = computed(() => {
-  if (isAllSourcesSelected.value) return 'any source'
+  // The 'field' variant is a standalone form control, so its label mirrors the
+  // capitalization of the dropdown items ("Any Source", "Any Web source"). The
+  // 'inline' variant reads inside a sentence, so it stays lower-case.
+  const isField = props.variant === 'field'
+
+  if (isAllSourcesSelected.value) return isField ? 'Any Source' : 'any source'
 
   const parts: string[] = []
 
   for (const group of visibleSourceGroups.value) {
     if (isGroupSelected(group.type)) {
       if (group.type === 'upload') {
-        parts.push(group.label.toLowerCase())
+        parts.push(isField ? group.label : group.label.toLowerCase())
       } else {
-        parts.push(`any ${group.label} source`)
+        parts.push(`${isField ? 'Any' : 'any'} ${group.label} source`)
       }
     } else if (props.allowIndividualSources) {
       for (const s of group.sources) {
@@ -198,7 +213,7 @@ const displayLabel = computed(() => {
     }
   }
 
-  if (parts.length === 0) return 'no source'
+  if (parts.length === 0) return isField ? 'No source' : 'no source'
   if (parts.length === 1) return parts[0]
   return `${parts.length} sources`
 })
@@ -248,12 +263,64 @@ const toggleSource = (id: string) => {
 </script>
 
 <style scoped>
+.source-dropdown--inline {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.source-dropdown--field {
+  display: flex;
+  width: 100%;
+}
+
 .source-dropdown-label {
   font-family: inherit;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Normal outlined dropdown field (variant="field") */
+.source-dropdown-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 40px;
+  padding: 6px 8px 6px 12px;
+  border: 1px solid rgba(0, 0, 0, 0.24);
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.15s ease;
+}
+
+.source-dropdown-field:hover {
+  border-color: rgba(0, 0, 0, 0.6);
+}
+
+.source-dropdown-field:focus-visible {
+  outline: none;
+  border-color: var(--q-primary);
+  box-shadow: 0 0 0 1px var(--q-primary);
+}
+
+.source-dropdown-field-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.87);
+}
+
+.source-dropdown-field-arrow {
+  color: rgba(0, 0, 0, 0.54);
+  flex-shrink: 0;
 }
 
 .source-dropdown-content {

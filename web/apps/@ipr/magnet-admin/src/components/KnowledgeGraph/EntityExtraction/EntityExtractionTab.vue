@@ -159,6 +159,7 @@
       v-model="dialogOpen"
       :entity="selectedEntity"
       :existing-entity-names="existingEntityNames"
+      :sources="sources"
       :loading="saving"
       @cancel="onDialogCancel"
       @save="onDialogSave"
@@ -255,6 +256,8 @@ import { useQuasar } from 'quasar'
 import { computed, ref, watch } from 'vue'
 import { useStore } from 'vuex'
 import { KgConfirmDialog, KgTableToolbar } from '../common'
+import { fetchKnowledgeGraphSources } from '../Sources/api'
+import type { SourceRow } from '../Sources/models'
 import EntityDialog from './EntityDialog.vue'
 import EntityExtractionSettingsDialog from './EntityExtractionSettingsDialog.vue'
 import {
@@ -292,6 +295,7 @@ const store = useStore()
 const $q = useQuasar()
 
 const entities = ref<EntityDefinition[]>([])
+const sources = ref<SourceRow[]>([])
 const extractionSettings = ref<EntityExtractionRunSettings>(createDefaultEntityExtractionRunSettings())
 const performanceTuning = ref<EntityExtractionPerformanceTuningSettings>(createDefaultPerformanceTuningSettings())
 const selectedEntity = ref<EntityDefinition | null>(null)
@@ -484,6 +488,19 @@ async function loadPromptTemplates() {
     promptTemplateOptions.value = []
   } finally {
     loadingPromptTemplates.value = false
+  }
+}
+
+async function fetchSources() {
+  try {
+    const endpoint = store.getters.config?.api?.aiBridge?.urlAdmin
+    if (!endpoint) return
+    sources.value = await fetchKnowledgeGraphSources({
+      endpoint,
+      graphId: props.graphId,
+    })
+  } catch (error) {
+    console.error('Error fetching sources:', error)
   }
 }
 
@@ -770,6 +787,7 @@ watch(
   () => props.graphId,
   () => {
     void loadPromptTemplates()
+    void fetchSources()
   },
   { immediate: true }
 )
@@ -882,6 +900,7 @@ defineExpose({
   refresh: () => {
     initializeFromSettings()
     void loadPromptTemplates()
+    void fetchSources()
   },
 })
 </script>

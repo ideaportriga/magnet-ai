@@ -11,10 +11,10 @@
     @cancel="onCancel"
     @confirm="onSave"
   >
-    <!-- Entity Info Section -->
+    <!-- Entity Overview Section -->
     <kg-dialog-section
-      title="Entity Information"
-      description="Give this entity a name and describe what it represents in your documents."
+      title="Entity Overview"
+      description="Name this entity, describe what it represents, and choose which sources it is extracted from."
       icon="o_category"
       icon-color="primary"
     >
@@ -32,6 +32,9 @@
             autogrow
             :input-style="{ minHeight: '72px', maxHeight: '140px' }"
           />
+        </kg-field-row>
+        <kg-field-row :cols="1" label="Extract from sources">
+          <source-tree-dropdown v-model="sourceIdsModel" :sources="sources || []" variant="field" />
         </kg-field-row>
       </div>
     </kg-dialog-section>
@@ -53,19 +56,26 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { KgDialogBase, KgDialogSection, KgFieldRow } from '../common'
+import SourceTreeDropdown from '../ContentProfiles/SourceTreeDropdown.vue'
+import type { SourceRow } from '../Sources/models'
 import EntityColumnsSection from './EntityColumnsSection.vue'
 import { cloneEntityDefinitions, createEmptyEntity, type EntityDefinition } from './models'
+
+const ALL_SOURCES_KEY = '__ALL__'
+const NONE_SELECTED_KEY = '__NONE__'
 
 interface Props {
   modelValue: boolean
   entity?: EntityDefinition | null
   existingEntityNames?: string[]
+  sources?: SourceRow[]
   loading?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   entity: null,
   existingEntityNames: () => [],
+  sources: () => [],
   loading: false,
 })
 
@@ -82,7 +92,37 @@ const form = reactive<EntityDefinition>({
   id: '',
   name: '',
   description: '',
+  enabled: true,
   columns: [],
+  source_ids: [],
+})
+
+// - stored `source_ids: []` (or `['__ALL__']`) means any source
+// - UI empty selection maps to the explicit `['__NONE__']` marker
+// - group keys (`__GROUP__<type>`) and individual source ids are stored as-is
+const sourceIdsModel = computed<string[]>({
+  get: () => {
+    const stored = Array.isArray(form.source_ids) ? form.source_ids : []
+    if (stored.includes(NONE_SELECTED_KEY)) {
+      return []
+    }
+    if (stored.length === 0) {
+      return [ALL_SOURCES_KEY]
+    }
+    return stored
+  },
+  set: (uiValue) => {
+    const incoming = Array.isArray(uiValue) ? uiValue.filter(Boolean) : []
+    if (incoming.includes(ALL_SOURCES_KEY)) {
+      form.source_ids = []
+      return
+    }
+    if (incoming.length === 0) {
+      form.source_ids = [NONE_SELECTED_KEY]
+      return
+    }
+    form.source_ids = [...new Set(incoming)]
+  },
 })
 
 const validationErrors = computed(() => {
@@ -125,7 +165,9 @@ function applyEntityToForm(entity: EntityDefinition) {
   form.id = clonedEntity.id
   form.name = clonedEntity.name
   form.description = clonedEntity.description
+  form.enabled = clonedEntity.enabled !== false
   form.columns = clonedEntity.columns
+  form.source_ids = [...(clonedEntity.source_ids || [])]
 }
 
 function resetForm() {

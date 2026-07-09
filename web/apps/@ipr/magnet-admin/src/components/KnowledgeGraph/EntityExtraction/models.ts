@@ -49,6 +49,9 @@ export interface EntityDefinition {
   description: string
   enabled: boolean
   columns: EntityColumn[]
+  // Source selection: [] or ['__ALL__'] = any source; ['__GROUP__<type>'] = a type group;
+  // concrete source ids; ['__NONE__'] = none. Empty defaults to all sources.
+  source_ids: string[]
 }
 
 export interface EntityExtractionRunSettings {
@@ -213,6 +216,7 @@ export function cloneEntityDefinition(entity: EntityDefinition): EntityDefinitio
   return {
     ...entity,
     columns: (entity.columns || []).map(cloneEntityColumn),
+    source_ids: [...(entity.source_ids || [])],
   }
 }
 
@@ -266,6 +270,7 @@ function normalizeEntityDefinitionFromRaw(raw: Record<string, unknown>): EntityD
             is_required: !!column.is_required,
           }))
       : [],
+    source_ids: Array.isArray(raw.source_ids) ? raw.source_ids.map(String).filter(Boolean) : [],
   }
 }
 
@@ -480,12 +485,13 @@ export function createEmptyEntity(): EntityDefinition {
     description: '',
     enabled: true,
     columns: [createEmptyColumn()],
+    source_ids: [],
   }
 }
 
 // --- Export / Import ---
 
-export const ENTITY_DEFINITIONS_EXPORT_VERSION = 1
+export const ENTITY_DEFINITIONS_EXPORT_VERSION = 2
 
 export interface EntityDefinitionExportColumn {
   name: string
@@ -500,6 +506,7 @@ export interface EntityDefinitionExportEntry {
   description: string
   enabled: boolean
   columns: EntityDefinitionExportColumn[]
+  source_ids: string[]
 }
 
 export interface EntityDefinitionsExportEnvelope {
@@ -535,6 +542,7 @@ export function serializeEntityDefinitionsForExport(entities: EntityDefinition[]
         is_identifier: column.is_identifier,
         is_required: column.is_required,
       })),
+      source_ids: [...(entity.source_ids || [])],
     })),
   }
 

@@ -17,12 +17,9 @@ from .models import (
     ContentReaderName,
     SourceType,
 )
+from .source_selectors import GROUP_KEY_PREFIX, matches_source_selector
 
 logger = logging.getLogger(__name__)
-
-ALL_SOURCES_KEY = "__ALL__"
-NONE_SELECTED_KEY = "__NONE__"
-GROUP_KEY_PREFIX = "__GROUP__"
 VIRTUAL_LAST_RESORT_PROFILE_NAME = "<default>"
 VIRTUAL_LAST_RESORT_PROFILE_KEY = "_virtual_profile"
 VIRTUAL_LAST_RESORT_PROFILE_VALUE = "fallback_plain_text"
@@ -52,51 +49,6 @@ def clone_graph_settings(settings: dict[str, Any] | None) -> dict[str, Any]:
     return deepcopy(settings)
 
 
-def _parse_group_selector(selector: str) -> str | None:
-    if selector.startswith(GROUP_KEY_PREFIX):
-        return selector[len(GROUP_KEY_PREFIX) :]
-    return None
-
-
-def _matches_source_selector(
-    selectors: list[str], source_id: str | None, source_type: str | None
-) -> bool:
-    """Return whether a stored selector list matches the current source.
-
-    Selectors can contain:
-    - concrete source ids
-    - ``__GROUP__<type>`` virtual group selectors
-    - ``__ALL__`` wildcard selector
-    - ``__NONE__`` explicit match-nothing selector
-    """
-
-    if not selectors:
-        return True
-
-    normalized_selectors = {str(selector) for selector in selectors if selector}
-    if not normalized_selectors:
-        return True
-
-    if NONE_SELECTED_KEY in normalized_selectors:
-        return False
-
-    if ALL_SOURCES_KEY in normalized_selectors:
-        return True
-
-    normalized_source_id = str(source_id) if source_id else None
-    if normalized_source_id and normalized_source_id in normalized_selectors:
-        return True
-
-    normalized_source_type = str(source_type) if source_type else None
-    if not normalized_source_type:
-        return False
-
-    return any(
-        _parse_group_selector(selector) == normalized_source_type
-        for selector in normalized_selectors
-    )
-
-
 def _get_reader_name(config: ContentConfig) -> str:
     if not config.reader:
         return ""
@@ -115,7 +67,7 @@ def _matches_config_source(
     config: ContentConfig, *, source_id: str | None, source_type: str | None
 ) -> bool:
     if config.source_ids and len(config.source_ids) > 0:
-        return _matches_source_selector(
+        return matches_source_selector(
             config.source_ids, source_id=source_id, source_type=source_type
         )
 

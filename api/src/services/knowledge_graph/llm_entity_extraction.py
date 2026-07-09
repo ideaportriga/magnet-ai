@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.config.app import alchemy
 from core.db.models.knowledge_graph import (
     KnowledgeGraph,
+    KnowledgeGraphSource,
     chunks_table_name,
     docs_table_name,
 )
@@ -33,6 +34,7 @@ from services.knowledge_graph.logging_settings import (
     tracing_level_to_export_method,
 )
 from services.knowledge_graph.readers import ChunkDocumentReader
+from services.knowledge_graph.source_selectors import matches_source_selector
 from services.observability import observability_context, observe
 from services.prompt_templates import execute_prompt_template
 from utils.datetime_utils import utc_now_isoformat
@@ -86,6 +88,7 @@ class EntityDefinition:
     description: str = ""
     columns: list[EntityColumnDefinition] | None = None
     identifier_column: str = ""
+    source_ids: list[str] | None = None  # None/[] => all sources
 
 
 @dataclass(slots=True)
@@ -162,6 +165,7 @@ def normalize_entity_definitions(
             entity_name = str(raw_entity.name or "").strip()
             entity_description = str(raw_entity.description or "").strip()
             raw_columns = raw_entity.columns or []
+            raw_source_ids = raw_entity.source_ids or []
         elif isinstance(raw_entity, dict):
             if raw_entity.get("enabled") is False:
                 continue
@@ -172,8 +176,15 @@ def normalize_entity_definitions(
                 if isinstance(raw_entity.get("columns"), list)
                 else []
             )
+            raw_source_ids = (
+                raw_entity.get("source_ids")
+                if isinstance(raw_entity.get("source_ids"), list)
+                else []
+            )
         else:
             continue
+
+        source_ids = [str(selector) for selector in raw_source_ids if selector]
 
         if not entity_name:
             continue
@@ -241,6 +252,7 @@ def normalize_entity_definitions(
                 description=entity_description,
                 columns=columns,
                 identifier_column=identifier_columns[0] if identifier_columns else "",
+                source_ids=source_ids,
             )
         )
 
@@ -2327,6 +2339,33 @@ async def run_graph_llm_entity_extraction(
     )
     doc_id_params = {"document_ids": document_ids} if document_ids is not None else {}
 
+    # Build a source_id -> source_type map once so per-document entity filtering can
+    # resolve ``__GROUP__<type>`` selectors (see EntityDefinition.source_ids).
+    source_type_by_id: dict[str, str] = {}
+    sources_res = await db_session.execute(
+        select(KnowledgeGraphSource.id, KnowledgeGraphSource.type).where(
+            KnowledgeGraphSource.graph_id == graph_id
+        )
+    )
+    for source_row_id, source_row_type in sources_res.all():
+        source_type_by_id[str(source_row_id)] = str(source_row_type)
+    await db_session.commit()
+
+    def _entities_for_source(source_id: str | None) -> list[EntityDefinition]:
+        """Return the entity definitions whose source selection matches a document.
+
+        An empty ``source_ids`` (the default) matches every source, preserving the
+        pre-feature behaviour where all entities were extracted from all documents.
+        """
+        source_type = source_type_by_id.get(source_id) if source_id else None
+        return [
+            entity_definition
+            for entity_definition in entity_definitions
+            if matches_source_selector(
+                entity_definition.source_ids or [], source_id, source_type
+            )
+        ]
+
     if approach == "document":
         # Count total documents for progress tracking
         total_docs_res = await db_session.execute(
@@ -2394,6 +2433,20 @@ async def run_graph_llm_entity_extraction(
                 if not doc_id:
                     continue
 
+                doc_entity_definitions = _entities_for_source(source_id)
+                if not doc_entity_definitions:
+                    # No entity is configured for this document's source. Mark it
+                    # completed so it is not reprocessed on every run and its
+                    # pipeline status stays clean; broadening a source selection
+                    # later + re-running extraction reprocesses it via the
+                    # ``status IS DISTINCT FROM 'completed'`` filter.
+                    skipped_documents += 1
+                    docs_seen += 1
+                    await _mark_document_extracted(doc_id)
+                    if progress_callback:
+                        await progress_callback(docs_seen, total_docs)
+                    continue
+
                 chunk_reader = await ChunkDocumentReader.load(
                     db_session,
                     graph_id=graph_id,
@@ -2402,7 +2455,7 @@ async def run_graph_llm_entity_extraction(
                 segments = (
                     await chunk_reader.filter_irrelevant_chunks(
                         enabled=relevance_filter_enabled,
-                        entity_definitions=entity_definitions,
+                        entity_definitions=doc_entity_definitions,
                         prompt_template_system_name=(
                             relevance_filter_prompt_template_system_name or ""
                         ),
@@ -2430,7 +2483,7 @@ async def run_graph_llm_entity_extraction(
                     doc_id=doc_id,
                     source_id=source_id,
                     segments=segments,
-                    entity_definitions=entity_definitions,
+                    entity_definitions=doc_entity_definitions,
                     strategy=strategy,
                     entity_service=entity_service,
                     max_extraction_iterations=max_extraction_iterations,
@@ -2545,6 +2598,17 @@ async def run_graph_llm_entity_extraction(
         if not doc_id:
             continue
 
+        doc_entity_definitions = _entities_for_source(source_id)
+        if not doc_entity_definitions:
+            # No entity is configured for this document's source (see the
+            # document-approach branch for the rationale behind marking completed).
+            skipped_documents += 1
+            docs_seen += 1
+            await _mark_document_extracted(doc_id)
+            if progress_callback:
+                await progress_callback(docs_seen, total_docs)
+            continue
+
         chunks_res = await db_session.execute(
             text(
                 f"""
@@ -2575,7 +2639,7 @@ async def run_graph_llm_entity_extraction(
             doc_id=doc_id,
             source_id=source_id,
             chunk_rows=list(chunk_rows),
-            entity_definitions=entity_definitions,
+            entity_definitions=doc_entity_definitions,
             strategy=strategy,
             entity_service=entity_service,
             max_extraction_iterations=max_extraction_iterations,
