@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.39](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.38...v0.7.0-dev.39) (2026-07-09)
+
+### 🐛 Bug Fixes
+
+* **rag:** fixing allow metadata filter not taken into account when switched off ([951201f](https://github.com/ideaportriga/magnet-ai/commit/951201f8a0fde5493ba422f533fbe24e783d2472))
+
 ## [0.7.0-dev.38](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.37...v0.7.0-dev.38) (2026-06-25)
 
 ### 🐛 Bug Fixes
