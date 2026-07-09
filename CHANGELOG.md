@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.40](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.39...v0.7.0-dev.40) (2026-07-09)
+
+### ✨ Features
+
+* **kg:** added source selection for entity extraction ([113246b](https://github.com/ideaportriga/magnet-ai/commit/113246bccbb6649ed665811f08e66f75ea6f7b2b))
+
 ## [0.7.0-dev.39](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.38...v0.7.0-dev.39) (2026-07-09)
 
 ### 🐛 Bug Fixes
