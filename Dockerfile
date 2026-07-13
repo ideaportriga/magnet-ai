@@ -53,7 +53,7 @@ RUN apt-get update && apt-get install -y \
     npm \
     && rm -rf /var/lib/apt/lists/*
 
-RUN npm i -g @llamaindex/liteparse
+RUN npm i -g @llamaindex/liteparse@1.5.3
 
 WORKDIR /app
 
