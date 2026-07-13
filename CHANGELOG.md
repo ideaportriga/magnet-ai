@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.41](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.40...v0.7.0-dev.41) (2026-07-13)
+
+### 🐛 Bug Fixes
+
+* pinned version for liteparse ([9ce4f62](https://github.com/ideaportriga/magnet-ai/commit/9ce4f62149c69938007bbeb39770026962ea77dc))
+
 ## [0.7.0-dev.40](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.39...v0.7.0-dev.40) (2026-07-09)
 
 ### ✨ Features
