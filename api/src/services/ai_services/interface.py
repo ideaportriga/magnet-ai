@@ -1,3 +1,4 @@
+import asyncio
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 from typing import BinaryIO
@@ -10,8 +11,10 @@ from openai.types.chat import (
 
 from models import DocumentSearchResult
 from services.ai_services.models import (
+    BatchEmbeddingResponse,
     EmbeddingResponse,
     ImageGenerationResult,
+    ModelUsage,
     RerankResponse,
     ResponsesAPIResult,
     TranscriptionResponse,
@@ -64,6 +67,34 @@ class AIProviderInterface(ABC):
         model_config: dict | None = None,
     ) -> EmbeddingResponse:
         raise NotImplementedError("get_embeddings is optional for this provider")
+
+    # Optional: providers may override for true single-request batching.
+    # This default fans out to get_embeddings so providers that only implement
+    # the single-text method keep working (order preserved, usage summed).
+    async def get_embeddings_batch(
+        self,
+        texts: list[str],
+        llm: str | None = None,
+        model_config: dict | None = None,
+    ) -> BatchEmbeddingResponse:
+        if not texts:
+            return BatchEmbeddingResponse(
+                data=[], usage=ModelUsage(input_units="tokens", input=0, total=0)
+            )
+        results = await asyncio.gather(
+            *(
+                self.get_embeddings(text, llm=llm, model_config=model_config)
+                for text in texts
+            )
+        )
+        return BatchEmbeddingResponse(
+            data=[result.data for result in results],
+            usage=ModelUsage(
+                input_units=results[0].usage.input_units,
+                input=sum(result.usage.input for result in results),
+                total=sum(result.usage.total for result in results),
+            ),
+        )
 
     # Optional: Implement this method only if rerank are supported
     async def rerank(

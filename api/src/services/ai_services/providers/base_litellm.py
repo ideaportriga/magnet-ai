@@ -40,6 +40,7 @@ from models import DocumentSearchResult
 from services.ai_services.cache import response_cache
 from services.ai_services.interface import AIProviderInterface
 from services.ai_services.models import (
+    BatchEmbeddingResponse,
     EmbeddingResponse,
     ImageGenerationResult,
     ModelUsage,
@@ -50,6 +51,14 @@ from services.ai_services.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Maximum number of texts sent to the embedding API in a single request.
+# Azure/OpenAI embedding deployments cap the number of inputs per request
+# (text-embedding-3-* allow up to 2048). Larger lists are split into
+# sub-batches and their results concatenated in input order.
+# Note: the per-request *token* limit is not enforced here (that would require
+# per-text token counting) — the item count is the primary guard.
+MAX_EMBEDDING_BATCH_SIZE = 2048
 
 # Suppress verbose litellm logging
 litellm.suppress_debug_info = True
@@ -545,6 +554,68 @@ class BaseLiteLLMProvider(AIProviderInterface):
                 input_units="tokens",
                 input=getattr(usage_data, "prompt_tokens", 0) if usage_data else 0,
                 total=getattr(usage_data, "total_tokens", 0) if usage_data else 0,
+            ),
+        )
+
+    async def get_embeddings_batch(
+        self,
+        texts: list[str],
+        llm: str | None = None,
+        model_config: dict | None = None,
+    ) -> BatchEmbeddingResponse:
+        """Get embeddings for many texts using LiteLLM in a single request per
+        sub-batch (of at most MAX_EMBEDDING_BATCH_SIZE items).
+
+        The embedding API natively accepts an array of inputs and returns the
+        vectors in input order. Returned vectors preserve the order of ``texts``.
+        Uses num_retries from routing_config when configured, falling back to 2.
+        """
+        if llm is None:
+            raise ValueError("Model name must be provided")
+
+        if not texts:
+            return BatchEmbeddingResponse(
+                data=[], usage=ModelUsage(input_units="tokens", input=0, total=0)
+            )
+
+        full_model = self._get_model_name(llm)
+        routing_config = self._extract_routing_config(model_config)
+
+        params = self._build_litellm_params()
+        params["model"] = full_model
+
+        if routing_config.num_retries is not None:
+            params["num_retries"] = routing_config.num_retries
+        else:
+            params["num_retries"] = 2
+
+        if routing_config.timeout:
+            params["timeout"] = routing_config.timeout
+
+        all_vectors: list[list[float]] = []
+        total_input = 0
+        total_tokens = 0
+
+        for start in range(0, len(texts), MAX_EMBEDDING_BATCH_SIZE):
+            chunk = texts[start : start + MAX_EMBEDDING_BATCH_SIZE]
+            response = await litellm.aembedding(**{**params, "input": chunk})
+
+            # index is chunk-local (0-based per request); sort defensively in
+            # case the provider returns rows out of order, then concatenate.
+            rows = sorted(response.data, key=lambda row: row["index"])
+            all_vectors.extend(row["embedding"] for row in rows)
+
+            usage_data = response.usage
+            if usage_data:
+                total_input += getattr(usage_data, "prompt_tokens", 0)
+                total_tokens += getattr(usage_data, "total_tokens", 0)
+
+        return BatchEmbeddingResponse(
+            data=all_vectors,
+            usage=ModelUsage(
+                input_units="tokens",
+                input=total_input,
+                total=total_tokens,
             ),
         )
 

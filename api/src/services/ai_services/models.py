@@ -18,6 +18,12 @@ class EmbeddingResponse:
 
 
 @dataclass
+class BatchEmbeddingResponse:
+    data: list[list[float]]  # data[i] corresponds to texts[i], input order preserved
+    usage: ModelUsage
+
+
+@dataclass
 class RerankResponse:
     data: DocumentSearchResult
     usage: ModelUsage | None

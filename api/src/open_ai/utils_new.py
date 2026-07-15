@@ -335,7 +335,13 @@ async def create_chat_completion_from_prompt_template(
     return chat_completion, messages
 
 
-async def get_embeddings(text: str, model_system_name: str):
+async def _resolve_embedding_model(model_system_name: str):
+    """Resolve an embedding model's config and build observability details.
+
+    Returns (llm, provider_system_name, model_config, call_model, observed_feature).
+    Raises LookupError if the model is unknown and ValueError if it has no provider.
+    Shared by get_embeddings and get_embeddings_batch.
+    """
     llm = None
     provider_system_name = None
 
@@ -373,21 +379,30 @@ async def get_embeddings(text: str, model_system_name: str):
             f"Model '{model_system_name}' does not have a provider_system_name configured"
         )
 
-    # Prepare provider details for traces and metrics
-    provider_display_name = provider_system_name  # Default to system_name
-
     # Prepare model parameters for traces and metrics
     call_model.update(parameters={"llm": llm})
 
-    # Prepare input for traces and metrics
-    call_input = text
+    return llm, provider_system_name, model_config, call_model, observed_feature
+
+
+async def get_embeddings(text: str, model_system_name: str):
+    (
+        llm,
+        provider_system_name,
+        model_config,
+        call_model,
+        observed_feature,
+    ) = await _resolve_embedding_model(model_system_name)
+
+    # Prepare provider details for traces and metrics
+    provider_display_name = provider_system_name  # Default to system_name
 
     with observability_context.observe_feature(observed_feature):
         observability_context.update_current_span(
             name="Convert text to vector",
             description=f'Creating vector for a given text using "{llm}" LLM, provided by {provider_display_name}.',
             model=call_model,
-            input=call_input,
+            input=text,
         )
 
         # Call the LLM
@@ -426,6 +441,77 @@ async def get_embeddings(text: str, model_system_name: str):
         )
 
         # Record chat completion metrics
+        observability_context.record_llm_metrics(
+            llm_type=LLMType.EMBEDDING,
+            model=call_model,
+            duration=call_duration,
+            usage=call_usage,
+            cost=call_cost,
+        )
+
+        return embeddings.data
+
+
+async def get_embeddings_batch(
+    texts: list[str], model_system_name: str
+) -> list[list[float]]:
+    """Embed a list of texts in a single request per sub-batch.
+
+    Returns one vector per input text, in input order. Preferred over calling
+    get_embeddings once per string, which issues N separate API requests.
+    """
+    (
+        llm,
+        provider_system_name,
+        model_config,
+        call_model,
+        observed_feature,
+    ) = await _resolve_embedding_model(model_system_name)
+
+    # Prepare provider details for traces and metrics
+    provider_display_name = provider_system_name  # Default to system_name
+
+    with observability_context.observe_feature(observed_feature):
+        observability_context.update_current_span(
+            name="Convert texts to vectors",
+            description=f'Creating vectors for {len(texts)} texts using "{llm}" LLM, provided by {provider_display_name}.',
+            model=call_model,
+            input={"count": len(texts)},  # skip large text arrays
+        )
+
+        # Call the LLM
+        provider = await get_ai_provider(provider_system_name)
+
+        # Enrich call_model with provider-level observability details
+        otel_system = getattr(provider, "otel_gen_ai_system", None)
+        if otel_system:
+            call_model.update(otel_gen_ai_system=otel_system)
+        provider_label = getattr(provider, "config", {}).get("label")
+        if provider_label:
+            call_model.update(provider_display_name=provider_label)
+
+        call_start_time = time.time()
+        embeddings = await provider.get_embeddings_batch(
+            texts=texts,
+            llm=llm,
+            model_config=model_config,
+        )
+        call_end_time = time.time()
+        call_duration = call_end_time - call_start_time
+
+        # Prepare usage and cost details for traces and metrics
+        call_usage, call_cost = await get_usage_and_cost_details(
+            embeddings.usage, model_system_name
+        )
+
+        # Update current span with usage, cost and output
+        observability_context.update_current_span(
+            usage_details=call_usage,
+            cost_details=call_cost,
+            output=None,  # skip vector data
+        )
+
+        # Record embedding metrics
         observability_context.record_llm_metrics(
             llm_type=LLMType.EMBEDDING,
             model=call_model,

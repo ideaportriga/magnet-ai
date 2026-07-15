@@ -1,4 +1,3 @@
-import asyncio
 import math
 from typing import Annotated, Any
 
@@ -12,7 +11,7 @@ from litestar.status_codes import HTTP_200_OK
 from pydantic import BaseModel
 
 from api.tags import TagNames
-from open_ai.utils_new import get_embeddings
+from open_ai.utils_new import get_embeddings_batch
 from services.knowledge_graph.readers.kreuzberg_reader import mime_type_from_filename
 from services.observability import observability_context, observe
 
@@ -150,15 +149,15 @@ class UserUtilsController(Controller):
         )
 
         try:
-            query_vector, *candidate_vectors = await asyncio.gather(
-                get_embeddings(data.query, data.embedding_model),
-                *(
-                    get_embeddings(candidate, data.embedding_model)
-                    for candidate in data.candidates
-                ),
+            # Embed the query and all candidates in a single batched request
+            # instead of one API call per string.
+            vectors = await get_embeddings_batch(
+                [data.query, *data.candidates], data.embedding_model
             )
         except LookupError as e:
             raise ClientException(str(e)) from e
+
+        query_vector, candidate_vectors = vectors[0], vectors[1:]
 
         scores = [
             SimilarityScore(text=text, score=_cosine_similarity(query_vector, vector))

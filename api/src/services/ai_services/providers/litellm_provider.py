@@ -70,8 +70,16 @@ from litellm import Router
 from litellm.types.utils import EmbeddingResponse as LiteLLMEmbeddingResponse
 from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
 
-from services.ai_services.models import EmbeddingResponse, ModelUsage, RoutingConfig
-from services.ai_services.providers.base_litellm import BaseLiteLLMProvider
+from services.ai_services.models import (
+    BatchEmbeddingResponse,
+    EmbeddingResponse,
+    ModelUsage,
+    RoutingConfig,
+)
+from services.ai_services.providers.base_litellm import (
+    MAX_EMBEDDING_BATCH_SIZE,
+    BaseLiteLLMProvider,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -256,6 +264,65 @@ class LiteLLMProvider(BaseLiteLLMProvider):
                 input_units="tokens",
                 input=response.usage.prompt_tokens,
                 total=response.usage.total_tokens,
+            ),
+        )
+
+    async def get_embeddings_batch(
+        self,
+        texts: list[str],
+        llm: str | None = None,
+        model_config: dict | None = None,
+    ) -> BatchEmbeddingResponse:
+        """Get embeddings for many texts using LiteLLM, with Router support.
+
+        Sends at most MAX_EMBEDDING_BATCH_SIZE texts per request and concatenates
+        results in input order.
+        """
+        model = llm or self.embedding_model
+        if model is None:
+            raise ValueError(
+                "Model name must be provided or embedding_model must be configured"
+            )
+
+        if not texts:
+            return BatchEmbeddingResponse(
+                data=[], usage=ModelUsage(input_units="tokens", input=0, total=0)
+            )
+
+        all_vectors: list[list[float]] = []
+        total_input = 0
+        total_tokens = 0
+
+        for start in range(0, len(texts), MAX_EMBEDDING_BATCH_SIZE):
+            chunk = texts[start : start + MAX_EMBEDDING_BATCH_SIZE]
+
+            if self.use_router and self.router:
+                response: LiteLLMEmbeddingResponse = await self.router.aembedding(
+                    model=model,
+                    input=chunk,
+                )
+            else:
+                kwargs: dict[str, Any] = {"model": model, "input": chunk}
+                if self.api_key:
+                    kwargs["api_key"] = self.api_key
+                if self.endpoint:
+                    kwargs["api_base"] = self.endpoint
+
+                response = await litellm.aembedding(**kwargs)
+
+            # index is chunk-local; sort defensively, then concatenate.
+            rows = sorted(response.data, key=lambda row: row["index"])
+            all_vectors.extend(row["embedding"] for row in rows)
+
+            total_input += response.usage.prompt_tokens
+            total_tokens += response.usage.total_tokens
+
+        return BatchEmbeddingResponse(
+            data=all_vectors,
+            usage=ModelUsage(
+                input_units="tokens",
+                input=total_input,
+                total=total_tokens,
             ),
         )
 
