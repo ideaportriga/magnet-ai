@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.42](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.41...v0.7.0-dev.42) (2026-07-15)
+
+### 🐛 Bug Fixes
+
+* added support for embedding calls batching ([addd7f7](https://github.com/ideaportriga/magnet-ai/commit/addd7f7739cd64bf53620fa54ea9baf2e085871f))
+
 ## [0.7.0-dev.41](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.40...v0.7.0-dev.41) (2026-07-13)
 
 ### 🐛 Bug Fixes
