@@ -68,7 +68,12 @@ class ElevenLabsSTTProvider(AIProviderInterface):
             )
         )
 
-        self._client = ElevenLabs(api_key=api_key, httpx_client=http_client)
+        # NOTE: the concrete ElevenLabs client defaults timeout=240 and passes it
+        # to the base client, which makes it ignore httpx_client.timeout.read.
+        # We must pass timeout=timeout_s explicitly or the read timeout stays 240s.
+        self._client = ElevenLabs(
+            api_key=api_key, timeout=timeout_s, httpx_client=http_client
+        )
 
         self._default_diarize = bool(defaults.get("diarize", True))
         self._default_tag_events = bool(defaults.get("tag_audio_events", False))
