@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.43](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.42...v0.7.0-dev.43) (2026-07-17)
+
+### 🐛 Bug Fixes
+
+* **stt:** use correct timeout value for Elevenlabs API ([86bf042](https://github.com/ideaportriga/magnet-ai/commit/86bf042c2760f2c35fda556b0f1d84998c03a662))
+
 ## [0.7.0-dev.42](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.41...v0.7.0-dev.42) (2026-07-15)
 
 ### 🐛 Bug Fixes
