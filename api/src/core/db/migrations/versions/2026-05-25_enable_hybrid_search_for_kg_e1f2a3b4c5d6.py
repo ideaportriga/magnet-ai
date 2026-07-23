@@ -11,9 +11,10 @@ For every per-graph documents and chunks table this migration:
 - creates a GIN index over `search_tsv`,
 - creates GIN trigram indexes (`gin_trgm_ops`) over the searchable text columns.
 
-It also enables the `pg_trgm` extension if needed. Generated columns require
-IMMUTABLE expressions, which `to_tsvector('english', ...)` satisfies, so no
-data backfill is needed.
+It enables `pg_trgm` when available, but that's optional: a later migration
+(b4c5d6e7f8a9) drops the trigram indexes again, so the extension is never
+required. Generated columns require IMMUTABLE expressions, which
+`to_tsvector('english', ...)` satisfies, so no data backfill is needed.
 """
 
 from __future__ import annotations
@@ -130,8 +131,17 @@ def _create_gin_index(
 def schema_upgrades() -> None:
     bind = op.get_bind()
 
-    # 1) Extension. autocommit_block lets this run outside a transaction.
-    op.execute(sa.text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
+    # 1) Extension. A later migration (b4c5d6e7f8a9) drops the trigram indexes
+    #    this backs, so pg_trgm ends up unused — no point requiring it. Postgres
+    #    may not allow-list it (e.g. managed Azure), so if CREATE EXTENSION
+    #    fails we just skip it and its trigram indexes and keep the full-text
+    #    search_tsv indexes. (autocommit_block isolates each statement, so the
+    #    failure doesn't poison what follows.)
+    trgm_available = True
+    try:
+        op.execute(sa.text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
+    except Exception:
+        trgm_available = False
 
     # 2) Per-graph documents tables.
     insp = sa.inspect(bind)
@@ -154,20 +164,21 @@ def schema_upgrades() -> None:
             f"CREATE INDEX IF NOT EXISTS {prefix}search_tsv "
             f"ON {table_name} USING GIN (search_tsv)",
         )
-        _create_gin_index(
-            insp,
-            table_name,
-            f"{prefix}summary_trgm",
-            f"CREATE INDEX IF NOT EXISTS {prefix}summary_trgm "
-            f"ON {table_name} USING GIN (summary gin_trgm_ops)",
-        )
-        _create_gin_index(
-            insp,
-            table_name,
-            f"{prefix}title_trgm",
-            f"CREATE INDEX IF NOT EXISTS {prefix}title_trgm "
-            f"ON {table_name} USING GIN (title gin_trgm_ops)",
-        )
+        if trgm_available:
+            _create_gin_index(
+                insp,
+                table_name,
+                f"{prefix}summary_trgm",
+                f"CREATE INDEX IF NOT EXISTS {prefix}summary_trgm "
+                f"ON {table_name} USING GIN (summary gin_trgm_ops)",
+            )
+            _create_gin_index(
+                insp,
+                table_name,
+                f"{prefix}title_trgm",
+                f"CREATE INDEX IF NOT EXISTS {prefix}title_trgm "
+                f"ON {table_name} USING GIN (title gin_trgm_ops)",
+            )
 
     # 3) Per-graph chunks tables.
     insp = sa.inspect(bind)
@@ -189,20 +200,21 @@ def schema_upgrades() -> None:
             f"CREATE INDEX IF NOT EXISTS {prefix}search_tsv "
             f"ON {table_name} USING GIN (search_tsv)",
         )
-        _create_gin_index(
-            insp,
-            table_name,
-            f"{prefix}content_trgm",
-            f"CREATE INDEX IF NOT EXISTS {prefix}content_trgm "
-            f"ON {table_name} USING GIN (content gin_trgm_ops)",
-        )
-        _create_gin_index(
-            insp,
-            table_name,
-            f"{prefix}title_trgm",
-            f"CREATE INDEX IF NOT EXISTS {prefix}title_trgm "
-            f"ON {table_name} USING GIN (title gin_trgm_ops)",
-        )
+        if trgm_available:
+            _create_gin_index(
+                insp,
+                table_name,
+                f"{prefix}content_trgm",
+                f"CREATE INDEX IF NOT EXISTS {prefix}content_trgm "
+                f"ON {table_name} USING GIN (content gin_trgm_ops)",
+            )
+            _create_gin_index(
+                insp,
+                table_name,
+                f"{prefix}title_trgm",
+                f"CREATE INDEX IF NOT EXISTS {prefix}title_trgm "
+                f"ON {table_name} USING GIN (title gin_trgm_ops)",
+            )
 
 
 def schema_downgrades() -> None:
@@ -239,7 +251,9 @@ def schema_downgrades() -> None:
         if "search_tsv" in cols:
             op.execute(sa.text(f"ALTER TABLE {table_name} DROP COLUMN search_tsv"))
 
-    # We deliberately do not drop the pg_trgm extension; other features may rely on it.
+    # Don't drop the pg_trgm extension: the app doesn't use it, but the upgrade
+    # ran CREATE EXTENSION IF NOT EXISTS, so a downgrade can't tell whether it
+    # created it or it pre-existed — and DROP EXTENSION is global and CASCADEs.
 
 
 def data_upgrades() -> None:

@@ -16,8 +16,9 @@ keep returning results.
 
 Notes:
 - The ``search_tsv`` (full-text) GIN indexes are kept.
-- The ``pg_trgm`` extension is intentionally NOT dropped: other DB objects may
-  rely on it, and dropping it is global and irreversible-by-accident.
+- The ``pg_trgm`` extension is intentionally NOT dropped: nothing in the app
+  uses it, but ``DROP EXTENSION`` is global and CASCADEs, and it may have
+  pre-existed this migration.
 """
 
 from __future__ import annotations
@@ -122,8 +123,20 @@ def schema_downgrades() -> None:
     """Recreate the pg_trgm GIN indexes (extension is still installed)."""
     bind = op.get_bind()
 
-    # Ensure the extension exists in case it was removed out-of-band.
-    op.execute(sa.text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
+    # Ensure the extension exists in case it was removed out-of-band. On
+    # managed Postgres (e.g. Azure) pg_trgm may not be allow-listed; the
+    # trigram indexes below cannot exist without it, so if the extension is
+    # unavailable we skip recreating them. autocommit_block keeps each
+    # statement independent, so a failed CREATE EXTENSION does not poison
+    # the statements that follow.
+    trgm_available = True
+    try:
+        op.execute(sa.text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
+    except Exception:
+        trgm_available = False
+
+    if not trgm_available:
+        return
 
     for table_name in _iter_dynamic_tables(bind, "_docs"):
         graph_id = _graph_id_from_table_name(table_name, "_docs")
