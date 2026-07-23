@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.44](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.43...v0.7.0-dev.44) (2026-07-23)
+
+### 🐛 Bug Fixes
+
+* tolerate migrations that create pg_trgm extension as it is removed eventually ([0a54922](https://github.com/ideaportriga/magnet-ai/commit/0a54922108638eace62c3c595ca8cb12243244ce))
+
 ## [0.7.0-dev.43](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.42...v0.7.0-dev.43) (2026-07-17)
 
 ### 🐛 Bug Fixes
