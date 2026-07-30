@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.45](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.44...v0.7.0-dev.45) (2026-07-30)
+
+### 🐛 Bug Fixes
+
+* **kg:** fixed knowledge graph source schedule saving ([a4c5785](https://github.com/ideaportriga/magnet-ai/commit/a4c5785e546a25304629759d82458878d12ec117))
+
 ## [0.7.0-dev.44](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.43...v0.7.0-dev.44) (2026-07-23)
 
 ### 🐛 Bug Fixes
