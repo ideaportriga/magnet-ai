@@ -8,6 +8,7 @@ from litestar.exceptions import NotFoundException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.db.models.knowledge_graph import KnowledgeGraph, KnowledgeGraphSource
 from scheduler.types import (
     JobDefinition,
     JobType,
@@ -16,7 +17,6 @@ from scheduler.types import (
 )
 
 if TYPE_CHECKING:
-    from core.db.models.knowledge_graph import KnowledgeGraph, KnowledgeGraphSource
     from core.domain.knowledge_graph.schemas import (
         KnowledgeGraphSourceScheduleSyncRequest,
     )
