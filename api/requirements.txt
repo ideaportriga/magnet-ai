@@ -145,7 +145,7 @@ pywin32==311 ; python_version >= "3.12" and python_version < "4.0" and (sys_plat
 pyyaml==6.0.3 ; python_version >= "3.12" and python_version < "4.0"
 qdrant-client==1.13.3 ; python_version >= "3.12" and python_version < "4.0"
 referencing==0.37.0 ; python_version >= "3.12" and python_version < "4.0"
-regex==2025.11.3 ; python_version >= "3.12" and python_version < "4.0"
+regex==2026.7.19 ; python_version >= "3.12" and python_version < "4.0"
 requests-file==3.0.1 ; python_version >= "3.12" and python_version < "4.0"
 requests-oauthlib==2.0.0 ; python_version >= "3.12" and python_version < "4.0"
 requests-toolbelt==1.0.0 ; python_version >= "3.12" and python_version < "4.0"
