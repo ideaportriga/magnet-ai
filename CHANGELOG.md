@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.46](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.45...v0.7.0-dev.46) (2026-08-04)
+
+### 🐛 Bug Fixes
+
+* fixed performance problem with vector search in knowledge sources and knowledge graphs ([060944a](https://github.com/ideaportriga/magnet-ai/commit/060944a418435530d7e55eec726800274f319c43))
+
 ## [0.7.0-dev.45](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.44...v0.7.0-dev.45) (2026-07-30)
 
 ### 🐛 Bug Fixes
