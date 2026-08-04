@@ -33,10 +33,12 @@ if db_type == "PGVECTOR":
         connection_string = clean_connection_string_for_asyncpg(connection_string)
 
     pool_size = db_settings.PGVECTOR_POOL_SIZE
+    acquire_timeout = db_settings.PGVECTOR_ACQUIRE_TIMEOUT
 
     pgvector_client = PgVectorClient(
         connection_string=connection_string,
         pool_size=pool_size,
+        acquire_timeout=acquire_timeout,
     )
 
     pgvector_store = PgVectorStore(client=pgvector_client)

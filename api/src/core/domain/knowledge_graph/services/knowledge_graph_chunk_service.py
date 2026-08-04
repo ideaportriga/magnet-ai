@@ -85,6 +85,26 @@ class KnowledgeGraphChunkService:
                 chunks_tbl.c.search_tsv,
                 postgresql_using="gin",
             ).create(sync_conn, checkfirst=True)
+            # Vector retrieval: HNSW over the content embedding so cosine
+            # searches (`ORDER BY content_embedding <=> :qvec`) run as index
+            # scans instead of sequential scans over the whole table.
+            # pgvector indexes support at most 2000 dimensions.
+            if vector_size <= 2000:
+                Index(
+                    f"{index_prefix}emb_hnsw",
+                    chunks_tbl.c.content_embedding,
+                    postgresql_using="hnsw",
+                    postgresql_with={"m": 16, "ef_construction": 64},
+                    postgresql_ops={"content_embedding": "vector_cosine_ops"},
+                ).create(sync_conn, checkfirst=True)
+            else:
+                logger.warning(
+                    "Skipping HNSW index for %s: %d dimensions exceeds the "
+                    "pgvector index limit of 2000; vector searches will use "
+                    "sequential scans",
+                    chunks_name,
+                    vector_size,
+                )
 
         await conn.run_sync(_create)
 
@@ -340,7 +360,11 @@ class KnowledgeGraphChunkService:
                 chunks_tbl.join(docs_alias, docs_alias.c.id == chunks_tbl.c.document_id)
             )
             .where(chunks_tbl.c.content_embedding.is_not(None))
-            .order_by(score_expr.desc())
+            # ORDER BY must be the bare `embedding <=> :qvec` expression
+            # (ascending distance ≡ descending similarity) — the only form
+            # pgvector can serve from the HNSW index; ordering by the derived
+            # score forces a sequential scan.
+            .order_by(distance_expr)
             .limit(int(limit))
         )
 

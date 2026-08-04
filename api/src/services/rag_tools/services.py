@@ -213,13 +213,11 @@ async def get_rag_by_system_name_flat(
         async with alchemy.get_session() as session:
             service = RagToolsService(session=session)
             rag_tool = await service.get_one_or_none(system_name=system_name)
-            print(rag_tool)
             if not rag_tool:
                 raise LookupError(
                     f"RAG Tool with system name '{system_name}' not found"
                 )
             config = service.to_schema(rag_tool, schema_type=RagTool)
-            print(config)
             return transform_to_flat(config.model_dump(), variant)
     except Exception as e:
         logger.warning("Failed to get rag tool: '%s': %s", system_name, e)

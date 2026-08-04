@@ -3,6 +3,8 @@
 import asyncio
 import json
 import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Any
 
 import asyncpg
@@ -47,15 +49,24 @@ async def _setup_connection_types(connection: Connection) -> None:
 class PgVectorClient:
     """Client for PostgreSQL with pgvector extension."""
 
-    def __init__(self, connection_string: str, pool_size: int = 10):
+    def __init__(
+        self,
+        connection_string: str,
+        pool_size: int = 10,
+        acquire_timeout: float = 15.0,
+    ):
         """Initialize the PostgreSQL client.
 
         Args:
             connection_string: PostgreSQL connection string
             pool_size: Maximum number of connections in the pool
+            acquire_timeout: Seconds to wait for a pool connection before
+                failing. Without it, requests queue silently and indefinitely
+                when the pool is exhausted.
         """
         self.connection_string = connection_string
         self.pool_size = pool_size
+        self.acquire_timeout = acquire_timeout
         self.pool: Pool | None = None
         self._init_lock = asyncio.Lock()
 
@@ -133,13 +144,38 @@ class PgVectorClient:
         if self.pool:
             await self.pool.release(connection)
 
+    @asynccontextmanager
+    async def _acquire(self) -> AsyncIterator[Connection]:
+        """Acquire a pool connection, bounded by the acquire timeout.
+
+        Without a timeout, callers queue silently and indefinitely when the
+        pool is exhausted. The timeout applies to the acquisition only, not
+        to the statements run on the connection (command_timeout covers
+        those).
+        """
+        assert self.pool is not None
+        try:
+            connection = await self.pool.acquire(timeout=self.acquire_timeout)
+        except asyncio.TimeoutError:
+            logger.error(
+                "Connection pool exhausted: no connection acquired within %ss "
+                "(pool max_size=%s)",
+                self.acquire_timeout,
+                self.pool_size,
+            )
+            raise
+        try:
+            yield connection
+        finally:
+            await self.pool.release(connection)
+
     async def execute_query(self, query: str, *args) -> Any:
         """Execute a query and return the result."""
         await self._ensure_pool_initialized()
         if not self.pool:
             raise RuntimeError("Connection pool is not initialized")
         try:
-            async with self.pool.acquire() as connection:
+            async with self._acquire() as connection:
                 return await connection.fetch(query, *args)
         except asyncio.CancelledError:
             logger.debug("Query execution was cancelled")
@@ -154,7 +190,7 @@ class PgVectorClient:
         if not self.pool:
             raise RuntimeError("Connection pool is not initialized")
         try:
-            async with self.pool.acquire() as connection:
+            async with self._acquire() as connection:
                 return await connection.execute(command, *args)
         except asyncio.CancelledError:
             logger.debug("Command execution was cancelled")
@@ -169,7 +205,7 @@ class PgVectorClient:
         if not self.pool:
             raise RuntimeError("Connection pool is not initialized")
         try:
-            async with self.pool.acquire() as connection:
+            async with self._acquire() as connection:
                 return await connection.fetchrow(query, *args)
         except asyncio.CancelledError:
             logger.debug("Fetchrow was cancelled")
@@ -184,7 +220,7 @@ class PgVectorClient:
         if not self.pool:
             raise RuntimeError("Connection pool is not initialized")
         try:
-            async with self.pool.acquire() as connection:
+            async with self._acquire() as connection:
                 return await connection.fetchval(query, *args)
         except asyncio.CancelledError:
             logger.debug("Fetchval was cancelled")

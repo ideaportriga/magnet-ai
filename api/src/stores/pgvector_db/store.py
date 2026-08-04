@@ -40,6 +40,9 @@ class PgVectorStore(DocumentStore):
             client: PgVectorClient instance
         """
         self.client = client
+        # Documents tables known to exist, so read paths can skip the
+        # information_schema probe after the first successful check.
+        self._existing_tables: set[str] = set()
 
     async def _ensure_tables_exist(self) -> None:
         """Ensure required tables exist - This assumes migrations have been run."""
@@ -274,11 +277,36 @@ class PgVectorStore(DocumentStore):
                     collection_id,
                     e,
                 )
+        self._existing_tables.add(table_name)
+
+    async def _check_documents_table_exists(self, collection_id: str) -> bool:
+        """Check whether the documents table exists, without ever creating it.
+
+        Positive results are cached in-process so read paths pay for the
+        information_schema probe at most once per collection.
+        """
+        table_name = self._get_documents_table_name(collection_id)
+        if table_name in self._existing_tables:
+            return True
+
+        table_exists = await self.client.fetchval(
+            """
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables
+                WHERE table_name = $1
+            )
+        """,
+            table_name,
+        )
+        if table_exists:
+            self._existing_tables.add(table_name)
+        return bool(table_exists)
 
     async def _drop_documents_table(self, collection_id: str) -> None:
         """Drop documents table for a collection."""
         table_name = self._get_documents_table_name(collection_id)
         await self.client.execute_command(f"DROP TABLE IF EXISTS {table_name}")
+        self._existing_tables.discard(table_name)
         logger.info("Dropped documents table %s", table_name)
 
     async def list_collections(self, query: dict | None = None) -> list[dict]:
@@ -1119,8 +1147,15 @@ class PgVectorStore(DocumentStore):
         ) -> list[dict]:
             table_name = self._get_documents_table_name(collection_id)
 
-            # Ensure the documents table exists before querying
-            await self._ensure_documents_table_exists(collection_id)
+            # Read path: skip collections whose documents table was never
+            # created instead of running DDL from a query.
+            if not await self._check_documents_table_exists(collection_id):
+                logger.warning(
+                    "Documents table %s does not exist for collection %s, returning no chunks",
+                    table_name,
+                    collection_id,
+                )
+                return []
 
             # Build WHERE clause for OR conditions
             or_conditions = []
@@ -1174,10 +1209,6 @@ class PgVectorStore(DocumentStore):
 
         return result
 
-    async def _assert_collection_exist(self, collection_id: str) -> None:
-        """Assert that a collection exists."""
-        await self.get_collection_metadata(collection_id)
-
     @observe(
         name="Vector search",
         type=SpanType.SEARCH,
@@ -1191,21 +1222,28 @@ class PgVectorStore(DocumentStore):
         query: str,
         vector: list[float],
         num_results: int,
+        collection_metadata: dict,
         filter: FilterObject | None = None,
     ) -> DocumentSearchResult:
-        """Perform vector similarity search."""
+        """Perform vector similarity search.
+
+        The caller provides ``collection_metadata`` (which also proves the
+        collection exists), so this method issues no metadata queries and
+        never runs DDL — reads must not create or recreate tables.
+        """
         logger.debug(
             f"Performing vector search in collection_id: {collection_id} with num_results: {num_results}",
         )
 
-        await self._assert_collection_exist(collection_id)
         table_name = self._get_documents_table_name(collection_id)
 
-        # Ensure the documents table exists before querying
-        await self._ensure_documents_table_exists(collection_id)
-
-        # Get collection metadata for filter building
-        collection_metadata = await self.get_collection_metadata(collection_id)
+        if not await self._check_documents_table_exists(collection_id):
+            logger.warning(
+                "Documents table %s does not exist for collection %s, returning no results",
+                table_name,
+                collection_id,
+            )
+            return []
 
         observability_context.update_current_span(
             description=f"Performing vector search in PostgreSQL with pgvector and taking only {num_results} first results.",
@@ -1234,16 +1272,19 @@ class PgVectorStore(DocumentStore):
         if metadata_filter:
             where_clause += f" AND ({metadata_filter})"
 
-        # Perform cosine similarity search
+        # Perform cosine similarity search. ORDER BY must be the bare
+        # `embedding <=> $1` expression (ascending distance) — that is the only
+        # form pgvector can serve from the HNSW index; ordering by the derived
+        # similarity_score forces a sequential scan over the whole table.
         sql = f"""
-            SELECT 
+            SELECT
                 id::text,
                 content,
                 metadata,
                 1 - (embedding <=> $1) as similarity_score
             FROM {table_name}
             {where_clause}
-            ORDER BY similarity_score DESC
+            ORDER BY embedding <=> $1
             LIMIT $2
         """
         logger.debug(f"Executing vector search query: {sql.strip()}")
@@ -1283,12 +1324,18 @@ class PgVectorStore(DocumentStore):
             f"Performing similarity search on collection_id: {collection_id} with query: {query}",
         )
 
-        vector = await self._get_embedding(collection_id, query)
+        collection_metadata = await self.get_collection_metadata(collection_id)
+        model_name = collection_metadata.get("ai_model")
+        if not model_name:
+            raise ValueError(f"No model specified for collection {collection_id}")
+
+        vector = await self._get_embedding_by_model(model_name, query)
         return await self._vector_search(
             collection_id=collection_id,
             query=query,
             vector=vector,
             num_results=num_results,
+            collection_metadata=collection_metadata,
             filter=filter,
         )
 
@@ -1369,6 +1416,7 @@ class PgVectorStore(DocumentStore):
                             query=query,
                             vector=vector_for_collection,
                             num_results=num_results,
+                            collection_metadata=collection_config,
                             filter=filter,
                         )
                     else:

@@ -60,6 +60,14 @@ logger = logging.getLogger(__name__)
 # per-text token counting) — the item count is the primary guard.
 MAX_EMBEDDING_BATCH_SIZE = 2048
 
+# Fallback request timeouts (seconds) for embedding calls when the model has
+# no routing_config.timeout. Without them LiteLLM applies its own 600s
+# default, which lets a single hung embedding request stall retrieval for
+# minutes. Batch requests (ingestion, up to MAX_EMBEDDING_BATCH_SIZE texts per
+# request) get a larger budget than single-query embeddings.
+DEFAULT_EMBEDDING_TIMEOUT = 60
+DEFAULT_EMBEDDING_BATCH_TIMEOUT = 300
+
 # Suppress verbose litellm logging
 litellm.suppress_debug_info = True
 
@@ -542,8 +550,7 @@ class BaseLiteLLMProvider(AIProviderInterface):
         else:
             params["num_retries"] = 2
 
-        if routing_config.timeout:
-            params["timeout"] = routing_config.timeout
+        params["timeout"] = routing_config.timeout or DEFAULT_EMBEDDING_TIMEOUT
 
         response = await litellm.aembedding(**params)
 
@@ -589,8 +596,7 @@ class BaseLiteLLMProvider(AIProviderInterface):
         else:
             params["num_retries"] = 2
 
-        if routing_config.timeout:
-            params["timeout"] = routing_config.timeout
+        params["timeout"] = routing_config.timeout or DEFAULT_EMBEDDING_BATCH_TIMEOUT
 
         all_vectors: list[list[float]] = []
         total_input = 0

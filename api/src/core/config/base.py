@@ -528,6 +528,10 @@ class VectorDatabaseSettings:
     """PGVector database password."""
     PGVECTOR_POOL_SIZE: int = field(default_factory=get_env("PGVECTOR_POOL_SIZE", 5))
     """PGVector connection pool size."""
+    PGVECTOR_ACQUIRE_TIMEOUT: int = field(
+        default_factory=get_env("PGVECTOR_ACQUIRE_TIMEOUT", 15)
+    )
+    """Seconds to wait for a PGVector pool connection before failing."""
 
     PGVECTOR_CONNECTION_STRING: str = field(
         default_factory=get_env("PGVECTOR_CONNECTION_STRING", "")

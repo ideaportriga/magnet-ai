@@ -119,6 +119,7 @@
                 q-item-label.km-label {{ opt.display_name }}
                 .row.q-mt-xs(v-if='opt.provider_system_name')
                   q-chip(color='primary-light', text-color='primary', size='sm', dense) {{ opt.provider_system_name }}
+        kg-warning-banner.q-mt-sm(v-if='vectorSizeWarning', variant='warning', title='Vector size exceeds index limit') {{ vectorSizeWarning }}
       .col.q-mt-sm
         .row.items-baseline
           .col-auto.q-mr-sm
@@ -132,8 +133,11 @@ import { isEqual, orderBy, pickBy } from 'lodash'
 import { ref, computed } from 'vue'
 import { useChroma } from '@shared'
 import { sourceTypeOptions, sourceTypeChildren } from '@/config/collections/collections'
+import { embeddingVectorSizeWarning } from '@/config/embedding'
+import { KgWarningBanner } from '@/components/KnowledgeGraph/common'
 
 export default {
+  components: { KgWarningBanner },
   props: ['prompt'],
   emits: ['setProp', 'save', 'cancel', 'remove', 'openTest'],
 
@@ -298,6 +302,10 @@ export default {
     },
     embeddingModelOptions() {
       return (this.$store.getters['chroma/model'].items || []).filter((el) => el.type === 'embeddings')
+    },
+    vectorSizeWarning() {
+      const model = this.embeddingModelOptions.find((el) => el.system_name === this.embeddingModel)
+      return embeddingVectorSizeWarning(model)
     },
     supportKeywordSearch: {
       get() {

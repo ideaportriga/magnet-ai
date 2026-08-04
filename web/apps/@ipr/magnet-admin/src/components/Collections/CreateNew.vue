@@ -138,6 +138,7 @@ q-dialog(:model-value='showNewDialog', @hide='onDialogHide')
                   q-item-label.km-label {{ opt.display_name }}
                   .row.q-mt-xs(v-if='opt.provider_system_name')
                     q-chip(color='primary-light', text-color='primary', size='sm', dense) {{ opt.provider_system_name }}
+          kg-warning-banner.q-mt-sm(v-if='vectorSizeWarning', variant='warning', title='Vector size exceeds index limit') {{ vectorSizeWarning }}
         .col.q-pt-8.q-mt-md.q-pl-8
           .row.items-baseline
             .col-auto.q-mr-sm
@@ -208,8 +209,11 @@ import { required, minLength } from '@shared/utils/validationRules'
 import { useChroma } from '@shared'
 import { toUpperCaseWithUnderscores } from '@shared'
 import { sourceTypeOptions, sourceTypeChildren } from '@/config/collections/collections'
+import { embeddingVectorSizeWarning } from '@/config/embedding'
+import { KgWarningBanner } from '@/components/KnowledgeGraph/common'
 
 export default defineComponent({
+  components: { KgWarningBanner },
   props: {
     showNewDialog: Boolean,
     copy: Boolean,
@@ -339,6 +343,10 @@ export default defineComponent({
     },
     modelOptions() {
       return (this.$store.getters['chroma/model'].items || []).filter((el) => el.type === 'embeddings')
+    },
+    vectorSizeWarning() {
+      const model = this.modelOptions.find((el) => el.system_name === this.ai_model)
+      return embeddingVectorSizeWarning(model)
     },
     currentRaw() {
       return this.$store.getters.knowledge

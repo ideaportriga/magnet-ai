@@ -36,6 +36,9 @@
                 :clearable="true"
                 dense
               />
+              <kg-warning-banner v-if="vectorSizeWarning" variant="warning" title="Vector size exceeds index limit" class="q-mt-sm">
+                {{ vectorSizeWarning }}
+              </kg-warning-banner>
             </div>
           </div>
         </km-section>
@@ -100,7 +103,8 @@ import { fetchData } from '@shared'
 import { useQuasar } from 'quasar'
 import { computed, ref, watch } from 'vue'
 import { useStore } from 'vuex'
-import { KgDropdownField } from '../common'
+import { embeddingVectorSizeWarning } from '@/config/embedding'
+import { KgDropdownField, KgWarningBanner } from '../common'
 
 interface Props {
   graphId: string
@@ -139,6 +143,11 @@ const formatVectorSize = (opt: any): string | undefined => {
   const size = opt?.configs?.vector_size ?? 1536
   return size ? `${size} size vector` : undefined
 }
+
+const vectorSizeWarning = computed(() => {
+  const model = embeddingModelOptions.value.find((el: any) => el.system_name === embeddingModel.value)
+  return embeddingVectorSizeWarning(model)
+})
 
 const originalValues = ref<Record<string, any>>({})
 
