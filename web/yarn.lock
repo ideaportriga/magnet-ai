@@ -3065,7 +3065,7 @@ __metadata:
     "@nx/web": "npm:20.4.6"
     "@nx/workspace": "npm:20.4.6"
     "@prettier/plugin-pug": "npm:^3.4.2"
-    "@quasar/extras": "npm:^1.16.17"
+    "@quasar/extras": "npm:^2.0.2"
     "@quasar/vite-plugin": "npm:^1.10.0"
     "@swc-node/register": "npm:~1.9.1"
     "@swc/core": "npm:~1.5.7"
@@ -3709,10 +3709,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@quasar/extras@npm:^1.16.17":
-  version: 1.17.0
-  resolution: "@quasar/extras@npm:1.17.0"
-  checksum: 10c0/b303d3e1f71f63302eb89659cca48cdf7eace53963bb9d1b55611ebe3f7d76c4557d0c754983de90ef1a681c31667788bccf55881e5bffb50ca18a4e93b1ff43
+"@quasar/extras@npm:^2.0.2":
+  version: 2.0.2
+  resolution: "@quasar/extras@npm:2.0.2"
+  checksum: 10c0/b7134e3b3febac8b1bbc40bebbb02e987d13d12eab54765beefa33bfd009d4c213485d2667f47b2a7b75a1bc322692a7390849c7b35d5a37b8369cb87236a618
   languageName: node
   linkType: hard
 

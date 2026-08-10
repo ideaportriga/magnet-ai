@@ -80,7 +80,7 @@
     "@codemirror/lang-json": "^6.0.1",
     "@codemirror/lang-python": "^6.1.7",
     "@elevenlabs/client": "^0.15.0",
-    "@quasar/extras": "^1.16.17",
+    "@quasar/extras": "^2.0.2",
     "animate.css": "^4.1.1",
     "codemirror": "^6.0.1",
     "lodash": "^4.17.21",
