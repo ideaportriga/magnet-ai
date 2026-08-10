@@ -22,7 +22,7 @@
     "@nx/workspace": "20.4.6",
     "@prettier/plugin-pug": "^3.4.2",
     "@quasar/vite-plugin": "^1.10.0",
-    "@swc-node/register": "~1.9.1",
+    "@swc-node/register": "~1.12.1",
     "@swc/core": "~1.5.7",
     "@swc/helpers": "~0.5.11",
     "@tsconfig/node22": "^22.0.5",
