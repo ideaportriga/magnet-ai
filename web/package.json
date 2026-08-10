@@ -31,7 +31,7 @@
     "@types/lodash": "^4.17.23",
     "@types/luxon": "^3.7.1",
     "@types/markdown-it": "^14.1.2",
-    "@types/node": "^25.2.1",
+    "@types/node": "^26.1.2",
     "@types/papaparse": "^5.5.2",
     "@types/stylus": "^0.48.43",
     "@vitejs/plugin-basic-ssl": "^2.1.4",
