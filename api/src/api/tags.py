@@ -29,7 +29,7 @@ def get_tags() -> list[Tag]:
         ),
         Tag(
             name=TagNames.UserKnowledgeGraph,
-            description="User API endpoints for working with Knowledge Graphs, including ingestion, search, and querying.",
+            description="User API endpoints for working with Knowledge Graphs, including ingestion, search, schema discovery, and querying.",
         ),
         Tag(
             name=TagNames.UserTelemetry,

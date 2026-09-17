@@ -4,7 +4,7 @@ import asyncio
 import json
 import logging
 from dataclasses import dataclass
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, get_args
 from uuid import UUID, uuid4
 
 from litestar import Controller, Request, get, post
@@ -41,6 +41,7 @@ from services.knowledge_graph.content_config_services import (
     get_graph_embedding_model,
     get_graph_settings,
 )
+from services.knowledge_graph.llm_entity_extraction import EntityColumnType
 from services.knowledge_graph.retrievers.agent_retriever.agent import (
     continue_conversation,
     start_conversation,
@@ -406,6 +407,166 @@ class KnowledgeGraphDocumentDetailResponse(BaseModel):
 
     document: KnowledgeGraphDocumentDetailSchema
     chunks: list[KnowledgeGraphChunkExternalSchema] = Field(default_factory=list)
+
+
+class KnowledgeGraphEntityColumnSchema(BaseModel):
+    """One column of an entity schema."""
+
+    name: str = Field(
+        ...,
+        description=(
+            "Column name. This is the key used in a record's `column_values` "
+            "and the `field` value accepted by the entity query filter."
+        ),
+        examples=["full_name"],
+    )
+    description: str = Field(
+        default="",
+        description="What the column holds, as configured for extraction.",
+        examples=["Full legal name of the person"],
+    )
+    type: EntityColumnType = Field(
+        default="string",
+        description="Value type of the column.",
+        examples=["string"],
+    )
+    is_identifier: bool = Field(
+        default=False,
+        description="Whether this column identifies the record within its entity type.",
+    )
+    is_required: bool = Field(
+        default=False,
+        description="Whether extraction requires a value for this column.",
+    )
+
+
+class KnowledgeGraphEntitySchema(BaseModel):
+    """Schema of one entity type configured on a Knowledge Graph."""
+
+    name: str = Field(
+        ...,
+        description=(
+            "Entity type name. Pass this as `entity` when querying entity records."
+        ),
+        examples=["Person"],
+    )
+    description: str = Field(
+        default="",
+        description="What the entity type represents, as configured for extraction.",
+        examples=["An individual mentioned in the documents"],
+    )
+    identifier_column: str = Field(
+        default="",
+        description=(
+            "Name of the column that identifies a record, or an empty string "
+            "when no column is marked as the identifier."
+        ),
+        examples=["full_name"],
+    )
+    columns: list[KnowledgeGraphEntityColumnSchema] = Field(
+        default_factory=list,
+        description="Columns extracted for this entity type.",
+    )
+
+
+class KnowledgeGraphEntityListResponse(BaseModel):
+    """The entity schemas configured on a Knowledge Graph."""
+
+    entities: list[KnowledgeGraphEntitySchema] = Field(default_factory=list)
+
+
+_ENTITY_COLUMN_TYPES: frozenset[str] = frozenset(get_args(EntityColumnType))
+
+
+def _entity_columns_from_settings(
+    raw_columns: Any,
+) -> list[KnowledgeGraphEntityColumnSchema]:
+    """Map stored column definitions onto the external column schema."""
+
+    if not isinstance(raw_columns, list):
+        return []
+
+    columns: list[KnowledgeGraphEntityColumnSchema] = []
+    for raw_column in raw_columns:
+        if not isinstance(raw_column, dict):
+            continue
+
+        name = str(raw_column.get("name") or "").strip()
+        if not name:
+            continue
+
+        column_type = str(raw_column.get("type") or "").strip()
+        if column_type not in _ENTITY_COLUMN_TYPES:
+            column_type = "string"
+
+        columns.append(
+            KnowledgeGraphEntityColumnSchema(
+                name=name,
+                description=str(raw_column.get("description") or "").strip(),
+                type=column_type,  # type: ignore[arg-type]
+                is_identifier=bool(raw_column.get("is_identifier")),
+                is_required=bool(raw_column.get("is_required")),
+            )
+        )
+
+    return columns
+
+
+def _entity_schemas_from_settings(
+    settings: dict[str, Any],
+) -> list[KnowledgeGraphEntitySchema]:
+    """Map a graph's stored entity definitions onto the external schema.
+
+    Reads ``entity_extraction.entity_definitions`` defensively: settings are
+    free-form JSON, so anything unexpected yields an empty list rather than an
+    error. Disabled definitions are skipped, matching what the extraction
+    pipeline actually runs.
+
+    Deliberately does not reuse ``normalize_entity_definitions``: that helper
+    raises when a graph has no definitions or a definition has no columns,
+    which is correct for an extraction run but would turn a partially
+    configured graph into an error on a read-only listing.
+    """
+
+    entity_settings = settings.get("entity_extraction") if settings else None
+    if not isinstance(entity_settings, dict):
+        return []
+
+    raw_definitions = entity_settings.get("entity_definitions")
+    if not isinstance(raw_definitions, list):
+        return []
+
+    entities: list[KnowledgeGraphEntitySchema] = []
+    seen_names: set[str] = set()
+
+    for raw_entity in raw_definitions:
+        if not isinstance(raw_entity, dict):
+            continue
+        if raw_entity.get("enabled") is False:
+            continue
+
+        name = str(raw_entity.get("name") or "").strip()
+        # Dedupe case-insensitively, as entity extraction does.
+        if not name or name.casefold() in seen_names:
+            continue
+        seen_names.add(name.casefold())
+
+        columns = _entity_columns_from_settings(raw_entity.get("columns"))
+        identifier_column = next(
+            (c.name for c in columns if c.is_identifier),
+            "",
+        )
+
+        entities.append(
+            KnowledgeGraphEntitySchema(
+                name=name,
+                description=str(raw_entity.get("description") or "").strip(),
+                identifier_column=identifier_column,
+                columns=columns,
+            )
+        )
+
+    return entities
 
 
 class UserKnowledgeGraphController(Controller):
@@ -981,13 +1142,47 @@ class UserKnowledgeGraphController(Controller):
             chunks=chunks.chunks,
         )
 
+    @get(
+        "/{graph_id_or_name:str}/entities",
+        summary="List Knowledge Graph entity schemas",
+        description=(
+            "Returns the entity types configured on a Knowledge Graph together with "
+            "their columns. Use this to discover what can be queried: an entity's "
+            "`name` is the `entity` value accepted by the entity query endpoint, and "
+            "a column's `name` is both a key of a record's `column_values` and a "
+            "valid `field` in a query filter. "
+            "Entity types that are disabled for extraction are omitted, and a graph "
+            "with no configured entity types returns an empty list."
+        ),
+        status_code=HTTP_200_OK,
+    )
+    async def list_entities(
+        self,
+        graph_id_or_name: Annotated[
+            str,
+            Parameter(
+                title="Knowledge Graph ID or System Name",
+                description="The UUID or System Name of the Knowledge Graph to inspect.",
+            ),
+        ],
+        db_session: AsyncSession,
+    ) -> KnowledgeGraphEntityListResponse:
+        graph_id = await _resolve_graph_id_or_name(db_session, graph_id_or_name)
+        settings = await get_graph_settings(db_session, graph_id)
+
+        return KnowledgeGraphEntityListResponse(
+            entities=_entity_schemas_from_settings(settings)
+        )
+
     @post(
         "/{graph_id_or_name:str}/entities/query",
         summary="Query Knowledge Graph entities",
         description=(
             "Query extracted entities of a given type from a Knowledge Graph using the filter DSL. "
             "Returns only the column_values of each matching record. "
-            "Unknown field names in the filter are resolved against column_values keys."
+            "Unknown field names in the filter are resolved against column_values keys. "
+            "Use `GET /{graph_id_or_name}/entities` to discover the valid entity types "
+            "and column names for a graph."
         ),
         status_code=HTTP_200_OK,
     )
