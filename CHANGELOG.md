@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.47](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.46...v0.7.0-dev.47) (2026-09-17)
+
+### ✨ Features
+
+* **kg:** implemented new user api for knowledge graph to return entity schemas ([36f77bb](https://github.com/ideaportriga/magnet-ai/commit/36f77bb1509d327f70b5b19e7b9421a674d9c39e))
+
 ## [0.7.0-dev.46](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.45...v0.7.0-dev.46) (2026-08-04)
 
 ### 🐛 Bug Fixes
