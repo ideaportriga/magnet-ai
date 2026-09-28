@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.49](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.48...v0.7.0-dev.49) (2026-09-28)
+
+### ✨ Features
+
+* **models:** backport create/fill model config from free text ([d251d69](https://github.com/ideaportriga/magnet-ai/commit/d251d6983e8ece10dc1ca940ccdc348c7636d42d)), closes [#479](https://github.com/ideaportriga/magnet-ai/issues/479) [#466](https://github.com/ideaportriga/magnet-ai/issues/466)
+
+### 🐛 Bug Fixes
+
+* **models:** send cache write prices as strings when saving a model ([9bd973a](https://github.com/ideaportriga/magnet-ai/commit/9bd973aae08357008a63122602ff57643c37ac13))
+
 ## [0.7.0-dev.48](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.47...v0.7.0-dev.48) (2026-09-28)
 
 ### ✨ Features
