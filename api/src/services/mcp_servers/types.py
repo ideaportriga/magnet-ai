@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Annotated
+from typing import Annotated, Any
 
 from mcp.types import Tool
 from pydantic import BaseModel, StringConstraints
@@ -25,20 +25,14 @@ class McpServerSessionParams(BaseModel):
     headers: dict[str, str] | None = None
 
 
-# class McpServerTool(BaseModel):
-#     name: SystemName
-#     description: str
-#     # Optional?
-#     inputSchema: dict
-#     annotations: dict | None
-
-
 class McpServerConfig(BaseModel):
     name: str
     system_name: SystemName
     transport: McpTransportProtocol
     url: str
     headers: dict[str, str] | None = None
+    security_scheme: dict[str, Any] | None = None
+    security_values: dict[str, Any] | None = None
     secrets_names: list[str] | None = None
     tools: list[Tool] | None = None
 
@@ -62,4 +56,6 @@ class McpServerUpdate(BaseModel):
     name: str
     system_name: SystemName
     headers: dict[str, str] | None = None
+    security_scheme: dict[str, Any] | None = None
+    security_values: dict[str, Any] | None = None
     secrets: dict[str, str] | None = None

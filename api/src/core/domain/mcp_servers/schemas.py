@@ -4,6 +4,7 @@ Pydantic schemas for MCP server validation.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from pydantic import Field
@@ -25,6 +26,15 @@ class MCPServer(BaseSimpleSchema):
     headers: Optional[Dict[str, Any]] = Field(
         default=None, description="HTTP headers configuration"
     )
+    security_scheme: Optional[Dict[str, Any]] = Field(
+        default=None, description="Security scheme configuration"
+    )
+    security_values: Optional[Dict[str, Any]] = Field(
+        default=None, description="Security values configuration"
+    )
+    last_synced_at: Optional[datetime] = Field(
+        None, description="Last tool synchronization timestamp"
+    )
     tools: Optional[List[Dict[str, Any]]] = Field(
         default=None, description="Tools configuration"
     )
@@ -41,6 +51,15 @@ class MCPServerResponse(BaseSimpleSchema, SecretsEncryptedMixin):
     headers: Optional[Dict[str, Any]] = Field(
         default=None, description="HTTP headers configuration"
     )
+    security_scheme: Optional[Dict[str, Any]] = Field(
+        default=None, description="Security scheme configuration"
+    )
+    security_values: Optional[Dict[str, Any]] = Field(
+        default=None, description="Security values configuration"
+    )
+    last_synced_at: Optional[datetime] = Field(
+        None, description="Last tool synchronization timestamp"
+    )
     tools: Optional[List[Dict[str, Any]]] = Field(
         default=None, description="Tools configuration"
     )
@@ -56,6 +75,15 @@ class MCPServerCreate(BaseSimpleCreateSchema):
     url: str = Field(..., description="MCP server URL")
     headers: Optional[Dict[str, Any]] = Field(
         default=None, description="HTTP headers configuration"
+    )
+    security_scheme: Optional[Dict[str, Any]] = Field(
+        default=None, description="Security scheme configuration"
+    )
+    security_values: Optional[Dict[str, Any]] = Field(
+        default=None, description="Security values configuration"
+    )
+    last_synced_at: Optional[datetime] = Field(
+        None, description="Last tool synchronization timestamp"
     )
     tools: Optional[List[Dict[str, Any]]] = Field(
         default=None, description="Tools configuration"
@@ -74,6 +102,15 @@ class MCPServerUpdate(BaseSimpleUpdateSchema):
     url: Optional[str] = Field(default=None, description="MCP server URL")
     headers: Optional[Dict[str, Any]] = Field(
         default=None, description="HTTP headers configuration"
+    )
+    security_scheme: Optional[Dict[str, Any]] = Field(
+        default=None, description="Security scheme configuration"
+    )
+    security_values: Optional[Dict[str, Any]] = Field(
+        default=None, description="Security values configuration"
+    )
+    last_synced_at: Optional[datetime] = Field(
+        None, description="Last tool synchronization timestamp"
     )
     tools: Optional[List[Dict[str, Any]]] = Field(
         default=None, description="Tools configuration"

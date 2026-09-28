@@ -38,12 +38,41 @@
     .row.q-pt-16
       km-btn(label='Add Header Record', @click='addHeader', size='sm', icon='o_add', flat)
   q-separator.q-mt-lg.q-mb-lg
+  km-section(title='Security schema', subTitle='Authentication and authorization scheme to access the endpoint')
+    km-notification-text
+      div Supported types: apiKey, basic, oauth2. Check
+        | &nbsp;
+        a.text-primary(href='https://swagger.io/docs/specification/v3_0/authentication/', target='_blank') OpenAPI documentation
+        |
+        | for information.
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-pt-lg Security schema
+    .row.items-center.q-gap-16.no-wrap
+      km-input.full-width(v-model='serverSecurityScheme', type='textarea', rows='4')
+    .km-small-chip.q-pa-4.q-pl-8.text-error-text(v-if='parsingError') Invalid JSON format. Please check your input and ensure it follows valid JSON syntax.
+  q-separator.q-mt-lg.q-mb-lg
+  km-section(title='Security Values', subTitle='Security values depending on security schema type')
+    km-notification-text(
+      notification='Do not expose sensitive data in this section. Instead, use placeholders and provide actual values in the Secrets section. Use curly braces to insert placeholders.'
+    )
+    .row.items-center.q-gap-8.no-wrap.q-mt-lg(v-for='[key, value] in securityValues', :key='key')
+      .col
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Key
+        km-input(label='Key', :model-value='key', @update:model-value='updateSecurityValue(key, $event, value)')
+      .col
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Value
+        km-input(label='Value', :model-value='value', @update:model-value='updateSecurityValue(key, key, $event)')
+      .col-auto
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 &nbsp;
+        km-btn(@click='removeSecurityValue(key)', icon='o_delete', size='sm', flat, color='negative')
+    .row.q-pt-16
+      km-btn(label='Add Security Value', @click='addSecurityValue', size='sm', icon='o_add', flat)
+  q-separator.q-mt-lg.q-mb-lg
   km-section(title='Secrets', subTitle='Use to store sensitive values such as API keys or tokens.')
     km-secrets(v-model:secrets='secrets', :original-secrets='originalMcpSecrets', :remount-value='remountValue')
 </template>
 <script setup>
 import { useQuasar } from 'quasar'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useStore } from 'vuex'
 
 const store = useStore()
@@ -63,6 +92,67 @@ const headers = computed({
     })
   },
 })
+
+const parsingError = ref(false)
+const serverSecurityScheme = computed({
+  get() {
+    if (typeof server.value?.security_scheme === 'string') {
+      return server.value?.security_scheme
+    }
+    return JSON.stringify(server.value?.security_scheme || {}, null, 2)
+  },
+  set(newValue) {
+    try {
+      store.dispatch('updateMcpServerProperty', { key: 'security_scheme', value: JSON.parse(newValue) })
+      parsingError.value = false
+    } catch (e) {
+      store.dispatch('updateMcpServerProperty', { key: 'security_scheme', value: newValue })
+      parsingError.value = true
+    }
+  },
+})
+
+// Kept as a plain object in the store (like the API server's security values);
+// edited as a Map so the rows keep their order.
+const securityValues = computed({
+  get() {
+    const raw = server.value?.security_values
+    if (!raw) return new Map()
+    if (raw instanceof Map) return raw
+    return new Map(Object.entries(raw))
+  },
+  set(value) {
+    store.dispatch('updateMcpServerProperty', {
+      key: 'security_values',
+      value: value instanceof Map ? Object.fromEntries(value) : value,
+    })
+  },
+})
+
+const updateSecurityValue = (oldKey, newKey, newValue) => {
+  const entries = [...securityValues.value.entries()]
+  const idx = entries.findIndex(([k]) => k === oldKey)
+
+  if (idx !== -1) {
+    entries[idx] = [newKey, newValue] // replace in place
+  } else {
+    entries.push([newKey, newValue]) // add new
+  }
+
+  securityValues.value = new Map(entries)
+}
+
+const addSecurityValue = () => {
+  const newSecurityValues = new Map(securityValues.value)
+  newSecurityValues.set('', '')
+  securityValues.value = newSecurityValues
+}
+
+const removeSecurityValue = (key) => {
+  const newSecurityValues = new Map(securityValues.value)
+  newSecurityValues.delete(key)
+  securityValues.value = newSecurityValues
+}
 
 const originalMcpSecrets = computed(() => store.getters.originalMcpSecrets)
 const remountValue = computed(() => store.getters.mcp_server.updated_at)

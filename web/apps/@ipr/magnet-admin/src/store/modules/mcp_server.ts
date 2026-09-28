@@ -101,6 +101,7 @@ const actions = {
     delete mcpServer.id
     delete mcpServer.secrets_names
     if (mcpServer.headers) mcpServer.headers = Object.fromEntries(mcpServer.headers)
+    if (mcpServer.security_values instanceof Map) mcpServer.security_values = Object.fromEntries(mcpServer.security_values)
     if (mcpServer.secrets) mcpServer.secrets = Object.fromEntries(mcpServer.secrets)
     await context.dispatch('chroma/update', { payload: { id, data: mcpServer }, entity }, { root: true })
     context.commit('setInitMcpServer')

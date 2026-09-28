@@ -145,7 +145,7 @@ class MCPServersController(Controller):
         )
 
     @post(
-        "/{mcp_server_id:uuid}/sync_tools",
+        "/{mcp_server_id:uuid}/sync",
         summary="Sync MCP server tools",
         status_code=HTTP_200_OK,
     )

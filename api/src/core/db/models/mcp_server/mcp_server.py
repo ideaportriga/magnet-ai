@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from advanced_alchemy.types import JsonB
+from advanced_alchemy.types import DateTimeUTC, JsonB
 from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -23,6 +23,15 @@ class MCPServer(UUIDAuditSimpleBase):
     url: Mapped[str] = mapped_column(String, nullable=False, comment="MCP server URL")
     headers: Mapped[Optional[dict[str, Any]]] = mapped_column(
         JsonB, nullable=True, comment="HTTP headers configuration"
+    )
+    security_scheme: Mapped[Optional[dict[str, Any]]] = mapped_column(
+        JsonB, nullable=True, comment="Security scheme configuration"
+    )
+    security_values: Mapped[Optional[dict[str, Any]]] = mapped_column(
+        JsonB, nullable=True, comment="Security values configuration"
+    )
+    last_synced_at: Mapped[Optional[DateTimeUTC]] = mapped_column(
+        DateTimeUTC, nullable=True, comment="Last tool synchronization timestamp"
     )
     tools: Mapped[Optional[list[dict[str, Any]]]] = mapped_column(
         JsonB, nullable=True, comment="Tools configuration"

@@ -1,13 +1,12 @@
 from logging import getLogger
-
+from datetime import datetime, timezone
 from mcp.types import CallToolResult, Tool
 
 from core.config.app import alchemy
 from core.domain.mcp_servers.schemas import MCPServerUpdate
 from core.domain.mcp_servers.service import MCPServersService
-from utils.secrets import replace_placeholders_in_dict
 
-from .remote_client import init_client_session
+from .remote_client import init_client_session, build_mcp_request_headers
 from .types import (
     McpServerConfigWithSecrets,
     McpServerSessionParams,
@@ -17,23 +16,16 @@ from .types import (
 logger = getLogger(__name__)
 
 
-def get_mcp_server_session_params(
+async def get_mcp_server_session_params(
     mcp_server: McpServerConfigWithSecrets,
 ) -> McpServerSessionParams:
     """For internal use only. Do not expose secrets in API."""
 
-    params = McpServerSessionParams(
+    return McpServerSessionParams(
         transport=mcp_server.transport,
         url=mcp_server.url,
-        headers=mcp_server.headers,
+        headers=await build_mcp_request_headers(mcp_server),
     )
-
-    if params.headers and mcp_server.secrets:
-        params.headers = replace_placeholders_in_dict(
-            params.headers, mcp_server.secrets
-        )
-
-    return params
 
 
 async def get_mcp_server_with_secrets(
@@ -63,6 +55,8 @@ async def get_mcp_server_with_secrets(
             ),  # Convert string to enum
             url=mcp_server_schema.url,
             headers=mcp_server_schema.headers,
+            security_scheme=mcp_server_schema.security_scheme,
+            security_values=mcp_server_schema.security_values,
             tools=None,  # MCP tools are handled internally
             secrets=mcp_server_schema.secrets_encrypted,  # These are actually unencrypted in the domain schema
         )
@@ -83,7 +77,7 @@ async def call_mcp_server_tool(
         id=mcp_server_id, system_name=mcp_server_system_name
     )
 
-    session_params = get_mcp_server_session_params(mcp_server_config)
+    session_params = await get_mcp_server_session_params(mcp_server_config)
 
     async with init_client_session(session_params) as session:
         result = await session.call_tool(
@@ -102,7 +96,7 @@ async def test_mcp_server_connection(
 
     mcp_server = await get_mcp_server_with_secrets(id, system_name)
 
-    session_params = get_mcp_server_session_params(mcp_server)
+    session_params = await get_mcp_server_session_params(mcp_server)
 
     async with init_client_session(session_params):
         return None
@@ -120,7 +114,7 @@ async def sync_mcp_server_tools(
 
     mcp_server = await get_mcp_server_with_secrets(id, system_name)
 
-    session_params = get_mcp_server_session_params(mcp_server)
+    session_params = await get_mcp_server_session_params(mcp_server)
 
     async with init_client_session(session_params) as session:
         # TODO - check pagination
@@ -139,7 +133,9 @@ async def sync_mcp_server_tools(
                 server_id = server.id
 
             # Update tools for the MCP server
-            update_data = MCPServerUpdate(tools=tools_dict)
+            update_data = MCPServerUpdate(
+                tools=tools_dict, last_synced_at=datetime.now(timezone.utc)
+            )
             await mcp_servers_service.update(
                 data=update_data, item_id=server_id, auto_commit=True
             )
