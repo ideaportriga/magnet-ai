@@ -14,6 +14,19 @@
     .col-auto.center-flex-y
       km-btn.q-mr-12(
         v-if='selected.length > 0',
+        icon='o_auto_fix_high',
+        label='Update From Docs',
+        @click='showFillDialog = true',
+        iconColor='icon',
+        hoverColor='primary',
+        labelClass='km-title',
+        flat,
+        iconSize='16px',
+        hoverBg='primary-bg',
+        data-test='fill-from-text-btn'
+      )
+      km-btn.q-mr-12(
+        v-if='selected.length > 0',
         icon='delete',
         label='Delete',
         @click='showDeleteDialog = true',
@@ -38,6 +51,13 @@
       binary-state-sort
     )
 model-providers-new-model(v-if='showNewDialog', :showNewDialog='showNewDialog', @cancel='showNewDialog = false')
+model-providers-fill-from-text-dialog(
+  v-if='showFillDialog',
+  v-model='showFillDialog',
+  :models='selected',
+  :provider='provider?.name ?? provider?.system_name',
+  @applied='selected = []'
+)
 km-popup-confirm(
   :visible='showDeleteDialog',
   confirmButtonLabel='Delete',
@@ -151,8 +171,9 @@ q-dialog(v-model='showImportDialog', persistent)
 
 <script>
 import { ref, computed } from 'vue'
-import { useChroma, toUpperCaseWithUnderscores } from '@shared'
+import { useChroma } from '@shared'
 import { categoryOptions, featureOptions } from '../../config/model/model.js'
+import { toModelSystemName } from './modelSystemName'
 
 /**
  * Fuzzy match a query against a target string.
@@ -246,6 +267,7 @@ export default {
       showNewDialog: ref(false),
       selected: ref([]),
       showDeleteDialog: ref(false),
+      showFillDialog: ref(false),
       filterObject,
       filterConfig,
       deleteItem,
@@ -419,7 +441,7 @@ export default {
           const payload = {
             name: model.id,
             ai_model: model.id,
-            system_name: toUpperCaseWithUnderscores(this.provider.system_name + '_' + model.id),
+            system_name: toModelSystemName(this.provider.system_name, model.id),
             display_name: `${this.formatProviderName(this.provider.name)}: ${model.id}`,
             provider_name: this.provider.system_name,
             provider_system_name: this.provider.system_name,

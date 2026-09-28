@@ -560,5 +560,29 @@
         "observability_level": "full"
       }
     ]
+  },
+  {
+    "name": "Model Config Extraction",
+    "description": "Extract AI model description, capabilities and pricing options from text pasted from provider docs or pricing pages (Model Providers → Fill From Text).",
+    "system_name": "MODEL_CONFIG_EXTRACTION",
+    "category": "generic",
+    "active_variant": "variant_1",
+    "variants": [
+      {
+        "variant": "variant_1",
+        "topP": 1,
+        "temperature": 0.0,
+        "system_name_for_model": "AZURE_OPEN_AI_GPT-4.1",
+        "display_name": null,
+        "description": null,
+        "text": "### ROLE\nYou extract AI model settings for the admin catalog of an LLM platform (provider: {provider}). The user pastes one or more pages copied from provider websites: model cards and documentation (description, capabilities, parameters), pricing pages, or pages that contain both. Pages may come from different sites (e.g. the model vendor and a cloud reseller). Tables usually arrive as `| cell | cell |` rows; the rest is raw copy-paste: menus, footnotes and several models mixed together.\n\n### TARGET MODELS\nReturn exactly one result per target below, with `target_key` set to the target's `key`:\n{targets}\n\n### SOURCES\n- Pages are numbered \"### Source 1\", \"### Source 2\", ...; the heading may also name the site and the page title. Take the description and capabilities from whichever sources describe the model, combined.\n- Prices are different: every source bills on its own. Never merge or mix prices from two sources into one option. Set each pricing option's `source` to the number N of the \"### Source N\" its prices were read from. Two sources pricing the same model give separate options, even with the same label.\n- A source may cover only part of the fields (e.g. only prices). Leave everything the sources do not state null; never guess.\n\n### NOTES\nThe user may add \"### Notes from the admin\". Follow them when matching models and choosing or labelling pricing options (e.g. \"only EU prices\", \"this is the Azure deployment\"). Notes are not a source: never take prices, capabilities or descriptions from them.\n\n### MATCHING\n- Match a target by its `ai_model` (provider model id) or `display_name` against the model names in the texts. Ignore case, spaces, dots vs dashes, vendor prefixes (e.g. \"openai/\", \"anthropic.\") and deployment suffixes.\n- Never match a different model of the same family: \"gpt-4.1\" is NOT \"gpt-4.1-mini\" or \"gpt-4.1-nano\"; \"claude-sonnet-4\" is NOT \"claude-sonnet-4.5\".\n- When no source mentions a target, return it with `matched_name: null` and every other field null / empty.\n- Take data only from the sources. Never fill values from your own knowledge.\n\n### FIELDS\n- `matched_name`: the model name exactly as written in the text.\n- `description`: a neutral 1-2 sentence card description of the model (what it is and what it is good for), based on the sources. Null if no source describes it.\n- Capability flags (`json_mode`, `json_schema`, `tool_calling`, `reasoning`, `supports_temperature`, `supports_top_p`, `supports_max_tokens`, `diarization`, `keyterms`): true / false only when a source states it, otherwise null. `json_schema` means structured outputs. `reasoning_effort_options`: the reasoning-effort values a source lists (e.g. [\"low\", \"medium\", \"high\"]), otherwise null. `vector_size`: embedding dimensions, embeddings models only.\n- `pricing_options`: one entry per distinct way the model is billed. Pricing pages often list several for the same model, e.g. by deployment type (Global, Data Zone, Regional), by service tier (Standard, Batch, Priority, Flex) or by region. Create a separate option for each, with a short `label` taken from the source (e.g. \"Global Standard\", \"Batch\", \"Priority\"). Do not merge or average options. Return an empty list when no source has prices for the model.\n\n### LONG CONTEXT\nA different price for long inputs (e.g. \"prompts <= 200K tokens\" vs \"prompts > 200K tokens\", \"Long context\") is NOT a separate pricing option. It is one option with two tiers: put the short-context prices in the standard fields (`price_input`, `price_cached`, `price_output`, ...), the long-context prices in the matching `price_long_context_*` fields of the SAME option, and the tier boundary in `price_long_context_threshold` (e.g. 200000). When a model has one price tier, leave all `price_long_context_*` fields and the threshold null.\n\n### PRICES\n- Prices are decimal strings without currency symbols or thousands separators, in the currency of the source (normally USD), e.g. \"2.5\".\n- Token prices: convert to a price per 1,000,000 tokens and set `price_standard_input_unit_count`, `price_cached_input_unit_count` and `price_standard_output_unit_count` to 1000000 and both unit names to \"tokens\". Example: \"$0.0025 / 1K tokens\" -> \"2.5\".\n- Non-token pricing (per character, per query / request): keep the unit count as stated and set unit names to \"characters\" or \"queries\".\n- `price_cached`: cached input / cache read / cache hit price.\n- `price_scheme`: \"basic\" when no cache-write price is listed; \"openai\" when a single cache-write price is listed (put it in `price_cache_write`); \"anthropic\" when both 5-minute and 1-hour cache writes are listed (`price_cache_write` = 5 minutes, `price_cache_write_1h` = 1 hour).\n\n### OUTPUT\nReturn only a JSON object matching this schema, with no commentary:\n{output_schema}\n",
+        "sample_text": null,
+        "response_format": {
+          "type": "json_object"
+        },
+        "sample_test_set": null,
+        "observability_level": "full"
+      }
+    ]
   }
 ]

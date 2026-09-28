@@ -482,6 +482,7 @@ q-inner-loading(:showing='loading')
 import { ref, watch } from 'vue'
 import { useChroma } from '@shared'
 import { categoryOptions } from '../../config/model/model.js'
+import { cloneDeep, isEqual } from 'lodash'
 const DEFAULT_PRICE_UNIT_COUNT = 1000000
 const DEFAULT_PRICE_UNIT_NAME = 'tokens'
 const DEFAULT_LONG_CONTEXT_THRESHOLD = 200000
@@ -541,6 +542,10 @@ export default {
   computed: {
     modelConfig() {
       return this.$store.getters['modelConfig/entity']
+    },
+    // The open model's row in the refetched list.
+    serverModel() {
+      return this.items?.find((row) => row.id === this.modelConfig?.id) ?? null
     },
     modelId() {
       return this.modelConfig?.id
@@ -1032,6 +1037,14 @@ export default {
     },
   },
   watch: {
+    // An update made outside the drawer (e.g. Update From Docs on the list)
+    // refetches the list, but the drawer holds the row as it was when picked.
+    // Take the fresh row — unless the user has unsaved edits here to keep.
+    serverModel(fresh) {
+      if (!fresh || this.$store.getters['modelConfig/isEntityChanged']) return
+      if (isEqual(this.$store.state.modelConfig?.initialEntity, fresh)) return
+      this.$store.commit('modelConfig/setEntity', cloneDeep(fresh))
+    },
     modelId: {
       immediate: true,
       handler(newId) {

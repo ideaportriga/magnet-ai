@@ -6,7 +6,7 @@ from uuid import UUID
 
 from advanced_alchemy.extensions.litestar import filters, providers, service
 from litestar import Controller, delete, get, patch, post
-from litestar.exceptions import ClientException, NotFoundException
+from litestar.exceptions import ClientException, HTTPException, NotFoundException
 from litestar.params import Dependency, Parameter
 from litestar.status_codes import HTTP_200_OK, HTTP_204_NO_CONTENT
 from pydantic import BaseModel, Field
@@ -17,6 +17,10 @@ from core.domain.ai_models.service import (
 )
 from core.domain.providers.service import ProvidersService
 from openai_model.utils import clear_model_cache
+from services.ai_model_extraction.schemas import (
+    ExtractFromTextRequest,
+    ExtractFromTextResponse,
+)
 
 from .schemas import AIModel, AIModelCreate, AIModelSetDefaultRequest, AIModelUpdate
 
@@ -252,6 +256,28 @@ class AIModelsController(Controller):
             raise ClientException(
                 "Unexpected error occurred while setting default model"
             )
+
+    @post(
+        "/extract-from-text",
+        summary="Extract model settings from text",
+        status_code=HTTP_200_OK,
+    )
+    async def extract_from_text(
+        self, data: ExtractFromTextRequest
+    ) -> ExtractFromTextResponse:
+        """Read description, capabilities and pricing options for the given
+        models from pasted docs text. Nothing is saved — the admin UI applies
+        the picked values through the regular create / PATCH endpoints."""
+        from services.ai_model_extraction.service import (
+            ModelExtractionError,
+            extract_models_from_text,
+        )
+
+        try:
+            return await extract_models_from_text(data)
+        except ModelExtractionError as exc:
+            logger.warning("Model extraction failed: %s", exc)
+            raise HTTPException(status_code=exc.status_code, detail=str(exc))
 
     @post(
         "/{ai_model_id:uuid}/test",
