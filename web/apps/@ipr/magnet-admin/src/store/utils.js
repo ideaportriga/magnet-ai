@@ -126,6 +126,8 @@ export const createEntityStore = (namespace) => {
         const priceFields = [
           'price_input',
           'price_cached',
+          'price_cache_write',
+          'price_cache_write_1h',
           'price_output',
           'price_standard_input_unit_count',
           'price_cached_input_unit_count',
@@ -133,6 +135,8 @@ export const createEntityStore = (namespace) => {
           'price_long_context_threshold',
           'price_long_context_input',
           'price_long_context_cached',
+          'price_long_context_cache_write',
+          'price_long_context_cache_write_1h',
           'price_long_context_output',
         ]
 
