@@ -1,5 +1,4 @@
 from asyncio.log import logger
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Dict, Unpack
 
@@ -8,6 +7,11 @@ from opentelemetry.trace import format_trace_id
 
 from openai_model.utils import get_model_by_system_name
 from services.ai_services.models import ModelUsage
+from services.ai_services.pricing import (  # noqa: F401 — re-exported
+    ModelPricing,
+    _get_model_pricing,
+    price_token_usage,
+)
 from services.observability.models import (
     CostDetails,
     CostInputDetails,
@@ -17,20 +21,6 @@ from services.observability.models import (
     UsageInputDetails,
     UsageOutputDetails,
 )
-
-
-@dataclass
-class ModelPricing:
-    input_units: str = "tokens"
-    input_standard_price_per_unit: float = 0.0
-    input_cached_price_per_unit: float = 0.0
-    output_units: str = "tokens"
-    output_standard_price_per_unit: float = 0.0
-    # Long-context pricing: applied when total input tokens exceed threshold.
-    long_context_threshold: int | None = None
-    long_context_input_price_per_unit: float = 0.0
-    long_context_input_cached_price_per_unit: float = 0.0
-    long_context_output_price_per_unit: float = 0.0
 
 
 def observability_overrides(
@@ -131,14 +121,25 @@ async def get_usage_and_cost_details(
                 and usage.prompt_tokens_details.cached_tokens is not None
                 else None
             )
-            standard_input_tokens = usage.prompt_tokens - (cached_input_tokens or 0)
+            cache_write_input_tokens = _get_cache_write_tokens(usage)
+            cache_write_1h_input_tokens = _get_cache_write_1h_tokens(usage)
+            # Cache reads and writes are both a subset of prompt_tokens.
+            standard_input_tokens = (
+                usage.prompt_tokens
+                - (cached_input_tokens or 0)
+                - (cache_write_input_tokens or 0)
+            )
             total_input_tokens = usage.prompt_tokens
         elif isinstance(usage, ModelUsage):
             cached_input_tokens = None
+            cache_write_input_tokens = None
+            cache_write_1h_input_tokens = None
             standard_input_tokens = usage.input
             total_input_tokens = usage.input
         else:
             cached_input_tokens = None
+            cache_write_input_tokens = None
+            cache_write_1h_input_tokens = None
             standard_input_tokens = None
             total_input_tokens = None
 
@@ -180,6 +181,7 @@ async def get_usage_and_cost_details(
                 units=input_units,
                 standard=standard_input_tokens,
                 cached=cached_input_tokens,
+                cache_write=cache_write_input_tokens,
             ),
             output=total_output_tokens,
             output_details=UsageOutputDetails(
@@ -190,64 +192,45 @@ async def get_usage_and_cost_details(
             total=total_tokens,
         )
 
-        # Detect long-context pricing tier (driven by total input token count).
-        is_long_context = (
-            pricing.long_context_threshold is not None
-            and total_input_tokens is not None
-            and total_input_tokens > pricing.long_context_threshold
-        )
-        input_price_per_unit = (
-            pricing.long_context_input_price_per_unit
-            if is_long_context
-            else pricing.input_standard_price_per_unit
-        )
-        cached_price_per_unit = (
-            pricing.long_context_input_cached_price_per_unit
-            if is_long_context
-            else pricing.input_cached_price_per_unit
-        )
-        output_price_per_unit = (
-            pricing.long_context_output_price_per_unit
-            if is_long_context
-            else pricing.output_standard_price_per_unit
+        # Price the call with the shared pricing core, then
+        # blank out whatever the usage didn't report.
+        breakdown = price_token_usage(
+            pricing,
+            prompt_tokens=total_input_tokens or 0,
+            completion_tokens=total_output_tokens or 0,
+            cached_tokens=cached_input_tokens or 0,
+            cache_write_tokens=cache_write_input_tokens or 0,
+            cache_write_1h_tokens=cache_write_1h_input_tokens or 0,
         )
 
         # Calculate input cost
-        if input_units == pricing.input_units:
+        if input_units == pricing.input_units and standard_input_tokens is not None:
             cached_input_cost = (
-                (cached_price_per_unit * cached_input_tokens)
-                if cached_input_tokens is not None
-                else None
+                breakdown.cached if cached_input_tokens is not None else None
             )
-            standard_input_cost = (
-                (input_price_per_unit * standard_input_tokens)
-                if standard_input_tokens is not None
-                else None
+            cache_write_input_cost = (
+                breakdown.cache_write if cache_write_input_tokens is not None else None
             )
+            standard_input_cost = breakdown.standard
             total_input_cost = (
-                (standard_input_cost + (cached_input_cost or 0))
-                if standard_input_cost is not None
-                else None
+                standard_input_cost
+                + (cached_input_cost or 0)
+                + (cache_write_input_cost or 0)
             )
         else:
             cached_input_cost = None
+            cache_write_input_cost = None
             standard_input_cost = None
             total_input_cost = None
 
         # Calculate output cost — reasoning tokens are billed at the standard
         # output rate (no separate reasoning-output price).
-        if output_units == pricing.output_units:
-            standard_output_cost = (
-                (output_price_per_unit * total_output_tokens)
-                if total_output_tokens is not None
-                else None
-            )
-            reasoning_output_cost = None
-            total_output_cost = standard_output_cost
+        if output_units == pricing.output_units and total_output_tokens is not None:
+            standard_output_cost = breakdown.output
         else:
             standard_output_cost = None
-            reasoning_output_cost = None
-            total_output_cost = None
+        reasoning_output_cost = None
+        total_output_cost = standard_output_cost
 
         # Calculate total cost and prepare cost details
         total_cost = (
@@ -260,6 +243,7 @@ async def get_usage_and_cost_details(
             input_details=CostInputDetails(
                 standard=standard_input_cost,
                 cached=cached_input_cost,
+                cache_write=cache_write_input_cost,
             ),
             output=total_output_cost,
             output_details=CostOutputDetails(
@@ -275,61 +259,35 @@ async def get_usage_and_cost_details(
         return None, None
 
 
-def _get_model_pricing(model_config: dict | None) -> ModelPricing:
-    if not model_config:
-        return ModelPricing()
+def _get_cache_write_tokens(usage: CompletionUsage) -> int | None:
+    """Prompt-cache write (creation) tokens off a litellm/OpenAI usage object.
 
-    input_unit_name = model_config.get("price_input_unit_name") or "tokens"
-    input_standard_price_per_unit = float(model_config.get("price_input") or 0.0)
-    input_standard_unit_count = int(
-        model_config.get("price_standard_input_unit_count") or 1000000,
-    )
-    input_cached_price_per_unit = float(model_config.get("price_cached") or 0.0)
-    input_cached_unit_count = int(
-        model_config.get("price_cached_input_unit_count") or 1000000,
-    )
+    litellm normalizes Anthropic/Bedrock cache writes into
+    ``prompt_tokens_details.cache_creation_tokens`` (the attribute is absent,
+    not ``None``, when unset); OpenAI/Azure report them as
+    ``prompt_tokens_details.cache_write_tokens``, which litellm passes through
+    as-is; the raw Anthropic name is the last fallback. Zero is reported as
+    ``None`` so providers without prompt-cache writes show no row.
+    """
+    details = usage.prompt_tokens_details
+    tokens = getattr(details, "cache_creation_tokens", None) if details else None
+    if not tokens and details:
+        tokens = getattr(details, "cache_write_tokens", None)
+    if not tokens:
+        tokens = getattr(usage, "cache_creation_input_tokens", None)
+    return int(tokens) if tokens else None
 
-    output_unit_name = model_config.get("price_output_unit_name") or "tokens"
-    output_standard_price_per_unit = float(model_config.get("price_output") or 0.0)
-    output_standard_unit_count = int(
-        model_config.get("price_standard_output_unit_count") or 1000000,
-    )
 
-    # Long-context pricing reuses the standard unit counts (only the per-unit
-    # price differs); a missing threshold disables the long-context tier.
-    raw_long_context_threshold = model_config.get("price_long_context_threshold")
-    long_context_threshold = (
-        int(raw_long_context_threshold)
-        if raw_long_context_threshold not in (None, "")
-        else None
-    )
-    long_context_input_price = float(
-        model_config.get("price_long_context_input") or 0.0
-    )
-    long_context_cached_price = float(
-        model_config.get("price_long_context_cached") or 0.0
-    )
-    long_context_output_price = float(
-        model_config.get("price_long_context_output") or 0.0
-    )
+def _get_cache_write_1h_tokens(usage: CompletionUsage) -> int | None:
+    """The 1-hour-TTL share of the cache write tokens (Anthropic only).
 
-    return ModelPricing(
-        input_units=input_unit_name,
-        input_standard_price_per_unit=input_standard_price_per_unit
-        / input_standard_unit_count,
-        input_cached_price_per_unit=input_cached_price_per_unit
-        / input_cached_unit_count,
-        output_units=output_unit_name,
-        output_standard_price_per_unit=output_standard_price_per_unit
-        / output_standard_unit_count,
-        long_context_threshold=long_context_threshold,
-        long_context_input_price_per_unit=long_context_input_price
-        / input_standard_unit_count,
-        long_context_input_cached_price_per_unit=long_context_cached_price
-        / input_cached_unit_count,
-        long_context_output_price_per_unit=long_context_output_price
-        / output_standard_unit_count,
-    )
+    litellm reports it as
+    ``prompt_tokens_details.cache_creation_token_details.ephemeral_1h_input_tokens``;
+    the rest of the cache write tokens are 5-minute writes.
+    """
+    details = getattr(usage.prompt_tokens_details, "cache_creation_token_details", None)
+    tokens = getattr(details, "ephemeral_1h_input_tokens", None) if details else None
+    return int(tokens) if tokens else None
 
 
 def format_trace_id_as_mongo_id(trace_id: int) -> str:

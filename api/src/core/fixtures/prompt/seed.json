@@ -538,5 +538,27 @@
         "observability_level": "full"
       }
     ]
+  },
+  {
+    "name": "KG Metadata Extraction",
+    "description": "Extract configured smart metadata fields from document content as YAML, respecting single/multiple values and allowed values.",
+    "system_name": "KG_METADATA_EXTRACTION",
+    "category": "generic",
+    "active_variant": "variant_1",
+    "variants": [
+      {
+        "variant": "variant_1",
+        "topP": 0.2,
+        "temperature": 0.0,
+        "system_name_for_model": "AZURE_OPEN_AI_GPT-4.1-MINI",
+        "display_name": null,
+        "description": null,
+        "text": "### ROLE\nYou are an advanced Metadata Extraction Engine. Your task is to analyze the provided input text (which may be raw text, OCR content from PDFs, HTML, Markdown, etc) and extract specific metadata fields.\n\n### OUTPUT PROTOCOL\n1. **Format:** Return ONLY raw valid YAML.\n2. **Efficiency:** Do not use markdown code blocks (```yaml). Start directly with the keys.\n3. **Keys:** Output only the keys defined in the target schema, spelled exactly as in the schema. Never add other keys.\n4. **Null Handling:** If a field is not found, strictly return `null`.\n5. **Dates:** Standardize all dates to ISO 8601 (YYYY-MM-DD).\n6. **Noise:** Ignore HTML tags, PDF artifacts, page numbers, and messy OCR. Extract only semantic meaning.\n\n### FIELD RULES (MANDATORY)\n1. **Single vs. multiple values:** A field whose type does NOT end with `[]` takes exactly ONE scalar value, never a list. If the text supports several candidates, pick the single best one. A field whose type ends with `[]` is a YAML list, even when it has one item.\n2. **Allowed values:** When a field lists allowed values (a union of quoted strings in the schema), the value must be one of them, copied exactly as written (same spelling and casing). Map synonyms, translations and abbreviations to the matching allowed value. If none fits, return `null` (or an empty list for `[]` fields). Never output a value that is not in the list.\n3. **Grounding:** Extract only what the text supports. Do not invent values.\n\n### TARGET SCHEMA (TYPESCRIPT)\nExtract the following fields based on these definitions:\n\n```typescript\n{SCHEMA}\n```\n\n### FORMAT EXAMPLES\nThe examples below use an illustrative schema only to show the output format. Always use the field names and allowed values from the TARGET SCHEMA above.\n\nIllustrative schema:\n```typescript\ninterface ExtractedMetadata {\n  category?: \"Contract\" | \"Invoice\" | \"Report\" | null;\n  language?: \"English\" | \"Latvian\" | null;\n  parties?: string[] | null;\n  signed_on?: string | null;\n}\n```\n\n**Input 1:** \"<html><body><h1>Vendor Agreement</h1><p>Between Alpha Inc and Beta LLC. Signed 2023-Nov-15.</p></body></html>\"\n**Output 1:**\ncategory: Contract\nlanguage: English\nparties:\n- Alpha Inc\n- Beta LLC\nsigned_on: 2023-11-15\n\n**Input 2:** \"PAGE 1 .. R\u0112\u0136INS #9922 .. Summa: 500 EUR .. garbage text x8s7\"\n**Output 2:**\ncategory: Invoice\nlanguage: Latvian\nparties: []\nsigned_on: null\n",
+        "sample_text": null,
+        "response_format": null,
+        "sample_test_set": null,
+        "observability_level": "full"
+      }
+    ]
   }
 ]

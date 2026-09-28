@@ -18,6 +18,9 @@ Filter expression syntax:
 
 Supported operators: eq, ne, in, contains, not_contains, like,
                      exists, not_exists, gt, gte, lt, lte
+
+String comparisons are case-insensitive, except the ordering operators
+(gt, gte, lt, lte), which compare text as-is.
 """
 
 from __future__ import annotations
@@ -144,7 +147,7 @@ class BaseFilterCompiler(ABC):
                     sub.append(f"({expr} IS NULL)")
                 else:
                     p = self.builder.add(str(v))
-                    sub.append(f"({expr} = {p})")
+                    sub.append(f"(lower({expr}) = lower({p}))")
             if not sub:
                 return "(1=0)"
             return "(" + " OR ".join(sub) + ")"
@@ -165,13 +168,13 @@ class BaseFilterCompiler(ABC):
             if value is None:
                 return f"({expr} IS NULL)"
             p = self.builder.add(str(value))
-            return f"({expr} = {p})"
+            return f"(lower({expr}) = lower({p}))"
 
         if op in {"ne", "!=", "<>"}:
             if value is None:
                 return f"({expr} IS NOT NULL)"
             p = self.builder.add(str(value))
-            return f"({expr} <> {p})"
+            return f"(lower({expr}) <> lower({p}))"
 
         if op in {"gt", ">"}:
             if value is None:
@@ -231,7 +234,7 @@ class BaseFilterCompiler(ABC):
                 if v is None:
                     continue
                 p = self.builder.add(str(v))
-                sub.append(_exists(f"e.val = {p}"))
+                sub.append(_exists(f"lower(e.val) = lower({p})"))
             if not sub:
                 return "(1=0)"
             return "(" + " OR ".join(sub) + ")"
@@ -240,7 +243,7 @@ class BaseFilterCompiler(ABC):
             if value is None:
                 return f"({expr_sql} IS NULL)"
             p = self.builder.add(str(value))
-            return _exists(f"e.val = {p}")
+            return _exists(f"lower(e.val) = lower({p})")
 
         if op in {"contains", "like"}:
             if value is None:
@@ -255,7 +258,7 @@ class BaseFilterCompiler(ABC):
             return (
                 f"({expr_sql} IS NOT NULL AND NOT EXISTS ("
                 f"SELECT 1 FROM jsonb_array_elements_text({expr_sql}) AS e(val) "
-                f"WHERE e.val = {p}"
+                f"WHERE lower(e.val) = lower({p})"
                 f"))"
             )
 

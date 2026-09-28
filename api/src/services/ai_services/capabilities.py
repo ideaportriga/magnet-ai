@@ -119,6 +119,8 @@ def detect_model_pricing(
             "price_input": 0.0000025,   # per token
             "price_output": 0.00001,    # per token
             "price_cached": 0.00000125, # per cached input token (if supported)
+            "price_cache_write": 0.000003125, # per cache write token (if supported)
+            "price_cache_write_1h": 0.000005, # per 1-hour cache write token (if supported)
         }
     """
     full_model = get_litellm_model_name(ai_model, provider_type)
@@ -144,6 +146,14 @@ def detect_model_pricing(
     cache_cost = info.get("cache_read_input_token_cost")
     if cache_cost is not None:
         pricing["price_cached"] = cache_cost
+
+    cache_write_cost = info.get("cache_creation_input_token_cost")
+    if cache_write_cost is not None:
+        pricing["price_cache_write"] = cache_write_cost
+
+    cache_write_1h_cost = info.get("cache_creation_input_token_cost_above_1hr")
+    if cache_write_1h_cost is not None:
+        pricing["price_cache_write_1h"] = cache_write_1h_cost
 
     return pricing
 

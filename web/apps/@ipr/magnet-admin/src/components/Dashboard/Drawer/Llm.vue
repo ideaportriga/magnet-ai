@@ -97,6 +97,15 @@
                   .km-description.text-secondary-text.q-pb-6 Cached input cost
                   .row
                     .km-label {{ formatCost(selectedRow?.extra_data?.cost_details?.input_details.cached) }}
+              .row(v-if='selectedRow?.extra_data?.cost_details?.input_details?.cache_write != null')
+                .col-6
+                  .km-description.text-secondary-text.q-pb-6 Cache write input
+                  .row
+                    .km-label {{ selectedRow?.extra_data?.usage_details?.input_details?.cache_write }}
+                .col-6
+                  .km-description.text-secondary-text.q-pb-6 Cache write cost
+                  .row
+                    .km-label {{ formatCost(selectedRow?.extra_data?.cost_details?.input_details?.cache_write) }}
               .row
                 .col-6
                   .km-description.text-secondary-text.q-pb-6 Standard output

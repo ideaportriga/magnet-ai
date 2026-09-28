@@ -48,6 +48,7 @@ from services.observability.otel.config import (
     magnet_ai_feature_duration_histogram,
     otel_tracer,
 )
+from services.observability.usage_collector import record_llm_usage
 from services.observability.utils import (
     extract_x_attributes_from_request,
     get_duration,
@@ -750,6 +751,7 @@ class ObservabilityContext:
         usage: UsageDetails | None = None,
         cost: CostDetails | None = None,
     ):
+        record_llm_usage(usage, cost)
         gen_ai_duration_histogram.record(
             duration,
             create_otel_metric_attributes(

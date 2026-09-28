@@ -76,6 +76,7 @@ Notes:
 - Use only metadata field names listed in `Field Definitions`.
 - Use `value` for single-value operators.
 - Use `values` for `in`.
+- Value matching is case-insensitive; keep values as written.
 """.strip()
 
 

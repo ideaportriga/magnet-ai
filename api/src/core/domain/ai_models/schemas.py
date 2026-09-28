@@ -4,7 +4,7 @@ Pydantic schemas for AI models validation.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -13,6 +13,9 @@ from core.domain.base.schemas import (
     BaseSimpleSchema,
     BaseSimpleUpdateSchema,
 )
+
+# How the provider bills prompt caching; drives which cache prices apply.
+PriceScheme = Literal["basic", "openai", "anthropic"]
 
 
 def _normalize_reasoning_effort_options(
@@ -175,6 +178,16 @@ class AIModelFieldsMixin(BaseModel):
     price_input: Optional[str] = Field(None, description="Price per input unit")
     price_output: Optional[str] = Field(None, description="Price per output unit")
     price_cached: Optional[str] = Field(None, description="Price per cached input unit")
+    price_cache_write: Optional[str] = Field(
+        None, description="Price per cache write input unit"
+    )
+    price_cache_write_1h: Optional[str] = Field(
+        None, description="Price per 1-hour cache write input unit"
+    )
+    price_scheme: Optional[PriceScheme] = Field(
+        None,
+        description="How the provider bills prompt caching (null = basic)",
+    )
 
     # Unit counts for pricing
     price_standard_input_unit_count: Optional[int] = Field(
@@ -207,6 +220,14 @@ class AIModelFieldsMixin(BaseModel):
     price_long_context_cached: Optional[str] = Field(
         None,
         description="Price per cached input unit when input exceeds long-context threshold",
+    )
+    price_long_context_cache_write: Optional[str] = Field(
+        None,
+        description="Price per cache write input unit when input exceeds long-context threshold",
+    )
+    price_long_context_cache_write_1h: Optional[str] = Field(
+        None,
+        description="Price per 1-hour cache write input unit when input exceeds long-context threshold",
     )
     price_long_context_output: Optional[str] = Field(
         None,
@@ -297,6 +318,16 @@ class AIModelUpdateFieldsMixin(BaseModel):
     price_input: Optional[str] = Field(None, description="Price per input unit")
     price_output: Optional[str] = Field(None, description="Price per output unit")
     price_cached: Optional[str] = Field(None, description="Price per cached input unit")
+    price_cache_write: Optional[str] = Field(
+        None, description="Price per cache write input unit"
+    )
+    price_cache_write_1h: Optional[str] = Field(
+        None, description="Price per 1-hour cache write input unit"
+    )
+    price_scheme: Optional[PriceScheme] = Field(
+        None,
+        description="How the provider bills prompt caching (null = basic)",
+    )
 
     # Unit counts for pricing
     price_standard_input_unit_count: Optional[int] = Field(
@@ -329,6 +360,14 @@ class AIModelUpdateFieldsMixin(BaseModel):
     price_long_context_cached: Optional[str] = Field(
         None,
         description="Price per cached input unit when input exceeds long-context threshold",
+    )
+    price_long_context_cache_write: Optional[str] = Field(
+        None,
+        description="Price per cache write input unit when input exceeds long-context threshold",
+    )
+    price_long_context_cache_write_1h: Optional[str] = Field(
+        None,
+        description="Price per 1-hour cache write input unit when input exceeds long-context threshold",
     )
     price_long_context_output: Optional[str] = Field(
         None,

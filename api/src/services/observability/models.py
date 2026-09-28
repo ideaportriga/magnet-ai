@@ -201,6 +201,7 @@ class UsageInputDetails(BaseModel):
     units: str | None = "tokens"
     standard: int | None = None
     cached: int | None = None
+    cache_write: int | None = None
 
 
 class UsageOutputDetails(BaseModel):
@@ -220,6 +221,7 @@ class UsageDetails(BaseModel):
 class CostInputDetails(BaseModel):
     standard: float | None = None
     cached: float | None = None
+    cache_write: float | None = None
 
 
 class CostOutputDetails(BaseModel):

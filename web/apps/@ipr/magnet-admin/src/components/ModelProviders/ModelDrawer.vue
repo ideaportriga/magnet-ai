@@ -110,138 +110,146 @@
     .column.q-gap-16.q-pa-16(v-if='tab == "pricing"')
       q-card.km-pricing-card(flat, bordered)
         q-card-section.q-pa-16
-          .km-title Input Pricing
-          .km-description.text-secondary-text.q-pb-12 Pricing applied to tokens, characters or queries sent to the model.
-          .row.items-center.q-gap-8.q-mb-12
-            .text-caption.text-secondary-text(style='min-width: 32px') Unit
-            km-select(
-              height='32px',
-              :options='priceUnitOptions',
-              :model-value='price_input_unit_name',
-              @update:model-value='price_input_unit_name = $event',
-              emit-value,
-              map-options,
-              style='width: 120px'
-            )
-            .text-caption.text-secondary-text per
-            km-input(
-              height='32px',
-              type='number',
-              :model-value='priceInputUnitCount',
-              @update:model-value='priceInputUnitCount = $event',
-              style='width: 120px'
-            )
-            .text-caption.text-secondary-text {{ price_input_unit_name }}
+          .km-title Pricing Settings
+          .km-description.text-secondary-text.q-pb-12 Caching and long context billing rules used to calculate model costs.
           q-separator.q-mb-12
           .column.q-gap-8
             .row.items-center.no-wrap.q-gap-12
-              .km-field.text-secondary-text.col Standard
-              km-input(
-                prefix='$',
+              .km-field.text-secondary-text.col Pricing scheme
+              q-icon.km-pricing-info(name='o_info', size='16px', color='secondary-text')
+                q-tooltip.bg-white.block-shadow.text-secondary-text.km-description(self='top middle', :offset='[-50, -50]') How the provider bills prompt caching, which determines the cache prices available below.
+              km-select(
                 height='32px',
-                :model-value='price_standard_input',
-                @update:model-value='price_standard_input = $event',
+                :options='priceSchemeOptions',
+                :model-value='price_scheme',
+                @update:model-value='price_scheme = $event',
+                emit-value,
+                map-options,
+                data-test='PriceScheme',
                 style='width: 140px'
               )
+            .row.items-center.no-wrap.q-gap-12(style='height: 32px')
+              .km-field.text-secondary-text.col Long context pricing
+              q-icon.km-pricing-info(name='o_info', size='16px', color='secondary-text')
+                q-tooltip.bg-white.block-shadow.text-secondary-text.km-description(self='top middle', :offset='[-50, -50]') Some providers charge a different rate for long inputs. When enabled, requests whose input exceeds the threshold (in tokens) are billed at the long context prices.
+              .row.justify-end(style='width: 140px')
+                q-toggle(
+                  dense,
+                  aria-label='Long context pricing',
+                  :model-value='longContextEnabled',
+                  @update:model-value='longContextEnabled = $event',
+                  data-test='LongContextSwitch'
+                )
             .row.items-center.no-wrap.q-gap-12
-              .km-field.text-secondary-text.col Cached
-              km-input(
-                prefix='$',
-                height='32px',
-                :model-value='price_cached_input',
-                @update:model-value='price_cached_input = $event',
-                style='width: 140px'
-              )
-
-      q-card.km-pricing-card(flat, bordered)
-        q-card-section.q-pa-16
-          .km-title Output Pricing
-          .km-description.text-secondary-text.q-pb-12 Pricing applied to tokens, characters or queries returned by the model.
-          .row.items-center.q-gap-8.q-mb-12
-            .text-caption.text-secondary-text(style='min-width: 32px') Unit
-            km-select(
-              height='32px',
-              :options='priceUnitOptions',
-              :model-value='price_output_unit_name',
-              @update:model-value='price_output_unit_name = $event',
-              emit-value,
-              map-options,
-              style='width: 120px'
-            )
-            .text-caption.text-secondary-text per
-            km-input(
-              height='32px',
-              type='number',
-              :model-value='priceOutputUnitCount',
-              @update:model-value='priceOutputUnitCount = $event',
-              style='width: 120px'
-            )
-            .text-caption.text-secondary-text {{ price_output_unit_name }}
-          q-separator.q-mb-12
-          .column.q-gap-8
-            .row.items-center.no-wrap.q-gap-12
-              .km-field.text-secondary-text.col Standard
-              km-input(
-                prefix='$',
-                height='32px',
-                :model-value='price_standard_output',
-                @update:model-value='price_standard_output = $event',
-                style='width: 140px'
-              )
-
-      q-card.km-pricing-card(flat, bordered)
-        q-card-section.q-pa-16
-          .km-title Long Context Pricing
-          .km-description.text-secondary-text.q-pb-12 Some providers charge a different rate when the input exceeds a token threshold. Enable this to override the rates above for long inputs.
-          km-checkbox(
-            label='Apply different pricing for long inputs',
-            :model-value='longContextEnabled',
-            @update:model-value='longContextEnabled = $event'
-          )
-          template(v-if='longContextEnabled')
-            q-separator.q-my-16
-            .row.items-center.q-gap-8.q-mb-16
-              .text-caption.text-secondary-text Threshold
+              .km-field.text-secondary-text.col Long context threshold (tokens)
+              q-icon.km-pricing-info(name='o_info', size='16px', color='secondary-text')
+                q-tooltip.bg-white.block-shadow.text-secondary-text.km-description(self='top middle', :offset='[-50, -50]') Input size above which long context prices apply.
               km-input(
                 height='32px',
                 type='number',
                 placeholder='200000',
                 :model-value='price_long_context_threshold',
                 @update:model-value='price_long_context_threshold = $event',
-                style='width: 120px'
+                data-test='LongContextThreshold',
+                style='width: 140px'
               )
-              .text-caption.text-secondary-text tokens
-            .km-pricing-subtitle.q-mb-8 Input
-            .column.q-gap-8.q-mb-16
-              .row.items-center.no-wrap.q-gap-12
-                .km-field.text-secondary-text.col Standard
-                km-input(
-                  prefix='$',
-                  height='32px',
-                  :model-value='price_long_context_input',
-                  @update:model-value='price_long_context_input = $event',
-                  style='width: 140px'
-                )
-              .row.items-center.no-wrap.q-gap-12
-                .km-field.text-secondary-text.col Cached
-                km-input(
-                  prefix='$',
-                  height='32px',
-                  :model-value='price_long_context_cached',
-                  @update:model-value='price_long_context_cached = $event',
-                  style='width: 140px'
-                )
-            .km-pricing-subtitle.q-mb-8 Output
-            .column.q-gap-8
-              .row.items-center.no-wrap.q-gap-12
-                .km-field.text-secondary-text.col Standard
-                km-input(
-                  prefix='$',
-                  height='32px',
-                  :model-value='price_long_context_output',
-                  @update:model-value='price_long_context_output = $event',
-                  style='width: 140px'
-                )
+
+      q-card.km-pricing-card(flat, bordered)
+        q-card-section.q-pa-16
+          .km-title Billing Units
+          .km-description.text-secondary-text.q-pb-12 Prices are set per this many units. Cache prices use the input unit.
+          q-separator.q-mb-12
+          .km-pricing-grid
+            .km-field.text-secondary-text Input
+            km-input(
+              height='32px',
+              type='number',
+              prefix='per',
+              :model-value='priceInputUnitCount',
+              @update:model-value='priceInputUnitCount = $event'
+            )
+            km-select(
+              height='32px',
+              :options='priceUnitOptions',
+              :model-value='price_input_unit_name',
+              @update:model-value='price_input_unit_name = $event',
+              emit-value,
+              map-options
+            )
+            .km-field.text-secondary-text Output
+            km-input(
+              height='32px',
+              type='number',
+              prefix='per',
+              :model-value='priceOutputUnitCount',
+              @update:model-value='priceOutputUnitCount = $event'
+            )
+            km-select(
+              height='32px',
+              :options='priceUnitOptions',
+              :model-value='price_output_unit_name',
+              @update:model-value='price_output_unit_name = $event',
+              emit-value,
+              map-options
+            )
+
+      q-card.km-pricing-card(flat, bordered)
+        q-card-section.q-pa-16
+          .km-title Prices
+          .km-description.text-secondary-text.q-pb-12 Prices in USD per billing unit.
+          q-separator.q-mb-12
+          .km-pricing-grid(:data-columns='longContextEnabled ? "3" : "2"')
+            template(v-if='longContextEnabled')
+              div
+              .km-pricing-subtitle Standard
+              .km-pricing-subtitle Long context
+            .km-field.text-secondary-text Input
+            km-input(prefix='$', height='32px', :model-value='price_standard_input', @update:model-value='price_standard_input = $event')
+            km-input(
+              v-if='longContextEnabled',
+              prefix='$',
+              height='32px',
+              :model-value='price_long_context_input',
+              @update:model-value='price_long_context_input = $event'
+            )
+            .km-field.text-secondary-text Output
+            km-input(prefix='$', height='32px', :model-value='price_standard_output', @update:model-value='price_standard_output = $event')
+            km-input(
+              v-if='longContextEnabled',
+              prefix='$',
+              height='32px',
+              :model-value='price_long_context_output',
+              @update:model-value='price_long_context_output = $event'
+            )
+            .km-field.text-secondary-text Cached input
+            km-input(prefix='$', height='32px', :model-value='price_cached_input', @update:model-value='price_cached_input = $event')
+            km-input(
+              v-if='longContextEnabled',
+              prefix='$',
+              height='32px',
+              :model-value='price_long_context_cached',
+              @update:model-value='price_long_context_cached = $event'
+            )
+            template(v-if='showCacheWrite')
+              .km-field.text-secondary-text {{ cacheWriteLabel }}
+              km-input(prefix='$', height='32px', :model-value='price_cache_write_input', @update:model-value='price_cache_write_input = $event')
+              km-input(
+                v-if='longContextEnabled',
+                prefix='$',
+                height='32px',
+                :model-value='price_long_context_cache_write',
+                @update:model-value='price_long_context_cache_write = $event'
+              )
+            template(v-if='showCacheWrite1h')
+              .km-field.text-secondary-text 1-hour cache write
+              km-input(prefix='$', height='32px', :model-value='price_cache_write_1h', @update:model-value='price_cache_write_1h = $event')
+              km-input(
+                v-if='longContextEnabled',
+                prefix='$',
+                height='32px',
+                :model-value='price_long_context_cache_write_1h',
+                @update:model-value='price_long_context_cache_write_1h = $event'
+              )
 
     //- Routing Config Tab
     .column.q-gap-16.q-pa-16(v-if='tab == "routing"')
@@ -363,13 +371,24 @@
         q-separator.q-my-16
 
         .km-title Provider Pricing
-        .row.q-gap-16(v-if='capabilities.input_cost_per_token || capabilities.output_cost_per_token')
+        .row.q-gap-16(
+          v-if='capabilities.input_cost_per_token || capabilities.output_cost_per_token || capabilities.cache_read_input_token_cost || capabilities.cache_creation_input_token_cost || capabilities.cache_creation_input_token_cost_above_1hr'
+        )
           .col(v-if='capabilities.input_cost_per_token')
             .km-field.text-secondary-text Input Cost
             .text-body2 ${{ (capabilities.input_cost_per_token * 1000000).toFixed(4) }} / 1M tokens
           .col(v-if='capabilities.output_cost_per_token')
             .km-field.text-secondary-text Output Cost
             .text-body2 ${{ (capabilities.output_cost_per_token * 1000000).toFixed(4) }} / 1M tokens
+          .col(v-if='capabilities.cache_read_input_token_cost')
+            .km-field.text-secondary-text Cache Read Cost
+            .text-body2 ${{ (capabilities.cache_read_input_token_cost * 1000000).toFixed(4) }} / 1M tokens
+          .col(v-if='capabilities.cache_creation_input_token_cost')
+            .km-field.text-secondary-text Cache Write Cost
+            .text-body2 ${{ (capabilities.cache_creation_input_token_cost * 1000000).toFixed(4) }} / 1M tokens
+          .col(v-if='capabilities.cache_creation_input_token_cost_above_1hr')
+            .km-field.text-secondary-text 1-Hour Cache Write Cost
+            .text-body2 ${{ (capabilities.cache_creation_input_token_cost_above_1hr * 1000000).toFixed(4) }} / 1M tokens
         .text-secondary-text.km-description(v-else) No pricing information available from provider
 
         q-separator.q-my-16
@@ -466,6 +485,9 @@ import { categoryOptions } from '../../config/model/model.js'
 const DEFAULT_PRICE_UNIT_COUNT = 1000000
 const DEFAULT_PRICE_UNIT_NAME = 'tokens'
 const DEFAULT_LONG_CONTEXT_THRESHOLD = 200000
+// Cache write prices each pricing scheme bills (see `price_scheme`).
+const CACHE_WRITE_1H_PRICE_FIELDS = ['price_cache_write_1h', 'price_long_context_cache_write_1h']
+const CACHE_WRITE_PRICE_FIELDS = ['price_cache_write', 'price_long_context_cache_write', ...CACHE_WRITE_1H_PRICE_FIELDS]
 
 export default {
   setup() {
@@ -493,6 +515,11 @@ export default {
         { label: 'Tokens', value: 'tokens' },
         { label: 'Characters', value: 'characters' },
         { label: 'Queries', value: 'queries' },
+      ]),
+      priceSchemeOptions: ref([
+        { label: 'Basic', value: 'basic' },
+        { label: 'OpenAI', value: 'openai' },
+        { label: 'Anthropic', value: 'anthropic' },
       ]),
       categoryOptions,
       loading: ref(false),
@@ -739,6 +766,45 @@ export default {
         this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_cached', value: this.parsePrice(value) })
       },
     },
+    price_scheme: {
+      get() {
+        return this.modelConfig?.price_scheme || 'basic'
+      },
+      set(value) {
+        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_scheme', value })
+        // Drop prices the new scheme does not bill, so they can't linger
+        // hidden: basic has no cache write prices, openai no 1-hour ones.
+        const cleared = value === 'basic' ? CACHE_WRITE_PRICE_FIELDS : value === 'openai' ? CACHE_WRITE_1H_PRICE_FIELDS : []
+        cleared.forEach((key) => {
+          this.$store.commit('modelConfig/updateEntityProperty', { key, value: null })
+        })
+      },
+    },
+    showCacheWrite() {
+      return this.price_scheme === 'openai' || this.price_scheme === 'anthropic'
+    },
+    showCacheWrite1h() {
+      return this.price_scheme === 'anthropic'
+    },
+    cacheWriteLabel() {
+      return this.price_scheme === 'anthropic' ? '5-minute cache write' : 'Cache write'
+    },
+    price_cache_write_input: {
+      get() {
+        return this.modelConfig?.price_cache_write ?? ''
+      },
+      set(value) {
+        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_cache_write', value: this.parsePrice(value) })
+      },
+    },
+    price_cache_write_1h: {
+      get() {
+        return this.modelConfig?.price_cache_write_1h ?? ''
+      },
+      set(value) {
+        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_cache_write_1h', value: this.parsePrice(value) })
+      },
+    },
     price_output_unit_name: {
       get() {
         return this.modelConfig?.price_output_unit_name || DEFAULT_PRICE_UNIT_NAME
@@ -777,7 +843,14 @@ export default {
             })
           }
         } else {
-          ;['price_long_context_threshold', 'price_long_context_input', 'price_long_context_cached', 'price_long_context_output'].forEach((key) => {
+          ;[
+            'price_long_context_threshold',
+            'price_long_context_input',
+            'price_long_context_cached',
+            'price_long_context_cache_write',
+            'price_long_context_cache_write_1h',
+            'price_long_context_output',
+          ].forEach((key) => {
             this.$store.commit('modelConfig/updateEntityProperty', { key, value: null })
           })
         }
@@ -809,6 +882,22 @@ export default {
       },
       set(value) {
         this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_long_context_cached', value: this.parsePrice(value) })
+      },
+    },
+    price_long_context_cache_write: {
+      get() {
+        return this.modelConfig?.price_long_context_cache_write ?? ''
+      },
+      set(value) {
+        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_long_context_cache_write', value: this.parsePrice(value) })
+      },
+    },
+    price_long_context_cache_write_1h: {
+      get() {
+        return this.modelConfig?.price_long_context_cache_write_1h ?? ''
+      },
+      set(value) {
+        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_long_context_cache_write_1h', value: this.parsePrice(value) })
       },
     },
     price_long_context_output: {
@@ -1094,6 +1183,20 @@ export default {
 }
 .km-pricing-card {
   border-radius: 8px;
+}
+.km-pricing-info {
+  cursor: help;
+}
+/* Label column + one column per price variant (units: count/unit,
+ * prices: standard/long context). */
+.km-pricing-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) repeat(2, minmax(0, 140px));
+  gap: 8px 12px;
+  align-items: center;
+}
+.km-pricing-grid[data-columns='2'] {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 140px);
 }
 .km-pricing-subtitle {
   font-size: 11px;

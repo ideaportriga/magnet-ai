@@ -104,6 +104,15 @@ class ModelCapabilities(BaseModel):
     output_cost_per_token: float | None = Field(
         None, description="Output cost per token"
     )
+    cache_read_input_token_cost: float | None = Field(
+        None, description="Cached (cache read) input cost per token"
+    )
+    cache_creation_input_token_cost: float | None = Field(
+        None, description="Cache write input cost per token"
+    )
+    cache_creation_input_token_cost_above_1hr: float | None = Field(
+        None, description="1-hour cache write input cost per token"
+    )
 
 
 class AIModelsController(Controller):
@@ -743,4 +752,9 @@ class AIModelsController(Controller):
             supports_audio_output=bool(info.get("supports_audio_output") or False),
             input_cost_per_token=info.get("input_cost_per_token"),
             output_cost_per_token=info.get("output_cost_per_token"),
+            cache_read_input_token_cost=info.get("cache_read_input_token_cost"),
+            cache_creation_input_token_cost=info.get("cache_creation_input_token_cost"),
+            cache_creation_input_token_cost_above_1hr=info.get(
+                "cache_creation_input_token_cost_above_1hr"
+            ),
         )

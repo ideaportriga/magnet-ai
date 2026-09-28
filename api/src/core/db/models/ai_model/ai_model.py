@@ -142,6 +142,17 @@ class AIModel(UUIDAuditSimpleBase):
     price_cached: Mapped[Optional[str]] = mapped_column(
         String(20), nullable=True, comment="Price per cached input unit"
     )
+    price_cache_write: Mapped[Optional[str]] = mapped_column(
+        String(20), nullable=True, comment="Price per cache write input unit"
+    )
+    price_cache_write_1h: Mapped[Optional[str]] = mapped_column(
+        String(20), nullable=True, comment="Price per 1-hour cache write input unit"
+    )
+    # How the provider bills prompt caching: basic | openai | anthropic.
+    # NULL = basic (cache writes billed at the input price).
+    price_scheme: Mapped[Optional[str]] = mapped_column(
+        String(20), nullable=True, comment="Pricing scheme: basic, openai, anthropic"
+    )
 
     # Unit counts for pricing
     price_standard_input_unit_count: Mapped[Optional[int]] = mapped_column(
@@ -177,6 +188,16 @@ class AIModel(UUIDAuditSimpleBase):
         String(20),
         nullable=True,
         comment="Price per cached input unit when input exceeds long-context threshold",
+    )
+    price_long_context_cache_write: Mapped[Optional[str]] = mapped_column(
+        String(20),
+        nullable=True,
+        comment="Price per cache write input unit when input exceeds long-context threshold",
+    )
+    price_long_context_cache_write_1h: Mapped[Optional[str]] = mapped_column(
+        String(20),
+        nullable=True,
+        comment="Price per 1-hour cache write input unit when input exceeds long-context threshold",
     )
     price_long_context_output: Mapped[Optional[str]] = mapped_column(
         String(20),

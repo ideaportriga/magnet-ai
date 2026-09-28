@@ -120,6 +120,9 @@ export default {
         price_input: '',
         price_output: '',
         price_cached: '',
+        price_cache_write: '',
+        price_cache_write_1h: '',
+        price_scheme: 'basic',
         price_standard_input_unit_count: 1000000,
         price_cached_input_unit_count: 1000000,
         price_standard_output_unit_count: 1000000,
@@ -297,6 +300,12 @@ export default {
       }
       if (!payload.price_cached) {
         payload.price_cached = null
+      }
+      if (!payload.price_cache_write) {
+        payload.price_cache_write = null
+      }
+      if (!payload.price_cache_write_1h) {
+        payload.price_cache_write_1h = null
       }
 
       // Handle configs - only include if not empty

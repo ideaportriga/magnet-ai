@@ -15,6 +15,7 @@ from core.domain.rag_tools.service import RagToolsService
 from open_ai.utils_new import create_chat_completion_from_prompt_template
 from prompt_templates.prompt_templates import get_prompt_template_by_system_name_flat
 from services.observability import observability_context, observe
+from services.observability.usage_collector import collect_llm_usage
 from services.evaluation.services import append_evaluation_results
 from services.rag_tools import execute_rag_tool
 from services.utils.metadata_filtering import metadata_filter_to_filter_object
@@ -174,9 +175,15 @@ async def evaluate_record(
                 else None
             )
 
+            input_details = (
+                chat_completion.usage_details.input_details
+                if chat_completion.usage_details
+                else None
+            )
             usage = {
                 "completion_tokens": usage.completion_tokens if usage else 0,
                 "prompt_tokens": usage.prompt_tokens if usage else 0,
+                "cached_tokens": (input_details.cached or 0) if input_details else 0,
             }
 
             result = {
@@ -191,18 +198,30 @@ async def evaluate_record(
 
         # Evaluate a RAG tool
         case JobType.RAG_EVAL:
-            answer = await execute_test_set_item_rag_tool(
-                rag_tool_config=config,
-                metadata_filter=metadata_filter,
-                user_input=user_message,
-            )
+            # A RAG tool makes several model calls and returns none of their
+            # cost; sum what each call reports.
+            with collect_llm_usage() as collected:
+                answer = await execute_test_set_item_rag_tool(
+                    rag_tool_config=config,
+                    metadata_filter=metadata_filter,
+                    user_input=user_message,
+                )
 
             logger.info(f"RAG tool returned answer: {answer}")
 
             latency = (datetime.now() - start_time).total_seconds() * 1000
             logger.info(f"RAG evaluation latency: {latency}ms")
 
-            result = {"answer": answer, "latency": latency}
+            result = {
+                "answer": answer,
+                "latency": latency,
+                "usage": {
+                    "completion_tokens": collected.completion_tokens,
+                    "prompt_tokens": collected.prompt_tokens,
+                    "cached_tokens": collected.cached_tokens,
+                },
+                "cost": collected.cost,
+            }
             logger.info(f"Final RAG result: {result}")
             return result
 

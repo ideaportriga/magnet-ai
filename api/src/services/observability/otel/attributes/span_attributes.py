@@ -389,6 +389,9 @@ def get_span_usage_details(
     input_details_cached = attributes.get(
         "magnet_ai.usage_details.input_details.cached"
     )
+    input_details_cache_write = attributes.get(
+        "magnet_ai.usage_details.input_details.cache_write"
+    )
     output = attributes.get("magnet_ai.usage_details.output")
     output_details_units = attributes.get(
         "magnet_ai.usage_details.output_details.units"
@@ -405,6 +408,7 @@ def get_span_usage_details(
         and input_details_units is None
         and input_details_standard is None
         and input_details_cached is None
+        and input_details_cache_write is None
         and output is None
         and output_details_units is None
         and output_details_standard is None
@@ -422,6 +426,9 @@ def get_span_usage_details(
             else None,
             cached=cast(int, input_details_cached)
             if input_details_cached is not None
+            else None,
+            cache_write=cast(int, input_details_cache_write)
+            if input_details_cache_write is not None
             else None,
         ),
         output=cast(int, output) if output is not None else None,
@@ -446,6 +453,9 @@ def get_span_cost_details(
         "magnet_ai.cost_details.input_details.standard"
     )
     input_details_cached = attributes.get("magnet_ai.cost_details.input_details.cached")
+    input_details_cache_write = attributes.get(
+        "magnet_ai.cost_details.input_details.cache_write"
+    )
     output = attributes.get("magnet_ai.cost_details.output")
     output_details_standard = attributes.get(
         "magnet_ai.cost_details.output_details.standard"
@@ -458,6 +468,7 @@ def get_span_cost_details(
         input is None
         and input_details_standard is None
         and input_details_cached is None
+        and input_details_cache_write is None
         and output is None
         and output_details_standard is None
         and output_details_reasoning is None
@@ -473,6 +484,9 @@ def get_span_cost_details(
             else None,
             cached=cast(float, input_details_cached)
             if input_details_cached is not None
+            else None,
+            cache_write=cast(float, input_details_cache_write)
+            if input_details_cache_write is not None
             else None,
         ),
         output=cast(float, output) if output is not None else None,

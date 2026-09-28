@@ -100,7 +100,8 @@ def get_model_pricing_from_litellm(
         provider_type: Provider type for prefix (e.g., "openai")
 
     Returns:
-        Dict with price_input, price_output, price_cached (per token, in USD)
+        Dict with price_input, price_output, price_cached, price_cache_write,
+        price_cache_write_1h (per token, in USD)
     """
     from services.ai_services.providers.universal import PROVIDER_TYPE_TO_LITELLM_PREFIX
 
@@ -117,10 +118,14 @@ def get_model_pricing_from_litellm(
                 "price_input": None,
                 "price_output": None,
                 "price_cached": None,
+                "price_cache_write": None,
+                "price_cache_write_1h": None,
             }
 
     return {
         "price_input": info.get("input_cost_per_token"),
         "price_output": info.get("output_cost_per_token"),
         "price_cached": info.get("cache_read_input_token_cost"),
+        "price_cache_write": info.get("cache_creation_input_token_cost"),
+        "price_cache_write_1h": info.get("cache_creation_input_token_cost_above_1hr"),
     }

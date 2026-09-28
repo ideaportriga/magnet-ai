@@ -5,6 +5,7 @@ import TypeChip from './component/TypeChip.vue'
 import { markRaw } from 'vue'
 import store from '@/store'
 import { formatDateTime } from '@shared/utils/dateTime'
+import { formatModelPrice } from '@/components/ModelProviders/formatModelPrice'
 
 const categoryOptions = [
   { label: 'Chat Completion', value: 'prompts' },
@@ -191,6 +192,29 @@ const controls = {
     component: markRaw(Check),
     align: 'center',
     sortable: true,
+  },
+  // Standard (non-cached, short-context) price for one direction. Not sortable:
+  // prices are stored as decimal strings, so sorting would order them
+  // lexically (`10` before `2`).
+  input_price: {
+    name: 'input_price',
+    label: 'Input Price',
+    field: (row) => formatModelPrice(row?.price_input, row?.price_standard_input_unit_count, row?.price_input_unit_name) ?? '-',
+    display: true,
+    readonly: true,
+    ignorePatch: true,
+    align: 'right',
+    sortable: false,
+  },
+  output_price: {
+    name: 'output_price',
+    label: 'Output Price',
+    field: (row) => formatModelPrice(row?.price_output, row?.price_standard_output_unit_count, row?.price_output_unit_name) ?? '-',
+    display: true,
+    readonly: true,
+    ignorePatch: true,
+    align: 'right',
+    sortable: false,
   },
   is_default: {
     name: 'is_default',

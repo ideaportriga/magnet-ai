@@ -21,6 +21,12 @@ from core.db.models.knowledge_graph import (
 from services.knowledge_graph.metadata_services import (
     accumulate_extracted_metadata_fields,
 )
+from services.knowledge_graph.metadata_value_rules import (
+    DocumentMetadataAccumulator,
+    FieldRule,
+    build_field_rules,
+    validate_extracted,
+)
 from services.knowledge_graph.models import MetadataMultiValueContainer
 from services.knowledge_graph.readers import ChunkDocumentReader
 from services.knowledge_graph.utils import normalize_metadata_value
@@ -390,7 +396,16 @@ def build_typescript_schema_from_field_definitions(field_definitions: Any) -> st
         comment_lines.append(
             f"Value type: {value_type or 'unknown'}; Multiple: {bool(is_array)}"
         )
+        comment_lines.append(
+            "Return a YAML list."
+            if is_array
+            else "Return exactly ONE value, not a list."
+        )
         if allowed_values:
+            comment_lines.append(
+                "Must be exactly one of the allowed values below "
+                "(copy spelling exactly); otherwise null."
+            )
             comment_lines.append("Allowed values:")
             for v, hint in allowed_values:
                 comment_lines.append(f"- {v}{f' ({hint})' if hint else ''}")
@@ -479,75 +494,31 @@ def _best_effort_json_object_from_text(value: str) -> dict[str, Any]:
         return {}
 
 
-def _is_empty_value(value: Any) -> bool:
-    if value is None:
-        return True
-    if isinstance(value, str):
-        return not value.strip()
-    if isinstance(value, (list, tuple, set, dict)):
-        return len(value) == 0
-    return False
-
-
-def _append_discovery_value(
-    bucket: dict[str, list[Any]], *, key: str, value: Any
-) -> None:
-    """Accumulate per-field values for discovered-metadata counting (keeps duplicates)."""
-    if _is_empty_value(value):
-        return
-    if isinstance(value, (list, tuple, set)):
-        for v in value:
-            _append_discovery_value(bucket, key=key, value=v)
-        return
-    bucket.setdefault(key, []).append(value)
-
-
-def _merge_storage_value(storage: dict[str, Any], *, key: str, value: Any) -> None:
-    """Merge a value into a JSON-friendly dict for persistence (keeps unique values)."""
-    if _is_empty_value(value):
-        return
-
-    # Flatten simple lists into repeated merges for stable storage
-    if isinstance(value, (list, tuple, set)):
-        for v in value:
-            _merge_storage_value(storage, key=key, value=v)
-        return
-
-    if key not in storage or _is_empty_value(storage.get(key)):
-        storage[key] = value
-        return
-
-    existing = storage.get(key)
-    if existing == value:
-        return
-
-    if isinstance(existing, list):
-        if value not in existing:
-            existing.append(value)
-        storage[key] = existing
-        return
-
-    # Promote scalar -> list
-    storage[key] = [existing, value] if value != existing else existing
-
-
-def _build_discovery_metadata(values: dict[str, list[Any]]) -> dict[str, Any]:
+def _build_discovery_metadata(storage: dict[str, Any]) -> dict[str, Any]:
+    """Wrap the final per-document values for the aggregate stats writer."""
     out: dict[str, Any] = {}
-    for k, vs in (values or {}).items():
-        if not k or not isinstance(k, str):
-            continue
-        cleaned = [v for v in (vs or []) if not _is_empty_value(v)]
-        if not cleaned:
-            continue
-        if len(cleaned) == 1:
-            out[k] = cleaned[0]
+    for k, v in (storage or {}).items():
+        if isinstance(v, list):
+            if v:
+                out[k] = MetadataMultiValueContainer.from_iterable(v)
         else:
-            out[k] = MetadataMultiValueContainer.from_iterable(cleaned)
+            out[k] = v
     return out
 
 
+def _build_repair_message(violations: list[str]) -> str:
+    listed = "\n".join(f"- {v}" for v in violations)
+    return (
+        "Your previous response breaks the schema rules:\n"
+        f"{listed}\n\n"
+        "Return the full YAML mapping again. Use only the allowed values, "
+        "copied exactly (or null if none fits), and give fields that are not "
+        "arrays exactly one value."
+    )
+
+
 @observe(
-    name="Knowledge graph entity extraction (LLM)",
+    name="Knowledge graph metadata extraction (LLM)",
     channel="production",
     source="production",
     capture_input=False,
@@ -558,7 +529,15 @@ async def _extract_metadata_from_content(
     prompt_template_system_name: str,
     schema: str | None = None,
     content: str,
+    rules: dict[str, FieldRule],
+    max_repair_attempts: int = 1,
 ) -> dict[str, Any]:
+    """Run extraction for one piece of content and enforce the field rules.
+
+    Values that can be autocorrected (e.g. allowed-value casing) are fixed in
+    code. If violations remain, the LLM is asked to correct its answer up to
+    `max_repair_attempts` times; whatever is still invalid is dropped.
+    """
     # Avoid capturing potentially large/sensitive content in spans; record only sizes/ids.
     schema_str = str(schema or "")
     try:
@@ -575,15 +554,61 @@ async def _extract_metadata_from_content(
 
     user_content = (
         "Extract metadata from the following content.\n"
-        "Return ONLY a YAML mapping (no extra commentary).\n\n"
+        "Return ONLY a YAML mapping (no extra commentary). Use only the field "
+        "names from the schema, only the allowed values where they are listed, "
+        "and a list only for array fields.\n\n"
         f"```text\n{content}\n```"
     )
+    messages: list[dict[str, str]] = [{"role": "user", "content": user_content}]
     result = await execute_prompt_template(
         system_name_or_config=prompt_template_system_name,
         template_values={"SCHEMA": schema_str},
-        template_additional_messages=[{"role": "user", "content": user_content}],
+        template_additional_messages=list(messages),
     )
-    return _best_effort_json_object_from_text(result.content)
+    cleaned, violations = validate_extracted(
+        _best_effort_json_object_from_text(result.content), rules
+    )
+    initial_violations = len(violations)
+
+    attempts = 0
+    while violations and attempts < max_repair_attempts:
+        attempts += 1
+        messages.append({"role": "assistant", "content": str(result.content or "")})
+        messages.append({"role": "user", "content": _build_repair_message(violations)})
+        try:
+            result = await execute_prompt_template(
+                system_name_or_config=prompt_template_system_name,
+                template_values={"SCHEMA": schema_str},
+                template_additional_messages=list(messages),
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "Metadata extraction repair request failed; keeping the "
+                "autocorrected first response: %s",
+                exc,
+            )
+            break
+        repaired, violations = validate_extracted(
+            _best_effort_json_object_from_text(result.content), rules
+        )
+        if not repaired and cleaned:
+            # An empty/unparseable repair reply must not wipe the values we
+            # already recovered from the first response.
+            break
+        cleaned = repaired
+
+    try:
+        observability_context.update_current_span(
+            extra_data={
+                "initial_violations": initial_violations,
+                "repair_attempts": attempts,
+                "remaining_violations": len(violations),
+            }
+        )
+    except Exception:
+        pass
+
+    return cleaned
 
 
 async def _write_metadata_extraction_state(
@@ -706,6 +731,8 @@ async def run_graph_llm_metadata_extraction(
     except Exception:
         pass
 
+    field_rules = build_field_rules(extraction_field_settings)
+
     processed_documents = 0
     processed_chunks = 0
     skipped_documents = 0
@@ -792,8 +819,7 @@ async def run_graph_llm_metadata_extraction(
                     state={"status": "running", "started_at": doc_started_at},
                 )
 
-                storage: dict[str, Any] = {}
-                discovery_values: dict[str, list[Any]] = {}
+                accumulator = DocumentMetadataAccumulator(field_rules)
                 segment_errors = 0
                 last_segment_error: str | None = None
 
@@ -803,6 +829,7 @@ async def run_graph_llm_metadata_extraction(
                             prompt_template_system_name=prompt_template_system_name,
                             schema=schema,
                             content=segment,
+                            rules=field_rules,
                         )
                     except Exception as exc:  # noqa: BLE001
                         errors += 1
@@ -815,15 +842,9 @@ async def run_graph_llm_metadata_extraction(
                         )
                         continue
 
-                    if not extracted:
-                        continue
+                    accumulator.add(extracted)
 
-                    for raw_k, v in extracted.items():
-                        k = str(raw_k or "").strip()
-                        if not k:
-                            continue
-                        _append_discovery_value(discovery_values, key=k, value=v)
-                        _merge_storage_value(storage, key=k, value=v)
+                storage = accumulator.finalize()
 
                 # Persist + update discovered fields (best-effort)
                 if storage:
@@ -834,7 +855,7 @@ async def run_graph_llm_metadata_extraction(
                         llm_metadata=storage,
                     )
 
-                discovery_metadata = _build_discovery_metadata(discovery_values)
+                discovery_metadata = _build_discovery_metadata(storage)
                 if discovery_metadata:
                     await accumulate_extracted_metadata_fields(
                         db_session,
@@ -959,8 +980,7 @@ async def run_graph_llm_metadata_extraction(
             state={"status": "running", "started_at": doc_started_at},
         )
 
-        storage: dict[str, Any] = {}
-        discovery_values: dict[str, list[Any]] = {}
+        accumulator = DocumentMetadataAccumulator(field_rules)
         had_any_chunk_content = False
         chunk_errors = 0
         last_chunk_error: str | None = None
@@ -979,6 +999,7 @@ async def run_graph_llm_metadata_extraction(
                     prompt_template_system_name=prompt_template_system_name,
                     schema=schema,
                     content=content_str,
+                    rules=field_rules,
                 )
             except Exception as exc:  # noqa: BLE001
                 errors += 1
@@ -992,15 +1013,7 @@ async def run_graph_llm_metadata_extraction(
                 )
                 continue
 
-            if not extracted:
-                continue
-
-            for raw_k, v in extracted.items():
-                k = str(raw_k or "").strip()
-                if not k:
-                    continue
-                _append_discovery_value(discovery_values, key=k, value=v)
-                _merge_storage_value(storage, key=k, value=v)
+            accumulator.add(extracted)
 
         if not had_any_chunk_content:
             skipped_documents += 1
@@ -1019,6 +1032,7 @@ async def run_graph_llm_metadata_extraction(
 
         processed_documents += 1
 
+        storage = accumulator.finalize()
         if storage:
             await _upsert_document_llm_metadata(
                 db_session,
@@ -1027,7 +1041,7 @@ async def run_graph_llm_metadata_extraction(
                 llm_metadata=storage,
             )
 
-        discovery_metadata = _build_discovery_metadata(discovery_values)
+        discovery_metadata = _build_discovery_metadata(storage)
         if discovery_metadata:
             await accumulate_extracted_metadata_fields(
                 db_session,
