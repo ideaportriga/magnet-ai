@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.50](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.49...v0.7.0-dev.50) (2026-09-28)
+
+### ✨ Features
+
+* **mcp-server:** backport security configuration and outbound auth service ([8f938fa](https://github.com/ideaportriga/magnet-ai/commit/8f938fae8707611623bafcb91caf0752d79b83d8)), closes [#431](https://github.com/ideaportriga/magnet-ai/issues/431) [#430](https://github.com/ideaportriga/magnet-ai/issues/430)
+
 ## [0.7.0-dev.49](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.48...v0.7.0-dev.49) (2026-09-28)
 
 ### ✨ Features
