@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.48](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.47...v0.7.0-dev.48) (2026-09-28)
+
+### ✨ Features
+
+* backport KG metadata rules, case-insensitive filtering and cache write pricing ([6d6b74a](https://github.com/ideaportriga/magnet-ai/commit/6d6b74af44b04dd334094a3d908702fdba85e3ad)), closes [#423](https://github.com/ideaportriga/magnet-ai/issues/423) [#424](https://github.com/ideaportriga/magnet-ai/issues/424) [#447](https://github.com/ideaportriga/magnet-ai/issues/447) [#465](https://github.com/ideaportriga/magnet-ai/issues/465)
+
 ## [0.7.0-dev.47](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.46...v0.7.0-dev.47) (2026-09-17)
 
 ### ✨ Features
