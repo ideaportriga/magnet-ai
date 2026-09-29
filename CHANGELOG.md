@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.51](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.50...v0.7.0-dev.51) (2026-09-29)
+
+### 🐛 Bug Fixes
+
+* **kg:** backport keeping SharePoint source on Custom when library is SitePages ([58fb2a5](https://github.com/ideaportriga/magnet-ai/commit/58fb2a5d34051a24b1d38d358a7dfc4bf629dc4e)), closes [ideaport-riga/magnet-ai-pro#499](https://github.com/ideaport-riga/magnet-ai-pro/issues/499)
+
 ## [0.7.0-dev.50](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.49...v0.7.0-dev.50) (2026-09-28)
 
 ### ✨ Features
