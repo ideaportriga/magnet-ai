@@ -28,7 +28,7 @@
     <kg-dialog-section title="Scope" description="Optionally configure which content to sync from SharePoint." icon="folder">
       <kg-field-row>
         <q-btn-toggle
-          v-model="contentType"
+          :model-value="contentType"
           :options="[
             { label: 'Documents', value: 'documents' },
             { label: 'Pages', value: 'pages' },
@@ -36,6 +36,7 @@
           ]"
           toggle-color="primary"
           unelevated
+          @update:model-value="setContentType"
         />
       </kg-field-row>
 
@@ -54,11 +55,11 @@
           description="Sync all nested folders under the selected path"
           class="q-mt-lg"
         />
-
-        <kg-field-row label="File Patterns" hint="Comma-separated glob patterns. Leave empty to sync all files." class="q-mt-lg">
-          <km-input v-model="filePatterns" height="36px" placeholder="*.pdf, *.docx" />
-        </kg-field-row>
       </template>
+
+      <kg-field-row v-if="contentType !== 'pages'" label="File Patterns" hint="Comma-separated glob patterns. Leave empty to sync all files." class="q-mt-lg">
+        <km-input v-model="filePatterns" height="36px" placeholder="*.pdf, *.docx" />
+      </kg-field-row>
 
       <div v-else class="text-grey-7 text-body2 q-mt-md">
         <div>Will sync all pages from the SitePages library</div>
@@ -117,23 +118,31 @@ const showValidation = ref(false)
 const SITEPAGES_LIBRARY = 'SitePages'
 const DEFAULT_DOCUMENTS_LIBRARY = 'Shared Documents'
 
-const contentType = computed({
-  get: () => {
-    if (library.value === SITEPAGES_LIBRARY) return 'pages'
-    if (library.value === DEFAULT_DOCUMENTS_LIBRARY) return 'documents'
-    return 'custom'
-  },
-  set: (val: 'documents' | 'pages' | 'custom') => {
-    if (val === 'pages') {
-      library.value = SITEPAGES_LIBRARY
-    } else if (val === 'documents') {
-      library.value = DEFAULT_DOCUMENTS_LIBRARY
-    } else {
-      // Clear for custom - let user type
-      library.value = ''
-    }
+type ContentType = 'documents' | 'pages' | 'custom'
+
+// Tracked separately from `library` so typing "SitePages" under Custom does not flip the
+// toggle to Pages (which syncs every page and hides the file patterns).
+const contentType = ref<ContentType>('documents')
+
+function detectContentType(cfg: SharePointSourceConfig): ContentType {
+  const lib = cfg.library || DEFAULT_DOCUMENTS_LIBRARY
+  if (lib === SITEPAGES_LIBRARY) return cfg.file_patterns ? 'custom' : 'pages'
+  if (lib === DEFAULT_DOCUMENTS_LIBRARY) return 'documents'
+  return 'custom'
+}
+
+function setContentType(value: string | number | boolean | null) {
+  const val = value as ContentType
+  contentType.value = val
+  if (val === 'pages') {
+    library.value = SITEPAGES_LIBRARY
+  } else if (val === 'documents') {
+    library.value = DEFAULT_DOCUMENTS_LIBRARY
+  } else {
+    // Clear for custom - let user type
+    library.value = ''
   }
-})
+}
 
 // Refs for field-level validation
 const siteUrlRef = ref<any>(null)
@@ -162,6 +171,7 @@ watch(
           folderPath.value = cfg.folder_path || ''
           includeSubfolders.value = !!cfg.recursive
           filePatterns.value = cfg.file_patterns || ''
+          contentType.value = detectContentType(cfg)
         } catch {
           // ignore prefill errors
         }
@@ -172,6 +182,7 @@ watch(
         folderPath.value = ''
         includeSubfolders.value = false
         filePatterns.value = ''
+        contentType.value = 'documents'
       }
     }
   },
@@ -218,6 +229,17 @@ async function applySchedule(sourceId: string, schedule: ScheduleFormState) {
   throw new Error(msg)
 }
 
+function buildConfig(): SharePointSourceConfig {
+  return {
+    site_url: siteUrl.value.trim(),
+    library: library.value.trim() || null,
+    folder_path: folderPath.value.trim() || null,
+    recursive: !!includeSubfolders.value,
+    // Pages mode syncs every page; don't send patterns left over from another mode.
+    file_patterns: contentType.value === 'pages' ? null : filePatterns.value.trim() || null,
+  }
+}
+
 const clearError = () => {
   if (error.value) error.value = ''
 }
@@ -236,13 +258,7 @@ const addSource = async (sourceName: string, schedule: ScheduleFormState) => {
     const payload = {
       type: 'sharepoint',
       name: sourceName.trim() || null,
-      config: {
-        site_url: siteUrl.value.trim(),
-        library: library.value.trim() || null,
-        folder_path: folderPath.value.trim() || null,
-        recursive: !!includeSubfolders.value,
-        file_patterns: filePatterns.value.trim() || null,
-      },
+      config: buildConfig(),
     }
 
     const response = await fetchData({
@@ -294,13 +310,7 @@ const updateSource = async (sourceName: string, schedule: ScheduleFormState) => 
     const endpoint = store.getters.config.api.aiBridge.urlAdmin
     const payload = {
       name: sourceName.trim() || null,
-      config: {
-        site_url: siteUrl.value.trim(),
-        library: library.value.trim() || null,
-        folder_path: folderPath.value.trim() || null,
-        recursive: !!includeSubfolders.value,
-        file_patterns: filePatterns.value.trim() || null,
-      },
+      config: buildConfig(),
     }
     const response = await fetchData({
       endpoint,
