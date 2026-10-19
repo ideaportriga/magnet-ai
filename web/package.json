@@ -95,7 +95,7 @@
     "markdown-it-task-lists": "^2.1.1",
     "markdown-it-toc-done-right": "^4.2.0",
     "papaparse": "^5.5.2",
-    "pinia": "^3.0.1",
+    "pinia": "^4.1.0",
     "quasar": "^2.17.7",
     "socket.io-client": "^4.8.1",
     "vanilla-jsoneditor": "^2.4.0",
