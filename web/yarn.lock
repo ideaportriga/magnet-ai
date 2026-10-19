@@ -3105,7 +3105,7 @@ __metadata:
     markdown-it-abbr: "npm:^2.0.0"
     markdown-it-anchor: "npm:^9.2.0"
     markdown-it-footnote: "npm:^4.0.0"
-    markdown-it-highlightjs: "npm:^4.2.0"
+    markdown-it-highlightjs: "npm:^4.3.0"
     markdown-it-sub: "npm:^2.0.0"
     markdown-it-sup: "npm:^2.0.0"
     markdown-it-task-lists: "npm:^2.1.1"
@@ -11325,12 +11325,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"markdown-it-highlightjs@npm:^4.2.0":
-  version: 4.2.0
-  resolution: "markdown-it-highlightjs@npm:4.2.0"
+"markdown-it-highlightjs@npm:^4.3.0":
+  version: 4.3.0
+  resolution: "markdown-it-highlightjs@npm:4.3.0"
   dependencies:
     highlight.js: "npm:^11.9.0"
-  checksum: 10c0/bc576a91e0bc67fb79a49e583f3aac14467974d3ff1e149614fa45e70d4dda0fd868c23284d5f73fd9d34f04628638d1b492f797cc0914e95b0b71138adfa8c8
+  checksum: 10c0/9c8640998055ab1d8f7ff3cfd9b781b239258c75b8bf59864676b20195def4e5c831cf84ec282b48e1097c1d0cb60875a401f1191161bfd8dc04c55d332e3781
   languageName: node
   linkType: hard
 
