@@ -17,7 +17,7 @@
     "@nx/jest": "20.4.6",
     "@nx/js": "20.4.6",
     "@nx/vite": "20.4.6",
-    "@nx/vue": "20.4.6",
+    "@nx/vue": "23.3.0",
     "@nx/web": "20.4.6",
     "@nx/workspace": "20.4.6",
     "@prettier/plugin-pug": "^3.4.2",
